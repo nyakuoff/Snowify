@@ -244,19 +244,24 @@ ipcMain.handle('yt:getStreamUrl', async (_event, videoUrl, quality) => {
   });
 });
 
-ipcMain.handle('yt:getVideoStreamUrl', async (_event, videoId) => {
+ipcMain.handle('yt:getVideoStreamUrl', async (_event, videoId, quality, premuxed) => {
+  const height = parseInt(quality) || 720;
+  const fmt = premuxed
+    ? `best[height<=${height}]/best`
+    : `bestvideo[height<=${height}][ext=mp4]+bestaudio[ext=m4a]/best[height<=${height}]/best`;
   return new Promise((resolve, reject) => {
     execFile(getYtDlpPath(), [
-      '-f', 'best[height<=720]/best',
+      '-f', fmt,
       '--get-url',
       '--no-warnings',
       '--no-playlist',
       `https://music.youtube.com/watch?v=${videoId}`
     ], { timeout: 20000 }, (err, stdout, stderr) => {
       if (err) return reject(stderr?.trim() || err.message);
-      const url = stdout.trim().split('\n')[0];
-      if (!url) return reject('yt-dlp returned no video URL');
-      resolve(url);
+      const urls = stdout.trim().split('\n').filter(Boolean);
+      if (!urls.length) return reject('yt-dlp returned no video URL');
+      // If 2 URLs: [video, audio]. If 1 URL: muxed stream
+      resolve({ videoUrl: urls[0], audioUrl: urls[1] || null });
     });
   });
 });
@@ -331,7 +336,7 @@ ipcMain.handle('lyrics:get', async (_event, trackName, artistName, albumName, du
 function fetchLrclib(path) {
   const url = `https://lrclib.net${path}`;
   return fetch(url, {
-    headers: { 'User-Agent': 'Snowfy v1.0.0 (https://github.com/snowfy)' }
+    headers: { 'User-Agent': 'Snowify v1.0.0 (https://github.com/snowify)' }
   }).then(res => {
     if (res.status === 404) return null;
     return res.json();

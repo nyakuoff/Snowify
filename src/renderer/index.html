@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Snowfy</title>
+  <title>Snowify</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -14,8 +14,8 @@
   <div id="titlebar">
     <div class="titlebar-drag">
       <div class="app-logo">
-        <img class="app-logo-icon" src="../../assets/logo.png" alt="Snowfy" width="24" height="24" draggable="false" />
-        <span>Snowfy</span>
+        <img class="app-logo-icon" src="../../assets/logo.png" alt="Snowify" width="24" height="24" draggable="false" />
+        <span>Snowify</span>
       </div>
     </div>
     <div class="titlebar-controls">
@@ -210,9 +210,6 @@
                 <span class="toggle-slider"></span>
               </label>
             </div>
-          </div>
-          <div class="settings-group">
-            <h3>Audio</h3>
             <div class="setting-row">
               <div class="setting-info">
                 <span class="setting-label">Audio quality</span>
@@ -220,8 +217,32 @@
               </div>
               <select class="setting-select" id="setting-quality">
                 <option value="bestaudio">Best</option>
-                <option value="worstaudio">Low (saves data)</option>
+                <option value="worstaudio">Low</option>
               </select>
+            </div>
+          </div>
+          <div class="settings-group">
+            <h3>Video</h3>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label">Video quality</span>
+                <span class="setting-desc">Resolution for in-app video playback</span>
+              </div>
+              <select class="setting-select" id="setting-video-quality">
+                <option value="480">480p</option>
+                <option value="720">720p</option>
+                <option value="1080">1080p</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label">Use pre-muxed videos</span>
+                <span class="setting-desc">Faster loading, lower quality (disable for HD)</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-video-premuxed" checked />
+                <span class="toggle-slider"></span>
+              </label>
             </div>
           </div>
           <div class="settings-group">
@@ -292,9 +313,6 @@
               </div>
               <button class="btn-setting-action btn-danger" id="setting-reset-all">Reset</button>
             </div>
-          </div>
-          <div class="settings-footer">
-            <span>Snowfy — Made with ❤️</span>
           </div>
         </div>
       </section>

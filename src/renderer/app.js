@@ -8,9 +8,9 @@
   const views = $$('.view');
   const navBtns = $$('.nav-btn');
 
-  $('#btn-minimize').onclick = () => window.snowfy.minimize();
-  $('#btn-maximize').onclick = () => window.snowfy.maximize();
-  $('#btn-close').onclick = () => window.snowfy.close();
+  $('#btn-minimize').onclick = () => window.snowify.minimize();
+  $('#btn-maximize').onclick = () => window.snowify.maximize();
+  $('#btn-close').onclick = () => window.snowify.close();
 
   const state = {
     currentView: 'home',
@@ -30,13 +30,15 @@
     musicOnly: true,
     autoplay: false,
     audioQuality: 'bestaudio',
+    videoQuality: '720',
+    videoPremuxed: true,
     animations: true,
     effects: true,
     theme: 'dark'
   };
 
   function saveState() {
-    localStorage.setItem('snowfy_state', JSON.stringify({
+    localStorage.setItem('snowify_state', JSON.stringify({
       playlists: state.playlists,
       likedSongs: state.likedSongs,
       recentTracks: state.recentTracks,
@@ -47,6 +49,8 @@
       musicOnly: state.musicOnly,
       autoplay: state.autoplay,
       audioQuality: state.audioQuality,
+      videoQuality: state.videoQuality,
+      videoPremuxed: state.videoPremuxed,
       animations: state.animations,
       effects: state.effects,
       theme: state.theme
@@ -55,13 +59,22 @@
 
   function loadState() {
     try {
-      // One-time migration: clear data from old yt-dlp implementation
-      if (!localStorage.getItem('snowfy_migrated_v2')) {
+      // Migrate old 'snowfy' localStorage keys to 'snowify'
+      if (localStorage.getItem('snowfy_state') && !localStorage.getItem('snowify_state')) {
+        localStorage.setItem('snowify_state', localStorage.getItem('snowfy_state'));
         localStorage.removeItem('snowfy_state');
-        localStorage.setItem('snowfy_migrated_v2', '1');
+      }
+      if (localStorage.getItem('snowfy_migrated_v2') && !localStorage.getItem('snowify_migrated_v2')) {
+        localStorage.setItem('snowify_migrated_v2', localStorage.getItem('snowfy_migrated_v2'));
+        localStorage.removeItem('snowfy_migrated_v2');
+      }
+      // One-time migration: clear data from old yt-dlp implementation
+      if (!localStorage.getItem('snowify_migrated_v2')) {
+        localStorage.removeItem('snowify_state');
+        localStorage.setItem('snowify_migrated_v2', '1');
         return;
       }
-      const saved = JSON.parse(localStorage.getItem('snowfy_state'));
+      const saved = JSON.parse(localStorage.getItem('snowify_state'));
       if (saved) {
         state.playlists = saved.playlists || [];
         state.likedSongs = saved.likedSongs || [];
@@ -73,6 +86,8 @@
         state.musicOnly = saved.musicOnly ?? true;
         state.autoplay = saved.autoplay ?? false;
         state.audioQuality = saved.audioQuality || 'bestaudio';
+        state.videoQuality = saved.videoQuality || '720';
+        state.videoPremuxed = saved.videoPremuxed ?? true;
         state.animations = saved.animations ?? true;
         state.effects = saved.effects ?? true;
         state.theme = saved.theme || 'dark';
@@ -161,8 +176,8 @@
     searchResults.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
     try {
       const [results, artists] = await Promise.all([
-        window.snowfy.search(query, state.musicOnly),
-        window.snowfy.searchArtists(query)
+        window.snowify.search(query, state.musicOnly),
+        window.snowify.searchArtists(query)
       ]);
 
       if (!results.length && !artists.length) {
@@ -367,7 +382,7 @@
           addToPlaylist(item.dataset.pid, track);
           break;
         case 'open-yt':
-          if (track.url) window.snowfy.openExternal(track.url);
+          if (track.url) window.snowify.openExternal(track.url);
           break;
       }
       removeContextMenu();
@@ -389,7 +404,7 @@
     showToast(`Loading: ${track.title}`);
 
     try {
-      const directUrl = await window.snowfy.getStreamUrl(track.url, state.audioQuality);
+      const directUrl = await window.snowify.getStreamUrl(track.url, state.audioQuality);
       audio.src = directUrl;
       audio.volume = state.volume * 0.5;
       audio.load();
@@ -474,7 +489,7 @@
     const current = state.queue[state.queueIndex];
     if (!current) return;
 
-    showToast('Smart queue: finding similar songs...');
+    showToast('Autoplay: finding similar songs...');
 
     try {
       const queueIds = new Set(state.queue.map(t => t.id));
@@ -491,17 +506,17 @@
       };
 
       // 1. YouTube Music's "Up Next" — genre-aware recommendations from different artists
-      const upNexts = await window.snowfy.getUpNexts(current.id);
+      const upNexts = await window.snowify.getUpNexts(current.id);
       addToPool(upNexts);
 
       // 2. Current artist's top songs as extra padding
       if (pool.length < 10 && current.artistId) {
-        const info = await window.snowfy.artistInfo(current.artistId);
+        const info = await window.snowify.artistInfo(current.artistId);
         if (info) addToPool(info.topSongs || []);
       }
 
       if (!pool.length) {
-        showToast('Smart queue: no similar songs found');
+        showToast('Autoplay: no similar songs found');
         state.isPlaying = false;
         updatePlayButton();
         return;
@@ -518,10 +533,10 @@
       state.queueIndex++;
       playTrack(state.queue[state.queueIndex]);
       renderQueue();
-      showToast(`Smart queue: added ${newTracks.length} songs`);
+      showToast(`Autoplay: added ${newTracks.length} songs`);
     } catch (err) {
-      console.error('Smart queue error:', err);
-      showToast('Smart queue failed');
+      console.error('Autoplay error:', err);
+      showToast('Autoplay failed');
       state.isPlaying = false;
       updatePlayButton();
     }
@@ -813,13 +828,13 @@
   }
 
   async function changePlaylistCover(playlist) {
-    const filePath = await window.snowfy.pickImage();
+    const filePath = await window.snowify.pickImage();
     if (!filePath) return;
     // Delete old custom cover if exists
     if (playlist.coverImage) {
-      await window.snowfy.deleteImage(playlist.coverImage);
+      await window.snowify.deleteImage(playlist.coverImage);
     }
-    const savedPath = await window.snowfy.saveImage(playlist.id, filePath);
+    const savedPath = await window.snowify.saveImage(playlist.id, filePath);
     if (savedPath) {
       playlist.coverImage = savedPath;
       saveState();
@@ -836,7 +851,7 @@
 
   async function removePlaylistCover(playlist) {
     if (playlist.coverImage) {
-      await window.snowfy.deleteImage(playlist.coverImage);
+      await window.snowify.deleteImage(playlist.coverImage);
       delete playlist.coverImage;
       saveState();
       renderPlaylists();
@@ -993,7 +1008,7 @@
         }
         case 'delete':
           if (confirm(`Delete "${playlist.name}"?`)) {
-            if (playlist.coverImage) window.snowfy.deleteImage(playlist.coverImage);
+            if (playlist.coverImage) window.snowify.deleteImage(playlist.coverImage);
             state.playlists = state.playlists.filter(p => p.id !== playlist.id);
             saveState();
             renderPlaylists();
@@ -1095,7 +1110,7 @@
     deleteBtn.onclick = () => {
       if (isLiked) return;
       if (confirm(`Delete "${playlist.name}"?\nThis cannot be undone.`)) {
-        if (playlist.coverImage) window.snowfy.deleteImage(playlist.coverImage);
+        if (playlist.coverImage) window.snowify.deleteImage(playlist.coverImage);
         state.playlists = state.playlists.filter(p => p.id !== playlist.id);
         saveState();
         renderPlaylists();
@@ -1172,7 +1187,7 @@
           showPlaylistDetail(playlist, false);
           break;
         case 'open-yt':
-          if (track.url) window.snowfy.openExternal(track.url);
+          if (track.url) window.snowify.openExternal(track.url);
           break;
       }
       removeContextMenu();
@@ -1341,7 +1356,7 @@
 
     try {
       const results = await Promise.allSettled(
-        state.followedArtists.map(a => window.snowfy.artistInfo(a.artistId))
+        state.followedArtists.map(a => window.snowify.artistInfo(a.artistId))
       );
 
       const seen = new Set();
@@ -1391,7 +1406,7 @@
       const meta = releases.find(a => a.albumId === albumId);
       card.querySelector('.album-card-play').addEventListener('click', async (e) => {
         e.stopPropagation();
-        const album = await window.snowfy.albumTracks(albumId);
+        const album = await window.snowify.albumTracks(albumId);
         if (album && album.tracks.length) playFromList(album.tracks, 0);
       });
       card.addEventListener('click', () => showAlbumDetail(albumId, meta));
@@ -1501,7 +1516,7 @@
     const recommendedSongs = [];
 
     const results = await Promise.allSettled(
-      topArtists.map(a => window.snowfy.artistInfo(a.artistId))
+      topArtists.map(a => window.snowify.artistInfo(a.artistId))
     );
 
     results.forEach(r => {
@@ -1669,7 +1684,7 @@
     heroCover.src = albumMeta?.thumbnail || '';
     tracksContainer.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
 
-    const album = await window.snowfy.albumTracks(albumId);
+    const album = await window.snowify.albumTracks(albumId);
     if (!album || !album.tracks.length) {
       tracksContainer.innerHTML = `<div class="empty-state"><p>Could not load album tracks.</p></div>`;
       return;
@@ -1722,7 +1737,7 @@
     discographyContainer.innerHTML = '';
     videosContainer.innerHTML = '';
 
-    const info = await window.snowfy.artistInfo(artistId);
+    const info = await window.snowify.artistInfo(artistId);
 
     if (!info) {
       nameEl.textContent = 'Artist not found';
@@ -1800,7 +1815,7 @@
         const meta = items.find(a => a.albumId === albumId);
         card.querySelector('.album-card-play').addEventListener('click', async (e) => {
           e.stopPropagation();
-          const album = await window.snowfy.albumTracks(albumId);
+          const album = await window.snowify.albumTracks(albumId);
           if (album && album.tracks.length) playFromList(album.tracks, 0);
         });
         card.addEventListener('click', () => {
@@ -1977,7 +1992,7 @@
     }
 
     try {
-      const result = await window.snowfy.getLyrics(track.title, track.artist, track.album || '', durationSec);
+      const result = await window.snowify.getLyrics(track.title, track.artist, track.album || '', durationSec);
 
       // Ensure we're still viewing the same track
       if (_lyricsTrackId !== track.id) return;
@@ -2135,6 +2150,7 @@
   const videoTitle = $('#video-overlay-title');
   const videoArtist = $('#video-overlay-artist');
   let _wasPlayingBeforeVideo = false;
+  let _videoAudio = null; // separate audio track for split streams
 
   $('#btn-close-video').addEventListener('click', closeVideoPlayer);
 
@@ -2153,6 +2169,7 @@
     videoArtist.textContent = artist || '';
     videoPlayer.src = '';
     videoPlayer.poster = '';
+    if (_videoAudio) { _videoAudio.pause(); _videoAudio = null; }
     videoLoading.classList.remove('hidden');
     videoOverlay.classList.remove('hidden');
 
@@ -2165,10 +2182,45 @@
     }
 
     try {
-      const streamUrl = await window.snowfy.getVideoStreamUrl(videoId);
-      videoPlayer.src = streamUrl;
+      const result = await window.snowify.getVideoStreamUrl(videoId, state.videoQuality, state.videoPremuxed);
+      videoPlayer.src = result.videoUrl;
       videoLoading.classList.add('hidden');
-      videoPlayer.play();
+
+      if (result.audioUrl) {
+        // Split streams: sync a separate audio element
+        _videoAudio = new Audio(result.audioUrl);
+        _videoAudio.volume = state.volume * 0.5;
+
+        videoPlayer.muted = true;
+
+        // Wait for video to actually start playing before starting audio
+        const onVideoPlaying = () => {
+          videoPlayer.removeEventListener('playing', onVideoPlaying);
+          if (_videoAudio) {
+            _videoAudio.currentTime = videoPlayer.currentTime;
+            _videoAudio.play();
+          }
+        };
+        videoPlayer.addEventListener('playing', onVideoPlaying);
+        videoPlayer.play();
+
+        // Keep audio in sync with video
+        videoPlayer.addEventListener('seeked', syncVideoAudio);
+        videoPlayer.addEventListener('pause', () => _videoAudio?.pause());
+        videoPlayer.addEventListener('play', () => {
+          if (_videoAudio) {
+            _videoAudio.currentTime = videoPlayer.currentTime;
+            _videoAudio.play();
+          }
+        });
+
+        // Periodic drift correction
+        videoPlayer.addEventListener('timeupdate', syncVideoAudio);
+      } else {
+        // Muxed stream: play directly
+        videoPlayer.muted = false;
+        videoPlayer.play();
+      }
     } catch (err) {
       console.error('Video playback error:', err);
       videoLoading.classList.add('hidden');
@@ -2177,10 +2229,19 @@
     }
   }
 
+  function syncVideoAudio() {
+    if (_videoAudio && Math.abs(videoPlayer.currentTime - _videoAudio.currentTime) > 0.3) {
+      _videoAudio.currentTime = videoPlayer.currentTime;
+    }
+  }
+
   function closeVideoPlayer() {
     videoOverlay.classList.add('hidden');
     videoPlayer.pause();
+    videoPlayer.removeEventListener('seeked', syncVideoAudio);
+    videoPlayer.removeEventListener('timeupdate', syncVideoAudio);
     videoPlayer.src = '';
+    if (_videoAudio) { _videoAudio.pause(); _videoAudio.src = ''; _videoAudio = null; }
 
     // Resume audio if it was playing before
     if (_wasPlayingBeforeVideo && state.queue[state.queueIndex]) {
@@ -2207,11 +2268,16 @@
   function initSettings() {
     const autoplayToggle = $('#setting-autoplay');
     const qualitySelect = $('#setting-quality');
+    const videoQualitySelect = $('#setting-video-quality');
+    const videoPremuxedToggle = $('#setting-video-premuxed');
     const animationsToggle = $('#setting-animations');
     const effectsToggle = $('#setting-effects');
 
     autoplayToggle.checked = state.autoplay;
     qualitySelect.value = state.audioQuality;
+    videoQualitySelect.value = state.videoQuality;
+    videoPremuxedToggle.checked = state.videoPremuxed;
+    videoQualitySelect.disabled = state.videoPremuxed;
     animationsToggle.checked = state.animations;
     effectsToggle.checked = state.effects;
     document.documentElement.classList.toggle('no-animations', !state.animations);
@@ -2252,6 +2318,17 @@
       saveState();
     });
 
+    videoQualitySelect.addEventListener('change', () => {
+      state.videoQuality = videoQualitySelect.value;
+      saveState();
+    });
+
+    videoPremuxedToggle.addEventListener('change', () => {
+      state.videoPremuxed = videoPremuxedToggle.checked;
+      videoQualitySelect.disabled = state.videoPremuxed;
+      saveState();
+    });
+
     animationsToggle.addEventListener('change', () => {
       state.animations = animationsToggle.checked;
       document.documentElement.classList.toggle('no-animations', !state.animations);
@@ -2275,7 +2352,7 @@
 
     $('#setting-reset-all').addEventListener('click', () => {
       if (confirm('Reset ALL data? This will delete all playlists, liked songs, and settings.')) {
-        localStorage.removeItem('snowfy_state');
+        localStorage.removeItem('snowify_state');
         location.reload();
       }
     });

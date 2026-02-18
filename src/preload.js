@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('snowfy', {
+contextBridge.exposeInMainWorld('snowify', {
   // Window controls
   minimize: () => ipcRenderer.send('window:minimize'),
   maximize: () => ipcRenderer.send('window:maximize'),
@@ -13,7 +13,7 @@ contextBridge.exposeInMainWorld('snowfy', {
   artistInfo: (artistId) => ipcRenderer.invoke('yt:artistInfo', artistId),
   albumTracks: (albumId) => ipcRenderer.invoke('yt:albumTracks', albumId),
   getUpNexts: (videoId) => ipcRenderer.invoke('yt:getUpNexts', videoId),
-  getVideoStreamUrl: (videoId) => ipcRenderer.invoke('yt:getVideoStreamUrl', videoId),
+  getVideoStreamUrl: (videoId, quality, premuxed) => ipcRenderer.invoke('yt:getVideoStreamUrl', videoId, quality, premuxed),
   getLyrics: (trackName, artistName, albumName, duration) => ipcRenderer.invoke('lyrics:get', trackName, artistName, albumName, duration),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
 

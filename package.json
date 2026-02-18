@@ -1,5 +1,5 @@
 {
-  "name": "snowfy",
+  "name": "snowify",
   "version": "1.0.0",
   "description": "A Spotify-like desktop music player that streams from free sources",
   "main": "src/main.js",
@@ -27,8 +27,8 @@
     "ytmusic-api": "^5.3.1"
   },
   "build": {
-    "appId": "com.nyaku.snowfy",
-    "productName": "Snowfy",
+    "appId": "com.nyaku.snowify",
+    "productName": "Snowify",
     "icon": "assets/logo.png",
     "linux": {
       "target": ["AppImage"],

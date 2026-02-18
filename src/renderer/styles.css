@@ -1898,12 +1898,23 @@ html, body {
   background-position: right 10px center;
   outline: none;
   flex-shrink: 0;
+  min-width: 0;
+  width: auto;
   transition: border-color var(--transition), box-shadow var(--transition);
+}
+.setting-select option {
+  background: var(--bg-base, #1a1a2e);
+  color: var(--text-primary);
 }
 .setting-select:hover { border-color: rgba(255, 255, 255, 0.2); }
 .setting-select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.setting-select:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 /* Action buttons in settings */
 .btn-setting-action {
@@ -2028,7 +2039,7 @@ html, body {
 }
 .modal-overlay.hidden { display: none; }
 .modal-box {
-  background: rgba(24, 30, 48, 0.95);
+  background: var(--bg-elevated);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.08);

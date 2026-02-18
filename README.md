@@ -1,4 +1,4 @@
-# Snowfy
+# Snowify
 
 A desktop music player built with Electron that streams audio from YouTube Music. Clean UI, no accounts, no ads.
 
@@ -23,8 +23,8 @@ You'll need [Node.js](https://nodejs.org/) (v18+) and [yt-dlp](https://github.co
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-username/snowfy.git
-cd snowfy
+git clone https://github.com/your-username/snowify.git
+cd snowify
 
 # Install dependencies
 npm install
