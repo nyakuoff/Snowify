@@ -31,6 +31,26 @@
     </div>
   </div>
 
+  <!-- ═══════ Welcome / Login Screen ═══════ -->
+  <div id="welcome-overlay" class="welcome-overlay hidden">
+    <div class="welcome-card">
+      <img class="welcome-logo" src="../../assets/logo.png" alt="Snowify" width="64" height="64" draggable="false" />
+      <h1 class="welcome-title">Welcome to Snowify</h1>
+      <p class="welcome-desc">Sign in to sync your playlists, liked songs, and settings across all your devices.</p>
+      <div class="auth-form" id="welcome-auth-form">
+        <input type="email" id="welcome-email" class="auth-input" placeholder="Email" spellcheck="false" autocomplete="email" />
+        <input type="password" id="welcome-password" class="auth-input" placeholder="Password" autocomplete="current-password" />
+        <p class="auth-error hidden" id="welcome-auth-error"></p>
+        <div class="welcome-buttons">
+          <button class="btn-welcome-primary" id="btn-welcome-sign-in">Sign In</button>
+          <button class="btn-welcome-secondary" id="btn-welcome-sign-up">Create Account</button>
+        </div>
+      </div>
+      <button class="btn-welcome-skip" id="btn-welcome-skip">Continue without an account</button>
+      <p class="welcome-warning">Without an account, your data is stored locally and can't be recovered if lost.</p>
+    </div>
+  </div>
+
   <!-- ═══════ Main Layout ═══════ -->
   <div id="app">
     <!-- Sidebar -->
@@ -197,6 +217,52 @@
         <div class="settings-content">
           <div class="view-header">
             <h1>Settings</h1>
+          </div>
+          <div class="settings-group">
+            <h3>Account</h3>
+            <div id="account-section">
+              <div id="account-signed-out">
+                <p class="setting-desc" style="margin-bottom:12px;">Sign in to sync your playlists, liked songs, and settings across devices.</p>
+                <div class="auth-form" id="auth-form">
+                  <input type="email" id="auth-email" class="auth-input" placeholder="Email" spellcheck="false" autocomplete="email" />
+                  <input type="password" id="auth-password" class="auth-input" placeholder="Password" autocomplete="current-password" />
+                  <div class="auth-buttons">
+                    <button class="btn-setting-action" id="btn-sign-in">Sign In</button>
+                    <button class="btn-setting-action" id="btn-sign-up">Create Account</button>
+                  </div>
+                  <p class="auth-error hidden" id="auth-error"></p>
+                </div>
+              </div>
+              <div id="account-signed-in" class="hidden">
+                <div class="profile-section">
+                  <div class="profile-avatar-wrapper">
+                    <img class="profile-avatar" id="profile-avatar" src="" alt="" draggable="false" />
+                    <button class="profile-avatar-edit" id="btn-change-avatar" title="Change profile picture">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                    </button>
+                  </div>
+                  <div class="profile-info">
+                    <div class="profile-name-row">
+                      <span class="profile-display-name" id="profile-display-name">User</span>
+                      <button class="profile-edit-btn" id="btn-edit-name" title="Edit display name">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                      </button>
+                    </div>
+                    <span class="profile-email" id="profile-email"></span>
+                    <span class="setting-desc" id="account-sync-status"></span>
+                  </div>
+                </div>
+                <div class="profile-edit-row hidden" id="profile-edit-name-row">
+                  <input type="text" class="auth-input" id="profile-name-input" placeholder="Display name" maxlength="30" />
+                  <button class="btn-setting-action" id="btn-save-name">Save</button>
+                  <button class="btn-setting-action" id="btn-cancel-name">Cancel</button>
+                </div>
+                <div class="account-actions" style="margin-top: 12px;">
+                  <button class="btn-setting-action" id="btn-sync-now">Sync Now</button>
+                  <button class="btn-setting-action btn-danger" id="btn-sign-out">Sign Out</button>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="settings-group">
             <h3>Playback</h3>

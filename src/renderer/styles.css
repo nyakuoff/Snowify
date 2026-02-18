@@ -1943,6 +1943,276 @@ html, body {
   border-color: var(--red);
   box-shadow: 0 4px 16px rgba(240, 96, 112, 0.25);
 }
+
+/* Account / Auth */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 360px;
+}
+.auth-input {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 14px;
+  outline: none;
+  transition: border-color var(--transition);
+}
+.auth-input:focus {
+  border-color: var(--accent);
+}
+.auth-input::placeholder {
+  color: var(--text-subdued);
+}
+.auth-buttons {
+  display: flex;
+  gap: 10px;
+}
+.auth-error {
+  color: var(--red);
+  font-size: 13px;
+  margin: 0;
+}
+
+/* ── Profile Section ── */
+.profile-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.profile-avatar-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+.profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-highlight);
+  border: 2px solid rgba(255, 255, 255, 0.08);
+}
+.profile-avatar-edit {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: 2px solid var(--bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.profile-avatar-edit:hover { background: var(--accent-hover); }
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.profile-display-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.profile-edit-btn {
+  background: none;
+  border: none;
+  color: var(--text-subdued);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  transition: color var(--transition);
+}
+.profile-edit-btn:hover { color: var(--accent); }
+.profile-email {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.profile-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  max-width: 360px;
+}
+.profile-edit-row .auth-input { flex: 1; }
+
+.account-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.account-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.account-email {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 14px;
+}
+.account-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ═══════ Welcome Overlay ═══════ */
+.welcome-overlay {
+  position: fixed;
+  top: var(--titlebar-height);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: welcomeFadeIn 0.5s ease;
+}
+@keyframes welcomeFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.welcome-overlay.hidden { display: none; }
+.welcome-overlay.fade-out {
+  animation: welcomeFadeOut 0.4s ease forwards;
+}
+@keyframes welcomeFadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+.welcome-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
+  padding: 48px 36px;
+  animation: welcomeCardEnter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes welcomeCardEnter {
+  from { opacity: 0; transform: scale(0.9) translateY(20px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.welcome-logo {
+  margin-bottom: 20px;
+  filter: drop-shadow(0 4px 24px var(--accent-glow));
+}
+.welcome-title {
+  font-size: 28px;
+  font-weight: 800;
+  margin: 0 0 8px;
+  background: linear-gradient(135deg, var(--text-primary) 30%, var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.welcome-desc {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 0 24px;
+  max-width: 340px;
+}
+.welcome-overlay .auth-form {
+  width: 100%;
+  max-width: 320px;
+  align-items: stretch;
+}
+.welcome-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+.btn-welcome-primary {
+  padding: 12px 24px;
+  border-radius: 100px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+}
+.btn-welcome-primary:hover {
+  background: var(--accent-hover);
+  transform: scale(1.02);
+}
+.btn-welcome-secondary {
+  padding: 12px 24px;
+  border-radius: 100px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+.btn-welcome-secondary:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-dim);
+}
+.btn-welcome-skip {
+  margin-top: 24px;
+  background: none;
+  border: none;
+  color: var(--text-subdued);
+  font-family: var(--font);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: color var(--transition), background var(--transition);
+}
+.btn-welcome-skip:hover {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+}
+.welcome-warning {
+  color: var(--text-subdued);
+  font-size: 11px;
+  margin-top: 8px;
+  max-width: 300px;
+  line-height: 1.4;
+}
+
+/* Light theme overrides */
+[data-theme="light"] .welcome-overlay { background: var(--bg-base); }
+[data-theme="light"] .btn-welcome-secondary { border-color: rgba(0, 0, 0, 0.12); }
+[data-theme="light"] .btn-welcome-secondary:hover { background: var(--accent-dim); }
+[data-theme="light"] .btn-welcome-skip:hover { background: rgba(0, 0, 0, 0.04); }
+[data-theme="light"] .profile-avatar { border-color: rgba(0, 0, 0, 0.08); }
+[data-theme="light"] .profile-avatar-edit { border-color: var(--bg-elevated); }
 .settings-footer {
   text-align: center;
   padding: 32px 0;

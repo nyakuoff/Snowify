@@ -57,6 +57,8 @@
       theme: state.theme,
       discordRpc: state.discordRpc
     }));
+    localStorage.setItem('snowify_lastSave', String(Date.now()));
+    cloudSaveDebounced();
   }
 
   function loadState() {
@@ -2304,6 +2306,36 @@
 
   function init() {
     loadState();
+
+    // Show welcome screen on first launch (no account, never skipped)
+    const hasSkipped = localStorage.getItem('snowify_welcome_skipped');
+    if (!hasSkipped) {
+      // Wait briefly for auto-sign-in from saved credentials to complete
+      // then check if a user is available
+      let resolved = false;
+      const tryResolve = (user) => {
+        if (resolved) return;
+        resolved = true;
+        if (user) {
+          localStorage.setItem('snowify_welcome_skipped', '1');
+          finishInit();
+        } else {
+          showWelcomeScreen();
+        }
+      };
+      // Listen for auth state in case auto-sign-in fires
+      window.snowify.onAuthStateChanged((user) => { if (user) tryResolve(user); });
+      // Also check after a short delay in case there's no saved session
+      setTimeout(async () => {
+        const user = await window.snowify.getUser();
+        tryResolve(user);
+      }, 800);
+    } else {
+      finishInit();
+    }
+  }
+
+  function finishInit() {
     updateGreeting();
     setVolume(state.volume);
     if (state.discordRpc) window.snowify.connectDiscord();
@@ -2316,7 +2348,237 @@
     document.querySelector('#app').classList.add('no-player');
   }
 
-  function initSettings() {
+  function showWelcomeScreen() {
+    const overlay = $('#welcome-overlay');
+    overlay.classList.remove('hidden');
+
+    const emailInput = $('#welcome-email');
+    const passInput = $('#welcome-password');
+    const errorEl = $('#welcome-auth-error');
+
+    const clearError = () => errorEl.classList.add('hidden');
+    const showError = (msg) => { errorEl.textContent = msg; errorEl.classList.remove('hidden'); };
+
+    $('#btn-welcome-sign-in').addEventListener('click', async () => {
+      clearError();
+      const email = emailInput.value.trim();
+      const password = passInput.value;
+      if (!email || !password) { showError('Please enter email and password'); return; }
+      const result = await window.snowify.signInWithEmail(email, password);
+      if (result?.error) { showError(result.error); return; }
+      localStorage.setItem('snowify_welcome_skipped', '1');
+      dismissWelcome();
+      showToast('Signed in successfully');
+    });
+
+    $('#btn-welcome-sign-up').addEventListener('click', async () => {
+      clearError();
+      const email = emailInput.value.trim();
+      const password = passInput.value;
+      if (!email || !password) { showError('Please enter email and password'); return; }
+      if (password.length < 6) { showError('Password must be at least 6 characters'); return; }
+      const result = await window.snowify.signUpWithEmail(email, password);
+      if (result?.error) { showError(result.error); return; }
+      localStorage.setItem('snowify_welcome_skipped', '1');
+      dismissWelcome();
+      showToast('Account created & signed in');
+    });
+
+    $('#btn-welcome-skip').addEventListener('click', () => {
+      localStorage.setItem('snowify_welcome_skipped', '1');
+      dismissWelcome();
+    });
+  }
+
+  function dismissWelcome() {
+    const overlay = $('#welcome-overlay');
+    overlay.classList.add('fade-out');
+    overlay.addEventListener('animationend', () => {
+      overlay.classList.add('hidden');
+      overlay.classList.remove('fade-out');
+    }, { once: true });
+    finishInit();
+  }
+
+  // ─── Cloud Sync ───
+
+  let _cloudSaveTimeout = null;
+  let _cloudUser = null;
+  let _cloudSyncPaused = false;
+
+  function cloudSaveDebounced() {
+    if (!_cloudUser || _cloudSyncPaused) return;
+    clearTimeout(_cloudSaveTimeout);
+    _cloudSaveTimeout = setTimeout(async () => {
+      const data = {
+        playlists: state.playlists,
+        likedSongs: state.likedSongs,
+        recentTracks: state.recentTracks,
+        followedArtists: state.followedArtists,
+        volume: state.volume,
+        shuffle: state.shuffle,
+        repeat: state.repeat,
+        musicOnly: state.musicOnly,
+        autoplay: state.autoplay,
+        audioQuality: state.audioQuality,
+        videoQuality: state.videoQuality,
+        videoPremuxed: state.videoPremuxed,
+        animations: state.animations,
+        effects: state.effects,
+        theme: state.theme,
+        discordRpc: state.discordRpc
+      };
+      const result = await window.snowify.cloudSave(data);
+      if (result?.error) console.error('Cloud save failed:', result.error);
+      else updateSyncStatus('Synced just now');
+    }, 3000);
+  }
+
+  async function cloudLoadAndMerge({ forceCloud = false } = {}) {
+    const cloud = await window.snowify.cloudLoad();
+    if (!cloud) return false;
+    // forceCloud: always use cloud data (e.g. on sign-in / fresh device)
+    // otherwise: last-write-wins by timestamp
+    const localTime = parseInt(localStorage.getItem('snowify_lastSave') || '0');
+    const shouldApply = forceCloud || (cloud.updatedAt && cloud.updatedAt > localTime);
+    if (shouldApply) {
+      state.playlists = cloud.playlists || state.playlists;
+      state.likedSongs = cloud.likedSongs || state.likedSongs;
+      state.recentTracks = cloud.recentTracks || state.recentTracks;
+      state.followedArtists = cloud.followedArtists || state.followedArtists;
+      state.volume = cloud.volume ?? state.volume;
+      state.shuffle = cloud.shuffle ?? state.shuffle;
+      state.repeat = cloud.repeat || state.repeat;
+      state.musicOnly = cloud.musicOnly ?? state.musicOnly;
+      state.autoplay = cloud.autoplay ?? state.autoplay;
+      state.audioQuality = cloud.audioQuality || state.audioQuality;
+      state.videoQuality = cloud.videoQuality || state.videoQuality;
+      state.videoPremuxed = cloud.videoPremuxed ?? state.videoPremuxed;
+      state.animations = cloud.animations ?? state.animations;
+      state.effects = cloud.effects ?? state.effects;
+      state.theme = cloud.theme || state.theme;
+      state.discordRpc = cloud.discordRpc ?? state.discordRpc;
+      // Pause cloud save so saveState() doesn't push old data back up
+      _cloudSyncPaused = true;
+      saveState();
+      _cloudSyncPaused = false;
+      renderPlaylists();
+      renderHome();
+      // Apply synced theme
+      if (state.theme === 'dark') {
+        document.documentElement.removeAttribute('data-theme');
+      } else {
+        document.documentElement.setAttribute('data-theme', state.theme);
+      }
+      // Re-apply synced settings to UI controls
+      const aq = $('#setting-quality'); if (aq) aq.value = state.audioQuality;
+      const vq = $('#setting-video-quality'); if (vq) vq.value = state.videoQuality;
+      const at = $('#setting-autoplay'); if (at) at.checked = state.autoplay;
+      const vp = $('#setting-video-premuxed'); if (vp) vp.checked = state.videoPremuxed;
+      const an = $('#setting-animations'); if (an) an.checked = state.animations;
+      const ef = $('#setting-effects'); if (ef) ef.checked = state.effects;
+      const dr = $('#setting-discord-rpc'); if (dr) dr.checked = state.discordRpc;
+      document.documentElement.classList.toggle('no-animations', !state.animations);
+      document.documentElement.classList.toggle('no-effects', !state.effects);
+      audio.volume = state.volume * 0.5;
+      showToast('Synced from cloud');
+      return true;
+    }
+    return false;
+  }
+
+  function updateSyncStatus(text) {
+    const el = $('#account-sync-status');
+    if (el) el.textContent = text;
+  }
+
+  function updateAccountUI(user) {
+    _cloudUser = user;
+    const signedOut = $('#account-signed-out');
+    const signedIn = $('#account-signed-in');
+    if (user) {
+      signedOut.classList.add('hidden');
+      signedIn.classList.remove('hidden');
+      const avatar = $('#profile-avatar');
+      const nameEl = $('#profile-display-name');
+      const emailEl = $('#profile-email');
+      nameEl.textContent = user.displayName || 'User';
+      emailEl.textContent = user.email || '';
+      // Default avatar: first letter of name on accent background
+      if (user.photoURL) {
+        avatar.src = user.photoURL;
+      } else {
+        avatar.src = generateDefaultAvatar(user.displayName || user.email || 'U');
+      }
+      updateSyncStatus('Connected');
+    } else {
+      signedOut.classList.remove('hidden');
+      signedIn.classList.add('hidden');
+    }
+  }
+
+  function generateDefaultAvatar(name) {
+    const letter = name.charAt(0).toUpperCase();
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    // Use accent color from CSS
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#aa55e6';
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.arc(64, 64, 64, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 56px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(letter, 64, 67);
+    return canvas.toDataURL();
+  }
+
+  // Listen for auth state changes from main process
+  window.snowify.onAuthStateChanged(async (user) => {
+    updateAccountUI(user);
+    if (user) {
+      // On sign-in, always pull cloud data first — cloud wins if it exists.
+      // This prevents empty local state from overwriting cloud data.
+      _cloudSyncPaused = true;
+      const loaded = await cloudLoadAndMerge({ forceCloud: true });
+      _cloudSyncPaused = false;
+      // If cloud had nothing, push local state up as the initial backup
+      if (!loaded) {
+        await forceCloudSave();
+      }
+    }
+  });
+
+  async function forceCloudSave() {
+    if (!_cloudUser) return;
+    const data = {
+      playlists: state.playlists,
+      likedSongs: state.likedSongs,
+      recentTracks: state.recentTracks,
+      followedArtists: state.followedArtists,
+      volume: state.volume,
+      shuffle: state.shuffle,
+      repeat: state.repeat,
+      musicOnly: state.musicOnly,
+      autoplay: state.autoplay,
+      audioQuality: state.audioQuality,
+      videoQuality: state.videoQuality,
+      videoPremuxed: state.videoPremuxed,
+      animations: state.animations,
+      effects: state.effects,
+      theme: state.theme,
+      discordRpc: state.discordRpc
+    };
+    const result = await window.snowify.cloudSave(data);
+    if (result?.error) console.error('Cloud save failed:', result.error);
+    else updateSyncStatus('Synced just now');
+  }
+
+  async function initSettings() {
     const autoplayToggle = $('#setting-autoplay');
     const qualitySelect = $('#setting-quality');
     const videoQualitySelect = $('#setting-video-quality');
@@ -2429,6 +2691,132 @@
         location.reload();
       }
     });
+
+    // Account buttons
+    $('#btn-sign-in').addEventListener('click', async () => {
+      const email = $('#auth-email').value.trim();
+      const password = $('#auth-password').value;
+      const errorEl = $('#auth-error');
+      errorEl.classList.add('hidden');
+      if (!email || !password) {
+        errorEl.textContent = 'Please enter email and password';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+      const result = await window.snowify.signInWithEmail(email, password);
+      if (result?.error) {
+        errorEl.textContent = result.error;
+        errorEl.classList.remove('hidden');
+      } else {
+        showToast('Signed in successfully');
+      }
+    });
+
+    $('#btn-sign-up').addEventListener('click', async () => {
+      const email = $('#auth-email').value.trim();
+      const password = $('#auth-password').value;
+      const errorEl = $('#auth-error');
+      errorEl.classList.add('hidden');
+      if (!email || !password) {
+        errorEl.textContent = 'Please enter email and password';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+      if (password.length < 6) {
+        errorEl.textContent = 'Password must be at least 6 characters';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+      const result = await window.snowify.signUpWithEmail(email, password);
+      if (result?.error) {
+        errorEl.textContent = result.error;
+        errorEl.classList.remove('hidden');
+      } else {
+        showToast('Account created & signed in');
+      }
+    });
+
+    $('#btn-sign-out').addEventListener('click', async () => {
+      await window.snowify.authSignOut();
+      showToast('Signed out');
+    });
+
+    $('#btn-sync-now').addEventListener('click', async () => {
+      updateSyncStatus('Syncing...');
+      await cloudLoadAndMerge({ forceCloud: true });
+      await forceCloudSave();
+      updateSyncStatus('Synced just now');
+    });
+
+    // ── Profile editing ──
+    $('#btn-edit-name').addEventListener('click', () => {
+      const row = $('#profile-edit-name-row');
+      const input = $('#profile-name-input');
+      row.classList.remove('hidden');
+      input.value = $('#profile-display-name').textContent;
+      input.focus();
+      input.select();
+    });
+
+    $('#btn-cancel-name').addEventListener('click', () => {
+      $('#profile-edit-name-row').classList.add('hidden');
+    });
+
+    $('#btn-save-name').addEventListener('click', async () => {
+      const input = $('#profile-name-input');
+      const name = input.value.trim();
+      if (!name) return;
+      const result = await window.snowify.updateProfile({ displayName: name });
+      if (result?.error) {
+        showToast('Failed to update name');
+      } else {
+        $('#profile-display-name').textContent = name;
+        $('#profile-avatar').src = result.photoURL || generateDefaultAvatar(name);
+        $('#profile-edit-name-row').classList.add('hidden');
+        showToast('Display name updated');
+      }
+    });
+
+    $('#profile-name-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') $('#btn-save-name').click();
+      if (e.key === 'Escape') $('#btn-cancel-name').click();
+    });
+
+    $('#btn-change-avatar').addEventListener('click', async () => {
+      const filePath = await window.snowify.pickImage();
+      if (!filePath) return;
+      try {
+        const dataUrl = await window.snowify.readImage(filePath);
+        if (!dataUrl) { showToast('Failed to load image'); return; }
+        // Resize to 128×128 to keep the data URL small for Firebase
+        const img = new Image();
+        img.onload = async () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 128;
+          canvas.height = 128;
+          const ctx = canvas.getContext('2d');
+          const size = Math.min(img.width, img.height);
+          const sx = (img.width - size) / 2;
+          const sy = (img.height - size) / 2;
+          ctx.drawImage(img, sx, sy, size, size, 0, 0, 128, 128);
+          const resized = canvas.toDataURL('image/jpeg', 0.8);
+          const updateResult = await window.snowify.updateProfile({ photoURL: resized });
+          if (updateResult?.error) {
+            showToast('Failed to update avatar');
+          } else {
+            $('#profile-avatar').src = resized;
+            showToast('Profile picture updated');
+          }
+        };
+        img.src = dataUrl;
+      } catch (_) {
+        showToast('Failed to load image');
+      }
+    });
+
+    // Check initial auth state
+    const user = await window.snowify.getUser();
+    if (user) updateAccountUI(user);
   }
 
   init();

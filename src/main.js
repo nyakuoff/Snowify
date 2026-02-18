@@ -134,9 +134,226 @@ function createWindow() {
 app.whenReady().then(async () => {
   await initYTMusic();
   createWindow();
+  // Restore saved session after window is ready
+  autoSignIn();
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+
+// ─── Firebase Auth & Cloud Sync ───
+
+const firebase = require('./firebase');
+
+let currentUser = null;
+
+// ─── Credential Persistence via safeStorage ───
+const { safeStorage } = require('electron');
+const credentialsPath = path.join(app.getPath('userData'), '.auth');
+
+function saveCredentials(email, password) {
+  try {
+    if (!safeStorage.isEncryptionAvailable()) {
+      // Fallback: store in plaintext (still in user's app data dir)
+      fs.writeFileSync(credentialsPath, JSON.stringify({ email, password }));
+      return;
+    }
+    const encrypted = safeStorage.encryptString(JSON.stringify({ email, password }));
+    fs.writeFileSync(credentialsPath, encrypted);
+  } catch (_) {}
+}
+
+function loadCredentials() {
+  try {
+    if (!fs.existsSync(credentialsPath)) return null;
+    const raw = fs.readFileSync(credentialsPath);
+    if (!safeStorage.isEncryptionAvailable()) {
+      return JSON.parse(raw.toString());
+    }
+    return JSON.parse(safeStorage.decryptString(raw));
+  } catch (_) { return null; }
+}
+
+function clearCredentials() {
+  try { fs.unlinkSync(credentialsPath); } catch (_) {}
+}
+
+// Auto-sign-in from saved credentials on startup
+async function autoSignIn() {
+  const creds = loadCredentials();
+  if (!creds) return;
+  try {
+    const { signInWithEmailAndPassword } = require('firebase/auth');
+    await signInWithEmailAndPassword(firebase.auth, creds.email, creds.password);
+  } catch (_) {
+    // Credentials no longer valid, clear them
+    clearCredentials();
+  }
+}
+
+firebase.onAuthStateChanged(firebase.auth, (user) => {
+  currentUser = user;
+  mainWindow?.webContents?.send('auth:stateChanged', user ? {
+    uid: user.uid,
+    email: user.email,
+    displayName: user.displayName,
+    photoURL: user.photoURL
+  } : null);
+});
+
+ipcMain.handle('auth:signInWithGoogle', async () => {
+  try {
+    // Open a popup window for Google OAuth
+    const authWindow = new BrowserWindow({
+      width: 500,
+      height: 700,
+      show: true,
+      frame: true,
+      webPreferences: { nodeIntegration: false, contextIsolation: true }
+    });
+
+    const clientId = require('./firebase').auth.app.options.apiKey;
+    const projectId = require('./firebase').auth.app.options.projectId;
+    const redirectUri = `https://${projectId}.firebaseapp.com/__/auth/handler`;
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `client_id=${projectId}.firebaseapp.com&` +
+      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+      `response_type=token&` +
+      `scope=${encodeURIComponent('email profile')}`;
+
+    // Use signInWithPopup equivalent via Firebase REST approach
+    // For Electron, we use signInWithCredential after getting a Google token
+    // Simplified: use email/password or custom token approach
+    authWindow.close();
+    return { error: 'Use email sign-in' };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('auth:signInWithEmail', async (_event, email, password) => {
+  try {
+    const { signInWithEmailAndPassword } = require('firebase/auth');
+    const result = await signInWithEmailAndPassword(firebase.auth, email, password);
+    console.log('Auth: signed in as', result.user.uid);
+    saveCredentials(email, password);
+    return {
+      uid: result.user.uid,
+      email: result.user.email,
+      displayName: result.user.displayName,
+      photoURL: result.user.photoURL
+    };
+  } catch (err) {
+    console.error('Auth sign-in error:', err.message);
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('auth:signUpWithEmail', async (_event, email, password) => {
+  try {
+    const { createUserWithEmailAndPassword } = require('firebase/auth');
+    const result = await createUserWithEmailAndPassword(firebase.auth, email, password);
+    console.log('Auth: created account', result.user.uid);
+    saveCredentials(email, password);
+    return {
+      uid: result.user.uid,
+      email: result.user.email,
+      displayName: result.user.displayName,
+      photoURL: result.user.photoURL
+    };
+  } catch (err) {
+    console.error('Auth sign-up error:', err.message);
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('auth:signOut', async () => {
+  try {
+    await firebase.signOut(firebase.auth);
+    currentUser = null;
+    clearCredentials();
+    return true;
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('auth:getUser', () => {
+  const user = firebase.auth.currentUser;
+  if (!user) return null;
+  return {
+    uid: user.uid,
+    email: user.email,
+    displayName: user.displayName,
+    photoURL: user.photoURL
+  };
+});
+
+ipcMain.handle('profile:update', async (_event, { displayName, photoURL }) => {
+  const user = firebase.auth.currentUser;
+  if (!user) return { error: 'Not signed in' };
+  try {
+    const updates = {};
+    if (displayName !== undefined) updates.displayName = displayName;
+    if (photoURL !== undefined) updates.photoURL = photoURL;
+    await firebase.updateProfile(user, updates);
+    // Also save profile info to Firestore for cross-device access
+    const docRef = firebase.doc(firebase.db, 'users', user.uid);
+    await firebase.setDoc(docRef, {
+      profile: { displayName: user.displayName, photoURL: user.photoURL }
+    }, { merge: true });
+    return {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+      photoURL: user.photoURL
+    };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('profile:readImage', async (_event, filePath) => {
+  try {
+    const buffer = fs.readFileSync(filePath);
+    const ext = path.extname(filePath).toLowerCase();
+    const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+    return `data:${mime};base64,${buffer.toString('base64')}`;
+  } catch (_) {
+    return null;
+  }
+});
+
+ipcMain.handle('cloud:save', async (_event, data) => {
+  const user = firebase.auth.currentUser;
+  if (!user) { console.log('Cloud save skipped: no user'); return { error: 'Not signed in' }; }
+  try {
+    console.log('Cloud save: writing to Firestore for', user.uid);
+    const docRef = firebase.doc(firebase.db, 'users', user.uid);
+    await firebase.setDoc(docRef, {
+      ...data,
+      updatedAt: Date.now()
+    }, { merge: true });
+    console.log('Cloud save: success');
+    return true;
+  } catch (err) {
+    console.error('Cloud save error:', err);
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('cloud:load', async () => {
+  const user = firebase.auth.currentUser;
+  if (!user) return null;
+  try {
+    const docRef = firebase.doc(firebase.db, 'users', user.uid);
+    const snap = await firebase.getDoc(docRef);
+    if (!snap.exists()) return null;
+    return snap.data();
+  } catch (err) {
+    console.error('Cloud load error:', err);
+    return null;
+  }
+});
 
 ipcMain.on('window:minimize', () => mainWindow?.minimize());
 ipcMain.on('window:maximize', () => {

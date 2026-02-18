@@ -22,6 +22,19 @@ contextBridge.exposeInMainWorld('snowify', {
   saveImage: (playlistId, sourcePath) => ipcRenderer.invoke('playlist:saveImage', playlistId, sourcePath),
   deleteImage: (imagePath) => ipcRenderer.invoke('playlist:deleteImage', imagePath),
 
+  // Account & Cloud Sync
+  signInWithEmail: (email, password) => ipcRenderer.invoke('auth:signInWithEmail', email, password),
+  signUpWithEmail: (email, password) => ipcRenderer.invoke('auth:signUpWithEmail', email, password),
+  authSignOut: () => ipcRenderer.invoke('auth:signOut'),
+  getUser: () => ipcRenderer.invoke('auth:getUser'),
+  updateProfile: (data) => ipcRenderer.invoke('profile:update', data),
+  readImage: (filePath) => ipcRenderer.invoke('profile:readImage', filePath),
+  cloudSave: (data) => ipcRenderer.invoke('cloud:save', data),
+  cloudLoad: () => ipcRenderer.invoke('cloud:load'),
+  onAuthStateChanged: (callback) => {
+    ipcRenderer.on('auth:stateChanged', (_event, user) => callback(user));
+  },
+
   // Discord RPC
   connectDiscord: () => ipcRenderer.invoke('discord:connect'),
   disconnectDiscord: () => ipcRenderer.invoke('discord:disconnect'),
