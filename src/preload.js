@@ -21,4 +21,10 @@ contextBridge.exposeInMainWorld('snowify', {
   pickImage: () => ipcRenderer.invoke('playlist:pickImage'),
   saveImage: (playlistId, sourcePath) => ipcRenderer.invoke('playlist:saveImage', playlistId, sourcePath),
   deleteImage: (imagePath) => ipcRenderer.invoke('playlist:deleteImage', imagePath),
+
+  // Discord RPC
+  connectDiscord: () => ipcRenderer.invoke('discord:connect'),
+  disconnectDiscord: () => ipcRenderer.invoke('discord:disconnect'),
+  updatePresence: (data) => ipcRenderer.invoke('discord:updatePresence', data),
+  clearPresence: () => ipcRenderer.invoke('discord:clearPresence'),
 });

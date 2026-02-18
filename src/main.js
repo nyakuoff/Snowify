@@ -6,6 +6,34 @@ const { execFile } = require('child_process');
 let mainWindow;
 let ytmusic;
 
+// ─── Discord RPC ───
+
+const { Client } = require('@xhayper/discord-rpc');
+const DISCORD_CLIENT_ID = '1473620585832517644';
+let rpcClient = null;
+let rpcReady = false;
+
+async function connectDiscordRPC() {
+  if (rpcClient) return;
+  try {
+    rpcClient = new Client({ clientId: DISCORD_CLIENT_ID });
+    rpcClient.on('ready', () => { rpcReady = true; });
+    rpcClient.on('disconnected', () => { rpcReady = false; rpcClient = null; });
+    await rpcClient.login();
+  } catch (_) {
+    rpcReady = false;
+    rpcClient = null;
+  }
+}
+
+function disconnectDiscordRPC() {
+  if (rpcClient) {
+    rpcClient.destroy().catch(() => {});
+    rpcClient = null;
+    rpcReady = false;
+  }
+}
+
 function getYtDlpPath() {
   const isWin = process.platform === 'win32';
   const binName = isWin ? 'yt-dlp.exe' : 'yt-dlp';
@@ -121,6 +149,39 @@ ipcMain.handle('shell:openExternal', async (_event, url) => {
   if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
     await shell.openExternal(url);
   }
+});
+
+ipcMain.handle('discord:connect', async () => {
+  await connectDiscordRPC();
+  return rpcReady;
+});
+
+ipcMain.handle('discord:disconnect', async () => {
+  disconnectDiscordRPC();
+});
+
+ipcMain.handle('discord:updatePresence', async (_event, data) => {
+  if (!rpcClient || !rpcReady) return;
+  try {
+    await rpcClient.user?.setActivity({
+      type: 2, // "Listening to"
+      details: data.title || 'Unknown',
+      state: data.artist || 'Unknown Artist',
+      largeImageKey: data.thumbnail || 'logo',
+      smallImageKey: 'logo',
+      smallImageText: 'Snowify',
+      startTimestamp: data.startTimestamp ? new Date(data.startTimestamp) : undefined,
+      endTimestamp: data.endTimestamp ? new Date(data.endTimestamp) : undefined,
+      instance: false
+    });
+  } catch (_) {}
+});
+
+ipcMain.handle('discord:clearPresence', async () => {
+  if (!rpcClient || !rpcReady) return;
+  try {
+    await rpcClient.user?.clearActivity();
+  } catch (_) {}
 });
 
 ipcMain.handle('yt:search', async (_event, query, musicOnly) => {

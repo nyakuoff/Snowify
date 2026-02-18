@@ -34,7 +34,8 @@
     videoPremuxed: true,
     animations: true,
     effects: true,
-    theme: 'dark'
+    theme: 'dark',
+    discordRpc: false
   };
 
   function saveState() {
@@ -53,7 +54,8 @@
       videoPremuxed: state.videoPremuxed,
       animations: state.animations,
       effects: state.effects,
-      theme: state.theme
+      theme: state.theme,
+      discordRpc: state.discordRpc
     }));
   }
 
@@ -91,6 +93,7 @@
         state.animations = saved.animations ?? true;
         state.effects = saved.effects ?? true;
         state.theme = saved.theme || 'dark';
+        state.discordRpc = saved.discordRpc ?? false;
       }
     } catch (_) {}
   }
@@ -412,6 +415,7 @@
       state.isPlaying = true;
       state.isLoading = false;
       addToRecent(track);
+      updateDiscordPresence(track);
       saveState();
     } catch (err) {
       console.error('Playback error:', err);
@@ -564,25 +568,57 @@
     renderQueue();
   }
 
+  // ─── Discord RPC helpers ───
+
+  function updateDiscordPresence(track) {
+    if (!state.discordRpc || !track) return;
+    const startMs = Date.now() - Math.floor((audio.currentTime || 0) * 1000);
+    const data = {
+      title: track.title,
+      artist: track.artist,
+      thumbnail: track.thumbnail || '',
+      startTimestamp: startMs
+    };
+    if (track.durationMs) {
+      data.endTimestamp = startMs + track.durationMs;
+    }
+    window.snowify.updatePresence(data);
+  }
+
+  function clearDiscordPresence() {
+    if (!state.discordRpc) return;
+    window.snowify.clearPresence();
+  }
+
   function togglePlay() {
     if (state.isLoading) return;
     if (!audio.src) return;
     if (audio.paused) {
       audio.play();
       state.isPlaying = true;
+      const track = state.queue[state.queueIndex];
+      if (track) updateDiscordPresence(track);
     } else {
       audio.pause();
       state.isPlaying = false;
+      clearDiscordPresence();
     }
     updatePlayButton();
   }
 
   audio.addEventListener('ended', playNext);
   audio.addEventListener('timeupdate', updateProgress);
+  audio.addEventListener('seeked', () => {
+    if (state.isPlaying) {
+      const track = state.queue[state.queueIndex];
+      if (track) updateDiscordPresence(track);
+    }
+  });
   audio.addEventListener('error', () => {
     state.isPlaying = false;
     state.isLoading = false;
     updatePlayButton();
+    clearDiscordPresence();
     showToast('Audio error — try playing again or pick another track');
   });
 
@@ -775,8 +811,8 @@
         artist: track.artist,
         artwork: [{ src: track.thumbnail, sizes: '512x512', type: 'image/jpeg' }]
       });
-      navigator.mediaSession.setActionHandler('play', () => { audio.play(); state.isPlaying = true; updatePlayButton(); });
-      navigator.mediaSession.setActionHandler('pause', () => { audio.pause(); state.isPlaying = false; updatePlayButton(); });
+      navigator.mediaSession.setActionHandler('play', () => { audio.play(); state.isPlaying = true; updatePlayButton(); updateDiscordPresence(track); });
+      navigator.mediaSession.setActionHandler('pause', () => { audio.pause(); state.isPlaying = false; updatePlayButton(); clearDiscordPresence(); });
       navigator.mediaSession.setActionHandler('previoustrack', playPrev);
       navigator.mediaSession.setActionHandler('nexttrack', playNext);
     }
@@ -2270,6 +2306,7 @@
     loadState();
     updateGreeting();
     setVolume(state.volume);
+    if (state.discordRpc) window.snowify.connectDiscord();
     btnShuffle.classList.toggle('active', state.shuffle);
     btnRepeat.classList.toggle('active', state.repeat !== 'off');
     updateRepeatButton();
@@ -2286,8 +2323,10 @@
     const videoPremuxedToggle = $('#setting-video-premuxed');
     const animationsToggle = $('#setting-animations');
     const effectsToggle = $('#setting-effects');
+    const discordRpcToggle = $('#setting-discord-rpc');
 
     autoplayToggle.checked = state.autoplay;
+    discordRpcToggle.checked = state.discordRpc;
     qualitySelect.value = state.audioQuality;
     videoQualitySelect.value = state.videoQuality;
     videoPremuxedToggle.checked = state.videoPremuxed;
@@ -2325,6 +2364,26 @@
     autoplayToggle.addEventListener('change', () => {
       state.autoplay = autoplayToggle.checked;
       saveState();
+    });
+
+    discordRpcToggle.addEventListener('change', async () => {
+      state.discordRpc = discordRpcToggle.checked;
+      saveState();
+      if (state.discordRpc) {
+        const ok = await window.snowify.connectDiscord();
+        if (!ok) {
+          showToast('Could not connect to Discord — is it running?');
+          state.discordRpc = false;
+          discordRpcToggle.checked = false;
+          saveState();
+          return;
+        }
+        const track = state.queue[state.queueIndex];
+        if (track && state.isPlaying) updateDiscordPresence(track);
+      } else {
+        clearDiscordPresence();
+        window.snowify.disconnectDiscord();
+      }
     });
 
     qualitySelect.addEventListener('change', () => {
