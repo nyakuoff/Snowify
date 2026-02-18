@@ -176,6 +176,14 @@ ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
         type: 'Single',
         thumbnail: getSquareThumbnail(a.thumbnails, 300)
       })),
+      topVideos: (artist.topVideos || []).map(v => ({
+        videoId: v.videoId,
+        name: v.name || 'Untitled Video',
+        artist: v.artist?.name || 'Unknown Artist',
+        artistId: v.artist?.artistId || null,
+        thumbnail: getBestThumbnail(v.thumbnails),
+        duration: formatDuration(v.duration)
+      })),
       similarArtists: (artist.similarArtists || []).map(sa => ({
         artistId: sa.artistId,
         name: sa.name,
@@ -231,6 +239,23 @@ ipcMain.handle('yt:getStreamUrl', async (_event, videoUrl, quality) => {
       if (err) return reject(stderr?.trim() || err.message);
       const url = stdout.trim().split('\n')[0];
       if (!url) return reject('yt-dlp returned no URL');
+      resolve(url);
+    });
+  });
+});
+
+ipcMain.handle('yt:getVideoStreamUrl', async (_event, videoId) => {
+  return new Promise((resolve, reject) => {
+    execFile(getYtDlpPath(), [
+      '-f', 'best[height<=720]/best',
+      '--get-url',
+      '--no-warnings',
+      '--no-playlist',
+      `https://music.youtube.com/watch?v=${videoId}`
+    ], { timeout: 20000 }, (err, stdout, stderr) => {
+      if (err) return reject(stderr?.trim() || err.message);
+      const url = stdout.trim().split('\n')[0];
+      if (!url) return reject('yt-dlp returned no video URL');
       resolve(url);
     });
   });

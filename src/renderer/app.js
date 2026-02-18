@@ -91,10 +91,9 @@
     views.forEach(v => v.classList.toggle('active', v.id === `view-${name}`));
     navBtns.forEach(b => b.classList.toggle('active', b.dataset.view === name));
 
-    // Re-trigger page enter animation when switching within the same view (e.g. playlist → playlist)
     if (alreadyActive && targetView && state.animations) {
       targetView.style.animation = 'none';
-      targetView.offsetHeight; // force reflow
+      targetView.offsetHeight;
       targetView.style.animation = '';
     }
 
@@ -305,6 +304,7 @@
       <div class="context-menu-item" data-action="play-next">Play Next</div>
       <div class="context-menu-item" data-action="add-queue">Add to Queue</div>
       <div class="context-menu-divider"></div>
+      <div class="context-menu-item" data-action="watch-video">Watch Video</div>
       <div class="context-menu-item" data-action="like">${isLiked ? 'Unlike' : 'Like'}</div>
       ${playlistSection}
       <div class="context-menu-divider"></div>
@@ -352,6 +352,9 @@
         case 'add-queue':
           state.queue.push(track);
           showToast('Added to queue');
+          break;
+        case 'watch-video':
+          openVideoPlayer(track.id, track.title, track.artist);
           break;
         case 'like': toggleLike(track); break;
         case 'add-to-playlist':
@@ -1610,6 +1613,8 @@
     const aboutSection = $('#artist-about-section');
     const popularContainer = $('#artist-popular-tracks');
     const discographyContainer = $('#artist-discography');
+    const videosSection = $('#artist-videos-section');
+    const videosContainer = $('#artist-videos');
 
     avatar.src = '';
     nameEl.textContent = 'Loading...';
@@ -1617,8 +1622,10 @@
     descEl.textContent = '';
     tagsEl.innerHTML = '';
     aboutSection.style.display = 'none';
+    videosSection.style.display = 'none';
     popularContainer.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
     discographyContainer.innerHTML = '';
+    videosContainer.innerHTML = '';
 
     const info = await window.snowfy.artistInfo(artistId);
 
@@ -1698,6 +1705,30 @@
     // Reset filter to "all" and render
     filterBtns.forEach(b => b.classList.toggle('active', b.dataset.filter === 'all'));
     renderDiscography('all');
+
+    // Music Videos slider
+    const topVideos = info.topVideos || [];
+    if (topVideos.length) {
+      videosSection.style.display = '';
+      videosContainer.innerHTML = topVideos.map(v => `
+        <div class="video-card" data-video-id="${escapeHtml(v.videoId)}">
+          <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
+          <button class="video-card-play" title="Watch">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
+          </button>
+          <div class="video-card-name" title="${escapeHtml(v.name)}">${escapeHtml(v.name)}</div>
+          ${v.duration ? `<div class="video-card-duration">${v.duration}</div>` : ''}
+        </div>
+      `).join('');
+
+      videosContainer.querySelectorAll('.video-card').forEach(card => {
+        const vid = card.dataset.videoId;
+        const video = topVideos.find(v => v.videoId === vid);
+        card.addEventListener('click', () => {
+          if (video) openVideoPlayer(video.videoId, video.name, video.artist);
+        });
+      });
+    }
 
     // Play all: use popular tracks
     $('#btn-artist-play-all').onclick = () => {
@@ -1976,6 +2007,70 @@
       fetchAndShowLyrics(track);
     } else {
       _lyricsTrackId = null;
+    }
+  }
+
+  // ─── Video Player ───
+
+  const videoOverlay = $('#video-overlay');
+  const videoPlayer = $('#video-player');
+  const videoLoading = $('#video-loading');
+  const videoTitle = $('#video-overlay-title');
+  const videoArtist = $('#video-overlay-artist');
+  let _wasPlayingBeforeVideo = false;
+
+  $('#btn-close-video').addEventListener('click', closeVideoPlayer);
+
+  videoOverlay.addEventListener('click', (e) => {
+    if (e.target === videoOverlay) closeVideoPlayer();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !videoOverlay.classList.contains('hidden')) {
+      closeVideoPlayer();
+    }
+  });
+
+  async function openVideoPlayer(videoId, name, artist) {
+    videoTitle.textContent = name || 'Music Video';
+    videoArtist.textContent = artist || '';
+    videoPlayer.src = '';
+    videoPlayer.poster = '';
+    videoLoading.classList.remove('hidden');
+    videoOverlay.classList.remove('hidden');
+
+    // Pause audio playback while watching video
+    _wasPlayingBeforeVideo = state.isPlaying;
+    if (state.isPlaying) {
+      audio.pause();
+      state.isPlaying = false;
+      updatePlayButton();
+    }
+
+    try {
+      const streamUrl = await window.snowfy.getVideoStreamUrl(videoId);
+      videoPlayer.src = streamUrl;
+      videoLoading.classList.add('hidden');
+      videoPlayer.play();
+    } catch (err) {
+      console.error('Video playback error:', err);
+      videoLoading.classList.add('hidden');
+      showToast('Failed to load video');
+      closeVideoPlayer();
+    }
+  }
+
+  function closeVideoPlayer() {
+    videoOverlay.classList.add('hidden');
+    videoPlayer.pause();
+    videoPlayer.src = '';
+
+    // Resume audio if it was playing before
+    if (_wasPlayingBeforeVideo && state.queue[state.queueIndex]) {
+      audio.play().then(() => {
+        state.isPlaying = true;
+        updatePlayButton();
+      }).catch(() => {});
     }
   }
 

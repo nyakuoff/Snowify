@@ -2211,3 +2211,172 @@ html, body {
   width: 28px;
   height: 28px;
 }
+
+/* ═══════ Video Player Overlay ═══════ */
+.video-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.25s ease;
+}
+.video-overlay.hidden {
+  display: none;
+}
+.video-overlay-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent);
+  z-index: 10;
+}
+.video-overlay-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.video-overlay-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.video-overlay-artist {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+.video-overlay-close {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.video-overlay-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+.video-container {
+  position: relative;
+  width: 90%;
+  max-width: 960px;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+.video-container video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+.video-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.7);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  z-index: 5;
+}
+.video-loading.hidden {
+  display: none;
+}
+
+/* ═══════ Video Cards (Artist Page) ═══════ */
+.video-card {
+  flex: 0 0 240px;
+  width: 240px;
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-lg);
+  padding: 10px;
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+  position: relative;
+}
+.video-card:hover {
+  background: var(--bg-elevated);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+.video-card-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius);
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.03);
+  margin-bottom: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  transition: transform var(--transition);
+}
+.video-card:hover .video-card-thumb {
+  transform: scale(1.02);
+}
+.video-card-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, calc(-50% - 16px)) scale(0.85);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.25s, transform 0.25s var(--ease-bounce), background 0.2s;
+  backdrop-filter: blur(8px);
+}
+.video-card:hover .video-card-play {
+  opacity: 1;
+  transform: translate(-50%, calc(-50% - 16px)) scale(1);
+}
+.video-card-play:hover {
+  background: var(--accent);
+  color: #000;
+}
+.video-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+  padding: 0 4px;
+}
+.video-card-duration {
+  font-size: 11px;
+  color: var(--text-subdued);
+  padding: 0 4px;
+}
+
+[data-theme="light"] .video-card { background: var(--bg-card); border-color: rgba(0, 0, 0, 0.06); }
+[data-theme="light"] .video-card:hover { border-color: rgba(0, 0, 0, 0.12); }

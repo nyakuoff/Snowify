@@ -328,6 +328,10 @@
           </div>
           <div id="artist-discography" class="album-scroll"></div>
         </div>
+        <div class="artist-section" id="artist-videos-section" style="display:none;">
+          <h2>Music Videos</h2>
+          <div id="artist-videos" class="album-scroll"></div>
+        </div>
       </section>
     </main>
   </div>
@@ -437,6 +441,26 @@
       <div class="modal-buttons">
         <button class="modal-btn modal-cancel" id="input-modal-cancel">Cancel</button>
         <button class="modal-btn modal-confirm" id="input-modal-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ Video Player Overlay ═══════ -->
+  <div id="video-overlay" class="video-overlay hidden">
+    <div class="video-overlay-header">
+      <div class="video-overlay-info">
+        <span class="video-overlay-title" id="video-overlay-title"></span>
+        <span class="video-overlay-artist" id="video-overlay-artist"></span>
+      </div>
+      <button class="icon-btn video-overlay-close" id="btn-close-video" title="Close">
+        <svg width="20" height="20" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="video-container">
+      <video id="video-player" controls></video>
+      <div class="video-loading hidden" id="video-loading">
+        <div class="spinner"></div>
+        <p>Loading video...</p>
       </div>
     </div>
   </div>

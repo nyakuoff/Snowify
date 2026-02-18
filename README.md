@@ -66,7 +66,7 @@ npm start
 - [ ] Discord RPC
 - [ ] Follow Artist feature
 - [ ] Upcoming Releases of followed artists
-- [ ] See Music Videos for Songs and list music videos in artist page
+- [x] Watch Music Videos in-app
 
 ## Legal
 
