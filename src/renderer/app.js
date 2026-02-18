@@ -2106,9 +2106,11 @@
         startLyricsSync();
       } else if (result.plain) {
         renderPlainLyrics(result.plain);
+        showToast('Synced lyrics not available for this song');
       } else {
         showLyricsEmpty();
       }
+
     } catch (err) {
       console.error('Lyrics error:', err);
       if (_lyricsTrackId === track.id) {

@@ -642,70 +642,43 @@ ipcMain.handle('yt:getUpNexts', async (_event, videoId) => {
   }
 });
 
-// ─── Lyrics (LRCLIB) ───
+// ─── Lyrics (Musixmatch + LrcLib + Netease via SyncLyrics) ───
 
-const _lyricsCache = new Map();
-const _lyricsCacheMax = 200;
+const { SyncLyrics } = require('@stef-0012/synclyrics');
 
-function lyricsCacheSet(key, value) {
-  if (_lyricsCache.size >= _lyricsCacheMax) {
-    // Evict oldest entry (first key in Map iteration order)
-    const oldest = _lyricsCache.keys().next().value;
-    _lyricsCache.delete(oldest);
-  }
-  _lyricsCache.set(key, value);
-}
+let _mxmTokenData = null;
+
+const lyricsManager = new SyncLyrics({
+  cache: new Map(),
+  logLevel: 'none',
+  sources: ['musixmatch', 'lrclib', 'netease'],
+  saveMusixmatchToken: (tokenData) => { _mxmTokenData = tokenData; },
+  getMusixmatchToken: () => _mxmTokenData,
+});
 
 ipcMain.handle('lyrics:get', async (_event, trackName, artistName, albumName, durationSec) => {
-  const cacheKey = `${trackName}||${artistName}`.toLowerCase();
-  if (_lyricsCache.has(cacheKey)) return _lyricsCache.get(cacheKey);
-
   try {
-    // 1. Fast search first (instant, no external lookups)
-    const results = await fetchLrclib(`/api/search?${new URLSearchParams({
-      track_name: trackName,
-      artist_name: artistName
-    })}`);
-    if (Array.isArray(results) && results.length) {
-      const withSync = results.find(r => r.syncedLyrics);
-      const best = withSync || results[0];
-      const out = { synced: best.syncedLyrics || null, plain: best.plainLyrics || null };
-      lyricsCacheSet(cacheKey, out);
-      return out;
-    }
+    const data = await lyricsManager.getLyrics({
+      track: trackName || '',
+      artist: artistName || '',
+      album: albumName || '',
+      length: durationSec ? Math.round(durationSec * 1000) : undefined,
+    });
 
-    // 2. Slow fallback: /api/get tries external sources (only if search found nothing)
-    if (albumName && durationSec) {
-      const exact = await fetchLrclib(`/api/get?${new URLSearchParams({
-        track_name: trackName,
-        artist_name: artistName,
-        album_name: albumName,
-        duration: String(Math.round(durationSec))
-      })}`);
-      if (exact && (exact.syncedLyrics || exact.plainLyrics)) {
-        const out = { synced: exact.syncedLyrics || null, plain: exact.plainLyrics || null };
-        lyricsCacheSet(cacheKey, out);
-        return out;
-      }
-    }
+    if (!data) return null;
 
-    lyricsCacheSet(cacheKey, null);
-    return null;
+    const synced = data.lyrics?.lineSynced?.lyrics || null;
+    const plain = data.lyrics?.plain?.lyrics || null;
+    const source = data.lyrics?.lineSynced?.source || data.lyrics?.plain?.source || 'Unknown';
+
+    if (!synced && !plain) return null;
+
+    return { synced, plain, source };
   } catch (err) {
-    console.error('Lyrics fetch error:', err);
+    console.error('Lyrics fetch error:', err.message);
     return null;
   }
 });
-
-function fetchLrclib(path) {
-  const url = `https://lrclib.net${path}`;
-  return fetch(url, {
-    headers: { 'User-Agent': 'Snowify v1.0.0 (https://github.com/snowify)' }
-  }).then(res => {
-    if (res.status === 404) return null;
-    return res.json();
-  });
-}
 
 // ─── Playlist Cover Image Management ───
 

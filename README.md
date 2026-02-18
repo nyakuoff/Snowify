@@ -10,10 +10,16 @@ A desktop music player built with Electron that streams audio from YouTube Music
 - **Search** — Find songs, artists, and albums via YouTube Music
 - **Playback** — Stream audio directly with play/pause, seek, skip, volume
 - **Queue** — View and manage upcoming tracks, drag reorder
+- **Smart Queue** — Auto-fills with similar songs when the queue runs out
 - **Shuffle & Repeat** — Shuffle queue, repeat one or all
-- **Playlists** — Create, rename, delete, and add/remove tracks. Custom or auto-generated covers
+- **Playlists** — Create, rename, delete, and add/remove tracks. Custom or auto-generated covers. Drag & drop songs into sidebar playlists
 - **Liked Songs** — Heart any track to save it
-- **Artist Pages** — Browse an artist's discography and top songs
+- **Synced Lyrics** — Spotify-like synced lyrics from multi-source
+- **Artist Pages** — Top songs, discography, monthly audience, fans also like, and live performances
+- **Follow Artists** — Follow artists and see their recent releases on the home page
+- **Music Videos** — Watch music videos in-app
+- **Discord Rich Presence** — Show what you're listening to on Discord
+- **Cloud Sync** — Sign in with email to sync your library across devices
 - **Themes** — Built-in color themes
 - **Keyboard Shortcuts** — Full keyboard control (see below)
 
@@ -40,6 +46,8 @@ npm start
 | [Electron](https://www.electronjs.org/) | Desktop app shell |
 | [ytmusic-api](https://github.com/sigmundgranaas/ytmusic-api) | YouTube Music search, artist & album data |
 | [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Extracts audio stream URLs (must be in PATH) |
+| [synclyrics](https://github.com/Stef-00012/SyncLyrics) | Synced lyrics from Musixmatch, LrcLib, Netease |
+| [Firebase](https://firebase.google.com/) | Authentication & cloud sync |
 
 ## Keyboard Shortcuts
 
@@ -56,6 +64,9 @@ npm start
 - **Electron** — Desktop framework
 - **ytmusic-api** — YouTube Music metadata
 - **yt-dlp** — Audio stream extraction
+- **synclyrics** — Synced lyrics (Musixmatch, LrcLib, Netease)
+- **Firebase** — Auth & Firestore cloud sync
+- **Discord RPC** — Rich presence integration
 
 ## Roadmap
 
@@ -69,10 +80,12 @@ npm start
 - [x] Recent Releases from followed artists
 - [x] Watch Music Videos in-app
 - [ ] Spotify playlists migration support
-- [ ] Watch Live Performances in-app
 - [x] "Fans might also like" section in artists page
 - [x] Monthly audience stat per artist
-- [x] Live performances in artist pages
+- [x] Cloud sync
+- [x] User accounts
+- [x] Multi-source lyrics (Musixmatch, LrcLib, Netease)
+- [x] Watch Live Performances in-app
 
 ## Legal
 
