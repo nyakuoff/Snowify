@@ -575,14 +575,15 @@
   function updateDiscordPresence(track) {
     if (!state.discordRpc || !track) return;
     const startMs = Date.now() - Math.floor((audio.currentTime || 0) * 1000);
+    const durationMs = track.durationMs || (audio.duration ? Math.round(audio.duration * 1000) : 0);
     const data = {
       title: track.title,
       artist: track.artist,
       thumbnail: track.thumbnail || '',
       startTimestamp: startMs
     };
-    if (track.durationMs) {
-      data.endTimestamp = startMs + track.durationMs;
+    if (durationMs) {
+      data.endTimestamp = startMs + durationMs;
     }
     window.snowify.updatePresence(data);
   }
