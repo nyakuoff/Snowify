@@ -205,7 +205,7 @@
             <img class="artist-result-avatar" src="${escapeHtml(topArtist.thumbnail || '')}" alt="" />
             <div class="artist-result-info">
               <div class="artist-result-name">${escapeHtml(topArtist.name)}</div>
-              <div class="artist-result-label">Artist</div>
+              <div class="artist-result-label">Artist${topArtist.subtitle ? ' · ' + escapeHtml(topArtist.subtitle) : ''}</div>
             </div>
           </div>`;
         searchResults.appendChild(artistSection);
@@ -1773,6 +1773,10 @@
     const discographyContainer = $('#artist-discography');
     const videosSection = $('#artist-videos-section');
     const videosContainer = $('#artist-videos');
+    const liveSection = $('#artist-live-section');
+    const liveContainer = $('#artist-live');
+    const fansSection = $('#artist-fans-section');
+    const fansContainer = $('#artist-fans');
 
     avatar.src = '';
     nameEl.textContent = 'Loading...';
@@ -1781,9 +1785,13 @@
     tagsEl.innerHTML = '';
     aboutSection.style.display = 'none';
     videosSection.style.display = 'none';
+    liveSection.style.display = 'none';
+    fansSection.style.display = 'none';
     popularContainer.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
     discographyContainer.innerHTML = '';
     videosContainer.innerHTML = '';
+    liveContainer.innerHTML = '';
+    fansContainer.innerHTML = '';
 
     const info = await window.snowify.artistInfo(artistId);
 
@@ -1794,7 +1802,7 @@
     }
 
     nameEl.textContent = info.name;
-    followersEl.textContent = '';
+    followersEl.textContent = info.monthlyListeners || '';
 
     if (info.avatar) {
       avatar.src = info.avatar;
@@ -1906,6 +1914,48 @@
         const video = topVideos.find(v => v.videoId === vid);
         card.addEventListener('click', () => {
           if (video) openVideoPlayer(video.videoId, video.name, video.artist);
+        });
+      });
+    }
+
+    // Live Performances section (only if available)
+    const livePerfs = info.livePerformances || [];
+    if (livePerfs.length) {
+      liveSection.style.display = '';
+      liveContainer.innerHTML = livePerfs.map(v => `
+        <div class="video-card" data-video-id="${escapeHtml(v.videoId)}">
+          <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
+          <button class="video-card-play" title="Watch">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
+          </button>
+          <div class="video-card-name" title="${escapeHtml(v.name)}">${escapeHtml(v.name)}</div>
+        </div>
+      `).join('');
+
+      liveContainer.querySelectorAll('.video-card').forEach(card => {
+        const vid = card.dataset.videoId;
+        const video = livePerfs.find(v => v.videoId === vid);
+        card.addEventListener('click', () => {
+          if (video) openVideoPlayer(video.videoId, video.name, video.artist);
+        });
+      });
+    }
+
+    // Fans might also like section
+    const fansAlsoLike = info.fansAlsoLike || [];
+    if (fansAlsoLike.length) {
+      fansSection.style.display = '';
+      fansContainer.innerHTML = fansAlsoLike.map(a => `
+        <div class="similar-artist-card" data-artist-id="${escapeHtml(a.artistId)}">
+          <img class="similar-artist-avatar" src="${escapeHtml(a.thumbnail || '')}" alt="" loading="lazy" />
+          <div class="similar-artist-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
+        </div>
+      `).join('');
+
+      fansContainer.querySelectorAll('.similar-artist-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const id = card.dataset.artistId;
+          if (id) openArtistPage(id);
         });
       });
     }

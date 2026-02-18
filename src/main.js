@@ -430,11 +430,63 @@ ipcMain.handle('yt:search', async (_event, query, musicOnly) => {
 ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
   try {
     const artist = await ytmusic.getArtist(artistId);
+
+    // Fetch raw browse data to extract fields the library parser misses
+    let monthlyListeners = '';
+    let fansAlsoLike = [];
+    let livePerformances = [];
+    try {
+      const rawData = await ytmusic.constructRequest('browse', { browseId: artistId });
+      const header = rawData?.header?.musicImmersiveHeaderRenderer || rawData?.header?.musicVisualHeaderRenderer;
+      monthlyListeners = header?.monthlyListenerCount?.runs?.[0]?.text || '';
+
+      // Parse carousel sections by title instead of hardcoded index
+      const sections = rawData?.contents?.singleColumnBrowseResultsRenderer
+        ?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents || [];
+
+      for (const section of sections) {
+        const carousel = section?.musicCarouselShelfRenderer;
+        if (!carousel) continue;
+        const title = carousel?.header?.musicCarouselShelfBasicHeaderRenderer
+          ?.title?.runs?.[0]?.text?.toLowerCase() || '';
+
+        if (title.includes('fans might also like')) {
+          fansAlsoLike = (carousel.contents || []).map(item => {
+            const r = item?.musicTwoRowItemRenderer;
+            if (!r) return null;
+            const browseId = r?.navigationEndpoint?.browseEndpoint?.browseId || '';
+            if (!browseId.startsWith('UC')) return null;
+            return {
+              artistId: browseId,
+              name: r?.title?.runs?.[0]?.text || 'Unknown',
+              thumbnail: getSquareThumbnail(r?.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails || [], 226)
+            };
+          }).filter(Boolean);
+        } else if (title.includes('live performance')) {
+          livePerformances = (carousel.contents || []).map(item => {
+            const r = item?.musicTwoRowItemRenderer;
+            if (!r) return null;
+            const videoId = r?.navigationEndpoint?.watchEndpoint?.videoId || '';
+            if (!videoId) return null;
+            return {
+              videoId,
+              name: r?.title?.runs?.[0]?.text || 'Untitled',
+              artist: artist.name || 'Unknown Artist',
+              artistId: artistId,
+              thumbnail: getBestThumbnail(r?.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails || []),
+              duration: ''
+            };
+          }).filter(Boolean);
+        }
+      }
+    } catch (_) { /* raw data extraction is best-effort */ }
+
     return {
       name: artist.name || 'Unknown',
       artistId: artist.artistId || '',
       description: '',
       followers: 0,
+      monthlyListeners,
       tags: [],
       avatar: getBestThumbnail(artist.thumbnails),
       topSongs: (artist.topSongs || []).filter(s => s.videoId).map(mapSongToTrack),
@@ -462,11 +514,8 @@ ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
         thumbnail: getBestThumbnail(v.thumbnails),
         duration: formatDuration(v.duration)
       })),
-      similarArtists: (artist.similarArtists || []).map(sa => ({
-        artistId: sa.artistId,
-        name: sa.name,
-        thumbnail: getBestThumbnail(sa.thumbnails)
-      }))
+      fansAlsoLike,
+      livePerformances
     };
   } catch (err) {
     console.error('Artist info error:', err);
@@ -492,12 +541,39 @@ ipcMain.handle('yt:albumTracks', async (_event, albumId) => {
 
 ipcMain.handle('yt:searchArtists', async (_event, query) => {
   try {
-    const artists = await ytmusic.searchArtists(query);
-    return artists.map(a => ({
-      artistId: a.artistId,
-      name: a.name,
-      thumbnail: getBestThumbnail(a.thumbnails)
-    }));
+    // Use raw API to get subscriber/listener info alongside artist data
+    const rawData = await ytmusic.constructRequest('search', {
+      query,
+      params: 'Eg-KAQwIABAAGAAgASgAMABqChAEEAMQCRAFEAo%3D'
+    });
+
+    const items = [];
+    const shelf = rawData?.contents?.tabbedSearchResultsRenderer?.tabs?.[0]
+      ?.tabRenderer?.content?.sectionListRenderer?.contents || [];
+    for (const s of shelf) {
+      const entries = s?.musicShelfRenderer?.contents || [];
+      for (const entry of entries) {
+        const r = entry?.musicResponsiveListItemRenderer;
+        if (!r) continue;
+        const cols = r.flexColumns || [];
+        const runs = cols.flatMap(c =>
+          c?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || []
+        );
+        const browseId = r.navigationEndpoint?.browseEndpoint?.browseId || '';
+        const name = runs[0]?.text || '';
+        const subtitle = runs.slice(1).map(r => r.text).join('').replace(/^\s*•\s*/, '').trim();
+        const thumbnails = r.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
+        if (browseId && name) {
+          items.push({
+            artistId: browseId,
+            name,
+            thumbnail: getBestThumbnail(thumbnails),
+            subtitle: subtitle.replace(/^Artist\s*•?\s*/i, '').trim()
+          });
+        }
+      }
+    }
+    return items;
   } catch (err) {
     console.error('Search artists error:', err);
     return [];

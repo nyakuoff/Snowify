@@ -1674,6 +1674,71 @@ html, body {
   background: rgba(255, 255, 255, 0.18);
 }
 
+/* ═══════ Similar Artists / Fans might also like ═══════ */
+.similar-artists-scroll {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 8px 16px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+.similar-artists-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.similar-artists-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.similar-artists-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+.similar-artists-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.similar-artist-card {
+  flex: 0 0 140px;
+  width: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 8px;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+}
+.similar-artist-card:hover {
+  background: var(--bg-elevated);
+  transform: translateY(-3px);
+}
+
+.similar-artist-avatar {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-elevated);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  transition: box-shadow var(--transition);
+}
+.similar-artist-card:hover .similar-artist-avatar {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+.similar-artist-name {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  color: var(--text-primary);
+}
+
 .album-card {
   flex: 0 0 180px;
   width: 180px;

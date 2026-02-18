@@ -68,6 +68,11 @@ npm start
 - [ ] Upcoming Releases from followed artists
 - [x] Recent Releases from followed artists
 - [x] Watch Music Videos in-app
+- [ ] Spotify playlists migration support
+- [ ] Watch Live Performances in-app
+- [x] "Fans might also like" section in artists page
+- [x] Monthly audience stat per artist
+- [x] Live performances in artist pages
 
 ## Legal
 
