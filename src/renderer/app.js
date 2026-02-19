@@ -1430,6 +1430,10 @@
     allQueueItems.forEach(item => {
       const track = state.queue.find(t => t.id === item.dataset.trackId);
       if (!track) return;
+      item.querySelector('.queue-item-artist.clickable')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openArtistPage(e.currentTarget.dataset.artistId);
+      });
       item.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         showContextMenu(e, track);
@@ -1446,7 +1450,7 @@
         <img src="${escapeHtml(track.thumbnail)}" alt="" />
         <div class="queue-item-info">
           <div class="queue-item-title">${escapeHtml(track.title)}</div>
-          <div class="queue-item-artist">${escapeHtml(track.artist)}</div>
+          <div class="queue-item-artist${track.artistId ? ' clickable' : ''}" ${track.artistId ? `data-artist-id="${escapeHtml(track.artistId)}"` : ''}>${escapeHtml(track.artist)}</div>
         </div>
       </div>`;
   }

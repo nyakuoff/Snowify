@@ -1258,6 +1258,14 @@ html, body {
   font-size: 12px;
   color: var(--text-subdued);
 }
+.queue-item-artist.clickable {
+  cursor: pointer;
+  transition: color var(--transition);
+}
+.queue-item-artist.clickable:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
 .queue-item.active .queue-item-title { color: var(--accent); }
 
 /* ═══════ Empty States ═══════ */
