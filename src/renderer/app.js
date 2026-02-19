@@ -1876,6 +1876,8 @@
     const fansContainer = $('#artist-fans');
 
     avatar.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    avatar.classList.remove('loaded');
+    avatar.classList.add('shimmer');
     nameEl.textContent = 'Loading...';
     followersEl.textContent = '';
     descEl.textContent = '';
@@ -1902,6 +1904,10 @@
     followersEl.textContent = info.monthlyListeners || '';
 
     if (info.avatar) {
+      avatar.addEventListener('load', () => {
+        avatar.classList.remove('shimmer');
+        avatar.classList.add('loaded');
+      }, { once: true });
       avatar.src = info.avatar;
     }
 

@@ -1434,7 +1434,8 @@ html, body {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   background: var(--bg-elevated);
   flex-shrink: 0;
-  transition: transform var(--transition), box-shadow var(--transition);
+  opacity: 0;
+  transition: transform var(--transition), box-shadow var(--transition), opacity 0.3s ease;
 }
 .artist-avatar:hover {
   transform: scale(1.03);
@@ -2946,3 +2947,19 @@ html, body {
 
 [data-theme="light"] .video-card { background: var(--bg-card); border-color: rgba(0, 0, 0, 0.06); }
 [data-theme="light"] .video-card:hover { border-color: rgba(0, 0, 0, 0.12); }
+
+.shimmer {
+  opacity: 1;
+  background: linear-gradient(90deg, var(--bg-elevated) 25%, rgba(255,255,255,0.06) 50%, var(--bg-elevated) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+.loaded {
+  opacity: 1;
+  animation: none;
+  background: var(--bg-elevated);
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
