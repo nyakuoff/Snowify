@@ -535,6 +535,7 @@
     updateTrackHighlight();
   }
 
+
   function playFromList(tracks, index) {
     if (crossfadeInProgress) cancelCrossfade();
     clearPreload();
