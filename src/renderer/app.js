@@ -1424,6 +1424,7 @@
     if (name) createPlaylist(name);
   });
   $('#btn-spotify-import').addEventListener('click', () => openSpotifyImport());
+  $('#btn-ytmusic-import').addEventListener('click', () => openYTMusicImport());
 
   function renderLibrary() {
     const container = $('#library-content');
@@ -3418,6 +3419,163 @@
         cleanup();
         resetModal();
       };
+    };
+  }
+
+  // ─── YouTube Music Import ───
+
+  function openYTMusicImport() {
+    const modal = $('#ytmusic-modal');
+    const stepUrl = $('#ytmusic-step-url');
+    const stepProgress = $('#ytmusic-step-progress');
+    const errorEl = $('#ytmusic-error');
+    const urlInput = $('#ytmusic-url-input');
+    const startBtn = $('#ytmusic-start');
+    let cancelled = false;
+
+    // Reset
+    urlInput.value = '';
+    errorEl.classList.add('hidden');
+    stepUrl.classList.remove('hidden');
+    stepProgress.classList.add('hidden');
+    startBtn.disabled = true;
+    modal.classList.remove('hidden');
+
+    function cleanup() {
+      cancelled = true;
+      modal.classList.add('hidden');
+      urlInput.value = '';
+      startBtn.disabled = true;
+      startBtn.textContent = 'Import';
+      $('#ytmusic-modal-title').textContent = 'Import YouTube Playlists';
+      $('#ytmusic-done-buttons').style.display = 'none';
+    }
+
+    $('#ytmusic-cancel').onclick = cleanup;
+    modal.onclick = (e) => { if (e.target === modal) cleanup(); };
+
+    urlInput.oninput = () => {
+      startBtn.disabled = !urlInput.value.trim();
+    };
+
+    startBtn.onclick = async () => {
+      const lines = urlInput.value.trim().split(/\n/).map(l => l.trim()).filter(Boolean);
+      const playlistIds = [];
+      const skipped = [];
+
+      for (const line of lines) {
+        const match = line.match(/[?&]list=([a-zA-Z0-9_-]+)/);
+        if (!match) continue;
+        const id = match[1];
+        // Auto-generated playlists (radio, mixes) can't be fetched via the API
+        if (/^RD/.test(id) || /^OLAK5uy_/.test(id)) {
+          skipped.push(id);
+        } else {
+          playlistIds.push(id);
+        }
+      }
+
+      if (skipped.length && !playlistIds.length) {
+        errorEl.textContent = 'Auto-generated playlists (radio, mixes) are not supported. Use a regular YouTube or YouTube Music playlist URL.';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+
+      if (!playlistIds.length) {
+        errorEl.textContent = 'No valid YouTube Music playlist URLs found';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+
+      errorEl.classList.add('hidden');
+      startBtn.disabled = true;
+      startBtn.textContent = 'Importing...';
+
+      // Switch to progress view
+      stepUrl.classList.add('hidden');
+      stepProgress.classList.remove('hidden');
+
+      const trackList = $('#ytmusic-track-list');
+      const progressFill = $('#ytmusic-progress-fill');
+      const progressText = $('#ytmusic-progress-text');
+      const progressCount = $('#ytmusic-progress-count');
+
+      let totalImported = 0;
+      let totalPlaylists = 0;
+
+      for (let pi = 0; pi < playlistIds.length; pi++) {
+        if (cancelled) break;
+
+        progressText.textContent = playlistIds.length > 1
+          ? `Fetching playlist ${pi + 1} of ${playlistIds.length}...`
+          : 'Fetching playlist...';
+        progressFill.style.width = `${((pi) / playlistIds.length) * 100}%`;
+        progressCount.textContent = '';
+        trackList.innerHTML = '';
+
+        const result = await window.snowify.getPlaylistVideos(playlistIds[pi]);
+        if (cancelled) break;
+
+        if (result.error) {
+          progressText.textContent = `Error: ${result.error}`;
+          trackList.innerHTML = '<div class="spotify-failed-header">Failed to fetch playlist</div>';
+          continue;
+        }
+
+        const { name, tracks } = result;
+
+        if (playlistIds.length > 1) {
+          $('#ytmusic-modal-title').textContent = `Importing ${pi + 1} of ${playlistIds.length}: ${name}`;
+        } else {
+          $('#ytmusic-modal-title').textContent = name;
+        }
+
+        trackList.innerHTML = tracks.map(t => `
+          <div class="spotify-track-item matched">
+            <span class="spotify-track-status"><svg class="check" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 12.5l-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7z"/></svg></span>
+            <span class="spotify-track-title">${escapeHtml(t.title)}</span>
+            <span class="spotify-track-artist">${escapeHtml(t.artist)}</span>
+          </div>
+        `).join('');
+
+        progressFill.style.width = `${((pi + 1) / playlistIds.length) * 100}%`;
+        progressCount.textContent = `${tracks.length} tracks`;
+        progressText.textContent = `Loaded ${tracks.length} tracks`;
+
+        if (tracks.length) {
+          const playlist = createPlaylist(name);
+          playlist.tracks = tracks;
+          saveState();
+          renderPlaylists();
+          renderLibrary();
+          totalImported += tracks.length;
+          totalPlaylists++;
+        }
+      }
+
+      if (cancelled) {
+        showToast('Import cancelled');
+        return;
+      }
+
+      // Final summary
+      if (playlistIds.length > 1) {
+        $('#ytmusic-modal-title').textContent = 'Import Complete';
+        progressText.textContent = `Imported ${totalPlaylists} playlist${totalPlaylists !== 1 ? 's' : ''} — ${totalImported} tracks total`;
+      } else if (totalPlaylists) {
+        progressText.textContent = `Imported ${totalImported} tracks`;
+      } else {
+        progressText.textContent = 'No tracks found';
+      }
+
+      progressFill.style.width = '100%';
+      progressCount.textContent = '';
+      showToast(totalPlaylists
+        ? `Imported ${totalPlaylists} playlist${totalPlaylists !== 1 ? 's' : ''} — ${totalImported} tracks`
+        : 'No tracks could be imported');
+
+      $('#ytmusic-done-buttons').style.display = '';
+      $('#ytmusic-done').onclick = () => cleanup();
     };
   }
 

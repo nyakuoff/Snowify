@@ -1252,6 +1252,32 @@ ipcMain.handle('spotify:matchTrack', async (_event, title, artist) => {
   }
 });
 
+// ─── YouTube Music Playlist Import ───
+
+ipcMain.handle('yt:getPlaylistVideos', async (_event, playlistId) => {
+  try {
+    const playlist = await ytmusic.getPlaylist(playlistId);
+    const videos = await ytmusic.getPlaylistVideos(playlistId);
+    const tracks = videos
+      .filter(v => v.videoId)
+      .map(v => ({
+        id: v.videoId,
+        title: v.name || 'Unknown',
+        artist: v.artist?.name || 'Unknown Artist',
+        artistId: v.artist?.artistId || null,
+        album: null,
+        thumbnail: getSquareThumbnail(v.thumbnails),
+        duration: formatDuration(v.duration),
+        durationMs: v.duration ? Math.round(v.duration * 1000) : 0,
+        url: `https://music.youtube.com/watch?v=${v.videoId}`
+      }));
+    return { name: playlist.name, videoCount: playlist.videoCount, tracks };
+  } catch (err) {
+    console.error('YT playlist fetch error:', err);
+    return { error: err.message };
+  }
+});
+
 // ─── Playlist Cover Image Management ───
 
 function getCoversDir() {

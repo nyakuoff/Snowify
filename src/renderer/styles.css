@@ -2767,6 +2767,34 @@ html, body {
   background: rgba(0, 0, 0, 0.08);
 }
 
+
+/* ═══════ YouTube Music Import ═══════ */
+.ytmusic-textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  transition: border-color var(--transition);
+  margin-bottom: 12px;
+}
+.ytmusic-textarea:focus {
+  border-color: var(--accent);
+}
+.ytmusic-textarea::placeholder {
+  color: var(--text-subdued);
+}
+[data-theme="light"] .ytmusic-textarea {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
 /* ── Drag & Drop ── */
 .track-row[draggable="true"],
 .track-card[draggable="true"] {
