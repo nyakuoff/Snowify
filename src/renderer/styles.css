@@ -1502,6 +1502,12 @@ html, body {
   border-color: var(--text-subdued);
   color: var(--text-subdued);
 }
+#btn-artist-share {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+}
 
 .artist-section {
   padding: 16px 0;

@@ -334,7 +334,7 @@
       <div class="context-menu-item" data-action="like">${isLiked ? 'Unlike' : 'Like'}</div>
       ${playlistSection}
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="open-yt">Open on YouTube</div>
+      <div class="context-menu-item" data-action="share">Copy Link</div>
     `;
 
     document.body.appendChild(menu);
@@ -386,8 +386,9 @@
         case 'add-to-playlist':
           addToPlaylist(item.dataset.pid, track);
           break;
-        case 'open-yt':
-          if (track.url) window.snowify.openExternal(track.url);
+        case 'share':
+          navigator.clipboard.writeText(track.url || `https://music.youtube.com/watch?v=${track.id}`);
+          showToast('Link copied to clipboard');
           break;
       }
       removeContextMenu();
@@ -400,6 +401,56 @@
 
   function removeContextMenu() {
     document.querySelectorAll('.context-menu').forEach(m => m.remove());
+  }
+
+  function showAlbumContextMenu(e, albumId, meta) {
+    removeContextMenu();
+    const menu = document.createElement('div');
+    menu.className = 'context-menu';
+    menu.style.left = e.clientX + 'px';
+    menu.style.top = e.clientY + 'px';
+
+    menu.innerHTML = `
+      <div class="context-menu-item" data-action="play-all">Play All</div>
+      <div class="context-menu-item" data-action="shuffle">Shuffle Play</div>
+      <div class="context-menu-divider"></div>
+      <div class="context-menu-item" data-action="share">Copy Link</div>
+    `;
+
+    document.body.appendChild(menu);
+    const rect = menu.getBoundingClientRect();
+    if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 8) + 'px';
+    if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 8) + 'px';
+
+    menu.addEventListener('click', async (ev) => {
+      const item = ev.target.closest('.context-menu-item');
+      if (!item) return;
+      switch (item.dataset.action) {
+        case 'play-all': {
+          const album = await window.snowify.albumTracks(albumId);
+          if (album && album.tracks.length) playFromList(album.tracks, 0);
+          else showToast('Could not load album');
+          break;
+        }
+        case 'shuffle': {
+          const album = await window.snowify.albumTracks(albumId);
+          if (album && album.tracks.length) {
+            const shuffled = [...album.tracks].sort(() => Math.random() - 0.5);
+            playFromList(shuffled, 0);
+          } else showToast('Could not load album');
+          break;
+        }
+        case 'share':
+          navigator.clipboard.writeText(`https://music.youtube.com/browse/${albumId}`);
+          showToast('Link copied to clipboard');
+          break;
+      }
+      removeContextMenu();
+    });
+
+    setTimeout(() => {
+      document.addEventListener('click', removeContextMenu, { once: true });
+    }, 10);
   }
 
   async function playTrack(track) {
@@ -1228,7 +1279,7 @@
       ${!isLiked && idx > 0 ? '<div class="context-menu-item" data-action="move-up">Move up</div>' : ''}
       ${!isLiked && idx < playlist.tracks.length - 1 ? '<div class="context-menu-item" data-action="move-down">Move down</div>' : ''}
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="open-yt">Open on YouTube</div>
+      <div class="context-menu-item" data-action="share">Copy Link</div>
     `;
 
     document.body.appendChild(menu);
@@ -1274,8 +1325,9 @@
           saveState();
           showPlaylistDetail(playlist, false);
           break;
-        case 'open-yt':
-          if (track.url) window.snowify.openExternal(track.url);
+        case 'share':
+          navigator.clipboard.writeText(track.url || `https://music.youtube.com/watch?v=${track.id}`);
+          showToast('Link copied to clipboard');
           break;
       }
       removeContextMenu();
@@ -1499,6 +1551,10 @@
         if (album && album.tracks.length) playFromList(album.tracks, 0);
       });
       card.addEventListener('click', () => showAlbumDetail(albumId, meta));
+      card.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        showAlbumContextMenu(e, albumId, meta);
+      });
     });
   }
 
@@ -1873,6 +1929,13 @@
       updateFollowBtn();
     };
 
+    // Share button
+    const shareBtn = $('#btn-artist-share');
+    shareBtn.onclick = () => {
+      navigator.clipboard.writeText(`https://music.youtube.com/channel/${artistId}`);
+      showToast('Link copied to clipboard');
+    };
+
     // Use topSongs for popular section
     const popular = (info.topSongs || []).slice(0, 5);
 
@@ -1917,6 +1980,10 @@
         });
         card.addEventListener('click', () => {
           showAlbumDetail(albumId, meta);
+        });
+        card.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          showAlbumContextMenu(e, albumId, meta);
         });
       });
     }
