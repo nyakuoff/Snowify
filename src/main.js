@@ -36,8 +36,9 @@ function disconnectDiscordRPC() {
 
 function getYtDlpPath() {
   const isWin = process.platform === 'win32';
+  const isMac = process.platform === 'darwin';
   const binName = isWin ? 'yt-dlp.exe' : 'yt-dlp';
-  const subDir = isWin ? 'win' : 'linux';
+  const subDir = isWin ? 'win' : (isMac ? 'mac' : 'linux');
 
   // In production: resources/bin/<platform>/yt-dlp
   const bundled = path.join(process.resourcesPath, 'bin', subDir, binName);
@@ -680,52 +681,79 @@ ipcMain.handle('lyrics:get', async (_event, trackName, artistName, albumName, du
   }
 });
 
-// ─── Spotify Playlist Import ───
+// ─── Spotify Playlist Import (CSV) ───
 
-ipcMain.handle('spotify:fetchPlaylist', async (_event, playlistUrl) => {
-  try {
-    // Extract playlist ID from URL or raw ID
-    const match = playlistUrl.match(/playlist[/:]([a-zA-Z0-9]+)/);
-    const playlistId = match ? match[1] : playlistUrl.trim();
-    if (!playlistId || playlistId.length < 10) return { error: 'Invalid playlist URL' };
-
-    // Fetch the Spotify embed page (no auth needed)
-    const embedUrl = `https://open.spotify.com/embed/playlist/${playlistId}`;
-    const res = await fetch(embedUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
-    });
-    if (!res.ok) {
-      if (res.status === 404) return { error: 'Playlist not found — is it public?' };
-      return { error: `Could not fetch playlist (${res.status})` };
+function parseCsvLine(line) {
+  const fields = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ',') {
+        fields.push(current);
+        current = '';
+      } else {
+        current += ch;
+      }
     }
-
-    const html = await res.text();
-
-    // Extract __NEXT_DATA__ JSON from the embed page
-    const jsonMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([^<]+)<\/script>/);
-    if (!jsonMatch) return { error: 'Could not parse playlist data — Spotify may have changed their embed format' };
-
-    const data = JSON.parse(jsonMatch[1]);
-    const entity = data?.props?.pageProps?.state?.data?.entity;
-    if (!entity || !entity.trackList?.length) return { error: 'Playlist is empty or could not be read' };
-
-    const tracks = entity.trackList
-      .filter(t => t.title)
-      .map(t => ({
-        title: t.title,
-        artist: t.subtitle || 'Unknown Artist',
-        durationMs: t.duration || 0
-      }));
-
-    return {
-      name: entity.name || 'Spotify Playlist',
-      thumbnail: entity.coverArt?.sources?.[0]?.url || '',
-      tracks
-    };
-  } catch (err) {
-    console.error('Spotify fetch error:', err);
-    return { error: err.message };
   }
+  fields.push(current);
+  return fields;
+}
+
+ipcMain.handle('spotify:pickCsv', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Select Spotify CSV export files',
+    filters: [{ name: 'CSV Files', extensions: ['csv'] }],
+    properties: ['openFile', 'multiSelections']
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+
+  const playlists = [];
+  for (const filePath of result.filePaths) {
+    try {
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      const lines = raw.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) continue;
+
+      const headers = parseCsvLine(lines[0]).map(h => h.trim());
+      const titleIdx = headers.findIndex(h => /^(track.?name|title|song.?name|name)$/i.test(h));
+      const artistIdx = headers.findIndex(h => /^(artist.?name|artists?\(?s?\)?|artist)$/i.test(h));
+      if (titleIdx === -1) continue;
+
+      const tracks = [];
+      for (let i = 1; i < lines.length; i++) {
+        const fields = parseCsvLine(lines[i]);
+        const title = fields[titleIdx]?.trim();
+        if (!title) continue;
+        const artist = artistIdx !== -1
+          ? (fields[artistIdx]?.replace(/\\,/g, ', ').trim() || 'Unknown Artist')
+          : 'Unknown Artist';
+        tracks.push({ title, artist });
+      }
+
+      const name = path.basename(filePath, '.csv').replace(/_/g, ' ');
+      playlists.push({ name, tracks });
+    } catch (err) {
+      console.error(`Error parsing CSV ${filePath}:`, err.message);
+    }
+  }
+
+  return playlists.length ? playlists : null;
 });
 
 ipcMain.handle('spotify:matchTrack', async (_event, title, artist) => {

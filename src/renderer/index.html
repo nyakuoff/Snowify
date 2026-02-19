@@ -562,12 +562,16 @@
     <div class="modal-box spotify-modal-box">
       <h3 id="spotify-modal-title">Import Spotify Playlists</h3>
       <div id="spotify-step-url" class="spotify-step">
-        <p class="spotify-step-desc">Paste one or more public Spotify playlist links (one per line).</p>
-        <textarea id="spotify-playlist-url" spellcheck="false" autocomplete="off" placeholder="https://open.spotify.com/playlist/...&#10;https://open.spotify.com/playlist/..." rows="4"></textarea>
+        <p class="spotify-step-desc">Export your Spotify playlists as CSV using <a href="#" id="spotify-exportify-link">playlistexport.com</a>, then import the files here.</p>
+        <button class="modal-btn spotify-pick-btn" id="spotify-pick-files">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Select CSV Files
+        </button>
+        <div id="spotify-file-list" class="spotify-file-list hidden"></div>
         <p class="spotify-error hidden" id="spotify-error"></p>
         <div class="modal-buttons">
           <button class="modal-btn modal-cancel" id="spotify-cancel">Cancel</button>
-          <button class="modal-btn modal-confirm" id="spotify-start">Import</button>
+          <button class="modal-btn modal-confirm" id="spotify-start" disabled>Import</button>
         </div>
       </div>
       <div id="spotify-step-progress" class="spotify-step hidden">

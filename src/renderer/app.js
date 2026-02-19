@@ -2672,23 +2672,27 @@
     else updateSyncStatus('Synced just now');
   }
 
-  // ─── Spotify Import ───
+  // ─── Spotify Import (CSV) ───
 
   function openSpotifyImport() {
     const modal = $('#spotify-modal');
-    const stepUrl = $('#spotify-step-url');
+    const stepSelect = $('#spotify-step-url');
     const stepProgress = $('#spotify-step-progress');
     const errorEl = $('#spotify-error');
+    const fileListEl = $('#spotify-file-list');
+    const startBtn = $('#spotify-start');
 
     let cancelled = false;
+    let pendingPlaylists = null;
 
-    $('#spotify-playlist-url').value = '';
+    // Reset
     errorEl.classList.add('hidden');
-    stepUrl.classList.remove('hidden');
+    fileListEl.classList.add('hidden');
+    fileListEl.innerHTML = '';
+    stepSelect.classList.remove('hidden');
     stepProgress.classList.add('hidden');
+    startBtn.disabled = true;
     modal.classList.remove('hidden');
-
-    setTimeout(() => $('#spotify-playlist-url').focus(), 50);
 
     function cleanup() {
       cancelled = true;
@@ -2697,38 +2701,49 @@
     }
 
     function resetModal() {
-      $('#spotify-start').disabled = false;
-      $('#spotify-start').textContent = 'Import';
+      startBtn.disabled = true;
+      startBtn.textContent = 'Import';
       $('#spotify-modal-title').textContent = 'Import Spotify Playlists';
       $('#spotify-done-buttons').style.display = 'none';
+      pendingPlaylists = null;
     }
 
     $('#spotify-cancel').onclick = cleanup;
     modal.onclick = (e) => { if (e.target === modal) cleanup(); };
 
-    $('#spotify-start').onclick = async () => {
-      const raw = $('#spotify-playlist-url').value.trim();
+    // Open PlaylistExport in system browser
+    $('#spotify-exportify-link').onclick = (e) => {
+      e.preventDefault();
+      window.snowify.openExternal('https://playlistexport.com');
+    };
 
-      if (!raw) {
-        errorEl.textContent = 'Please paste at least one Spotify playlist URL';
-        errorEl.classList.remove('hidden');
-        return;
-      }
+    // Pick CSV files via system dialog
+    $('#spotify-pick-files').onclick = async () => {
+      const playlists = await window.snowify.spotifyPickCsv();
+      if (!playlists || !playlists.length) return;
 
-      // Parse all URLs (one per line, skip blanks)
-      const urls = raw.split('\n').map(l => l.trim()).filter(Boolean);
-      if (!urls.length) {
-        errorEl.textContent = 'Please paste at least one Spotify playlist URL';
+      pendingPlaylists = playlists;
+      fileListEl.innerHTML = playlists.map(p =>
+        `<div class="spotify-file-item"><span class="spotify-file-name">${escapeHtml(p.name)}</span><span class="spotify-file-count">${p.tracks.length} tracks</span></div>`
+      ).join('');
+      fileListEl.classList.remove('hidden');
+      startBtn.disabled = false;
+      errorEl.classList.add('hidden');
+    };
+
+    startBtn.onclick = async () => {
+      if (!pendingPlaylists || !pendingPlaylists.length) {
+        errorEl.textContent = 'Please select at least one CSV file';
         errorEl.classList.remove('hidden');
         return;
       }
 
       errorEl.classList.add('hidden');
-      $('#spotify-start').disabled = true;
-      $('#spotify-start').textContent = 'Fetching...';
+      startBtn.disabled = true;
+      startBtn.textContent = 'Importing...';
 
       // Switch to progress view
-      stepUrl.classList.add('hidden');
+      stepSelect.classList.add('hidden');
       stepProgress.classList.remove('hidden');
 
       const trackList = $('#spotify-track-list');
@@ -2738,47 +2753,29 @@
 
       let totalImported = 0;
       let totalPlaylists = 0;
+      const allFailedTracks = [];
 
-      for (let pi = 0; pi < urls.length; pi++) {
+      for (let pi = 0; pi < pendingPlaylists.length; pi++) {
         if (cancelled) break;
 
-        const url = urls[pi];
+        const pl = pendingPlaylists[pi];
 
-        // Update title for multi-playlist progress
-        if (urls.length > 1) {
-          $('#spotify-modal-title').textContent = `Fetching playlist ${pi + 1} of ${urls.length}...`;
+        if (pendingPlaylists.length > 1) {
+          $('#spotify-modal-title').textContent = `Importing ${pi + 1} of ${pendingPlaylists.length}: ${pl.name}`;
         } else {
-          $('#spotify-modal-title').textContent = 'Fetching playlist...';
+          $('#spotify-modal-title').textContent = pl.name;
         }
 
         progressFill.style.width = '0%';
         progressCount.textContent = '';
-        progressText.textContent = 'Fetching playlist...';
+        progressText.textContent = 'Matching tracks...';
         trackList.innerHTML = '';
 
-        let result;
-        try {
-          result = await window.snowify.spotifyFetchPlaylist(url);
-        } catch (err) {
-          if (cancelled) break;
-          trackList.innerHTML += `<div class="spotify-track-item unmatched"><span class="spotify-track-status"><svg class="cross" width="16" height="16" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></span><span class="spotify-track-title">Failed: ${escapeHtml(url)}</span><span class="spotify-track-artist">${escapeHtml(err.message)}</span></div>`;
-          continue;
-        }
-
-        if (cancelled) break;
-
-        if (result?.error) {
-          trackList.innerHTML += `<div class="spotify-track-item unmatched"><span class="spotify-track-status"><svg class="cross" width="16" height="16" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></span><span class="spotify-track-title">Failed: ${escapeHtml(url)}</span><span class="spotify-track-artist">${escapeHtml(result.error)}</span></div>`;
-          continue;
-        }
-
-        if (!result.tracks?.length) continue;
-
-        $('#spotify-modal-title').textContent = result.name;
-        const total = result.tracks.length;
+        const total = pl.tracks.length;
+        const BATCH_SIZE = 3;
 
         // Populate track list
-        trackList.innerHTML = result.tracks.map((t, i) => `
+        trackList.innerHTML = pl.tracks.map((t, i) => `
           <div class="spotify-track-item pending" id="sp-track-${i}">
             <span class="spotify-track-status"><span class="dots">•••</span></span>
             <span class="spotify-track-title">${escapeHtml(t.title)}</span>
@@ -2786,56 +2783,64 @@
           </div>
         `).join('');
 
-        // Match tracks one by one
+        // Match tracks in concurrent batches for speed
         const matchedTracks = [];
+        const failedTracks = [];
         let matched = 0;
         let failed = 0;
 
-        for (let i = 0; i < total; i++) {
+        for (let i = 0; i < total; i += BATCH_SIZE) {
           if (cancelled) break;
 
-          const t = result.tracks[i];
-          const el = $(`#sp-track-${i}`);
-          progressCount.textContent = `${i + 1} / ${total}`;
-          progressFill.style.width = `${((i + 1) / total) * 100}%`;
-          progressText.textContent = urls.length > 1
-            ? `Playlist ${pi + 1}/${urls.length} — Matching tracks...`
+          const batch = pl.tracks.slice(i, Math.min(i + BATCH_SIZE, total));
+          const promises = batch.map((t, bi) => {
+            const idx = i + bi;
+            return window.snowify.spotifyMatchTrack(t.title, t.artist)
+              .catch(() => null)
+              .then(result => ({ idx, result }));
+          });
+
+          const results = await Promise.all(promises);
+          if (cancelled) break;
+
+          for (const { idx, result } of results) {
+            const t = pl.tracks[idx];
+            const el = $(`#sp-track-${idx}`);
+
+            if (result) {
+              matchedTracks.push(result);
+              matched++;
+              if (el) {
+                el.classList.remove('pending');
+                el.classList.add('matched');
+                el.querySelector('.spotify-track-status').innerHTML = '<svg class="check" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 12.5l-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7z"/></svg>';
+              }
+            } else {
+              failedTracks.push({ title: t.title, artist: t.artist });
+              failed++;
+              if (el) {
+                el.classList.remove('pending');
+                el.classList.add('unmatched');
+                el.querySelector('.spotify-track-status').innerHTML = '<svg class="cross" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>';
+              }
+            }
+          }
+
+          // Update progress after each batch
+          const done = Math.min(i + BATCH_SIZE, total);
+          progressCount.textContent = `${done} / ${total}`;
+          progressFill.style.width = `${(done / total) * 100}%`;
+          progressText.textContent = pendingPlaylists.length > 1
+            ? `Playlist ${pi + 1}/${pendingPlaylists.length} — Matching tracks...`
             : 'Matching tracks...';
 
-          el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-
-          let match;
-          try {
-            match = await window.snowify.spotifyMatchTrack(t.title, t.artist);
-          } catch {
-            if (cancelled) break;
-            match = null;
-          }
-
-          if (cancelled) break;
-
-          if (match) {
-            matchedTracks.push(match);
-            matched++;
-            if (el) {
-              el.classList.remove('pending');
-              el.classList.add('matched');
-              el.querySelector('.spotify-track-status').innerHTML = '<svg class="check" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 12.5l-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7z"/></svg>';
-            }
-          } else {
-            failed++;
-            if (el) {
-              el.classList.remove('pending');
-              el.classList.add('unmatched');
-              el.querySelector('.spotify-track-status').innerHTML = '<svg class="cross" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>';
-            }
-          }
+          const lastEl = $(`#sp-track-${Math.min(i + BATCH_SIZE, total) - 1}`);
+          lastEl?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }
 
         if (cancelled) {
-          // Save whatever was matched before cancellation
           if (matchedTracks.length) {
-            const playlist = createPlaylist(result.name);
+            const playlist = createPlaylist(pl.name);
             playlist.tracks = matchedTracks;
             saveState();
             renderPlaylists();
@@ -2846,7 +2851,7 @@
 
         // Create the playlist
         if (matchedTracks.length) {
-          const playlist = createPlaylist(result.name);
+          const playlist = createPlaylist(pl.name);
           playlist.tracks = matchedTracks;
           saveState();
           renderPlaylists();
@@ -2855,6 +2860,7 @@
           totalPlaylists++;
         }
 
+        allFailedTracks.push(...failedTracks);
         progressText.textContent = `Matched ${matched} of ${total}` + (failed ? ` (${failed} not found)` : '');
       }
 
@@ -2864,17 +2870,27 @@
       }
 
       // Final summary
-      if (urls.length > 1) {
+      if (pendingPlaylists.length > 1) {
         $('#spotify-modal-title').textContent = 'Import Complete';
         progressText.textContent = `Imported ${totalPlaylists} playlist${totalPlaylists !== 1 ? 's' : ''} — ${totalImported} tracks total`;
         progressFill.style.width = '100%';
         progressCount.textContent = '';
-        trackList.innerHTML = '';
         showToast(`Imported ${totalPlaylists} playlist${totalPlaylists !== 1 ? 's' : ''} — ${totalImported} tracks`);
       } else if (totalPlaylists) {
         showToast(`Imported ${totalImported} tracks`);
       } else {
         showToast('No tracks could be matched');
+      }
+
+      // Show failed tracks summary
+      if (allFailedTracks.length) {
+        trackList.innerHTML = `<div class="spotify-failed-header">Failed to match (${allFailedTracks.length})</div>` +
+          allFailedTracks.map(t =>
+            `<div class="spotify-track-item unmatched"><span class="spotify-track-status"><svg class="cross" width="16" height="16" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></span><span class="spotify-track-title">${escapeHtml(t.title)}</span><span class="spotify-track-artist">${escapeHtml(t.artist)}</span></div>`
+          ).join('');
+        trackList.scrollTop = 0;
+      } else {
+        trackList.innerHTML = '';
       }
 
       // Show done button

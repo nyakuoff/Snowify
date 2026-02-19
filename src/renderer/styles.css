@@ -2453,29 +2453,6 @@ html, body {
   min-width: 420px;
   max-width: 520px;
 }
-.spotify-modal-box textarea {
-  width: 100%;
-  padding: 10px 14px;
-  border-radius: var(--radius);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-primary);
-  font-family: var(--font);
-  font-size: 13px;
-  line-height: 1.6;
-  outline: none;
-  resize: vertical;
-  min-height: 80px;
-  max-height: 200px;
-  transition: border-color var(--transition), box-shadow var(--transition);
-}
-.spotify-modal-box textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-dim);
-}
-.spotify-modal-box textarea::placeholder {
-  color: var(--text-subdued);
-}
 .spotify-step-desc {
   font-size: 13px;
   color: var(--text-secondary);
@@ -2488,6 +2465,70 @@ html, body {
 }
 .spotify-step-desc a:hover {
   text-decoration: underline;
+}
+.spotify-pick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+  width: 100%;
+  justify-content: center;
+}
+.spotify-pick-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent);
+}
+.spotify-pick-btn svg {
+  opacity: 0.7;
+}
+.spotify-file-list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+.spotify-file-list.hidden { display: none; }
+.spotify-file-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+.spotify-file-name {
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  text-transform: capitalize;
+}
+.spotify-file-count {
+  color: var(--text-subdued);
+  font-size: 12px;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+[data-theme="light"] .spotify-pick-btn {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+[data-theme="light"] .spotify-pick-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .spotify-file-item {
+  background: rgba(0, 0, 0, 0.04);
 }
 .spotify-error {
   font-size: 13px;
@@ -2579,12 +2620,16 @@ html, body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.spotify-failed-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--red);
+  padding: 8px 10px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
 [data-theme="light"] .spotify-progress-bar {
   background: rgba(0, 0, 0, 0.08);
-}
-[data-theme="light"] .spotify-modal-box textarea {
-  background: rgba(0, 0, 0, 0.04);
-  border-color: rgba(0, 0, 0, 0.1);
 }
 
 /* ── Drag & Drop ── */

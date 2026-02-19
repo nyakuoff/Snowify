@@ -8,6 +8,7 @@
     "dev": "electron . --dev",
     "build": "electron-builder --linux",
     "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
     "build:all": "electron-builder --linux --win"
   },
   "keywords": [
@@ -60,6 +61,22 @@
           "to": "bin/win",
           "filter": [
             "yt-dlp.exe"
+          ]
+        }
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/logo.png",
+      "category": "public.app-category.music",
+      "extraResources": [
+        {
+          "from": "bin/mac",
+          "to": "bin/mac",
+          "filter": [
+            "yt-dlp"
           ]
         }
       ]
