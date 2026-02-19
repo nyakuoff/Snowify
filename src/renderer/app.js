@@ -4,7 +4,21 @@
   const $ = (sel, ctx = document) => ctx.querySelector(sel);
   const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 
-  const audio = $('#audio-player');
+  const audioA = $('#audio-player');
+  const audioB = $('#audio-player-b');
+  let audio = audioA;           
+  let activeAudio = audioA;
+  let standbyAudio = audioB;
+
+  // ─── Crossfade / Preload state ───
+  const CROSSFADE_MAX = 12;
+  let crossfadeTimer = null;
+  let crossfadeInProgress = false;
+  let crossfadeTriggered = false;
+  let preloadedTrack = null;
+  let preloadedUrl = null;
+  let preloadTriggered = false;
+
   const views = $$('.view');
   const navBtns = $$('.nav-btn');
 
@@ -35,7 +49,8 @@
     animations: true,
     effects: true,
     theme: 'dark',
-    discordRpc: false
+    discordRpc: false,
+    crossfade: 0
   };
 
   function saveState() {
@@ -55,7 +70,8 @@
       animations: state.animations,
       effects: state.effects,
       theme: state.theme,
-      discordRpc: state.discordRpc
+      discordRpc: state.discordRpc,
+      crossfade: state.crossfade
     }));
     localStorage.setItem('snowify_lastSave', String(Date.now()));
     cloudSaveDebounced();
@@ -96,6 +112,7 @@
         state.effects = saved.effects ?? true;
         state.theme = saved.theme || 'dark';
         state.discordRpc = saved.discordRpc ?? false;
+        state.crossfade = saved.crossfade ?? 0;
       }
     } catch (_) {}
   }
@@ -373,6 +390,7 @@
           } else {
             state.queue.push(track);
           }
+          clearPreload();
           showToast('Added to play next');
           break;
         case 'add-queue':
@@ -454,22 +472,46 @@
   }
 
   async function playTrack(track) {
+    if (crossfadeInProgress) cancelCrossfade();
+
+    // Check preloaded BEFORE clearing — if it matches, use the standby
+    const usePreloaded = preloadedTrack && preloadedTrack.id === track.id && preloadedUrl;
+    if (!usePreloaded) clearPreload();
+
     state.isLoading = true;
     updatePlayButton();
     showNowPlaying(track);
-    showToast(`Loading: ${track.title}`);
 
     try {
-      const directUrl = await window.snowify.getStreamUrl(track.url, state.audioQuality);
-      audio.src = directUrl;
+      if (usePreloaded) {
+        const oldActive = activeAudio;
+        unbindAudioEvents(oldActive);
+        oldActive.pause();
+        oldActive.removeAttribute('src');
+        oldActive.load();
+
+        activeAudio = standbyAudio;
+        standbyAudio = oldActive;
+        audio = activeAudio;
+        bindAudioEvents(audio);
+        preloadedTrack = null;
+        preloadedUrl = null;
+      } else {
+        showToast(`Loading: ${track.title}`);
+        const directUrl = await window.snowify.getStreamUrl(track.url, state.audioQuality);
+        audio.src = directUrl;
+        audio.load();
+      }
+
       audio.volume = state.volume * 0.3;
-      audio.load();
       await audio.play();
       state.isPlaying = true;
       state.isLoading = false;
       addToRecent(track);
       updateDiscordPresence(track);
       saveState();
+      // Reset preload flags so next track gets preloaded
+      preloadTriggered = false;
     } catch (err) {
       console.error('Playback error:', err);
       const msg = typeof err === 'string' ? err : (err.message || 'unknown error');
@@ -478,7 +520,6 @@
       state.isLoading = false;
       updatePlayButton();
       updateTrackHighlight();
-      // Auto-advance to next track on failure (avoid infinite loop via flag)
       if (!playTrack._skipAdvance) {
         const nextIdx = state.queueIndex + 1;
         if (nextIdx < state.queue.length) {
@@ -495,6 +536,8 @@
   }
 
   function playFromList(tracks, index) {
+    if (crossfadeInProgress) cancelCrossfade();
+    clearPreload();
     state.originalQueue = [...tracks];
     if (state.shuffle) {
       const picked = tracks[index];
@@ -514,9 +557,11 @@
   }
 
   function playNext() {
+    if (crossfadeInProgress) cancelCrossfade();
     if (!state.queue.length) return;
 
     if (state.repeat === 'one') {
+      clearPreload();
       audio.currentTime = 0;
       audio.play();
       state.isPlaying = true;
@@ -535,6 +580,7 @@
 
     let nextIdx = state.queueIndex + 1;
     if (nextIdx >= state.queue.length) {
+      clearPreload();
       if (state.autoplay) {
         smartQueueFill();
         return;
@@ -615,11 +661,13 @@
   }
 
   function playPrev() {
+    if (crossfadeInProgress) cancelCrossfade();
     if (!state.queue.length) return;
     if (audio.currentTime > 3) {
       audio.currentTime = 0;
       return;
     }
+    clearPreload();
     let prevIdx = state.queueIndex - 1;
     if (prevIdx < 0) prevIdx = 0;
     state.queueIndex = prevIdx;
@@ -659,6 +707,7 @@
       const track = state.queue[state.queueIndex];
       if (track) updateDiscordPresence(track);
     } else {
+      if (crossfadeInProgress) cancelCrossfade();
       audio.pause();
       state.isPlaying = false;
       clearDiscordPresence();
@@ -666,35 +715,299 @@
     updatePlayButton();
   }
 
-  audio.addEventListener('ended', playNext);
-  audio.addEventListener('timeupdate', updateProgress);
-  audio.addEventListener('seeked', () => {
+  // ─── Named audio event handlers (for dual-audio swap) ───
+  function onAudioEnded() {
+    if (crossfadeInProgress) return; // crossfade handles transition
+    // If preloaded track is ready, do gapless swap
+    if (preloadedTrack && state.repeat !== 'one') {
+      doGaplessSwap();
+    } else {
+      playNext();
+    }
+  }
+
+  function onAudioTimeUpdate() {
+    updateProgress();
+    checkPreload();
+    checkCrossfadeTrigger();
+  }
+
+  function onAudioSeeked() {
+    if (crossfadeInProgress) cancelCrossfade();
     if (state.isPlaying) {
       const track = state.queue[state.queueIndex];
       if (track) updateDiscordPresence(track);
     }
-  });
-  audio.addEventListener('error', () => {
+  }
+
+  function onAudioError() {
     state.isPlaying = false;
     state.isLoading = false;
     updatePlayButton();
     clearDiscordPresence();
     showToast('Audio error — skipping to next track');
-    // Auto-advance on audio error
     const nextIdx = state.queueIndex + 1;
     if (nextIdx < state.queue.length) {
       state.queueIndex = nextIdx;
       playTrack(state.queue[nextIdx]);
       renderQueue();
     }
-  });
+  }
+
+  function onAudioCanPlayThrough() {
+    triggerPreload();
+  }
+
+  function bindAudioEvents(el) {
+    el.addEventListener('ended', onAudioEnded);
+    el.addEventListener('timeupdate', onAudioTimeUpdate);
+    el.addEventListener('seeked', onAudioSeeked);
+    el.addEventListener('error', onAudioError);
+    el.addEventListener('canplaythrough', onAudioCanPlayThrough);
+  }
+
+  function unbindAudioEvents(el) {
+    el.removeEventListener('ended', onAudioEnded);
+    el.removeEventListener('timeupdate', onAudioTimeUpdate);
+    el.removeEventListener('seeked', onAudioSeeked);
+    el.removeEventListener('error', onAudioError);
+    el.removeEventListener('canplaythrough', onAudioCanPlayThrough);
+  }
+
+  bindAudioEvents(audio);
+
+  // ─── Preloading system ───
+  function getNextTrack() {
+    if (!state.queue.length) return null;
+    if (state.repeat === 'one') return null; // repeat-one restarts, no preload
+    if (state.repeat === 'all') {
+      let nextIdx = state.queueIndex + 1;
+      if (nextIdx >= state.queue.length) nextIdx = 0;
+      return state.queue[nextIdx] || null;
+    }
+    // Normal / off
+    const nextIdx = state.queueIndex + 1;
+    if (nextIdx >= state.queue.length) return null; // end of queue (autoplay handled separately)
+    return state.queue[nextIdx];
+  }
+
+  function triggerPreload() {
+    if (preloadTriggered) return;
+    preloadTriggered = true;
+    preloadNextTrack();
+  }
+
+  async function preloadNextTrack() {
+    const next = getNextTrack();
+    if (!next) return;
+    // Already preloaded this track?
+    if (preloadedTrack && preloadedTrack.id === next.id && preloadedUrl) return;
+    try {
+      const url = await window.snowify.getStreamUrl(next.url, state.audioQuality);
+      // Check the next track hasn't changed while we were fetching
+      const currentNext = getNextTrack();
+      if (!currentNext || currentNext.id !== next.id) return;
+      preloadedTrack = next;
+      preloadedUrl = url;
+      standbyAudio.src = url;
+      standbyAudio.load();
+    } catch (err) {
+      console.warn('Preload failed (will fallback):', err);
+      preloadedTrack = null;
+      preloadedUrl = null;
+    }
+  }
+
+  function clearPreload() {
+    preloadedTrack = null;
+    preloadedUrl = null;
+    preloadTriggered = false;
+    standbyAudio.removeAttribute('src');
+    standbyAudio.load(); // reset standby
+  }
+
+  function checkPreload() {
+    // If preload hasn't triggered and we have duration, try preloading
+    if (!preloadTriggered && audio.duration > 0 && audio.currentTime > 0) {
+      triggerPreload();
+    }
+  }
+
+  // ─── Gapless swap (crossfade OFF) ───
+  function doGaplessSwap() {
+    if (!preloadedTrack) { playNext(); return; }
+    // Advance queue index
+    advanceQueueIndex();
+    // Swap audio elements
+    swapAudioElements();
+    // Play the new active (was standby, already loaded)
+    audio.volume = state.volume * 0.3;
+    audio.play().catch(() => { playNext(); return; });
+    state.isPlaying = true;
+    state.isLoading = false;
+    const track = state.queue[state.queueIndex];
+    showNowPlaying(track);
+    addToRecent(track);
+    updateDiscordPresence(track);
+    updatePlayButton();
+    updateTrackHighlight();
+    renderQueue();
+    saveState();
+    // Preload the NEXT track after this one
+    preloadTriggered = false;
+    triggerPreload();
+  }
+
+  function advanceQueueIndex() {
+    if (state.repeat === 'all') {
+      state.queueIndex = (state.queueIndex + 1) % state.queue.length;
+    } else {
+      state.queueIndex++;
+    }
+  }
+
+  function swapAudioElements() {
+    const oldActive = activeAudio;
+    unbindAudioEvents(oldActive);
+    oldActive.pause();
+    oldActive.removeAttribute('src');
+    oldActive.load();
+
+    activeAudio = standbyAudio;
+    standbyAudio = oldActive;
+    audio = activeAudio;
+    bindAudioEvents(audio);
+    preloadedTrack = null;
+    preloadedUrl = null;
+  }
+
+  // ─── Crossfade system ───
+  function checkCrossfadeTrigger() {
+    if (state.crossfade <= 0) return;
+    if (crossfadeInProgress || crossfadeTriggered) return;
+    if (!audio.duration || audio.duration === Infinity) return;
+    // Don't crossfade if song is shorter than 2x the fade duration
+    if (audio.duration < state.crossfade * 2) return;
+    const remaining = audio.duration - audio.currentTime;
+    if (remaining <= state.crossfade && remaining > 0) {
+      crossfadeTriggered = true;
+      startCrossfade();
+    }
+  }
+
+  async function startCrossfade() {
+    const nextTrack = getNextTrack();
+    if (!nextTrack) { crossfadeTriggered = false; return; }
+
+    crossfadeInProgress = true;
+
+    try {
+      // Use preloaded track if available, otherwise fetch
+      if (preloadedTrack && preloadedTrack.id === nextTrack.id && preloadedUrl) {
+        // standbyAudio already has the URL loaded
+      } else {
+        const url = await window.snowify.getStreamUrl(nextTrack.url, state.audioQuality);
+        standbyAudio.src = url;
+        standbyAudio.load();
+        preloadedTrack = nextTrack;
+        preloadedUrl = url;
+      }
+
+      // Start playing standby at volume 0
+      standbyAudio.volume = 0;
+      await standbyAudio.play();
+
+      // Advance queue
+      advanceQueueIndex();
+
+      // Update UI to new track immediately
+      const track = state.queue[state.queueIndex];
+      showNowPlaying(track);
+      addToRecent(track);
+      updateDiscordPresence(track);
+      updateTrackHighlight();
+      renderQueue();
+      saveState();
+
+      // Unbind ended from old audio so it doesn't trigger playNext
+      activeAudio.removeEventListener('ended', onAudioEnded);
+
+      // Ramp volumes over crossfade duration
+      const fadeDuration = state.crossfade * 1000;
+      const stepMs = 50;
+      const steps = fadeDuration / stepMs;
+      let step = 0;
+      const oldAudio = activeAudio;
+      const startVolume = oldAudio.volume;
+
+      crossfadeTimer = setInterval(() => {
+        step++;
+        const progress = Math.min(step / steps, 1);
+        oldAudio.volume = Math.max(0, startVolume * (1 - progress));
+        standbyAudio.volume = state.volume * 0.3 * progress;
+        if (progress >= 1) {
+          completeCrossfade(oldAudio);
+        }
+      }, stepMs);
+    } catch (err) {
+      console.warn('Crossfade failed, falling back:', err);
+      cancelCrossfade();
+      // Revert queue index since we advanced it
+      if (state.repeat === 'all') {
+        state.queueIndex = (state.queueIndex - 1 + state.queue.length) % state.queue.length;
+      } else {
+        state.queueIndex = Math.max(0, state.queueIndex - 1);
+      }
+    }
+  }
+
+  function completeCrossfade(oldAudio) {
+    clearInterval(crossfadeTimer);
+    crossfadeTimer = null;
+    // Stop old audio
+    oldAudio.pause();
+    oldAudio.removeAttribute('src');
+    oldAudio.load();
+    unbindAudioEvents(oldAudio);
+    // Swap roles
+    activeAudio = standbyAudio;
+    standbyAudio = oldAudio;
+    audio = activeAudio;
+    bindAudioEvents(audio);
+    audio.volume = state.volume * 0.3;
+    preloadedTrack = null;
+    preloadedUrl = null;
+    crossfadeInProgress = false;
+    crossfadeTriggered = false;
+    // Start preloading next
+    preloadTriggered = false;
+    triggerPreload();
+    updatePlayButton();
+  }
+
+  function cancelCrossfade() {
+    if (!crossfadeInProgress) return;
+    clearInterval(crossfadeTimer);
+    crossfadeTimer = null;
+    // Stop standby, restore active volume
+    standbyAudio.pause();
+    standbyAudio.removeAttribute('src');
+    standbyAudio.load();
+    audio.volume = state.volume * 0.3;
+    // Re-bind ended on active (was removed during crossfade)
+    activeAudio.addEventListener('ended', onAudioEnded);
+    crossfadeInProgress = false;
+    crossfadeTriggered = false;
+    preloadedTrack = null;
+    preloadedUrl = null;
+  }
 
   // ─── Playback watchdog ───
   let _watchdogLastTime = -1;
   let _watchdogStallTicks = 0;
   const _watchdogHandle = setInterval(() => {
-    // Only check when we think we're playing
-    if (!state.isPlaying || state.isLoading || audio.paused) {
+    // Only check when we think we're playing; skip during crossfade
+    if (crossfadeInProgress || !state.isPlaying || state.isLoading || audio.paused) {
       _watchdogLastTime = -1;
       _watchdogStallTicks = 0;
       return;
@@ -741,6 +1054,7 @@
         state.queue = [...state.originalQueue];
         state.queueIndex = idx >= 0 ? idx : 0;
       }
+      clearPreload();
       renderQueue();
     }
 
@@ -754,6 +1068,7 @@
     state.repeat = modes[i];
     btnRepeat.classList.toggle('active', state.repeat !== 'off');
     updateRepeatButton();
+    clearPreload();
     saveState();
   });
 
@@ -788,11 +1103,13 @@
   const progressFill = $('#progress-fill');
 
   function updateProgress() {
-    if (!audio.duration) return;
-    const pct = (audio.currentTime / audio.duration) * 100;
+    // During crossfade, show progress of the incoming track (standby)
+    const src = crossfadeInProgress ? standbyAudio : audio;
+    if (!src.duration) return;
+    const pct = (src.currentTime / src.duration) * 100;
     progressFill.style.width = pct + '%';
-    $('#time-current').textContent = formatTime(audio.currentTime);
-    $('#time-total').textContent = formatTime(audio.duration);
+    $('#time-current').textContent = formatTime(src.currentTime);
+    $('#time-total').textContent = formatTime(src.duration);
   }
 
   let isDraggingProgress = false;
@@ -806,9 +1123,11 @@
   document.addEventListener('mouseup', () => { isDraggingProgress = false; });
 
   function seekTo(e) {
+    if (crossfadeInProgress) cancelCrossfade();
     const rect = progressBar.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     if (audio.duration) {
+      crossfadeTriggered = false; // allow re-trigger after seek
       audio.currentTime = pct * audio.duration;
       progressFill.style.width = (pct * 100) + '%';
     }
@@ -820,7 +1139,10 @@
 
   function setVolume(vol) {
     state.volume = Math.max(0, Math.min(1, vol));
-    audio.volume = state.volume * 0.3;
+    // During crossfade, the timer handles volumes; just update state
+    if (!crossfadeInProgress) {
+      audio.volume = state.volume * 0.3;
+    }
     volumeFill.style.width = (state.volume * 100) + '%';
     const isMuted = state.volume === 0;
     $('.vol-icon', btnVolume).classList.toggle('hidden', isMuted);
@@ -906,7 +1228,7 @@
         artwork: [{ src: track.thumbnail, sizes: '512x512', type: 'image/jpeg' }]
       });
       navigator.mediaSession.setActionHandler('play', () => { audio.play(); state.isPlaying = true; updatePlayButton(); updateDiscordPresence(track); });
-      navigator.mediaSession.setActionHandler('pause', () => { audio.pause(); state.isPlaying = false; updatePlayButton(); clearDiscordPresence(); });
+      navigator.mediaSession.setActionHandler('pause', () => { if (crossfadeInProgress) cancelCrossfade(); audio.pause(); state.isPlaying = false; updatePlayButton(); clearDiscordPresence(); });
       navigator.mediaSession.setActionHandler('previoustrack', playPrev);
       navigator.mediaSession.setActionHandler('nexttrack', playNext);
     }
@@ -1296,6 +1618,7 @@
         case 'play-next':
           if (state.queueIndex >= 0) state.queue.splice(state.queueIndex + 1, 0, track);
           else state.queue.push(track);
+          clearPreload();
           showToast('Added to play next');
           break;
         case 'add-queue': state.queue.push(track); showToast('Added to queue'); break;
@@ -1724,11 +2047,19 @@
         break;
       case 'ArrowRight':
         if (e.ctrlKey) playNext();
-        else if (audio.duration) audio.currentTime = Math.min(audio.duration, audio.currentTime + 5);
+        else if (audio.duration) {
+          if (crossfadeInProgress) cancelCrossfade();
+          crossfadeTriggered = false;
+          audio.currentTime = Math.min(audio.duration, audio.currentTime + 5);
+        }
         break;
       case 'ArrowLeft':
         if (e.ctrlKey) playPrev();
-        else if (audio.duration) audio.currentTime = Math.max(0, audio.currentTime - 5);
+        else if (audio.duration) {
+          if (crossfadeInProgress) cancelCrossfade();
+          crossfadeTriggered = false;
+          audio.currentTime = Math.max(0, audio.currentTime - 5);
+        }
         break;
       case 'ArrowUp':
         e.preventDefault();
@@ -2587,7 +2918,8 @@
         animations: state.animations,
         effects: state.effects,
         theme: state.theme,
-        discordRpc: state.discordRpc
+        discordRpc: state.discordRpc,
+        crossfade: state.crossfade
       };
       const result = await window.snowify.cloudSave(data);
       if (result?.error) console.error('Cloud save failed:', result.error);
@@ -2619,6 +2951,7 @@
       state.effects = cloud.effects ?? state.effects;
       state.theme = cloud.theme || state.theme;
       state.discordRpc = cloud.discordRpc ?? state.discordRpc;
+      state.crossfade = cloud.crossfade ?? state.crossfade;
       // Pause cloud save so saveState() doesn't push old data back up
       _cloudSyncPaused = true;
       saveState();
@@ -2639,6 +2972,15 @@
       const an = $('#setting-animations'); if (an) an.checked = state.animations;
       const ef = $('#setting-effects'); if (ef) ef.checked = state.effects;
       const dr = $('#setting-discord-rpc'); if (dr) dr.checked = state.discordRpc;
+      const cft = $('#setting-crossfade-toggle'); if (cft) cft.checked = state.crossfade > 0;
+      const cfsl = $('#crossfade-slider-row'); if (cfsl) cfsl.classList.toggle('hidden', state.crossfade <= 0);
+      const cff = $('#crossfade-fill');
+      const cfvl = $('#crossfade-value');
+      if (cff && cfvl) {
+        const v = state.crossfade > 0 ? state.crossfade : 5;
+        cff.style.width = ((v - 1) / (CROSSFADE_MAX - 1) * 100) + '%';
+        cfvl.textContent = v + 's';
+      }
       document.documentElement.classList.toggle('no-animations', !state.animations);
       document.documentElement.classList.toggle('no-effects', !state.effects);
       audio.volume = state.volume * 0.3;
@@ -2977,10 +3319,23 @@
     const animationsToggle = $('#setting-animations');
     const effectsToggle = $('#setting-effects');
     const discordRpcToggle = $('#setting-discord-rpc');
+    const crossfadeToggle = $('#setting-crossfade-toggle');
+    const crossfadeSlider = $('#crossfade-slider');
+    const crossfadeFill = $('#crossfade-fill');
+    const crossfadeSliderRow = $('#crossfade-slider-row');
+    const crossfadeValueLabel = $('#crossfade-value');
+    let _cfDragging = false;
+    let _cfValue = state.crossfade > 0 ? state.crossfade : 5; // internal slider value
 
     autoplayToggle.checked = state.autoplay;
     discordRpcToggle.checked = state.discordRpc;
     qualitySelect.value = state.audioQuality;
+
+    // Crossfade: toggle ON if value > 0, show slider
+    crossfadeToggle.checked = state.crossfade > 0;
+    crossfadeSliderRow.classList.toggle('hidden', state.crossfade <= 0);
+    $('.crossfade-label-max').textContent = CROSSFADE_MAX + 's';
+    updateCrossfadeSlider(_cfValue);
     videoQualitySelect.value = state.videoQuality;
     videoPremuxedToggle.checked = state.videoPremuxed;
     videoQualitySelect.disabled = state.videoPremuxed;
@@ -3041,6 +3396,43 @@
 
     qualitySelect.addEventListener('change', () => {
       state.audioQuality = qualitySelect.value;
+      saveState();
+    });
+
+    function updateCrossfadeSlider(val) {
+      _cfValue = Math.max(1, Math.min(CROSSFADE_MAX, val));
+      const pct = ((_cfValue - 1) / (CROSSFADE_MAX - 1)) * 100;
+      crossfadeFill.style.width = pct + '%';
+      crossfadeValueLabel.textContent = _cfValue + 's';
+    }
+
+    function setCrossfadeFromPointer(e) {
+      const rect = crossfadeSlider.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const raw = 1 + pct * (CROSSFADE_MAX - 1);
+      const snapped = Math.round(raw);
+      updateCrossfadeSlider(snapped);
+      state.crossfade = _cfValue;
+      saveState();
+    }
+
+    crossfadeSlider.addEventListener('mousedown', (e) => {
+      _cfDragging = true;
+      setCrossfadeFromPointer(e);
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (_cfDragging) setCrossfadeFromPointer(e);
+    });
+    document.addEventListener('mouseup', () => { _cfDragging = false; });
+
+    crossfadeToggle.addEventListener('change', () => {
+      if (crossfadeToggle.checked) {
+        state.crossfade = _cfValue;
+        crossfadeSliderRow.classList.remove('hidden');
+      } else {
+        state.crossfade = 0;
+        crossfadeSliderRow.classList.add('hidden');
+      }
       saveState();
     });
 
