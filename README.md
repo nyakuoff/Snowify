@@ -23,6 +23,14 @@ A desktop music player built with Electron that streams audio from YouTube Music
 - **Themes** — Built-in color themes
 - **Keyboard Shortcuts** — Full keyboard control (see below)
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Home](assets/screenshots/home.png) | ![Artist](assets/screenshots/artist.png) |
+| ![Lyrics](assets/screenshots/lyrics.png) | ![Playlist](assets/screenshots/playlist.png) |
+| ![Login](assets/screenshots/login.png) | ![Discord RPC](assets/screenshots/discord-rpc.png) |
+
 ## Getting Started
 
 You'll need [Node.js](https://nodejs.org/) (v18+) and [yt-dlp](https://github.com/yt-dlp/yt-dlp) installed on your system.
