@@ -1,4 +1,4 @@
-# Snowify
+# [Snowify](https://nyakuoff.github.io/Snowify-Website/)
 
 A desktop music player built with Electron that streams audio from YouTube Music. Clean UI, no accounts, no ads.
 
