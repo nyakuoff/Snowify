@@ -381,6 +381,28 @@
                 <option value="worstaudio">Low</option>
               </select>
             </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label">Crossfade</span>
+                <span class="setting-desc">Smoothly transition between songs</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-crossfade-toggle" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="setting-row crossfade-slider-row hidden" id="crossfade-slider-row">
+              <div class="crossfade-slider-wrap">
+                <span class="crossfade-label-min">1s</span>
+                <div class="crossfade-slider" id="crossfade-slider">
+                  <div class="crossfade-fill" id="crossfade-fill">
+                    <div class="crossfade-handle" id="crossfade-handle"></div>
+                  </div>
+                </div>
+                <span class="crossfade-label-max">12s</span>
+                <span class="crossfade-label-value" id="crossfade-value">5s</span>
+              </div>
+            </div>
           </div>
           <div class="settings-group">
             <h3>Video</h3>
@@ -687,6 +709,7 @@
   <div id="toast" class="toast hidden"></div>
 
   <audio id="audio-player" preload="auto"></audio>
+  <audio id="audio-player-b" preload="auto"></audio>
   <script src="app.js"></script>
 </body>
 </html>
