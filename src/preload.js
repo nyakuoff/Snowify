@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('snowify', {
   albumTracks: (albumId) => ipcRenderer.invoke('yt:albumTracks', albumId),
   getUpNexts: (videoId) => ipcRenderer.invoke('yt:getUpNexts', videoId),
   getVideoStreamUrl: (videoId, quality, premuxed) => ipcRenderer.invoke('yt:getVideoStreamUrl', videoId, quality, premuxed),
+  getPlaylistVideos: (playlistId) => ipcRenderer.invoke('yt:getPlaylistVideos', playlistId),
   getLyrics: (trackName, artistName, albumName, duration) => ipcRenderer.invoke('lyrics:get', trackName, artistName, albumName, duration),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
 
