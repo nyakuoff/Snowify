@@ -1063,6 +1063,7 @@
       addToRecent(track);
       updateDiscordPresence(track);
       renderQueue();
+      updatePositionState();
       saveState();
       // Reset preload flags so next track gets preloaded
       preloadTriggered = false;
@@ -1307,6 +1308,7 @@
       clearDiscordPresence();
     }
     updatePlayButton();
+    updatePositionState();
   }
 
   // ─── Named audio event handlers (for dual-audio swap) ───
@@ -1324,10 +1326,16 @@
     updateProgress();
     checkPreload();
     checkCrossfadeTrigger();
+    const now = Date.now();
+    if (now - lastPositionUpdate >= 1000) {
+      lastPositionUpdate = now;
+      updatePositionState();
+    }
   }
 
   function onAudioSeeked() {
     if (crossfadeInProgress) cancelCrossfade();
+    updatePositionState();
     if (state.isPlaying) {
       const track = state.queue[state.queueIndex];
       if (track) updateDiscordPresence(track);
@@ -1443,6 +1451,7 @@
     showNowPlaying(track);
     addToRecent(track);
     updateDiscordPresence(track);
+    updatePositionState();
     updatePlayButton();
     updateTrackHighlight();
     renderQueue();
@@ -1576,6 +1585,7 @@
     // Start preloading next
     preloadTriggered = false;
     triggerPreload();
+    updatePositionState();
     updatePlayButton();
   }
 
@@ -1867,12 +1877,24 @@
       navigator.mediaSession.metadata = new MediaMetadata({
         title: track.title,
         artist: track.artist,
-        artwork: [{ src: track.thumbnail, sizes: '512x512', type: 'image/jpeg' }]
+        artwork: [
+          { src: track.thumbnail, sizes: '96x96', type: 'image/jpeg' },
+          { src: track.thumbnail, sizes: '256x256', type: 'image/jpeg' },
+          { src: track.thumbnail, sizes: '512x512', type: 'image/jpeg' }
+        ]
       });
       navigator.mediaSession.setActionHandler('play', () => { audio.play(); state.isPlaying = true; updatePlayButton(); updateDiscordPresence(track); });
       navigator.mediaSession.setActionHandler('pause', () => { if (crossfadeInProgress) cancelCrossfade(); audio.pause(); state.isPlaying = false; updatePlayButton(); clearDiscordPresence(); });
       navigator.mediaSession.setActionHandler('previoustrack', playPrev);
       navigator.mediaSession.setActionHandler('nexttrack', playNext);
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (crossfadeInProgress) cancelCrossfade();
+        if (audio.duration) {
+          audio.currentTime = details.seekTime;
+          crossfadeTriggered = false;
+          updatePositionState();
+        }
+      });
     }
   }
 
@@ -1881,6 +1903,19 @@
     window.snowify.onThumbarPrev(() => playPrev());
     window.snowify.onThumbarPlayPause(() => togglePlay());
     window.snowify.onThumbarNext(() => playNext());
+  }
+
+  let lastPositionUpdate = 0;
+  function updatePositionState() {
+    if (!('mediaSession' in navigator)) return;
+    if (!audio.duration || !isFinite(audio.duration)) return;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: audio.duration,
+        playbackRate: audio.playbackRate,
+        position: Math.min(audio.currentTime, audio.duration)
+      });
+    } catch (e) { /* ignore invalid state errors */ }
   }
 
   const npLike = $('#np-like');
