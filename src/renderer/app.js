@@ -10,7 +10,8 @@
   let activeAudio = audioA;
   let standbyAudio = audioB;
 
-  // ─── Crossfade / Preload state ───
+  // ─── Audio / Crossfade constants ───
+  const VOLUME_SCALE = 0.7;
   const CROSSFADE_MAX = 12;
   let crossfadeTimer = null;
   let crossfadeInProgress = false;
@@ -521,7 +522,7 @@
         audio.load();
       }
 
-      audio.volume = state.volume * 0.3;
+      audio.volume = state.volume * VOLUME_SCALE;
       await audio.play();
       state.isPlaying = true;
       state.isLoading = false;
@@ -869,7 +870,7 @@
     // Swap audio elements
     swapAudioElements();
     // Play the new active (was standby, already loaded)
-    audio.volume = state.volume * 0.3;
+    audio.volume = state.volume * VOLUME_SCALE;
     audio.play().catch(() => { playNext(); return; });
     state.isPlaying = true;
     state.isLoading = false;
@@ -972,7 +973,7 @@
         step++;
         const progress = Math.min(step / steps, 1);
         oldAudio.volume = Math.max(0, startVolume * (1 - progress));
-        standbyAudio.volume = state.volume * 0.3 * progress;
+        standbyAudio.volume = state.volume * VOLUME_SCALE * progress;
         if (progress >= 1) {
           completeCrossfade(oldAudio);
         }
@@ -1002,7 +1003,7 @@
     standbyAudio = oldAudio;
     audio = activeAudio;
     bindAudioEvents(audio);
-    audio.volume = state.volume * 0.3;
+    audio.volume = state.volume * VOLUME_SCALE;
     preloadedTrack = null;
     preloadedUrl = null;
     crossfadeInProgress = false;
@@ -1021,7 +1022,7 @@
     standbyAudio.pause();
     standbyAudio.removeAttribute('src');
     standbyAudio.load();
-    audio.volume = state.volume * 0.3;
+    audio.volume = state.volume * VOLUME_SCALE;
     // Re-bind ended on active (was removed during crossfade)
     activeAudio.addEventListener('ended', onAudioEnded);
     crossfadeInProgress = false;
@@ -1169,7 +1170,7 @@
     state.volume = Math.max(0, Math.min(1, vol));
     // During crossfade, the timer handles volumes; just update state
     if (!crossfadeInProgress) {
-      audio.volume = state.volume * 0.3;
+      audio.volume = state.volume * VOLUME_SCALE;
     }
     volumeFill.style.width = (state.volume * 100) + '%';
     const isMuted = state.volume === 0;
@@ -3123,7 +3124,7 @@
       if (result.audioUrl) {
         // Split streams: sync a separate audio element
         _videoAudio = new Audio(result.audioUrl);
-        _videoAudio.volume = state.volume * 0.3;
+        _videoAudio.volume = state.volume * VOLUME_SCALE;
 
         videoPlayer.muted = true;
 
@@ -3382,7 +3383,7 @@
       }
       document.documentElement.classList.toggle('no-animations', !state.animations);
       document.documentElement.classList.toggle('no-effects', !state.effects);
-      audio.volume = state.volume * 0.3;
+      audio.volume = state.volume * VOLUME_SCALE;
       showToast('Synced from cloud');
       return true;
     }
