@@ -82,6 +82,11 @@
         <div class="sidebar-section-header">
           <h3>Playlists</h3>
           <div class="sidebar-header-actions">
+            <button class="icon-btn" id="btn-ytmusic-import" title="Import from YouTube / YouTube Music">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0C5.376 0 0 5.376 0 12s5.376 12 12 12 12-5.376 12-12S18.624 0 12 0zm0 19.104c-3.924 0-7.104-3.18-7.104-7.104S8.076 4.896 12 4.896s7.104 3.18 7.104 7.104-3.18 7.104-7.104 7.104zm0-13.332c-3.432 0-6.228 2.796-6.228 6.228S8.568 18.228 12 18.228s6.228-2.796 6.228-6.228S15.432 5.772 12 5.772zM9.684 15.54V8.46L15.816 12l-6.132 3.54z"/>
+              </svg>
+            </button>
             <button class="icon-btn" id="btn-spotify-import" title="Import from Spotify">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.6 0 12 0zm5.52 17.28c-.24.36-.66.48-1.02.24-2.82-1.74-6.36-2.1-10.56-1.14-.42.12-.78-.18-.9-.54-.12-.42.18-.78.54-.9 4.56-1.02 8.52-.6 11.7 1.32.36.24.48.66.24 1.02zm1.44-3.3c-.3.42-.84.6-1.26.3-3.24-1.98-8.16-2.58-11.94-1.38-.48.12-.99-.12-1.14-.6-.12-.48.12-.99.6-1.14 4.38-1.32 9.78-.66 13.5 1.62.36.18.54.78.24 1.2zm.12-3.36C15.24 8.4 8.88 8.16 5.16 9.3c-.6.18-1.2-.18-1.38-.72-.18-.6.18-1.2.72-1.38 4.26-1.26 11.28-1.02 15.72 1.62.54.3.72 1.02.42 1.56-.3.42-1.02.6-1.56.3z"/></svg>
             </button>
@@ -658,6 +663,35 @@
         <div class="spotify-track-list" id="spotify-track-list"></div>
         <div class="modal-buttons" id="spotify-done-buttons" style="display:none">
           <button class="modal-btn modal-confirm" id="spotify-done">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ YouTube Music Import Modal ═══════ -->
+  <div id="ytmusic-modal" class="modal-overlay hidden">
+    <div class="modal-box spotify-modal-box">
+      <h3 id="ytmusic-modal-title">Import YouTube Playlists</h3>
+      <div id="ytmusic-step-url" class="spotify-step">
+        <p class="spotify-step-desc">Paste one or more YouTube or YouTube Music playlist URLs, one per line.</p>
+        <textarea id="ytmusic-url-input" class="ytmusic-textarea" rows="4" placeholder="https://youtube.com/playlist?list=...&#10;https://music.youtube.com/playlist?list=..." spellcheck="false"></textarea>
+        <p class="spotify-error hidden" id="ytmusic-error"></p>
+        <div class="modal-buttons">
+          <button class="modal-btn modal-cancel" id="ytmusic-cancel">Cancel</button>
+          <button class="modal-btn modal-confirm" id="ytmusic-start" disabled>Import</button>
+        </div>
+      </div>
+      <div id="ytmusic-step-progress" class="spotify-step hidden">
+        <div class="spotify-progress-info">
+          <span id="ytmusic-progress-text">Fetching playlist...</span>
+          <span id="ytmusic-progress-count"></span>
+        </div>
+        <div class="spotify-progress-bar">
+          <div class="spotify-progress-fill" id="ytmusic-progress-fill"></div>
+        </div>
+        <div class="spotify-track-list" id="ytmusic-track-list"></div>
+        <div class="modal-buttons" id="ytmusic-done-buttons" style="display:none">
+          <button class="modal-btn modal-confirm" id="ytmusic-done">Done</button>
         </div>
       </div>
     </div>
