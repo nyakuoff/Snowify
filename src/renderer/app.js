@@ -13,9 +13,13 @@
   // ─── Audio / Crossfade constants ───
   const VOLUME_SCALE = 0.7;
   const CROSSFADE_MAX = 12;
+  const SKIP_FADE_MS = 300;
+  const PREFETCH_COUNT = 3;
   let crossfadeTimer = null;
   let crossfadeInProgress = false;
   let crossfadeTriggered = false;
+  let crossfadePaused = false;
+  let cfStep = 0, cfSteps = 0, cfOldAudio = null, cfStartVolume = 0, cfPrevQueueIndex = -1;
   let preloadedTrack = null;
   let preloadedUrl = null;
   let preloadTriggered = false;
@@ -497,6 +501,27 @@
     const usePreloaded = preloadedTrack && preloadedTrack.id === track.id && preloadedUrl;
     if (!usePreloaded) clearPreload();
 
+    // Mini-fade out the current audio (skip transition)
+    const wasPlaying = !audio.paused && audio.currentTime > 0;
+    if (wasPlaying) {
+      const oldAudioRef = audio;
+      const startVol = oldAudioRef.volume;
+      const halfPi = Math.PI / 2;
+      const fadeSteps = SKIP_FADE_MS / 20;
+      let fadeStep = 0;
+      await new Promise(resolve => {
+        const fadeTimer = setInterval(() => {
+          fadeStep++;
+          const progress = Math.min(fadeStep / fadeSteps, 1);
+          oldAudioRef.volume = Math.max(0, startVol * Math.cos(progress * halfPi));
+          if (progress >= 1) {
+            clearInterval(fadeTimer);
+            resolve();
+          }
+        }, 20);
+      });
+    }
+
     state.isLoading = true;
     updatePlayButton();
     showNowPlaying(track);
@@ -516,13 +541,15 @@
         preloadedTrack = null;
         preloadedUrl = null;
       } else {
+        // Stop old audio after fade completed
+        audio.pause();
         showToast(`Loading: ${track.title}`);
         const directUrl = await window.snowify.getStreamUrl(track.url, state.audioQuality);
         audio.src = directUrl;
         audio.load();
       }
 
-      audio.volume = state.volume * VOLUME_SCALE;
+      audio.volume = 0;
       await audio.play();
       state.isPlaying = true;
       state.isLoading = false;
@@ -531,7 +558,21 @@
       saveState();
       // Reset preload flags so next track gets preloaded
       preloadTriggered = false;
+
+      // Mini-fade in the new track
+      const targetVol = state.volume * VOLUME_SCALE;
+      const halfPi = Math.PI / 2;
+      const fadeInSteps = SKIP_FADE_MS / 20;
+      let fadeInStep = 0;
+      const fadeInTimer = setInterval(() => {
+        fadeInStep++;
+        const progress = Math.min(fadeInStep / fadeInSteps, 1);
+        audio.volume = targetVol * Math.sin(progress * halfPi);
+        if (progress >= 1) clearInterval(fadeInTimer);
+      }, 20);
     } catch (err) {
+      // play() interrupted by a new skip/action — harmless, ignore
+      if (err.name === 'AbortError') return;
       console.error('Playback error:', err);
       const msg = typeof err === 'string' ? err : (err.message || 'unknown error');
       showToast('Playback failed: ' + msg);
@@ -552,16 +593,6 @@
     }
     updatePlayButton();
     updateTrackHighlight();
-  }
-
-  function prefetchNextTrack() {
-    const nextIdx = state.queueIndex + 1;
-    if (nextIdx >= state.queue.length) return;
-    const next = state.queue[nextIdx];
-    if (!next || !next.url && !next.id) return;
-    const url = next.url || `https://music.youtube.com/watch?v=${next.id}`;
-    // Fire-and-forget: this populates the main-process cache
-    window.snowify.getStreamUrl(url, state.audioQuality).catch(() => {});
   }
 
   function playFromList(tracks, index) {
@@ -586,7 +617,7 @@
   }
 
   function playNext() {
-    if (crossfadeInProgress) cancelCrossfade();
+    if (crossfadeInProgress) instantCompleteCrossfade();
     if (!state.queue.length) return;
 
     if (state.repeat === 'one') {
@@ -690,7 +721,7 @@
   }
 
   function playPrev() {
-    if (crossfadeInProgress) cancelCrossfade();
+    if (crossfadeInProgress) instantCompleteCrossfade();
     if (!state.queue.length) return;
     if (audio.currentTime > 3) {
       audio.currentTime = 0;
@@ -730,13 +761,29 @@
   function togglePlay() {
     if (state.isLoading) return;
     if (!audio.src) return;
-    if (audio.paused) {
+    if (audio.paused || crossfadePaused) {
       audio.play();
+      if (crossfadePaused) {
+        // Resume frozen crossfade
+        standbyAudio.play();
+        crossfadePaused = false;
+        if (state.crossfade <= 0) {
+          instantCompleteCrossfade();
+        } else {
+          startCrossfadeTimer();
+        }
+      }
       state.isPlaying = true;
       const track = state.queue[state.queueIndex];
       if (track) updateDiscordPresence(track);
     } else {
-      if (crossfadeInProgress) cancelCrossfade();
+      if (crossfadeInProgress) {
+        // Freeze crossfade — pause both, keep timer paused
+        clearInterval(crossfadeTimer);
+        crossfadeTimer = null;
+        standbyAudio.pause();
+        crossfadePaused = true;
+      }
       audio.pause();
       state.isPlaying = false;
       clearDiscordPresence();
@@ -762,7 +809,7 @@
   }
 
   function onAudioSeeked() {
-    if (crossfadeInProgress) cancelCrossfade();
+    if (crossfadeInProgress) instantCompleteCrossfade();
     if (state.isPlaying) {
       const track = state.queue[state.queueIndex];
       if (track) updateDiscordPresence(track);
@@ -805,28 +852,45 @@
 
   bindAudioEvents(audio);
 
+  function getCurrentAudio() {
+    return crossfadeInProgress ? standbyAudio : audio;
+  }
+
   // ─── Preloading system ───
-  function getNextTrack() {
-    if (!state.queue.length) return null;
-    if (state.repeat === 'one') return null; // repeat-one restarts, no preload
+  function getTrackAtOffset(offset) {
+    if (!state.queue.length || offset <= 0) return null;
+    if (state.repeat === 'one') return null;
     if (state.repeat === 'all') {
-      let nextIdx = state.queueIndex + 1;
-      if (nextIdx >= state.queue.length) nextIdx = 0;
-      return state.queue[nextIdx] || null;
+      const idx = (state.queueIndex + offset) % state.queue.length;
+      return state.queue[idx] || null;
     }
-    // Normal / off
-    const nextIdx = state.queueIndex + 1;
-    if (nextIdx >= state.queue.length) return null; // end of queue (autoplay handled separately)
-    return state.queue[nextIdx];
+    const idx = state.queueIndex + offset;
+    if (idx >= state.queue.length) return null;
+    return state.queue[idx];
+  }
+
+  function getNextTrack() {
+    return getTrackAtOffset(1);
   }
 
   function triggerPreload() {
     if (preloadTriggered) return;
     preloadTriggered = true;
     preloadNextTrack();
+    warmUrlCache();
+  }
+
+  function warmUrlCache() {
+    for (let i = 2; i <= PREFETCH_COUNT; i++) {
+      const track = getTrackAtOffset(i);
+      if (!track) break;
+      const url = track.url || `https://music.youtube.com/watch?v=${track.id}`;
+      window.snowify.getStreamUrl(url, state.audioQuality).catch(() => {});
+    }
   }
 
   async function preloadNextTrack() {
+    if (crossfadeInProgress) return;
     const next = getNextTrack();
     if (!next) return;
     // Already preloaded this track?
@@ -946,7 +1010,8 @@
       standbyAudio.volume = 0;
       await standbyAudio.play();
 
-      // Advance queue
+      // Advance queue (save previous index for cancelCrossfade revert)
+      cfPrevQueueIndex = state.queueIndex;
       advanceQueueIndex();
 
       // Update UI to new track immediately
@@ -964,33 +1029,55 @@
       // Ramp volumes over crossfade duration
       const fadeDuration = state.crossfade * 1000;
       const stepMs = 50;
-      const steps = fadeDuration / stepMs;
-      let step = 0;
-      const oldAudio = activeAudio;
-      const startVolume = oldAudio.volume;
-
-      crossfadeTimer = setInterval(() => {
-        step++;
-        const progress = Math.min(step / steps, 1);
-        oldAudio.volume = Math.max(0, startVolume * (1 - progress));
-        standbyAudio.volume = state.volume * VOLUME_SCALE * progress;
-        if (progress >= 1) {
-          completeCrossfade(oldAudio);
-        }
-      }, stepMs);
+      cfSteps = fadeDuration / stepMs;
+      cfStep = 0;
+      cfOldAudio = activeAudio;
+      cfStartVolume = cfOldAudio.volume;
+      startCrossfadeTimer();
     } catch (err) {
       console.warn('Crossfade failed, falling back:', err);
       cancelCrossfade();
-      // Revert queue index since we advanced it
-      if (state.repeat === 'all') {
-        state.queueIndex = (state.queueIndex - 1 + state.queue.length) % state.queue.length;
-      } else {
-        state.queueIndex = Math.max(0, state.queueIndex - 1);
-      }
     }
   }
 
+  function startCrossfadeTimer() {
+    if (crossfadeTimer) clearInterval(crossfadeTimer);
+    const halfPi = Math.PI / 2;
+    crossfadeTimer = setInterval(() => {
+      cfStep++;
+      const progress = Math.min(cfStep / cfSteps, 1);
+      cfOldAudio.volume = Math.max(0, cfStartVolume * Math.cos(progress * halfPi));
+      standbyAudio.volume = state.volume * VOLUME_SCALE * Math.sin(progress * halfPi);
+      if (progress >= 1) {
+        completeCrossfade(cfOldAudio);
+      }
+    }, 50);
+  }
+
+  function rushCrossfade() {
+    if (!crossfadeInProgress) return;
+    clearInterval(crossfadeTimer);
+    crossfadeTimer = null;
+    // Fast ramp over SKIP_FADE_MS instead of remaining crossfade
+    const halfPi = Math.PI / 2;
+    const rushSteps = SKIP_FADE_MS / 20;
+    let rushStep = 0;
+    const currentOldVol = cfOldAudio.volume;
+    const currentNewVol = standbyAudio.volume;
+    const targetVol = state.volume * VOLUME_SCALE;
+    crossfadeTimer = setInterval(() => {
+      rushStep++;
+      const progress = Math.min(rushStep / rushSteps, 1);
+      cfOldAudio.volume = Math.max(0, currentOldVol * Math.cos(progress * halfPi));
+      standbyAudio.volume = currentNewVol + (targetVol - currentNewVol) * Math.sin(progress * halfPi);
+      if (progress >= 1) {
+        completeCrossfade(cfOldAudio);
+      }
+    }, 20);
+  }
+
   function completeCrossfade(oldAudio) {
+    if (!crossfadeInProgress) return;
     clearInterval(crossfadeTimer);
     crossfadeTimer = null;
     // Stop old audio
@@ -1006,8 +1093,10 @@
     audio.volume = state.volume * VOLUME_SCALE;
     preloadedTrack = null;
     preloadedUrl = null;
+    cfPrevQueueIndex = -1;
     crossfadeInProgress = false;
     crossfadeTriggered = false;
+    crossfadePaused = false;
     // Start preloading next
     preloadTriggered = false;
     triggerPreload();
@@ -1025,10 +1114,25 @@
     audio.volume = state.volume * VOLUME_SCALE;
     // Re-bind ended on active (was removed during crossfade)
     activeAudio.addEventListener('ended', onAudioEnded);
+    // Revert queue index to before crossfade started
+    if (cfPrevQueueIndex >= 0) {
+      state.queueIndex = cfPrevQueueIndex;
+      cfPrevQueueIndex = -1;
+    }
     crossfadeInProgress = false;
     crossfadeTriggered = false;
+    crossfadePaused = false;
     preloadedTrack = null;
     preloadedUrl = null;
+  }
+
+  function instantCompleteCrossfade() {
+    if (!crossfadeInProgress) return;
+    clearInterval(crossfadeTimer);
+    crossfadeTimer = null;
+    cfOldAudio.volume = 0;
+    standbyAudio.volume = state.volume * VOLUME_SCALE;
+    completeCrossfade(cfOldAudio);
   }
 
   // ─── Playback watchdog ───
@@ -1132,8 +1236,7 @@
   const progressFill = $('#progress-fill');
 
   function updateProgress() {
-    // During crossfade, show progress of the incoming track (standby)
-    const src = crossfadeInProgress ? standbyAudio : audio;
+    const src = getCurrentAudio();
     if (!src.duration) return;
     const pct = (src.currentTime / src.duration) * 100;
     progressFill.style.width = pct + '%';
@@ -1152,12 +1255,18 @@
   document.addEventListener('mouseup', () => { isDraggingProgress = false; });
 
   function seekTo(e) {
-    if (crossfadeInProgress) cancelCrossfade();
+    if (crossfadePaused) {
+      audio.play();
+      standbyAudio.play();
+      crossfadePaused = false;
+      instantCompleteCrossfade();
+    }
+    const target = getCurrentAudio();
     const rect = progressBar.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    if (audio.duration) {
-      crossfadeTriggered = false; // allow re-trigger after seek
-      audio.currentTime = pct * audio.duration;
+    if (target.duration) {
+      crossfadeTriggered = false;
+      target.currentTime = pct * target.duration;
       progressFill.style.width = (pct * 100) + '%';
     }
   }
@@ -1252,8 +1361,8 @@
         artist: track.artist,
         artwork: [{ src: track.thumbnail, sizes: '512x512', type: 'image/jpeg' }]
       });
-      navigator.mediaSession.setActionHandler('play', () => { audio.play(); state.isPlaying = true; updatePlayButton(); updateDiscordPresence(track); });
-      navigator.mediaSession.setActionHandler('pause', () => { if (crossfadeInProgress) cancelCrossfade(); audio.pause(); state.isPlaying = false; updatePlayButton(); clearDiscordPresence(); });
+      navigator.mediaSession.setActionHandler('play', () => togglePlay());
+      navigator.mediaSession.setActionHandler('pause', () => togglePlay());
       navigator.mediaSession.setActionHandler('previoustrack', playPrev);
       navigator.mediaSession.setActionHandler('nexttrack', playNext);
     }
@@ -2374,18 +2483,22 @@
         break;
       case 'ArrowRight':
         if (e.ctrlKey) playNext();
-        else if (audio.duration) {
-          if (crossfadeInProgress) cancelCrossfade();
-          crossfadeTriggered = false;
-          audio.currentTime = Math.min(audio.duration, audio.currentTime + 5);
+        else {
+          const rTarget = getCurrentAudio();
+          if (rTarget.duration) {
+            crossfadeTriggered = false;
+            rTarget.currentTime = Math.min(rTarget.duration, rTarget.currentTime + 5);
+          }
         }
         break;
       case 'ArrowLeft':
         if (e.ctrlKey) playPrev();
-        else if (audio.duration) {
-          if (crossfadeInProgress) cancelCrossfade();
-          crossfadeTriggered = false;
-          audio.currentTime = Math.max(0, audio.currentTime - 5);
+        else {
+          const lTarget = getCurrentAudio();
+          if (lTarget.duration) {
+            crossfadeTriggered = false;
+            lTarget.currentTime = Math.max(0, lTarget.currentTime - 5);
+          }
         }
         break;
       case 'ArrowUp':
