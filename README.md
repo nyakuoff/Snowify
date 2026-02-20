@@ -1,6 +1,10 @@
-# [Snowify](https://www.snowify.cc/)
+<p align="center">
+<img width="342" height="170" alt="snowify-logo-text" src="assets/snowify-logo-text.png" />
+</p>
 
+<p align="center">
 A desktop music player built with Electron that streams audio from YouTube Music. Clean UI, no accounts, no ads.
+</p>
 
 > [!WARNING]
 > This is a **Beta version** of the app. It's still a work in progress and may contain bugs or unfinished features, use at your own discretion.

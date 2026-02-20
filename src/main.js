@@ -5,6 +5,32 @@ const { execFile } = require('child_process');
 
 let mainWindow;
 let ytmusic;
+let _currentCountry = '';
+
+// ─── Stream URL Cache ───
+const _streamCache = new Map();
+const STREAM_CACHE_TTL = 4 * 60 * 60 * 1000;
+
+function getCachedUrl(key) {
+  const entry = _streamCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > STREAM_CACHE_TTL) {
+    _streamCache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function setCachedUrl(key, value) {
+  _streamCache.set(key, { value, ts: Date.now() });
+
+  if (_streamCache.size > 200) {
+    const now = Date.now();
+    for (const [k, v] of _streamCache) {
+      if (now - v.ts > STREAM_CACHE_TTL) _streamCache.delete(k);
+    }
+  }
+}
 
 // ─── Discord RPC ───
 
@@ -79,12 +105,52 @@ function getSquareThumbnail(thumbnails, size = 226) {
   return url;
 }
 
-function mapSongToTrack(song) {
+function parseArtistsFromRuns(runs) {
+  if (!runs?.length) return [];
+  const artistRuns = runs.filter(r => {
+    const pageType = r.navigationEndpoint?.browseEndpoint
+      ?.browseEndpointContextSupportedConfigs
+      ?.browseEndpointContextMusicConfig?.pageType;
+    return pageType === 'MUSIC_PAGE_TYPE_ARTIST';
+  });
+  if (artistRuns.length > 0) {
+    return artistRuns.map(r => ({
+      name: r.text,
+      id: r.navigationEndpoint.browseEndpoint.browseId
+    }));
+  }
+  // Fallback: plain text with no browseIds
+  if (runs.length >= 1 && !runs[0].navigationEndpoint) {
+    const text = runs.map(r => r.text).join('');
+    const dotIdx = text.indexOf(' \u2022 ');
+    const artistText = dotIdx >= 0 ? text.slice(0, dotIdx) : text;
+    return artistText.split(/,\s*|\s*&\s*/).filter(Boolean)
+      .map(name => ({ name: name.trim(), id: null }));
+  }
+  return [];
+}
+
+function buildArtistFields(artists) {
+  if (!artists?.length) return { artist: 'Unknown Artist', artistId: null, artists: [] };
+  return {
+    artist: artists.map(a => a.name).join(', '),
+    artistId: artists[0].id || null,
+    artists
+  };
+}
+
+function mapSongToTrack(song, artists) {
+  const artistFields = artists
+    ? buildArtistFields(artists)
+    : {
+        artist: song.artist?.name || 'Unknown Artist',
+        artistId: song.artist?.artistId || null,
+        artists: song.artist ? [{ name: song.artist.name, id: song.artist.artistId || null }] : []
+      };
   return {
     id: song.videoId,
     title: song.name || 'Unknown',
-    artist: song.artist?.name || 'Unknown Artist',
-    artistId: song.artist?.artistId || null,
+    ...artistFields,
     album: song.album?.name || null,
     thumbnail: getSquareThumbnail(song.thumbnails),
     duration: formatDuration(song.duration),
@@ -404,22 +470,87 @@ ipcMain.handle('discord:clearPresence', async () => {
 ipcMain.handle('yt:search', async (_event, query, musicOnly) => {
   try {
     if (musicOnly) {
-      const songs = await ytmusic.searchSongs(query);
-      return songs.filter(s => s.videoId).map(mapSongToTrack);
+      const rawParams = 'EgWKAQIIAWoOEAMQBBAJEAoQBRAREBU%3D';
+      const [songs, rawData] = await Promise.all([
+        ytmusic.searchSongs(query),
+        ytmusic.constructRequest('search', { query, params: rawParams }).catch(() => null)
+      ]);
+
+      const rawArtistsMap = {};
+      if (rawData) {
+        const shelves = rawData?.contents?.tabbedSearchResultsRenderer?.tabs?.[0]
+          ?.tabRenderer?.content?.sectionListRenderer?.contents || [];
+        for (const s of shelves) {
+          const entries = s?.musicShelfRenderer?.contents || [];
+          for (const entry of entries) {
+            const r = entry?.musicResponsiveListItemRenderer;
+            if (!r) continue;
+            const cols = r.flexColumns || [];
+            const videoId = cols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]
+              ?.navigationEndpoint?.watchEndpoint?.videoId;
+            if (!videoId) continue;
+            const allRuns = cols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+            const dotIdx = allRuns.findIndex(run => run.text === ' \u2022 ');
+            const artistRuns = dotIdx >= 0 ? allRuns.slice(0, dotIdx) : allRuns;
+            const artists = parseArtistsFromRuns(artistRuns);
+            if (artists.length) rawArtistsMap[videoId] = artists;
+          }
+        }
+      }
+
+      return songs.filter(s => s.videoId).map(song => {
+        const artists = rawArtistsMap[song.videoId] || null;
+        return mapSongToTrack(song, artists);
+      });
     } else {
-      const results = await ytmusic.search(query);
+      const [results, rawData] = await Promise.all([
+        ytmusic.search(query),
+        ytmusic.constructRequest('search', { query }).catch(() => null)
+      ]);
+
+      const rawArtistsMap = {};
+      if (rawData) {
+        const shelves = rawData?.contents?.tabbedSearchResultsRenderer?.tabs?.[0]
+          ?.tabRenderer?.content?.sectionListRenderer?.contents || [];
+        for (const s of shelves) {
+          const entries = s?.musicShelfRenderer?.contents || [];
+          for (const entry of entries) {
+            const r = entry?.musicResponsiveListItemRenderer;
+            if (!r) continue;
+            const cols = r.flexColumns || [];
+            const videoId = cols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]
+              ?.navigationEndpoint?.watchEndpoint?.videoId;
+            if (!videoId) continue;
+            const allRuns = cols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+            const dotIdx = allRuns.findIndex(run => run.text === ' \u2022 ');
+            const artistRuns = dotIdx >= 0 ? allRuns.slice(0, dotIdx) : allRuns;
+            const artists = parseArtistsFromRuns(artistRuns);
+            if (artists.length) rawArtistsMap[videoId] = artists;
+          }
+        }
+      }
+
       return results
         .filter(r => (r.type === 'SONG' || r.type === 'VIDEO') && r.videoId)
-        .map(r => ({
-          id: r.videoId,
-          title: r.name || 'Unknown',
-          artist: r.artist?.name || 'Unknown Artist',
-          artistId: r.artist?.artistId || null,
-          thumbnail: getSquareThumbnail(r.thumbnails),
-          duration: formatDuration(r.duration),
-          durationMs: r.duration ? Math.round(r.duration * 1000) : 0,
-          url: `https://music.youtube.com/watch?v=${r.videoId}`
-        }));
+        .map(r => {
+          const artists = rawArtistsMap[r.videoId] || null;
+          const artistFields = artists
+            ? buildArtistFields(artists)
+            : {
+                artist: r.artist?.name || 'Unknown Artist',
+                artistId: r.artist?.artistId || null,
+                artists: r.artist ? [{ name: r.artist.name, id: r.artist.artistId || null }] : []
+              };
+          return {
+            id: r.videoId,
+            title: r.name || 'Unknown',
+            ...artistFields,
+            thumbnail: getSquareThumbnail(r.thumbnails),
+            duration: formatDuration(r.duration),
+            durationMs: r.duration ? Math.round(r.duration * 1000) : 0,
+            url: `https://music.youtube.com/watch?v=${r.videoId}`
+          };
+        });
     }
   } catch (err) {
     console.error('Search error:', err);
@@ -435,6 +566,7 @@ ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
     let monthlyListeners = '';
     let fansAlsoLike = [];
     let livePerformances = [];
+    let rawTopSongsArtists = {};
     try {
       const rawData = await ytmusic.constructRequest('browse', { browseId: artistId });
       const header = rawData?.header?.musicImmersiveHeaderRenderer || rawData?.header?.musicVisualHeaderRenderer;
@@ -479,6 +611,26 @@ ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
           }).filter(Boolean);
         }
       }
+      // Parse multi-artist data from Songs shelf
+      for (const section of sections) {
+        const shelf = section?.musicShelfRenderer;
+        if (!shelf) continue;
+        const shelfTitle = shelf?.header?.musicShelfBasicHeaderRenderer
+          ?.title?.runs?.[0]?.text?.toLowerCase() || '';
+        if (!shelfTitle.includes('song')) continue;
+        for (const item of (shelf.contents || [])) {
+          const r = item?.musicResponsiveListItemRenderer;
+          if (!r) continue;
+          const cols = r.flexColumns || [];
+          const videoId = cols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]
+            ?.navigationEndpoint?.watchEndpoint?.videoId;
+          if (!videoId) continue;
+          const artistRuns = cols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+          const artists = parseArtistsFromRuns(artistRuns);
+          if (artists.length) rawTopSongsArtists[videoId] = artists;
+        }
+        break;
+      }
     } catch (_) { /* raw data extraction is best-effort */ }
 
     return {
@@ -489,7 +641,10 @@ ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
       monthlyListeners,
       tags: [],
       avatar: getBestThumbnail(artist.thumbnails),
-      topSongs: (artist.topSongs || []).filter(s => s.videoId).map(mapSongToTrack),
+      topSongs: (artist.topSongs || []).filter(s => s.videoId).map(song => {
+        const artists = rawTopSongsArtists[song.videoId] || null;
+        return mapSongToTrack(song, artists);
+      }),
       topAlbums: (artist.topAlbums || []).map(a => ({
         albumId: a.albumId,
         playlistId: a.playlistId,
@@ -525,13 +680,46 @@ ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
 
 ipcMain.handle('yt:albumTracks', async (_event, albumId) => {
   try {
-    const album = await ytmusic.getAlbum(albumId);
+    const [album, rawData] = await Promise.all([
+      ytmusic.getAlbum(albumId),
+      ytmusic.constructRequest('browse', { browseId: albumId }).catch(() => null)
+    ]);
+
+    const rawArtistsMap = {};
+    let albumArtists = [];
+    if (rawData) {
+      const headerRuns = rawData?.contents?.twoColumnBrowseResultsRenderer
+        ?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]
+        ?.musicResponsiveHeaderRenderer?.straplineTextOne?.runs || [];
+      albumArtists = parseArtistsFromRuns(headerRuns);
+
+      const shelfItems = rawData?.contents?.twoColumnBrowseResultsRenderer
+        ?.secondaryContents?.sectionListRenderer?.contents?.[0]
+        ?.musicShelfRenderer?.contents || [];
+      for (const item of shelfItems) {
+        const r = item?.musicResponsiveListItemRenderer;
+        if (!r) continue;
+        const cols = r.flexColumns || [];
+        const videoId = cols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]
+          ?.navigationEndpoint?.watchEndpoint?.videoId;
+        if (!videoId) continue;
+        const artistRuns = cols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+        const artists = parseArtistsFromRuns(artistRuns);
+        if (artists.length) rawArtistsMap[videoId] = artists;
+      }
+    }
+
+    const tracks = (album.songs || []).filter(s => s.videoId).map(song => {
+      const artists = rawArtistsMap[song.videoId] || (albumArtists.length ? albumArtists : null);
+      return mapSongToTrack(song, artists);
+    });
+
     return {
       name: album.name || 'Unknown Album',
       artist: album.artist?.name || 'Unknown Artist',
       year: album.year || null,
       thumbnail: getSquareThumbnail(album.thumbnails, 300),
-      tracks: (album.songs || []).filter(s => s.videoId).map(mapSongToTrack)
+      tracks
     };
   } catch (err) {
     console.error('Album tracks error:', err);
@@ -580,19 +768,244 @@ ipcMain.handle('yt:searchArtists', async (_event, query) => {
   }
 });
 
+// ─── Explore (New Releases, Trending, Charts) ───
+
+ipcMain.handle('yt:setCountry', async (_event, countryCode) => {
+  try {
+    if (!ytmusic?.config) return false;
+    const code = countryCode || '';
+    if (code) {
+      ytmusic.config.GL = code;
+      ytmusic.config.INNERTUBE_CONTEXT_GL = code;
+      if (ytmusic.config.INNERTUBE_CONTEXT?.client) {
+        ytmusic.config.INNERTUBE_CONTEXT.client.gl = code;
+      }
+    }
+    ytmusic.config.HL = 'en';
+    ytmusic.config.INNERTUBE_CONTEXT_HL = 'en';
+    if (ytmusic.config.INNERTUBE_CONTEXT?.client) {
+      ytmusic.config.INNERTUBE_CONTEXT.client.hl = 'en';
+    }
+    _currentCountry = code;
+    return true;
+  } catch (err) {
+    console.error('Set country error:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('yt:explore', async () => {
+  try {
+    const rawData = await ytmusic.constructRequest('browse', { browseId: 'FEmusic_explore' });
+    const sections = rawData?.contents?.singleColumnBrowseResultsRenderer
+      ?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents || [];
+
+    const result = { newAlbums: [], moods: [], newMusicVideos: [] };
+
+    for (const section of sections) {
+      const carousel = section?.musicCarouselShelfRenderer;
+      if (!carousel) continue;
+      const title = (carousel?.header?.musicCarouselShelfBasicHeaderRenderer
+        ?.title?.runs?.[0]?.text || '').toLowerCase();
+
+      if (title.includes('new albums') || title.includes('new release')) {
+        result.newAlbums = (carousel.contents || []).map(item => {
+          const r = item?.musicTwoRowItemRenderer;
+          if (!r) return null;
+          const albumId = r?.navigationEndpoint?.browseEndpoint?.browseId || '';
+          if (!albumId) return null;
+          const subtitleRuns = r?.subtitle?.runs || [];
+          const artists = parseArtistsFromRuns(subtitleRuns);
+          const artistFields = artists.length ? buildArtistFields(artists) : { artist: subtitleRuns.map(s => s.text).join(''), artistId: null };
+          return {
+            albumId,
+            name: r?.title?.runs?.[0]?.text || 'Unknown',
+            ...artistFields,
+            thumbnail: getSquareThumbnail(r?.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails || [], 300),
+            year: null,
+            type: 'Album'
+          };
+        }).filter(Boolean);
+      } else if (title.includes('music video')) {
+        result.newMusicVideos = (carousel.contents || []).map(item => {
+          const r = item?.musicTwoRowItemRenderer;
+          if (!r) return null;
+          const videoId = r?.navigationEndpoint?.watchEndpoint?.videoId || '';
+          if (!videoId) return null;
+          const subtitleRuns = r?.subtitle?.runs || [];
+          const artists = parseArtistsFromRuns(subtitleRuns);
+          const artistFields = artists.length ? buildArtistFields(artists) : { artist: subtitleRuns.map(s => s.text).join(''), artistId: null };
+          return {
+            id: videoId,
+            title: r?.title?.runs?.[0]?.text || 'Unknown',
+            ...artistFields,
+            thumbnail: getBestThumbnail(r?.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails || []),
+            duration: '',
+            durationMs: 0,
+            url: `https://music.youtube.com/watch?v=${videoId}`
+          };
+        }).filter(Boolean);
+      } else if (title.includes('mood') || title.includes('genre')) {
+        result.moods = (carousel.contents || []).map(item => {
+          const r = item?.musicNavigationButtonRenderer || item?.musicTwoRowItemRenderer;
+          if (!r) return null;
+          const browseId = r?.clickCommand?.browseEndpoint?.browseId
+            || r?.navigationEndpoint?.browseEndpoint?.browseId || '';
+          const params = r?.clickCommand?.browseEndpoint?.params
+            || r?.navigationEndpoint?.browseEndpoint?.params || '';
+          const label = r?.buttonText?.runs?.[0]?.text || r?.title?.runs?.[0]?.text || '';
+          const color = r?.solid?.leftStripeColor;
+          if (!browseId || !label) return null;
+          return { browseId, params, label, color: color ? `#${(color >>> 0).toString(16).padStart(8, '0').slice(0, 6)}` : null };
+        }).filter(Boolean);
+      }
+    }
+
+    return result;
+  } catch (err) {
+    console.error('Explore error:', err);
+    return null;
+  }
+});
+
+ipcMain.handle('yt:charts', async () => {
+  try {
+    const rawData = await ytmusic.constructRequest('browse', { browseId: 'FEmusic_charts' });
+    let sections = rawData?.contents?.singleColumnBrowseResultsRenderer
+      ?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents || [];
+    if (!sections.length) {
+      sections = rawData?.contents?.sectionListRenderer?.contents || [];
+    }
+
+    const result = { topSongs: [], topVideos: [], topArtists: [] };
+
+    // Extract chart playlist IDs from the "Video charts" carousel
+    let trendingPlaylistId = null;
+    for (const section of sections) {
+      const carousel = section?.musicCarouselShelfRenderer;
+      if (!carousel) continue;
+      const title = (carousel?.header?.musicCarouselShelfBasicHeaderRenderer
+        ?.title?.runs?.[0]?.text || '').toLowerCase();
+
+      if (title.includes('video chart') || title.includes('trending')) {
+        for (const item of (carousel.contents || [])) {
+          const r = item?.musicTwoRowItemRenderer;
+          if (!r) continue;
+          const itemTitle = (r?.title?.runs || []).map(run => run.text).join('').toLowerCase();
+          const browseId = r?.navigationEndpoint?.browseEndpoint?.browseId || '';
+          if (itemTitle.includes('trending') && browseId) {
+            trendingPlaylistId = browseId;
+            break;
+          }
+        }
+      } else if (title.includes('top artist') || title.includes('trending artist')) {
+        result.topArtists = (carousel.contents || []).slice(0, 20).map(item => {
+          const r = item?.musicResponsiveListItemRenderer || item?.musicTwoRowItemRenderer;
+          if (!r) return null;
+          const artistId = r?.navigationEndpoint?.browseEndpoint?.browseId || '';
+          if (!artistId || !artistId.startsWith('UC')) return null;
+          const name = r?.title?.runs?.[0]?.text
+            || r?.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text
+            || 'Unknown';
+          return {
+            artistId,
+            name,
+            thumbnail: getSquareThumbnail(r?.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails
+              || r?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [], 226)
+          };
+        }).filter(Boolean);
+      }
+    }
+
+    // Fetch top songs from the Trending chart playlist
+    if (trendingPlaylistId) {
+      try {
+        const plRaw = await ytmusic.constructRequest('browse', { browseId: trendingPlaylistId });
+        const plShelf = plRaw?.contents?.twoColumnBrowseResultsRenderer
+          ?.secondaryContents?.sectionListRenderer?.contents?.[0]?.musicPlaylistShelfRenderer;
+        result.topSongs = (plShelf?.contents || []).map(item => {
+          const r = item?.musicResponsiveListItemRenderer;
+          if (!r) return null;
+          const cols = r.flexColumns || [];
+          const videoId = r?.overlay?.musicItemThumbnailOverlayRenderer?.content
+            ?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint?.videoId
+            || cols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]
+              ?.navigationEndpoint?.watchEndpoint?.videoId;
+          if (!videoId) return null;
+          const trackName = cols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || 'Unknown';
+          const artistRuns = cols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+          const artists = parseArtistsFromRuns(artistRuns);
+          const artistFields = artists.length ? buildArtistFields(artists) : { artist: artistRuns.map(s => s.text).join(''), artistId: null };
+          const thumbs = r.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
+          const rank = r?.customIndexColumn?.musicCustomIndexColumnRenderer?.text?.runs?.[0]?.text || '';
+          return {
+            id: videoId,
+            title: trackName,
+            ...artistFields,
+            thumbnail: getSquareThumbnail(thumbs),
+            rank: parseInt(rank, 10) || 0,
+            duration: r?.fixedColumns?.[0]?.musicResponsiveListItemFixedColumnRenderer?.text?.runs?.[0]?.text || ''
+          };
+        }).filter(Boolean);
+      } catch (plErr) {
+        console.error('Chart playlist fetch error:', plErr);
+      }
+    }
+
+    return result;
+  } catch (err) {
+    console.error('Charts error:', err);
+    return null;
+  }
+});
+
+ipcMain.handle('yt:browseMood', async (_event, browseId, params) => {
+  try {
+    const rawData = await ytmusic.constructRequest('browse', { browseId, params });
+    const grid = rawData?.contents?.singleColumnBrowseResultsRenderer
+      ?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents || [];
+    const playlists = [];
+    for (const section of grid) {
+      const items = section?.gridRenderer?.items || section?.musicCarouselShelfRenderer?.contents || [];
+      for (const item of items) {
+        const r = item?.musicTwoRowItemRenderer;
+        if (!r) continue;
+        const playlistId = r?.navigationEndpoint?.browseEndpoint?.browseId || '';
+        if (!playlistId) continue;
+        playlists.push({
+          playlistId,
+          name: r?.title?.runs?.[0]?.text || 'Unknown',
+          subtitle: (r?.subtitle?.runs || []).map(s => s.text).join(''),
+          thumbnail: getSquareThumbnail(r?.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails || [], 300)
+        });
+      }
+    }
+    return playlists;
+  } catch (err) {
+    console.error('Browse mood error:', err);
+    return [];
+  }
+});
+
 ipcMain.handle('yt:getStreamUrl', async (_event, videoUrl, quality) => {
   const fmt = quality === 'worstaudio' ? 'worstaudio' : 'bestaudio';
+  const cacheKey = `audio:${videoUrl}:${fmt}`;
+  const cached = getCachedUrl(cacheKey);
+  if (cached) return cached;
+
   return new Promise((resolve, reject) => {
     execFile(getYtDlpPath(), [
       '-f', fmt,
       '--get-url',
       '--no-warnings',
       '--no-playlist',
+      '--no-check-certificates',
       videoUrl
     ], { timeout: 15000 }, (err, stdout, stderr) => {
       if (err) return reject(stderr?.trim() || err.message);
       const url = stdout.trim().split('\n')[0];
       if (!url) return reject('yt-dlp returned no URL');
+      setCachedUrl(cacheKey, url);
       resolve(url);
     });
   });
@@ -603,39 +1016,73 @@ ipcMain.handle('yt:getVideoStreamUrl', async (_event, videoId, quality, premuxed
   const fmt = premuxed
     ? `best[height<=${height}]/best`
     : `bestvideo[height<=${height}][ext=mp4]+bestaudio[ext=m4a]/best[height<=${height}]/best`;
+  const cacheKey = `video:${videoId}:${fmt}`;
+  const cached = getCachedUrl(cacheKey);
+  if (cached) return cached;
+
   return new Promise((resolve, reject) => {
     execFile(getYtDlpPath(), [
       '-f', fmt,
       '--get-url',
       '--no-warnings',
       '--no-playlist',
+      '--no-check-certificates',
       `https://music.youtube.com/watch?v=${videoId}`
     ], { timeout: 20000 }, (err, stdout, stderr) => {
       if (err) return reject(stderr?.trim() || err.message);
       const urls = stdout.trim().split('\n').filter(Boolean);
       if (!urls.length) return reject('yt-dlp returned no video URL');
-      // If 2 URLs: [video, audio]. If 1 URL: muxed stream
-      resolve({ videoUrl: urls[0], audioUrl: urls[1] || null });
+      const result = { videoUrl: urls[0], audioUrl: urls[1] || null };
+      setCachedUrl(cacheKey, result);
+      resolve(result);
     });
   });
 });
 
 ipcMain.handle('yt:getUpNexts', async (_event, videoId) => {
   try {
-    const results = await ytmusic.getUpNexts(videoId);
-    if (!Array.isArray(results)) return [];
-    return results
-      .filter(r => r.videoId)
-      .map(r => ({
-        id: r.videoId,
-        title: r.title || r.name || 'Unknown',
-        artist: r.artists || r.artist?.name || 'Unknown Artist',
-        artistId: r.artist?.artistId || null,
-        thumbnail: r.thumbnail || getSquareThumbnail(r.thumbnails || []),
-        duration: r.duration || '',
-        durationMs: 0,
-        url: `https://music.youtube.com/watch?v=${r.videoId}`
-      }));
+    const rawData = await ytmusic.constructRequest('next', {
+      videoId,
+      playlistId: `RDAMVM${videoId}`,
+      isAudioOnly: true
+    });
+
+    const contents = rawData?.contents?.singleColumnMusicWatchNextResultsRenderer
+      ?.tabbedRenderer?.watchNextTabbedResultsRenderer?.tabs?.[0]
+      ?.tabRenderer?.content?.musicQueueRenderer?.content
+      ?.playlistPanelRenderer?.contents || [];
+
+    return contents.slice(1)
+      .map(item => {
+        const r = item?.playlistPanelVideoRenderer;
+        if (!r) return null;
+        const vid = r.navigationEndpoint?.watchEndpoint?.videoId;
+        if (!vid) return null;
+
+        const allRuns = r.longBylineText?.runs || [];
+        const dotIdx = allRuns.findIndex(run => run.text === ' \u2022 ');
+        const artistRuns = dotIdx >= 0 ? allRuns.slice(0, dotIdx) : allRuns;
+        const artists = parseArtistsFromRuns(artistRuns);
+
+        const durationText = r.lengthText?.runs?.[0]?.text || '';
+        const durationParts = durationText.split(':').map(Number);
+        let durationMs = 0;
+        if (durationParts.length === 2) durationMs = (durationParts[0] * 60 + durationParts[1]) * 1000;
+        else if (durationParts.length === 3) durationMs = (durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]) * 1000;
+
+        const thumbnail = getSquareThumbnail(r.thumbnail?.thumbnails || []);
+
+        return {
+          id: vid,
+          title: r.title?.runs?.[0]?.text || 'Unknown',
+          ...buildArtistFields(artists),
+          thumbnail,
+          duration: durationText,
+          durationMs,
+          url: `https://music.youtube.com/watch?v=${vid}`
+        };
+      })
+      .filter(Boolean);
   } catch (err) {
     console.error('getUpNexts error:', err);
     return [];

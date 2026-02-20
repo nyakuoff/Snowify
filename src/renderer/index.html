@@ -60,6 +60,10 @@
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3L4 9v12h5v-7h6v7h5V9l-8-6z"/></svg>
           <span>Home</span>
         </button>
+        <button class="nav-btn" data-view="explore">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+          <span>Explore</span>
+        </button>
         <button class="nav-btn" data-view="search">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M16 16l4.5 4.5" stroke-linecap="round"/></svg>
           <span>Search</span>
@@ -131,6 +135,16 @@
         <div class="section" id="recommended-songs-section" style="display:none">
           <h2>Recommended Songs</h2>
           <div class="card-row" id="recommended-songs"></div>
+        </div>
+      </section>
+
+      <!-- ── Explore View ── -->
+      <section class="view" id="view-explore">
+        <div class="view-header">
+          <h1>Explore</h1>
+        </div>
+        <div class="explore-content" id="explore-content">
+          <div class="loading"><div class="spinner"></div></div>
         </div>
       </section>
 
@@ -272,6 +286,66 @@
                   <button class="btn-setting-action btn-danger" id="btn-sign-out">Sign Out</button>
                 </div>
               </div>
+            </div>
+            <div class="setting-row" style="margin-top: 16px;">
+              <div class="setting-info">
+                <span class="setting-label">Country</span>
+                <span class="setting-desc">Localizes Explore recommendations</span>
+              </div>
+              <select class="setting-select" id="setting-country">
+                <option value="">Not set</option>
+                <option value="AR">Argentina</option>
+                <option value="AU">Australia</option>
+                <option value="AT">Austria</option>
+                <option value="BE">Belgium</option>
+                <option value="BR">Brazil</option>
+                <option value="CA">Canada</option>
+                <option value="CL">Chile</option>
+                <option value="CO">Colombia</option>
+                <option value="CZ">Czechia</option>
+                <option value="DK">Denmark</option>
+                <option value="EG">Egypt</option>
+                <option value="FI">Finland</option>
+                <option value="FR">France</option>
+                <option value="DE">Germany</option>
+                <option value="GR">Greece</option>
+                <option value="HU">Hungary</option>
+                <option value="IN">India</option>
+                <option value="ID">Indonesia</option>
+                <option value="IE">Ireland</option>
+                <option value="IL">Israel</option>
+                <option value="IT">Italy</option>
+                <option value="JP">Japan</option>
+                <option value="KE">Kenya</option>
+                <option value="MY">Malaysia</option>
+                <option value="MX">Mexico</option>
+                <option value="NL">Netherlands</option>
+                <option value="NZ">New Zealand</option>
+                <option value="NG">Nigeria</option>
+                <option value="NO">Norway</option>
+                <option value="PK">Pakistan</option>
+                <option value="PE">Peru</option>
+                <option value="PH">Philippines</option>
+                <option value="PL">Poland</option>
+                <option value="PT">Portugal</option>
+                <option value="RO">Romania</option>
+                <option value="RU">Russia</option>
+                <option value="SA">Saudi Arabia</option>
+                <option value="SG">Singapore</option>
+                <option value="ZA">South Africa</option>
+                <option value="KR">South Korea</option>
+                <option value="ES">Spain</option>
+                <option value="SE">Sweden</option>
+                <option value="CH">Switzerland</option>
+                <option value="TW">Taiwan</option>
+                <option value="TH">Thailand</option>
+                <option value="TR">Türkiye</option>
+                <option value="UA">Ukraine</option>
+                <option value="AE">United Arab Emirates</option>
+                <option value="GB">United Kingdom</option>
+                <option value="US">United States</option>
+                <option value="VN">Vietnam</option>
+              </select>
             </div>
           </div>
           <div class="settings-group">

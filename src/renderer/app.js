@@ -35,7 +35,8 @@
     animations: true,
     effects: true,
     theme: 'dark',
-    discordRpc: false
+    discordRpc: false,
+    country: ''
   };
 
   function saveState() {
@@ -55,7 +56,8 @@
       animations: state.animations,
       effects: state.effects,
       theme: state.theme,
-      discordRpc: state.discordRpc
+      discordRpc: state.discordRpc,
+      country: state.country
     }));
     localStorage.setItem('snowify_lastSave', String(Date.now()));
     cloudSaveDebounced();
@@ -96,6 +98,7 @@
         state.effects = saved.effects ?? true;
         state.theme = saved.theme || 'dark';
         state.discordRpc = saved.discordRpc ?? false;
+        state.country = saved.country || '';
       }
     } catch (_) {}
   }
@@ -120,8 +123,19 @@
       targetView.style.animation = '';
     }
 
+    if (_lyricsVisible) {
+      _lyricsVisible = false;
+      lyricsPanel.classList.add('hidden');
+      lyricsPanel.classList.remove('visible');
+      btnLyrics.classList.remove('active');
+      stopLyricsSync();
+    }
+
     if (name === 'home') {
       renderHome();
+    }
+    if (name === 'explore') {
+      renderExplore();
     }
     if (name === 'search') {
       setTimeout(() => $('#search-input').focus(), 100);
@@ -234,12 +248,13 @@
   }
 
   function renderTrackList(container, tracks, context) {
+    const showDuration = tracks.some(t => t.duration);
     let html = `
-      <div class="track-list-header">
+      <div class="track-list-header${showDuration ? '' : ' no-duration'}">
         <span>#</span>
         <span>Title</span>
         <span>Artist</span>
-        <span style="text-align:right">Duration</span>
+        ${showDuration ? '<span style="text-align:right">Duration</span>' : ''}
       </div>`;
 
     tracks.forEach((track, i) => {
@@ -247,7 +262,7 @@
       const isLiked = state.likedSongs.some(t => t.id === track.id);
 
       html += `
-        <div class="track-row ${isPlaying ? 'playing' : ''}" 
+        <div class="track-row ${isPlaying ? 'playing' : ''}${showDuration ? '' : ' no-duration'}"
              data-track-id="${track.id}" data-context="${context}" data-index="${i}" draggable="true">
           <div class="track-num">
             <span class="track-num-text">${isPlaying ? '♫' : i + 1}</span>
@@ -261,10 +276,8 @@
               <div class="track-title">${escapeHtml(track.title)}</div>
             </div>
           </div>
-          <div class="track-artist-col">${track.artistId
-            ? `<span class="artist-link" data-artist-id="${escapeHtml(track.artistId)}">${escapeHtml(track.artist)}</span>`
-            : escapeHtml(track.artist)}</div>
-          <div class="track-duration">${track.duration}</div>
+          <div class="track-artist-col">${renderArtistLinks(track)}</div>
+          ${showDuration ? `<div class="track-duration">${track.duration}</div>` : ''}
         </div>`;
     });
 
@@ -288,13 +301,7 @@
       });
     });
 
-    container.querySelectorAll('.artist-link').forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const id = link.dataset.artistId;
-        if (id) openArtistPage(id);
-      });
-    });
+    bindArtistLinks(container);
   }
 
   function showContextMenu(e, track) {
@@ -470,6 +477,7 @@
       addToRecent(track);
       updateDiscordPresence(track);
       saveState();
+      prefetchNextTrack();
     } catch (err) {
       console.error('Playback error:', err);
       const msg = typeof err === 'string' ? err : (err.message || 'unknown error');
@@ -492,6 +500,16 @@
     }
     updatePlayButton();
     updateTrackHighlight();
+  }
+
+  function prefetchNextTrack() {
+    const nextIdx = state.queueIndex + 1;
+    if (nextIdx >= state.queue.length) return;
+    const next = state.queue[nextIdx];
+    if (!next || !next.url && !next.id) return;
+    const url = next.url || `https://music.youtube.com/watch?v=${next.id}`;
+    // Fire-and-forget: this populates the main-process cache
+    window.snowify.getStreamUrl(url, state.audioQuality).catch(() => {});
   }
 
   function playFromList(tracks, index) {
@@ -863,14 +881,10 @@
     $('#np-title').textContent = track.title;
 
     const npArtist = $('#np-artist');
-    npArtist.textContent = track.artist;
-    if (track.artistId) {
-      npArtist.classList.add('clickable');
-      npArtist.onclick = () => openArtistPage(track.artistId);
-    } else {
-      npArtist.classList.remove('clickable');
-      npArtist.onclick = null;
-    }
+    npArtist.innerHTML = renderArtistLinks(track);
+    npArtist.classList.remove('clickable');
+    npArtist.onclick = null;
+    bindArtistLinks(npArtist);
 
     const isLiked = state.likedSongs.some(t => t.id === track.id);
     $('#np-like').classList.toggle('liked', isLiked);
@@ -1431,6 +1445,7 @@
     allQueueItems.forEach(item => {
       const track = state.queue.find(t => t.id === item.dataset.trackId);
       if (!track) return;
+      bindArtistLinks(item);
       item.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         showContextMenu(e, track);
@@ -1447,7 +1462,7 @@
         <img src="${escapeHtml(track.thumbnail)}" alt="" />
         <div class="queue-item-info">
           <div class="queue-item-title">${escapeHtml(track.title)}</div>
-          <div class="queue-item-artist">${escapeHtml(track.artist)}</div>
+          <div class="queue-item-artist">${renderArtistLinks(track)}</div>
         </div>
       </div>`;
   }
@@ -1460,7 +1475,22 @@
     renderHome();
   }
 
-  function renderHome() {
+  async function renderHome() {
+    // Backfill missing artistIds in recent tracks
+    const needsId = state.recentTracks.filter(t => t.artist && !t.artistId);
+    if (needsId.length) {
+      const uniqueNames = [...new Set(needsId.map(t => t.artist))];
+      const lookups = await Promise.all(uniqueNames.map(n => window.snowify.searchArtists(n).catch(() => [])));
+      const nameToId = {};
+      uniqueNames.forEach((name, i) => {
+        if (lookups[i]?.length) nameToId[name] = lookups[i][0].artistId;
+      });
+      let changed = false;
+      state.recentTracks.forEach(t => {
+        if (!t.artistId && nameToId[t.artist]) { t.artistId = nameToId[t.artist]; changed = true; }
+      });
+      if (changed) saveState();
+    }
     renderRecentTracks();
     renderQuickPicks();
     renderNewReleases();
@@ -1504,14 +1534,15 @@
       const seen = new Set();
       const releases = [];
 
-      results.forEach(r => {
+      results.forEach((r, i) => {
         if (r.status !== 'fulfilled' || !r.value) return;
         const info = r.value;
+        const followedArtistId = state.followedArtists[i].artistId;
         const all = [...(info.topAlbums || []), ...(info.topSingles || [])];
         all.forEach(rel => {
           if (rel.year >= currentYear && !seen.has(rel.albumId)) {
             seen.add(rel.albumId);
-            releases.push({ ...rel, artistName: info.name });
+            releases.push({ ...rel, artistName: info.name, artistId: followedArtistId });
           }
         });
       });
@@ -1532,6 +1563,7 @@
   }
 
   function renderReleaseCards(container, releases) {
+    addScrollArrows(container);
     container.innerHTML = releases.map(a => `
       <div class="album-card" data-album-id="${a.albumId}">
         <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
@@ -1539,7 +1571,7 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
         <div class="album-card-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
-        <div class="album-card-meta">${[a.artistName || '', a.year, a.type].filter(Boolean).join(' \u00B7 ')}</div>
+        <div class="album-card-meta">${a.artistId ? `<span class="album-card-artist clickable" data-artist-id="${escapeHtml(a.artistId)}">${escapeHtml(a.artistName || '')}</span>` : escapeHtml(a.artistName || '')}${a.year ? ' \u00B7 ' + a.year : ''}${a.type ? ' \u00B7 ' + a.type : ''}</div>
       </div>
     `).join('');
 
@@ -1550,6 +1582,10 @@
         e.stopPropagation();
         const album = await window.snowify.albumTracks(albumId);
         if (album && album.tracks.length) playFromList(album.tracks, 0);
+      });
+      card.querySelector('.album-card-artist.clickable')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openArtistPage(e.currentTarget.dataset.artistId);
       });
       card.addEventListener('click', () => showAlbumDetail(albumId, meta));
       card.addEventListener('contextmenu', (e) => {
@@ -1574,7 +1610,7 @@
       <div class="track-card" data-track-id="${track.id}" draggable="true">
         <img class="card-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" />
         <div class="card-title">${escapeHtml(track.title)}</div>
-        <div class="card-artist">${escapeHtml(track.artist)}</div>
+        <div class="card-artist">${renderArtistLinks(track)}</div>
         <button class="card-play" title="Play">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
@@ -1586,6 +1622,7 @@
         const track = state.recentTracks.find(t => t.id === card.dataset.trackId);
         if (track) playFromList([track], 0);
       });
+      bindArtistLinks(card);
       card.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         const track = state.recentTracks.find(t => t.id === card.dataset.trackId);
@@ -1645,10 +1682,13 @@
 
     const artistCounts = {};
     allTracks.forEach(t => {
-      if (t.artistId) {
-        if (!artistCounts[t.artistId]) artistCounts[t.artistId] = { name: t.artist, artistId: t.artistId, count: 0 };
-        artistCounts[t.artistId].count++;
-      }
+      const trackArtists = t.artists?.length ? t.artists : (t.artistId ? [{ name: t.artist, id: t.artistId }] : []);
+      trackArtists.forEach(a => {
+        if (a.id) {
+          if (!artistCounts[a.id]) artistCounts[a.id] = { name: a.name, artistId: a.id, count: 0 };
+          artistCounts[a.id].count++;
+        }
+      });
     });
 
     const topArtists = Object.values(artistCounts)
@@ -1685,7 +1725,7 @@
         <div class="track-card" data-track-id="${track.id}" draggable="true">
           <img class="card-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" />
           <div class="card-title">${escapeHtml(track.title)}</div>
-          <div class="card-artist">${escapeHtml(track.artist)}</div>
+          <div class="card-artist">${renderArtistLinks(track)}</div>
           <button class="card-play" title="Play">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
@@ -1697,6 +1737,7 @@
           const track = recommendedSongs.find(t => t.id === card.dataset.trackId);
           if (track) playFromList([track], 0);
         });
+        bindArtistLinks(card);
         card.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           const track = recommendedSongs.find(t => t.id === card.dataset.trackId);
@@ -1710,6 +1751,276 @@
     } else {
       songsSection.style.display = 'none';
     }
+  }
+
+  // ─── Explore ───
+
+  let _exploreCache = null;
+  let _chartsCache = null;
+  let _exploreCacheTime = 0;
+  let _chartsCacheTime = 0;
+  const EXPLORE_CACHE_TTL = 30 * 60 * 1000;
+
+  async function fetchExploreData() {
+    const now = Date.now();
+    if (_exploreCache && now - _exploreCacheTime < EXPLORE_CACHE_TTL) return _exploreCache;
+    _exploreCache = await window.snowify.explore();
+    _exploreCacheTime = now;
+    return _exploreCache;
+  }
+
+  async function fetchChartsData() {
+    const now = Date.now();
+    if (_chartsCache && now - _chartsCacheTime < EXPLORE_CACHE_TTL) return _chartsCache;
+    _chartsCache = await window.snowify.charts();
+    _chartsCacheTime = now;
+    return _chartsCache;
+  }
+
+  const MOOD_COLORS = [
+    '#2d4a3e', '#3b3054', '#4a3728', '#2a3f5f', '#5c3d3d',
+    '#3d5c4a', '#4b3b5c', '#5c4b3b', '#3b4b5c', '#4a5c3b',
+    '#5c3b4b', '#3b5c5c', '#54443b', '#3b4454', '#44543b',
+    '#543b44', '#3b5444', '#44433b', '#3b3d54', '#543b3d',
+  ];
+
+  const POPULAR_MOODS = new Set([
+    'pop', 'hip-hop', 'r&b', 'rock', 'chill', 'workout', 'party',
+    'focus', 'romance', 'sad', 'feel good', 'jazz', 'classical',
+    'country', 'electronic', 'indie', 'sleep', 'energy booster',
+    'commute', 'latin', 'k-pop', 'metal',
+  ]);
+
+  async function renderExplore() {
+    const content = $('#explore-content');
+    content.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+
+    // Apply country before fetching
+    await window.snowify.setCountry(state.country || '');
+
+    // Fetch both data sources in parallel
+    const [exploreData, chartsData] = await Promise.all([
+      fetchExploreData(),
+      fetchChartsData()
+    ]);
+
+    if (!exploreData && !chartsData) {
+      content.innerHTML = `<div class="empty-state"><p>Could not load explore data.</p></div>`;
+      return;
+    }
+
+    let html = '';
+
+    // Country hint banner
+    if (!state.country) {
+      html += `<div class="explore-country-hint">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+        <span>Set your <a href="#" id="explore-country-link">country in Settings</a> for more relevant recommendations</span>
+      </div>`;
+    }
+
+    // ── New Albums & Singles ──
+    if (exploreData?.newAlbums?.length) {
+      html += `<div class="explore-section"><h2>New Albums & Singles</h2><div class="scroll-container"><button class="scroll-arrow scroll-arrow-left" data-dir="left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="album-scroll">`;
+      html += exploreData.newAlbums.map(a => `
+        <div class="album-card" data-album-id="${escapeHtml(a.albumId)}">
+          <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
+          <button class="album-card-play" title="Play">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
+          </button>
+          <div class="album-card-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
+          <div class="album-card-meta">${a.artistId ? `<span class="album-card-artist clickable" data-artist-id="${escapeHtml(a.artistId)}">${escapeHtml(a.artist || '')}</span>` : escapeHtml(a.artist || '')}</div>
+        </div>
+      `).join('');
+      html += `</div><button class="scroll-arrow scroll-arrow-right" data-dir="right"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button></div></div>`;
+    }
+
+    // ── Trending (from charts) ──
+    if (chartsData?.topSongs?.length) {
+      html += `<div class="explore-section"><h2>Trending</h2><div class="top-songs-grid">`;
+      html += chartsData.topSongs.map((track, i) => `
+        <div class="top-song-item" data-track-id="${escapeHtml(track.id)}">
+          <div class="top-song-rank">${track.rank || i + 1}</div>
+          <img class="top-song-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" />
+          <div class="top-song-info">
+            <div class="top-song-title">${escapeHtml(track.title)}</div>
+            <div class="top-song-artist${track.artistId ? ' clickable' : ''}" ${track.artistId ? `data-artist-id="${escapeHtml(track.artistId)}"` : ''}>${escapeHtml(track.artist)}</div>
+          </div>
+        </div>
+      `).join('');
+      html += `</div></div>`;
+    }
+
+    // ── Top Artists (from charts) ──
+    if (chartsData?.topArtists?.length) {
+      html += `<div class="explore-section"><h2>Top Artists</h2><div class="scroll-container"><button class="scroll-arrow scroll-arrow-left" data-dir="left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="album-scroll top-artists-scroll">`;
+      html += chartsData.topArtists.map((a, i) => `
+        <div class="top-artist-card" data-artist-id="${escapeHtml(a.artistId)}">
+          <img class="top-artist-avatar" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
+          <div class="top-artist-name">${escapeHtml(a.name)}</div>
+          <div class="top-artist-rank">#${i + 1}</div>
+        </div>
+      `).join('');
+      html += `</div><button class="scroll-arrow scroll-arrow-right" data-dir="right"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button></div></div>`;
+    }
+
+    // ── New Music Videos ──
+    if (exploreData?.newMusicVideos?.length) {
+      html += `<div class="explore-section"><h2>New Music Videos</h2><div class="scroll-container"><button class="scroll-arrow scroll-arrow-left" data-dir="left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="album-scroll music-video-scroll">`;
+      html += exploreData.newMusicVideos.slice(0, 15).map(v => `
+        <div class="music-video-card" data-video-id="${escapeHtml(v.id)}">
+          <img class="music-video-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
+          <div class="music-video-title">${escapeHtml(v.title)}</div>
+          <div class="music-video-artist">${escapeHtml(v.artist)}</div>
+        </div>
+      `).join('');
+      html += `</div><button class="scroll-arrow scroll-arrow-right" data-dir="right"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button></div></div>`;
+    }
+
+    // ── Moods & Genres ──
+    if (exploreData?.moods?.length) {
+      const filteredMoods = exploreData.moods.filter(m => POPULAR_MOODS.has(m.label.toLowerCase()));
+      const displayMoods = filteredMoods.length ? filteredMoods : exploreData.moods.slice(0, 16);
+      html += `<div class="explore-section" id="explore-moods-section"><h2>Moods & Genres</h2><div class="mood-grid">`;
+      html += displayMoods.map((m, i) => {
+        const bg = MOOD_COLORS[i % MOOD_COLORS.length];
+        return `<div class="mood-card" data-browse-id="${escapeHtml(m.browseId)}" data-params="${escapeHtml(m.params || '')}" style="border-left-color:${bg}">${escapeHtml(m.label)}</div>`;
+      }).join('');
+      html += `</div></div>`;
+    }
+
+    content.innerHTML = html || `<div class="empty-state"><p>No explore data available.</p></div>`;
+
+    // ── Attach listeners ──
+    // Country hint link
+    $('#explore-country-link')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchView('settings');
+      setTimeout(() => $('#setting-country')?.focus(), 100);
+    });
+
+    attachExploreAlbumListeners(content, exploreData?.newAlbums || []);
+
+    // Top songs
+    const topSongsList = chartsData?.topSongs || [];
+    content.querySelectorAll('.top-song-item').forEach(item => {
+      const track = topSongsList.find(t => t.id === item.dataset.trackId);
+      if (!track) return;
+      item.addEventListener('click', () => playFromList(topSongsList, topSongsList.indexOf(track)));
+      item.querySelector('.top-song-artist.clickable')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openArtistPage(e.currentTarget.dataset.artistId);
+      });
+      item.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        showContextMenu(e, track);
+      });
+    });
+
+    // Top artists
+    content.querySelectorAll('.top-artist-card').forEach(card => {
+      card.addEventListener('click', () => openArtistPage(card.dataset.artistId));
+    });
+
+    // New music videos
+    content.querySelectorAll('.music-video-card').forEach(card => {
+      const v = (exploreData?.newMusicVideos || []).find(t => t.id === card.dataset.videoId);
+      if (v) {
+        card.addEventListener('click', () => playFromList([v], 0));
+        card.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          showContextMenu(e, v);
+        });
+      }
+    });
+
+    // Mood cards
+    attachMoodListeners(content, exploreData?.moods || []);
+
+    // Scroll arrows
+    content.querySelectorAll('.scroll-container').forEach(container => {
+      const scrollEl = container.querySelector('.album-scroll');
+      if (!scrollEl) return;
+      container.querySelectorAll('.scroll-arrow').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const dir = btn.dataset.dir === 'left' ? -1 : 1;
+          scrollEl.scrollBy({ left: dir * 400, behavior: 'smooth' });
+        });
+      });
+    });
+  }
+
+  function attachMoodListeners(container, moods) {
+    container.querySelectorAll('.mood-card').forEach(card => {
+      card.addEventListener('click', async () => {
+        const moodsSection = $('#explore-moods-section');
+        if (!moodsSection) return;
+        const savedHtml = moodsSection.innerHTML;
+        moodsSection.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+        const playlists = await window.snowify.browseMood(card.dataset.browseId, card.dataset.params);
+        if (!playlists?.length) {
+          moodsSection.innerHTML = savedHtml;
+          showToast('No playlists found for this mood');
+          attachMoodListeners(moodsSection.parentElement, moods);
+          return;
+        }
+        let moodHtml = `<h2>${escapeHtml(card.textContent)}</h2>`;
+        moodHtml += `<button class="explore-back-btn" id="explore-mood-back">← Back to Moods & Genres</button>`;
+        moodHtml += `<div class="album-scroll">`;
+        moodHtml += playlists.map(p => `
+          <div class="album-card" data-playlist-id="${escapeHtml(p.playlistId)}">
+            <img class="album-card-cover" src="${escapeHtml(p.thumbnail)}" alt="" loading="lazy" />
+            <div class="album-card-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
+            <div class="album-card-meta">${escapeHtml(p.subtitle || '')}</div>
+          </div>
+        `).join('');
+        moodHtml += `</div>`;
+        moodsSection.innerHTML = moodHtml;
+
+        const moodScroll = moodsSection.querySelector('.album-scroll');
+        if (moodScroll) addScrollArrows(moodScroll);
+
+        $('#explore-mood-back')?.addEventListener('click', () => {
+          moodsSection.innerHTML = savedHtml;
+          attachMoodListeners(moodsSection.parentElement, moods);
+        });
+
+        moodsSection.querySelectorAll('.album-card').forEach(ac => {
+          ac.addEventListener('click', async () => {
+            const pid = ac.dataset.playlistId;
+            try {
+              const vids = await window.snowify.getPlaylistVideos?.(pid);
+              if (vids?.length) playFromList(vids, 0);
+              else showToast('Could not load playlist');
+            } catch {
+              showToast('Could not load playlist');
+            }
+          });
+        });
+      });
+    });
+  }
+
+  function attachExploreAlbumListeners(container, albums) {
+    container.querySelectorAll('.album-card').forEach(card => {
+      const albumId = card.dataset.albumId;
+      if (!albumId) return;
+      const meta = albums.find(a => a.albumId === albumId);
+      card.querySelector('.album-card-play')?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const album = await window.snowify.albumTracks(albumId);
+        if (album?.tracks?.length) playFromList(album.tracks, 0);
+      });
+      card.querySelector('.album-card-artist.clickable')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openArtistPage(e.currentTarget.dataset.artistId);
+      });
+      card.addEventListener('click', () => showAlbumDetail(albumId, meta));
+      card.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        showAlbumContextMenu(e, albumId, meta);
+      });
+    });
   }
 
   document.addEventListener('keydown', (e) => {
@@ -1804,6 +2115,51 @@
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  /** Wrap an .album-scroll or .similar-artists-scroll element with scroll arrows if not already wrapped. */
+  function addScrollArrows(scrollEl) {
+    if (!scrollEl || scrollEl.parentElement?.classList.contains('scroll-container')) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'scroll-container';
+    scrollEl.parentNode.insertBefore(wrapper, scrollEl);
+    const leftBtn = document.createElement('button');
+    leftBtn.className = 'scroll-arrow scroll-arrow-left';
+    leftBtn.dataset.dir = 'left';
+    leftBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+    const rightBtn = document.createElement('button');
+    rightBtn.className = 'scroll-arrow scroll-arrow-right';
+    rightBtn.dataset.dir = 'right';
+    rightBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+    wrapper.appendChild(leftBtn);
+    wrapper.appendChild(scrollEl);
+    wrapper.appendChild(rightBtn);
+    leftBtn.addEventListener('click', () => scrollEl.scrollBy({ left: -400, behavior: 'smooth' }));
+    rightBtn.addEventListener('click', () => scrollEl.scrollBy({ left: 400, behavior: 'smooth' }));
+  }
+
+  function renderArtistLinks(track) {
+    if (track.artists?.length) {
+      return track.artists.map((a, i, arr) => {
+        const sep = i < arr.length - 1 ? ', ' : '';
+        return (a.id
+          ? `<span class="artist-link" data-artist-id="${escapeHtml(a.id)}">${escapeHtml(a.name)}</span>`
+          : escapeHtml(a.name)) + sep;
+      }).join('');
+    }
+    if (track.artistId) {
+      return `<span class="artist-link" data-artist-id="${escapeHtml(track.artistId)}">${escapeHtml(track.artist)}</span>`;
+    }
+    return escapeHtml(track.artist || 'Unknown Artist');
+  }
+
+  function bindArtistLinks(container) {
+    container.querySelectorAll('.artist-link[data-artist-id]').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openArtistPage(link.dataset.artistId);
+      });
+    });
+  }
+
   function formatTime(s) {
     if (!s || isNaN(s)) return '0:00';
     const m = Math.floor(s / 60);
@@ -1876,7 +2232,9 @@
     const fansSection = $('#artist-fans-section');
     const fansContainer = $('#artist-fans');
 
-    avatar.src = '';
+    avatar.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    avatar.classList.remove('loaded');
+    avatar.classList.add('shimmer');
     nameEl.textContent = 'Loading...';
     followersEl.textContent = '';
     descEl.textContent = '';
@@ -1903,6 +2261,10 @@
     followersEl.textContent = info.monthlyListeners || '';
 
     if (info.avatar) {
+      avatar.addEventListener('load', () => {
+        avatar.classList.remove('shimmer');
+        avatar.classList.add('loaded');
+      }, { once: true });
       avatar.src = info.avatar;
     }
 
@@ -1971,6 +2333,7 @@
         </div>
       `).join('');
 
+      addScrollArrows(discographyContainer);
       discographyContainer.querySelectorAll('.album-card').forEach(card => {
         const albumId = card.dataset.albumId;
         const meta = items.find(a => a.albumId === albumId);
@@ -2018,6 +2381,7 @@
         </div>
       `).join('');
 
+      addScrollArrows(videosContainer);
       videosContainer.querySelectorAll('.video-card').forEach(card => {
         const vid = card.dataset.videoId;
         const video = topVideos.find(v => v.videoId === vid);
@@ -2041,6 +2405,7 @@
         </div>
       `).join('');
 
+      addScrollArrows(liveContainer);
       liveContainer.querySelectorAll('.video-card').forEach(card => {
         const vid = card.dataset.videoId;
         const video = livePerfs.find(v => v.videoId === vid);
@@ -2061,6 +2426,7 @@
         </div>
       `).join('');
 
+      addScrollArrows(fansContainer);
       fansContainer.querySelectorAll('.similar-artist-card').forEach(card => {
         card.addEventListener('click', () => {
           const id = card.dataset.artistId;
@@ -2640,6 +3006,8 @@
       const an = $('#setting-animations'); if (an) an.checked = state.animations;
       const ef = $('#setting-effects'); if (ef) ef.checked = state.effects;
       const dr = $('#setting-discord-rpc'); if (dr) dr.checked = state.discordRpc;
+      const co = $('#setting-country'); if (co) co.value = state.country || '';
+      if (state.country) window.snowify.setCountry(state.country);
       document.documentElement.classList.toggle('no-animations', !state.animations);
       document.documentElement.classList.toggle('no-effects', !state.effects);
       audio.volume = state.volume * 0.3;
@@ -3135,6 +3503,7 @@
     const animationsToggle = $('#setting-animations');
     const effectsToggle = $('#setting-effects');
     const discordRpcToggle = $('#setting-discord-rpc');
+    const countrySelect = $('#setting-country');
 
     autoplayToggle.checked = state.autoplay;
     discordRpcToggle.checked = state.discordRpc;
@@ -3144,6 +3513,9 @@
     videoQualitySelect.disabled = state.videoPremuxed;
     animationsToggle.checked = state.animations;
     effectsToggle.checked = state.effects;
+    countrySelect.value = state.country || '';
+    // Apply saved country to backend
+    if (state.country) window.snowify.setCountry(state.country);
     document.documentElement.classList.toggle('no-animations', !state.animations);
     document.documentElement.classList.toggle('no-effects', !state.effects);
 
@@ -3223,6 +3595,18 @@
       state.effects = effectsToggle.checked;
       document.documentElement.classList.toggle('no-effects', !state.effects);
       saveState();
+    });
+
+    countrySelect.addEventListener('change', () => {
+      state.country = countrySelect.value;
+      window.snowify.setCountry(state.country);
+      // Invalidate explore caches so next visit fetches localized data
+      _exploreCache = null;
+      _chartsCache = null;
+      _exploreCacheTime = 0;
+      _chartsCacheTime = 0;
+      saveState();
+      showToast(state.country ? `Explore region set to ${countrySelect.options[countrySelect.selectedIndex].text}` : 'Explore region cleared');
     });
 
     $('#setting-clear-history').addEventListener('click', () => {
