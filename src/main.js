@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, session, shell, dialog, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { execFile } = require('child_process');
 
 let mainWindow;
@@ -39,8 +40,22 @@ function getYtDlpPath() {
   const isMac = process.platform === 'darwin';
   const binName = isWin ? 'yt-dlp.exe' : 'yt-dlp';
 
-  // macOS: always use system PATH (bundled PyInstaller binary is too slow)
-  if (isMac) return binName;
+  // macOS: check common install locations (Electron from Finder has limited PATH)
+  if (isMac) {
+    const macPaths = [
+      '/opt/homebrew/bin/yt-dlp',           // brew (Apple Silicon)
+      '/usr/local/bin/yt-dlp',              // brew (Intel) or pip3 system
+      path.join(os.homedir(), '.local/bin/yt-dlp'), // pip3 --user
+      path.join(os.homedir(), 'Library/Python/3.14/bin/yt-dlp'), // pip3 user (versioned)
+      path.join(os.homedir(), 'Library/Python/3.13/bin/yt-dlp'),
+      path.join(os.homedir(), 'Library/Python/3.12/bin/yt-dlp'),
+      path.join(os.homedir(), 'Library/Python/3.11/bin/yt-dlp'),
+    ];
+    for (const p of macPaths) {
+      if (fs.existsSync(p)) return p;
+    }
+    return binName; // fallback to PATH
+  }
 
   const subDir = isWin ? 'win' : 'linux';
 
@@ -99,6 +114,7 @@ function mapSongToTrack(song) {
 }
 
 function createWindow() {
+  const isMac = process.platform === 'darwin';
   mainWindow = new BrowserWindow({
     width: 1500,
     height: 860,
@@ -107,6 +123,7 @@ function createWindow() {
     frame: false,
     backgroundColor: '#121212',
     titleBarStyle: 'hidden',
+    ...(isMac && { trafficLightPosition: { x: 16, y: 12 } }),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -117,6 +134,15 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  // Inject platform class before first paint (avoids visual flash)
+  if (process.platform === 'darwin') {
+    mainWindow.webContents.on('dom-ready', () => {
+      mainWindow.webContents.executeJavaScript(
+        "document.documentElement.classList.add('platform-darwin');"
+      );
+    });
+  }
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
@@ -141,37 +167,105 @@ function createWindow() {
 function checkMacYtDlp() {
   if (process.platform !== 'darwin') return;
 
-  const { execFileSync } = require('child_process');
+  const { execFileSync, execSync } = require('child_process');
+
+  // Check if yt-dlp is already installed (use getYtDlpPath which checks all known locations)
+  const ytdlp = getYtDlpPath();
   try {
-    execFileSync('which', ['yt-dlp'], { stdio: 'ignore' });
-    return; // yt-dlp found in PATH
+    execFileSync(ytdlp, ['--version'], { stdio: 'ignore', timeout: 5000 });
+    return; // yt-dlp works
   } catch (_) {
-    // not found — show setup dialog
+    // not found or broken — try auto-install
   }
 
-  let hasBrew = false;
+  // Try auto-install with brew
   try {
     execFileSync('which', ['brew'], { stdio: 'ignore' });
-    hasBrew = true;
-  } catch (_) {}
+    const response = dialog.showMessageBoxSync(mainWindow, {
+      type: 'info',
+      title: 'First Time Setup',
+      message: 'Installing yt-dlp...',
+      detail: 'yt-dlp is required for audio streaming. Homebrew was detected on your system.\n\nClick "Install" to install it automatically.',
+      buttons: ['Install', 'Cancel'],
+      defaultId: 0,
+      noLink: true
+    });
+    if (response === 0) {
+      try {
+        execSync('brew install yt-dlp', { stdio: 'ignore', timeout: 120000 });
+        dialog.showMessageBoxSync(mainWindow, {
+          type: 'info',
+          title: 'Setup Complete',
+          message: 'yt-dlp installed successfully!',
+          detail: 'Snowify is ready to use.',
+          buttons: ['OK']
+        });
+        return;
+      } catch (_) {
+        dialog.showMessageBoxSync(mainWindow, {
+          type: 'error',
+          title: 'Installation Failed',
+          message: 'Could not install yt-dlp via Homebrew.',
+          detail: 'Please try manually in Terminal:\n\nbrew install yt-dlp',
+          buttons: ['OK']
+        });
+      }
+    }
+    return;
+  } catch (_) {
+    // no brew
+  }
 
-  const message = hasBrew
-    ? 'yt-dlp is required for audio streaming but was not found on your system.\n\nInstall it by running this command in Terminal:\n\nbrew install yt-dlp'
-    : 'yt-dlp is required for audio streaming but was not found on your system.\n\nYou need Homebrew first. Install it from https://brew.sh, then run:\n\nbrew install yt-dlp';
+  // Try auto-install with pip3
+  try {
+    execFileSync('which', ['pip3'], { stdio: 'ignore' });
+    const response = dialog.showMessageBoxSync(mainWindow, {
+      type: 'info',
+      title: 'First Time Setup',
+      message: 'Installing yt-dlp...',
+      detail: 'yt-dlp is required for audio streaming. Python was detected on your system.\n\nClick "Install" to install it automatically via pip.',
+      buttons: ['Install', 'Cancel'],
+      defaultId: 0,
+      noLink: true
+    });
+    if (response === 0) {
+      try {
+        execSync('pip3 install yt-dlp', { stdio: 'ignore', timeout: 120000 });
+        dialog.showMessageBoxSync(mainWindow, {
+          type: 'info',
+          title: 'Setup Complete',
+          message: 'yt-dlp installed successfully!',
+          detail: 'Snowify is ready to use.',
+          buttons: ['OK']
+        });
+        return;
+      } catch (_) {
+        dialog.showMessageBoxSync(mainWindow, {
+          type: 'error',
+          title: 'Installation Failed',
+          message: 'Could not install yt-dlp via pip.',
+          detail: 'Please try manually in Terminal:\n\npip3 install yt-dlp',
+          buttons: ['OK']
+        });
+      }
+    }
+    return;
+  } catch (_) {
+    // no pip3
+  }
 
-  const buttons = hasBrew ? ['OK'] : ['Open brew.sh', 'OK'];
-
+  // No package manager found — show manual instructions
   const response = dialog.showMessageBoxSync(mainWindow, {
     type: 'warning',
     title: 'yt-dlp Not Found',
     message: 'Setup Required',
-    detail: message,
-    buttons,
-    defaultId: buttons.length - 1,
+    detail: 'yt-dlp is required for audio streaming but could not be installed automatically.\n\nYou need Homebrew first. Install it from https://brew.sh, then run:\n\nbrew install yt-dlp',
+    buttons: ['Open brew.sh', 'OK'],
+    defaultId: 1,
     noLink: true
   });
 
-  if (!hasBrew && response === 0) {
+  if (response === 0) {
     shell.openExternal('https://brew.sh');
   }
 }
