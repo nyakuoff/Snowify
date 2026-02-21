@@ -1841,7 +1841,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
           <div class="album-card-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
-          <div class="album-card-meta">${a.artistId ? `<span class="album-card-artist clickable" data-artist-id="${escapeHtml(a.artistId)}">${escapeHtml(a.artist || '')}</span>` : escapeHtml(a.artist || '')}</div>
+          <div class="album-card-meta">${renderArtistLinks(a)}</div>
         </div>
       `).join('');
       html += `</div><button class="scroll-arrow scroll-arrow-right" data-dir="right"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button></div></div>`;
@@ -1856,7 +1856,7 @@
           <img class="top-song-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" />
           <div class="top-song-info">
             <div class="top-song-title">${escapeHtml(track.title)}</div>
-            <div class="top-song-artist${track.artistId ? ' clickable' : ''}" ${track.artistId ? `data-artist-id="${escapeHtml(track.artistId)}"` : ''}>${escapeHtml(track.artist)}</div>
+            <div class="top-song-artist">${renderArtistLinks(track)}</div>
           </div>
         </div>
       `).join('');
@@ -1886,7 +1886,7 @@
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
           <div class="video-card-name" title="${escapeHtml(v.title)}">${escapeHtml(v.title)}</div>
-          <div class="video-card-duration">${escapeHtml(v.artist)}</div>
+          <div class="video-card-duration">${renderArtistLinks(v)}</div>
         </div>
       `).join('');
       html += `</div><button class="scroll-arrow scroll-arrow-right" data-dir="right"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button></div></div>`;
@@ -1922,10 +1922,7 @@
       const track = topSongsList.find(t => t.id === item.dataset.trackId);
       if (!track) return;
       item.addEventListener('click', () => playFromList(topSongsList, topSongsList.indexOf(track)));
-      item.querySelector('.top-song-artist.clickable')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openArtistPage(e.currentTarget.dataset.artistId);
-      });
+      bindArtistLinks(item);
       item.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         showContextMenu(e, track);
@@ -1941,6 +1938,7 @@
     content.querySelectorAll('.music-video-scroll .video-card').forEach(card => {
       const v = (exploreData?.newMusicVideos || []).find(t => t.id === card.dataset.videoId);
       if (v) {
+        bindArtistLinks(card);
         card.addEventListener('click', () => playFromList([v], 0));
         card.addEventListener('contextmenu', (e) => {
           e.preventDefault();
@@ -2026,10 +2024,7 @@
         const album = await window.snowify.albumTracks(albumId);
         if (album?.tracks?.length) playFromList(album.tracks, 0);
       });
-      card.querySelector('.album-card-artist.clickable')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openArtistPage(e.currentTarget.dataset.artistId);
-      });
+      bindArtistLinks(card);
       card.addEventListener('click', () => showAlbumDetail(albumId, meta));
       card.addEventListener('contextmenu', (e) => {
         e.preventDefault();
@@ -2209,10 +2204,11 @@
 
     heroName.textContent = album.name || albumMeta?.name || 'Album';
     const parts = [];
-    if (album.artist) parts.push(album.artist);
-    if (albumMeta?.year) parts.push(albumMeta.year);
+    if (album.artist) parts.push(renderArtistLinks(album));
+    if (albumMeta?.year) parts.push(escapeHtml(String(albumMeta.year)));
     parts.push(`${album.tracks.length} song${album.tracks.length !== 1 ? 's' : ''}`);
-    heroMeta.textContent = parts.join(' \u00B7 ');
+    heroMeta.innerHTML = parts.join(' \u00B7 ');
+    bindArtistLinks(heroMeta);
     if (album.thumbnail) heroCover.src = album.thumbnail;
 
     renderTrackList(tracksContainer, album.tracks, 'album');
