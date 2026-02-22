@@ -953,7 +953,8 @@ ipcMain.handle('yt:charts', async () => {
             ...artistFields,
             thumbnail: getSquareThumbnail(thumbs),
             rank: parseInt(rank, 10) || 0,
-            duration: r?.fixedColumns?.[0]?.musicResponsiveListItemFixedColumnRenderer?.text?.runs?.[0]?.text || ''
+            duration: r?.fixedColumns?.[0]?.musicResponsiveListItemFixedColumnRenderer?.text?.runs?.[0]?.text || '',
+            url: `https://music.youtube.com/watch?v=${videoId}`
           };
         }).filter(Boolean);
       } catch (plErr) {
