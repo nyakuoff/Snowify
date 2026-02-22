@@ -496,6 +496,7 @@ html, body {
     radial-gradient(ellipse at 20% 0%, var(--bg-gradient-1) 0%, transparent 60%),
     radial-gradient(ellipse at 80% 100%, var(--bg-gradient-2) 0%, transparent 50%),
     linear-gradient(180deg, var(--bg-surface-top) 0%, var(--bg-base) 400px);
+    scrollbar-gutter: stable;
   position: relative;
 }
 
