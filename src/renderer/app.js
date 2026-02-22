@@ -889,7 +889,15 @@
     document.querySelector('#app').classList.remove('no-player');
 
     $('#np-thumbnail').src = track.thumbnail;
-    $('#np-title').textContent = track.title;
+    const npTitle = $('#np-title');
+    npTitle.textContent = track.title;
+    if (track.albumId) {
+      npTitle.classList.add('clickable');
+      npTitle.onclick = () => showAlbumDetail(track.albumId, { name: track.album, thumbnail: track.thumbnail });
+    } else {
+      npTitle.classList.remove('clickable');
+      npTitle.onclick = null;
+    }
 
     const npArtist = $('#np-artist');
     npArtist.innerHTML = renderArtistLinks(track);

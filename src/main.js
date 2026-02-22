@@ -152,6 +152,7 @@ function mapSongToTrack(song, artists) {
     title: song.name || 'Unknown',
     ...artistFields,
     album: song.album?.name || null,
+    albumId: song.album?.albumId || null,
     thumbnail: getSquareThumbnail(song.thumbnails),
     duration: formatDuration(song.duration),
     durationMs: song.duration ? Math.round(song.duration * 1000) : 0,

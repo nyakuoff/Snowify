@@ -1076,6 +1076,12 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.np-title.clickable {
+  cursor: pointer;
+}
+.np-title.clickable:hover {
+  text-decoration: underline;
+}
 .np-artist {
   font-size: 12px;
   color: var(--text-subdued);
