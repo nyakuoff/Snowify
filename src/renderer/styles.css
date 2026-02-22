@@ -953,6 +953,21 @@ html, body {
   stroke: var(--accent);
 }
 
+/* ── Heart particle burst ── */
+.heart-particle {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  font-size: 14px;
+  color: var(--accent);
+  transform: translate(-50%, -50%) scale(var(--s, 1));
+  animation: heartBurst 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes heartBurst {
+  0%   { opacity: 1; transform: translate(-50%, -50%) scale(var(--s, 1)) translate(0, 0); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(var(--s, 1)) translate(var(--dx), var(--dy)); }
+}
+
 .track-row-actions {
   display: flex;
   gap: 4px;
