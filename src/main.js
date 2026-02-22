@@ -559,6 +559,15 @@ ipcMain.handle('yt:search', async (_event, query, musicOnly) => {
   }
 });
 
+ipcMain.handle('yt:searchSuggestions', async (_event, query) => {
+  try {
+    return await ytmusic.getSearchSuggestions(query);
+  } catch (err) {
+    console.error('Search suggestions error:', err);
+    return [];
+  }
+});
+
 ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
   try {
     const artist = await ytmusic.getArtist(artistId);

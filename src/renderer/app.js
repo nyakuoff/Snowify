@@ -36,7 +36,8 @@
     effects: true,
     theme: 'dark',
     discordRpc: false,
-    country: ''
+    country: '',
+    searchHistory: []
   };
 
   function saveState() {
@@ -57,7 +58,8 @@
       effects: state.effects,
       theme: state.theme,
       discordRpc: state.discordRpc,
-      country: state.country
+      country: state.country,
+      searchHistory: state.searchHistory
     }));
     localStorage.setItem('snowify_lastSave', String(Date.now()));
     cloudSaveDebounced();
@@ -99,6 +101,7 @@
         state.theme = saved.theme || 'dark';
         state.discordRpc = saved.discordRpc ?? false;
         state.country = saved.country || '';
+        state.searchHistory = saved.searchHistory || [];
       }
     } catch (_) {}
   }
@@ -164,23 +167,161 @@
   const searchInput = $('#search-input');
   const searchClear = $('#search-clear');
   const searchResults = $('#search-results');
+  const searchSuggestions = $('#search-suggestions');
+  let suggestionsTimeout = null;
+  let activeSuggestionIndex = -1;
+
+  // ─── Search History ───
+
+  function addToSearchHistory(query) {
+    const q = query.trim();
+    if (!q) return;
+    state.searchHistory = state.searchHistory.filter(h => h.toLowerCase() !== q.toLowerCase());
+    state.searchHistory.unshift(q);
+    saveState();
+  }
+
+  // ─── Search Suggestions ───
+
+  const ICON_CLOCK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+  const ICON_SEARCH = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M16 16l4.5 4.5" stroke-linecap="round"/></svg>';
+  const ICON_TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>';
+
+  function closeSuggestions() {
+    searchSuggestions.classList.add('hidden');
+    searchSuggestions.innerHTML = '';
+    activeSuggestionIndex = -1;
+  }
+
+  function renderSuggestionDropdown(items) {
+    if (!items.length) {
+      closeSuggestions();
+      return;
+    }
+    activeSuggestionIndex = -1;
+    searchSuggestions.innerHTML = items.map((item, i) => `
+      <div class="search-suggestion-item" data-index="${i}" data-text="${escapeHtml(item.text)}">
+        <span class="search-suggestion-icon">${item.isHistory ? ICON_CLOCK : ICON_SEARCH}</span>
+        <span class="search-suggestion-text">${escapeHtml(item.text)}</span>
+        ${item.isHistory ? `<button class="search-suggestion-delete" data-query="${escapeHtml(item.text)}" title="Remove">${ICON_TRASH}</button>` : ''}
+      </div>
+    `).join('');
+    searchSuggestions.classList.remove('hidden');
+
+    // Bind click handlers
+    $$('.search-suggestion-item', searchSuggestions).forEach(el => {
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('.search-suggestion-delete')) return;
+        const text = el.dataset.text;
+        searchInput.value = text;
+        searchClear.classList.toggle('hidden', !text);
+        closeSuggestions();
+        addToSearchHistory(text);
+        performSearch(text);
+      });
+    });
+    $$('.search-suggestion-delete', searchSuggestions).forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const query = btn.dataset.query;
+        state.searchHistory = state.searchHistory.filter(h => h.toLowerCase() !== query.toLowerCase());
+        saveState();
+        updateSuggestions(searchInput.value.trim());
+      });
+    });
+  }
+
+  async function updateSuggestions(query) {
+    if (!query) {
+      // Show last 5 history items
+      const historyItems = state.searchHistory.slice(0, 5).map(h => ({ text: h, isHistory: true }));
+      renderSuggestionDropdown(historyItems);
+      return;
+    }
+
+    const lowerQ = query.toLowerCase();
+
+    // Show matching history immediately (up to 5)
+    const historyMatches = state.searchHistory
+      .filter(h => h.toLowerCase().includes(lowerQ))
+      .slice(0, 5)
+      .map(h => ({ text: h, isHistory: true }));
+
+    renderSuggestionDropdown(historyMatches);
+
+    // Fetch API suggestions
+    const snapshotQuery = searchInput.value.trim();
+    const apiResults = await window.snowify.searchSuggestions(query);
+
+    // Stale check — input may have changed while awaiting
+    if (searchInput.value.trim() !== snapshotQuery) return;
+
+    // Dedup API results against history matches
+    const shownSet = new Set(historyMatches.map(h => h.text.toLowerCase()));
+    const apiItems = apiResults
+      .filter(s => !shownSet.has(s.toLowerCase()))
+      .map(s => ({ text: s, isHistory: false }));
+
+    const combined = [...historyMatches, ...apiItems];
+    renderSuggestionDropdown(combined);
+  }
 
   searchInput.addEventListener('input', () => {
     const q = searchInput.value.trim();
     searchClear.classList.toggle('hidden', !q);
     clearTimeout(searchTimeout);
+    clearTimeout(suggestionsTimeout);
     if (!q) {
       renderSearchEmpty();
+      updateSuggestions('');
       return;
     }
     searchTimeout = setTimeout(() => performSearch(q), 400);
+    suggestionsTimeout = setTimeout(() => updateSuggestions(q), 250);
   });
 
   searchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
+    const items = $$('.search-suggestion-item', searchSuggestions);
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!items.length) return;
+      activeSuggestionIndex = Math.min(activeSuggestionIndex + 1, items.length - 1);
+      items.forEach((el, i) => el.classList.toggle('active', i === activeSuggestionIndex));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!items.length) return;
+      activeSuggestionIndex = Math.max(activeSuggestionIndex - 1, 0);
+      items.forEach((el, i) => el.classList.toggle('active', i === activeSuggestionIndex));
+    } else if (e.key === 'Escape') {
+      closeSuggestions();
+    } else if (e.key === 'Enter') {
       clearTimeout(searchTimeout);
-      const q = searchInput.value.trim();
-      if (q) performSearch(q);
+      clearTimeout(suggestionsTimeout);
+      if (activeSuggestionIndex >= 0 && items[activeSuggestionIndex]) {
+        const text = items[activeSuggestionIndex].dataset.text;
+        searchInput.value = text;
+        searchClear.classList.toggle('hidden', !text);
+        closeSuggestions();
+        addToSearchHistory(text);
+        performSearch(text);
+      } else {
+        const q = searchInput.value.trim();
+        if (q) {
+          closeSuggestions();
+          addToSearchHistory(q);
+          performSearch(q);
+        }
+      }
+    }
+  });
+
+  searchInput.addEventListener('focus', () => {
+    updateSuggestions(searchInput.value.trim());
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.search-input-wrap')) {
+      closeSuggestions();
     }
   });
 
@@ -188,6 +329,7 @@
     searchInput.value = '';
     searchClear.classList.add('hidden');
     renderSearchEmpty();
+    closeSuggestions();
     searchInput.focus();
   });
 
@@ -3540,6 +3682,14 @@
         saveState();
         renderHome();
         showToast('Play history cleared');
+      }
+    });
+
+    $('#setting-clear-search-history').addEventListener('click', () => {
+      if (confirm('Clear search history?')) {
+        state.searchHistory = [];
+        saveState();
+        showToast('Search history cleared');
       }
     });
 

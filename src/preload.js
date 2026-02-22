@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('snowify', {
   // YouTube Music
   search: (query, musicOnly) => ipcRenderer.invoke('yt:search', query, musicOnly),
   searchArtists: (query) => ipcRenderer.invoke('yt:searchArtists', query),
+  searchSuggestions: (query) => ipcRenderer.invoke('yt:searchSuggestions', query),
   getStreamUrl: (videoUrl, quality) => ipcRenderer.invoke('yt:getStreamUrl', videoUrl, quality),
   artistInfo: (artistId) => ipcRenderer.invoke('yt:artistInfo', artistId),
   albumTracks: (albumId) => ipcRenderer.invoke('yt:albumTracks', albumId),
