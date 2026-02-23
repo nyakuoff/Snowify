@@ -313,11 +313,6 @@ html, body {
 .tb-btn:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
 .tb-close:hover { background: #e81123; color: #fff; }
 
-/* ═══════ macOS Titlebar ═══════ */
-.platform-darwin .titlebar-drag { padding-left: 80px; }
-.platform-darwin .titlebar-controls { display: none; }
-.platform-darwin #titlebar { -webkit-app-region: drag; }
-
 /* ═══════ App Layout ═══════ */
 #app {
   display: flex;
@@ -829,6 +824,96 @@ html, body {
 }
 .search-clear:hover { color: #fff; transform: translateY(-50%) scale(1.15); }
 
+
+/* ═══════ Search Suggestions ═══════ */
+/* Flatten search input bottom corners when dropdown is visible */
+.search-input-wrap:has(.search-suggestions:not(.hidden)) #search-input {
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-bottom-color: transparent;
+}
+.search-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0; right: 0;
+  background: var(--bg-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  z-index: 1001;
+  padding: 6px 0;
+  animation: menuEnter 0.15s ease;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+/* Mirror the search input's focus glow on the dropdown */
+.search-input-wrap:has(#search-input:focus) .search-suggestions:not(.hidden) {
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 3px var(--accent-dim), 0 8px 24px rgba(0,0,0,0.4);
+}
+.search-suggestions.hidden { display: none; }
+
+.search-suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: background var(--transition);
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.search-suggestion-item:hover,
+.search-suggestion-item.active {
+  background: var(--accent-dim);
+}
+
+.search-suggestion-icon { flex-shrink: 0; width: 18px; height: 18px; color: var(--text-subdued); }
+.search-suggestion-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.search-suggestion-delete {
+  flex-shrink: 0; width: 28px; height: 28px;
+  border: none; border-radius: 50%;
+  background: transparent; color: var(--text-subdued);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity var(--transition), color var(--transition);
+}
+.search-suggestion-item:hover .search-suggestion-delete { opacity: 1; }
+.search-suggestion-delete:hover { color: var(--red); }
+
+.suggestion-separator {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 4px 10px;
+}
+.suggestion-thumb {
+  width: 40px; height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.suggestion-thumb-round { border-radius: 50%; }
+.suggestion-info {
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.suggestion-title {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.suggestion-subtitle {
+  font-size: 12px;
+  color: var(--text-subdued);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* ═══════ Track List ═══════ */
 .track-list {
   display: flex;
@@ -1243,6 +1328,38 @@ html, body {
 .progress-bar:hover .progress-handle {
   opacity: 1;
   transform: translateY(-50%) scale(1);
+}
+
+/* ── Generic slider tooltip ── */
+.slider-tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%) scale(0.85);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 5px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  z-index: 10;
+}
+.slider-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: var(--bg-elevated);
+}
+.slider-tooltip.visible {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
 }
 
 .np-extras {
