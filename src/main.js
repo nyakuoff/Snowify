@@ -559,6 +559,88 @@ ipcMain.handle('yt:search', async (_event, query, musicOnly) => {
   }
 });
 
+ipcMain.handle('yt:searchSuggestions', async (_event, query) => {
+  try {
+    const rawData = await ytmusic.constructRequest('music/get_search_suggestions', { input: query });
+    const sections = rawData?.contents ?? [];
+    const textSuggestions = [];
+    const directResults = [];
+
+    for (const section of sections) {
+      const items = section?.searchSuggestionsSectionRenderer?.contents ?? [];
+      for (const item of items) {
+        // Text suggestion
+        if (item.searchSuggestionRenderer) {
+          const text = (item.searchSuggestionRenderer.suggestion?.runs ?? [])
+            .map(r => r.text).join('');
+          if (text) textSuggestions.push(text);
+          continue;
+        }
+        // Direct result (artist or song)
+        const renderer = item.musicResponsiveListItemRenderer;
+        if (!renderer) continue;
+
+        const navEndpoint = renderer.navigationEndpoint;
+        const thumbs = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
+        const thumbnail = thumbs?.length ? thumbs[thumbs.length - 1].url : '';
+
+        // Parse flex columns
+        const cols = renderer.flexColumns ?? [];
+        const titleRuns = cols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs ?? [];
+        const subtitleRuns = cols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs ?? [];
+        const title = titleRuns.map(r => r.text).join('');
+        const subtitle = subtitleRuns.map(r => r.text).join('');
+
+        // Artist or Album (both use browseEndpoint)
+        if (navEndpoint?.browseEndpoint) {
+          const pageType = navEndpoint.browseEndpoint
+            ?.browseEndpointContextSupportedConfigs
+            ?.browseEndpointContextMusicConfig?.pageType;
+          if (pageType === 'MUSIC_PAGE_TYPE_ARTIST') {
+            directResults.push({
+              type: 'artist',
+              name: title,
+              artistId: navEndpoint.browseEndpoint.browseId,
+              thumbnail,
+              subtitle
+            });
+            continue;
+          }
+          if (pageType === 'MUSIC_PAGE_TYPE_ALBUM') {
+            directResults.push({
+              type: 'album',
+              name: title,
+              albumId: navEndpoint.browseEndpoint.browseId,
+              thumbnail,
+              subtitle
+            });
+            continue;
+          }
+        }
+
+        // Song (or video — treated the same)
+        if (navEndpoint?.watchEndpoint?.videoId) {
+          const videoId = navEndpoint.watchEndpoint.videoId;
+          const artists = parseArtistsFromRuns(subtitleRuns);
+          directResults.push({
+            type: 'song',
+            id: videoId,
+            title,
+            ...buildArtistFields(artists),
+            thumbnail,
+            url: `https://music.youtube.com/watch?v=${videoId}`
+          });
+        }
+      }
+    }
+
+    return { textSuggestions, directResults };
+  } catch (err) {
+    console.error('Search suggestions error:', err);
+    return { textSuggestions: [], directResults: [] };
+  }
+});
+
 ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
   try {
     const artist = await ytmusic.getArtist(artistId);
