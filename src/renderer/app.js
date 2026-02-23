@@ -2107,12 +2107,14 @@
     items.forEach(item => {
       item.addEventListener('dragstart', (e) => {
         item.classList.add('dragging');
+        container.classList.add('is-dragging');
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', '');
       });
 
       item.addEventListener('dragend', () => {
         item.classList.remove('dragging');
+        container.classList.remove('is-dragging');
         stopDragScroll();
         // Read new order from DOM
         const reordered = [];

@@ -1552,6 +1552,8 @@ html, body {
 .queue-item:hover .queue-item-remove { opacity: 1; }
 .queue-item-remove:hover { color: var(--text-primary); }
 .queue-item.dragging { opacity: 0.4; }
+#queue-up-next.is-dragging .queue-item:not(.dragging) .queue-item-remove { opacity: 0; pointer-events: none; }
+#queue-up-next.is-dragging .queue-item:not(.dragging) { background: transparent; }
 
 /* ═══════ Empty States ═══════ */
 .empty-state {
