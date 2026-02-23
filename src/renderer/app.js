@@ -254,12 +254,16 @@
         if (e.target.closest('.search-suggestion-delete')) return;
         const type = el.dataset.type;
         if (type === 'artist') {
+          const q = searchInput.value.trim();
+          if (q) addToSearchHistory(q);
           searchInput.value = '';
           searchClear.classList.add('hidden');
           closeSuggestions();
           openArtistPage(el.dataset.artistId);
         } else if (type === 'album') {
           const albumItem = items[parseInt(el.dataset.itemIdx)];
+          const q = searchInput.value.trim();
+          if (q) addToSearchHistory(q);
           searchInput.value = '';
           searchClear.classList.add('hidden');
           closeSuggestions();
@@ -267,6 +271,8 @@
         } else if (type === 'song') {
           const songItem = items[parseInt(el.dataset.songIdx)];
           if (songItem) {
+            const q = searchInput.value.trim();
+            if (q) addToSearchHistory(q);
             searchInput.value = '';
             searchClear.classList.add('hidden');
             closeSuggestions();
