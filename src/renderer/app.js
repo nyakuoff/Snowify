@@ -202,6 +202,7 @@
   const ICON_CLOCK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
   const ICON_SEARCH = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M16 16l4.5 4.5" stroke-linecap="round"/></svg>';
   const ICON_TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>';
+  const ICON_BROKEN_HEART = '<svg width="20" height="20" viewBox="0 0 24 24" fill="var(--accent)"><path d="M2 8.5C2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09V21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5z"/><path d="M12 5.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35V5.09z" transform="translate(1.5, 2) rotate(8, 12, 12)"/></svg>';
 
   function closeSuggestions() {
     searchSuggestions.classList.add('hidden');
@@ -1285,7 +1286,7 @@
     const rect = originEl.getBoundingClientRect();
     const el = document.createElement('div');
     el.className = 'broken-heart';
-    el.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="var(--accent)"><path d="M2 8.5C2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09V21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5z"/><path d="M12 5.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35V5.09z" transform="translate(1.5, 2) rotate(8, 12, 12)"/></svg>';
+    el.innerHTML = ICON_BROKEN_HEART;
     el.style.left = rect.left + rect.width / 2 + 'px';
     el.style.top = rect.top + rect.height / 2 + 'px';
     document.body.appendChild(el);
