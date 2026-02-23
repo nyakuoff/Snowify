@@ -42,6 +42,7 @@
     recentTracks: [],
     followedArtists: [],
     currentPlaylistId: null,
+    playingPlaylistId: null,
     isLoading: false,
     musicOnly: true,
     autoplay: false,
@@ -512,7 +513,7 @@
     }
   }
 
-  function renderTrackList(container, tracks, context) {
+  function renderTrackList(container, tracks, context, sourcePlaylistId = null) {
     const showPlays = tracks.some(t => t.plays);
     const modifier = showPlays ? ' has-plays' : '';
 
@@ -526,14 +527,15 @@
       </div>`;
 
     tracks.forEach((track, i) => {
-      const isPlaying = state.queue[state.queueIndex]?.id === track.id && state.isPlaying;
+      const isPlaying = state.queue[state.queueIndex]?.id === track.id;
       const isLiked = state.likedSongs.some(t => t.id === track.id);
 
       html += `
         <div class="track-row ${isPlaying ? 'playing' : ''}${modifier}"
              data-track-id="${track.id}" data-context="${context}" data-index="${i}" draggable="true">
           <div class="track-num">
-            <span class="track-num-text">${isPlaying ? '♫' : i + 1}</span>
+            <span class="track-num-text">${i + 1}</span>
+            <div class="now-playing-eq track-eq"><span class="eq-bar"></span><span class="eq-bar"></span><span class="eq-bar"></span></div>
             <span class="track-num-play">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
             </span>
@@ -562,7 +564,7 @@
     container.querySelectorAll('.track-row').forEach(row => {
       const idx = parseInt(row.dataset.index);
       const track = tracks[idx];
-      row.addEventListener('click', () => playFromList(tracks, idx));
+      row.addEventListener('click', () => playFromList(tracks, idx, sourcePlaylistId));
       row.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         showContextMenu(e, tracks[idx]);
@@ -803,7 +805,8 @@
     window.snowify.getStreamUrl(url, state.audioQuality).catch(() => {});
   }
 
-  function playFromList(tracks, index) {
+  function playFromList(tracks, index, sourcePlaylistId = null) {
+    state.playingPlaylistId = sourcePlaylistId;
     state.originalQueue = [...tracks];
     if (state.shuffle) {
       const picked = tracks[index];
@@ -820,6 +823,7 @@
     }
     playTrack(state.queue[state.queueIndex]);
     renderQueue();
+    updatePlaylistHighlight();
   }
 
   function playNext() {
@@ -1204,12 +1208,21 @@
       playIcon.classList.remove('hidden');
       pauseIcon.classList.add('hidden');
     }
+    document.body.classList.toggle('audio-playing', state.isPlaying);
   }
 
   function updateTrackHighlight() {
     $$('.track-row').forEach(row => {
       const current = state.queue[state.queueIndex];
       row.classList.toggle('playing', current && row.dataset.trackId === current.id);
+    });
+    updatePlaylistHighlight();
+  }
+
+  function updatePlaylistHighlight() {
+    $$('.playlist-item').forEach(item => {
+      item.classList.toggle('playing',
+        state.playingPlaylistId != null && item.dataset.playlist === state.playingPlaylistId);
     });
   }
 
@@ -1369,6 +1382,7 @@
           <span class="playlist-name">Liked Songs</span>
           <span class="playlist-count">${state.likedSongs.length} song${state.likedSongs.length !== 1 ? 's' : ''}</span>
         </div>
+        <svg class="now-playing-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.016 1.125A.75.75 0 0 0 8.99.85l-4.2 3.43H1.75A.75.75 0 0 0 1 5.03v5.94a.75.75 0 0 0 .75.75h3.04l4.2 3.43a.75.75 0 0 0 1.026-.275.75.75 0 0 0 .1-.375V1.5a.75.75 0 0 0-.1-.375z"/><path d="M13.05 3.17a.75.75 0 0 0-.917 1.19 4.356 4.356 0 0 1 0 7.28.75.75 0 0 0 .918 1.19 5.856 5.856 0 0 0 0-9.66z"/></svg>
       </div>`;
 
     state.playlists.forEach(pl => {
@@ -1381,6 +1395,7 @@
             <span class="playlist-name">${escapeHtml(pl.name)}</span>
             <span class="playlist-count">${pl.tracks.length} song${pl.tracks.length !== 1 ? 's' : ''}</span>
           </div>
+          <svg class="now-playing-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.016 1.125A.75.75 0 0 0 8.99.85l-4.2 3.43H1.75A.75.75 0 0 0 1 5.03v5.94a.75.75 0 0 0 .75.75h3.04l4.2 3.43a.75.75 0 0 0 1.026-.275.75.75 0 0 0 .1-.375V1.5a.75.75 0 0 0-.1-.375z"/><path d="M13.05 3.17a.75.75 0 0 0-.917 1.19 4.356 4.356 0 0 1 0 7.28.75.75 0 0 0 .918 1.19 5.856 5.856 0 0 0 0-9.66z"/></svg>
         </div>`;
     });
 
@@ -1426,6 +1441,7 @@
         handleTrackDrop(e, item.dataset.playlist);
       });
     });
+    updatePlaylistHighlight();
   }
 
   function showSidebarPlaylistMenu(e, playlist) {
@@ -1455,7 +1471,7 @@
       if (!item) return;
       switch (item.dataset.action) {
         case 'play':
-          if (playlist.tracks.length) playFromList(playlist.tracks, 0);
+          if (playlist.tracks.length) playFromList(playlist.tracks, 0, playlist.id);
           else showToast('Playlist is empty');
           break;
         case 'shuffle':
@@ -1465,7 +1481,7 @@
               const j = Math.floor(Math.random() * (i + 1));
               [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
             }
-            playFromList(shuffled, 0);
+            playFromList(shuffled, 0, playlist.id);
           } else showToast('Playlist is empty');
           break;
         case 'rename': {
@@ -1539,7 +1555,7 @@
     coverBtn.style.display = isLiked ? 'none' : '';
 
     if (playlist.tracks.length) {
-      renderTrackList(tracksContainer, playlist.tracks, 'playlist');
+      renderTrackList(tracksContainer, playlist.tracks, 'playlist', playlist.id);
 
       // Add remove-from-playlist to right-click
       tracksContainer.querySelectorAll('.track-row').forEach(row => {
@@ -1559,7 +1575,7 @@
     }
 
     $('#btn-play-all').onclick = () => {
-      if (playlist.tracks.length) playFromList(playlist.tracks, 0);
+      if (playlist.tracks.length) playFromList(playlist.tracks, 0, playlist.id);
     };
 
     $('#btn-shuffle-playlist').onclick = () => {
@@ -1569,7 +1585,7 @@
           const j = Math.floor(Math.random() * (i + 1));
           [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
         }
-        playFromList(shuffled, 0);
+        playFromList(shuffled, 0, playlist.id);
       }
     };
 
