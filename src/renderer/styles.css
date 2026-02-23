@@ -2096,6 +2096,8 @@ html, body {
 }
 .playlist-action-btn:hover { color: var(--text-primary); transform: scale(1.15); }
 .playlist-action-btn.btn-delete:hover { color: var(--red); }
+.playlist-action-btn.saved { color: var(--accent); }
+.playlist-action-btn.saved:hover { color: var(--text-primary); }
 
 /* ═══════ Settings Page ═══════ */
 .settings-content {

@@ -758,11 +758,13 @@
     menu.style.left = e.clientX + 'px';
     menu.style.top = e.clientY + 'px';
 
+    const saved = state.playlists.find(p => p.externalId === playlistId);
+
     menu.innerHTML = `
       <div class="context-menu-item" data-action="play">Play</div>
       <div class="context-menu-item" data-action="shuffle">Shuffle Play</div>
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="save">Save as Playlist</div>
+      <div class="context-menu-item" data-action="${saved ? 'remove' : 'save'}">${saved ? 'Remove from library' : 'Save as Playlist'}</div>
     `;
 
     document.body.appendChild(menu);
@@ -775,7 +777,12 @@
       if (!item) return;
       const action = item.dataset.action;
 
-      if (action === 'play' || action === 'shuffle' || action === 'save') {
+      if (action === 'remove') {
+        state.playlists = state.playlists.filter(p => p.externalId !== playlistId);
+        saveState();
+        renderPlaylists();
+        showToast(`Removed "${meta?.name || 'Playlist'}" from library`);
+      } else if (action === 'play' || action === 'shuffle' || action === 'save') {
         const tracks = await window.snowify.getPlaylistVideos(playlistId);
         if (!tracks?.length) { showToast('Could not load playlist'); removeContextMenu(); return; }
 
@@ -787,6 +794,7 @@
         } else if (action === 'save') {
           const name = meta?.name || 'Imported Playlist';
           const pl = createPlaylist(name);
+          pl.externalId = playlistId;
           pl.tracks = tracks;
           saveState();
           renderPlaylists();
@@ -2566,6 +2574,7 @@
 
   async function showAlbumDetail(albumId, albumMeta) {
     switchView('album');
+    $('#btn-album-save').style.display = 'none';
 
     const heroName = $('#album-hero-name');
     const heroMeta = $('#album-hero-meta');
@@ -2636,6 +2645,35 @@
     $('#btn-album-shuffle').onclick = () => {
       const shuffled = [...tracks].sort(() => Math.random() - 0.5);
       playFromList(shuffled, 0);
+    };
+
+    // Save/remove toggle button
+    const saveBtn = $('#btn-album-save');
+    saveBtn.style.display = '';
+    const updateSaveBtn = () => {
+      const isSaved = state.playlists.some(p => p.externalId === playlistId);
+      saveBtn.title = isSaved ? 'Remove from library' : 'Save to library';
+      saveBtn.classList.toggle('saved', isSaved);
+      saveBtn.innerHTML = isSaved
+        ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+        : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+    };
+    updateSaveBtn();
+    saveBtn.onclick = () => {
+      const existing = state.playlists.find(p => p.externalId === playlistId);
+      if (existing) {
+        state.playlists = state.playlists.filter(p => p.externalId !== playlistId);
+        showToast(`Removed "${meta?.name || 'Playlist'}" from library`);
+      } else {
+        const name = meta?.name || 'Imported Playlist';
+        const pl = createPlaylist(name);
+        pl.externalId = playlistId;
+        pl.tracks = tracks;
+        showToast(`Saved "${name}" with ${tracks.length} songs`);
+      }
+      saveState();
+      renderPlaylists();
+      updateSaveBtn();
     };
   }
 
