@@ -199,25 +199,87 @@
       return;
     }
     activeSuggestionIndex = -1;
-    searchSuggestions.innerHTML = items.map((item, i) => `
-      <div class="search-suggestion-item" data-index="${i}" data-text="${escapeHtml(item.text)}">
-        <span class="search-suggestion-icon">${item.isHistory ? ICON_CLOCK : ICON_SEARCH}</span>
+
+    // Find where text items end and direct results begin for separator
+    const lastTextIdx = items.reduce((acc, item, i) =>
+      (item.type === 'history' || item.type === 'text') ? i : acc, -1);
+    const hasDirectResults = items.some(item => item.type === 'artist' || item.type === 'album' || item.type === 'song');
+
+    let idx = 0;
+    searchSuggestions.innerHTML = items.map((item, i) => {
+      let separator = '';
+      if (hasDirectResults && lastTextIdx >= 0 && i === lastTextIdx + 1) {
+        separator = '<div class="suggestion-separator"></div>';
+      }
+      const dataIdx = idx++;
+      if (item.type === 'artist') {
+        return separator + `<div class="search-suggestion-item" data-index="${dataIdx}" data-type="artist" data-artist-id="${escapeHtml(item.artistId || '')}">
+          <img class="suggestion-thumb suggestion-thumb-round" src="${escapeHtml(item.thumbnail || '')}" alt="" />
+          <div class="suggestion-info">
+            <div class="suggestion-title">${escapeHtml(item.name)}</div>
+            <div class="suggestion-subtitle">Artist${item.subtitle ? ' \u00b7 ' + escapeHtml(item.subtitle) : ''}</div>
+          </div>
+        </div>`;
+      }
+      if (item.type === 'album') {
+        return separator + `<div class="search-suggestion-item" data-index="${dataIdx}" data-type="album" data-album-id="${escapeHtml(item.albumId || '')}" data-item-idx="${i}">
+          <img class="suggestion-thumb" src="${escapeHtml(item.thumbnail || '')}" alt="" />
+          <div class="suggestion-info">
+            <div class="suggestion-title">${escapeHtml(item.name)}</div>
+            <div class="suggestion-subtitle">Album${item.subtitle ? ' \u00b7 ' + escapeHtml(item.subtitle) : ''}</div>
+          </div>
+        </div>`;
+      }
+      if (item.type === 'song') {
+        return separator + `<div class="search-suggestion-item" data-index="${dataIdx}" data-type="song" data-song-idx="${i}">
+          <img class="suggestion-thumb" src="${escapeHtml(item.thumbnail || '')}" alt="" />
+          <div class="suggestion-info">
+            <div class="suggestion-title">${escapeHtml(item.title)}</div>
+            <div class="suggestion-subtitle">Song \u00b7 ${escapeHtml(item.artist || '')}</div>
+          </div>
+        </div>`;
+      }
+      // history or text
+      return `<div class="search-suggestion-item" data-index="${dataIdx}" data-type="${item.type}" data-text="${escapeHtml(item.text)}">
+        <span class="search-suggestion-icon">${item.type === 'history' ? ICON_CLOCK : ICON_SEARCH}</span>
         <span class="search-suggestion-text">${escapeHtml(item.text)}</span>
-        ${item.isHistory ? `<button class="search-suggestion-delete" data-query="${escapeHtml(item.text)}" title="Remove">${ICON_TRASH}</button>` : ''}
-      </div>
-    `).join('');
+        ${item.type === 'history' ? `<button class="search-suggestion-delete" data-query="${escapeHtml(item.text)}" title="Remove">${ICON_TRASH}</button>` : ''}
+      </div>`;
+    }).join('');
     searchSuggestions.classList.remove('hidden');
 
     // Bind click handlers
     $$('.search-suggestion-item', searchSuggestions).forEach(el => {
       el.addEventListener('click', (e) => {
         if (e.target.closest('.search-suggestion-delete')) return;
-        const text = el.dataset.text;
-        searchInput.value = text;
-        searchClear.classList.toggle('hidden', !text);
-        closeSuggestions();
-        addToSearchHistory(text);
-        performSearch(text);
+        const type = el.dataset.type;
+        if (type === 'artist') {
+          searchInput.value = '';
+          searchClear.classList.add('hidden');
+          closeSuggestions();
+          openArtistPage(el.dataset.artistId);
+        } else if (type === 'album') {
+          const albumItem = items[parseInt(el.dataset.itemIdx)];
+          searchInput.value = '';
+          searchClear.classList.add('hidden');
+          closeSuggestions();
+          showAlbumDetail(el.dataset.albumId, albumItem ? { name: albumItem.name, thumbnail: albumItem.thumbnail } : null);
+        } else if (type === 'song') {
+          const songItem = items[parseInt(el.dataset.songIdx)];
+          if (songItem) {
+            searchInput.value = '';
+            searchClear.classList.add('hidden');
+            closeSuggestions();
+            playFromList([songItem], 0);
+          }
+        } else {
+          const text = el.dataset.text;
+          searchInput.value = text;
+          searchClear.classList.toggle('hidden', !text);
+          closeSuggestions();
+          addToSearchHistory(text);
+          performSearch(text);
+        }
       });
     });
     $$('.search-suggestion-delete', searchSuggestions).forEach(btn => {
@@ -234,35 +296,45 @@
   async function updateSuggestions(query) {
     if (!query) {
       // Show last 5 history items
-      const historyItems = state.searchHistory.slice(0, 5).map(h => ({ text: h, isHistory: true }));
+      const historyItems = state.searchHistory.slice(0, 5).map(h => ({ text: h, type: 'history' }));
       renderSuggestionDropdown(historyItems);
       return;
     }
 
     const lowerQ = query.toLowerCase();
 
-    // Show matching history immediately (up to 5)
+    // Show matching history immediately (up to 3)
     const historyMatches = state.searchHistory
       .filter(h => h.toLowerCase().includes(lowerQ))
-      .slice(0, 5)
-      .map(h => ({ text: h, isHistory: true }));
+      .slice(0, 3)
+      .map(h => ({ text: h, type: 'history' }));
 
     renderSuggestionDropdown(historyMatches);
 
     // Fetch API suggestions
     const snapshotQuery = searchInput.value.trim();
-    const apiResults = await window.snowify.searchSuggestions(query);
+    const apiResponse = await window.snowify.searchSuggestions(query);
 
     // Stale check — input may have changed while awaiting
     if (searchInput.value.trim() !== snapshotQuery) return;
 
-    // Dedup API results against history matches
-    const shownSet = new Set(historyMatches.map(h => h.text.toLowerCase()));
-    const apiItems = apiResults
-      .filter(s => !shownSet.has(s.toLowerCase()))
-      .map(s => ({ text: s, isHistory: false }));
+    // Backward compat: handle old string[] format
+    const textSuggestions = Array.isArray(apiResponse) ? apiResponse : (apiResponse.textSuggestions ?? []);
+    const directResults = Array.isArray(apiResponse) ? [] : (apiResponse.directResults ?? []);
 
-    const combined = [...historyMatches, ...apiItems];
+    // Dedup text suggestions against history matches
+    const shownSet = new Set(historyMatches.map(h => h.text.toLowerCase()));
+    const textItems = textSuggestions
+      .filter(s => !shownSet.has(s.toLowerCase()))
+      .slice(0, 3)
+      .map(s => ({ text: s, type: 'text' }));
+
+    // Split direct results: max 1 artist, max 1 album, max 3 songs
+    const artistItems = directResults.filter(r => r.type === 'artist').slice(0, 1);
+    const albumItems = directResults.filter(r => r.type === 'album').slice(0, 1);
+    const songItems = directResults.filter(r => r.type === 'song').slice(0, 3);
+
+    const combined = [...historyMatches, ...textItems, ...artistItems, ...albumItems, ...songItems];
     renderSuggestionDropdown(combined);
   }
 
@@ -298,12 +370,18 @@
       clearTimeout(searchTimeout);
       clearTimeout(suggestionsTimeout);
       if (activeSuggestionIndex >= 0 && items[activeSuggestionIndex]) {
-        const text = items[activeSuggestionIndex].dataset.text;
-        searchInput.value = text;
-        searchClear.classList.toggle('hidden', !text);
-        closeSuggestions();
-        addToSearchHistory(text);
-        performSearch(text);
+        const el = items[activeSuggestionIndex];
+        const type = el.dataset.type;
+        if (type === 'artist' || type === 'album' || type === 'song') {
+          el.click();
+        } else {
+          const text = el.dataset.text;
+          searchInput.value = text;
+          searchClear.classList.toggle('hidden', !text);
+          closeSuggestions();
+          addToSearchHistory(text);
+          performSearch(text);
+        }
       } else {
         const q = searchInput.value.trim();
         if (q) {
