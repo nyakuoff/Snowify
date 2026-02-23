@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, session, shell, dialog, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { execFile } = require('child_process');
 
 let mainWindow;
@@ -62,7 +63,34 @@ function disconnectDiscordRPC() {
 
 function getYtDlpPath() {
   const isWin = process.platform === 'win32';
+  const isMac = process.platform === 'darwin';
   const binName = isWin ? 'yt-dlp.exe' : 'yt-dlp';
+
+  // macOS: check common install locations (Electron from Finder has limited PATH)
+  if (isMac) {
+    const macPaths = [
+      '/opt/homebrew/bin/yt-dlp',           // brew (Apple Silicon)
+      '/usr/local/bin/yt-dlp',              // brew (Intel) or pip3 system
+      path.join(os.homedir(), '.local/bin/yt-dlp'), // pip3 --user (Linux-style)
+    ];
+    // Dynamically discover pip3 --user versioned paths: ~/Library/Python/X.Y/bin/yt-dlp
+    try {
+      const pyLibDir = path.join(os.homedir(), 'Library', 'Python');
+      if (fs.existsSync(pyLibDir)) {
+        const versions = fs.readdirSync(pyLibDir)
+          .filter(d => /^\d+\.\d+$/.test(d))
+          .sort((a, b) => parseFloat(b) - parseFloat(a)); // newest first
+        for (const v of versions) {
+          macPaths.push(path.join(pyLibDir, v, 'bin', 'yt-dlp'));
+        }
+      }
+    } catch (_) {}
+    for (const p of macPaths) {
+      if (fs.existsSync(p)) return p;
+    }
+    return binName; // fallback to PATH
+  }
+
   const subDir = isWin ? 'win' : 'linux';
 
   // In production: resources/bin/<platform>/yt-dlp
@@ -161,6 +189,7 @@ function mapSongToTrack(song, artists) {
 }
 
 function createWindow() {
+  const isMac = process.platform === 'darwin';
   mainWindow = new BrowserWindow({
     width: 1500,
     height: 860,
@@ -169,6 +198,7 @@ function createWindow() {
     frame: false,
     backgroundColor: '#121212',
     titleBarStyle: 'hidden',
+    ...(isMac && { trafficLightPosition: { x: 16, y: 12 } }),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -179,6 +209,15 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  // Inject platform class before first paint (avoids visual flash)
+  if (process.platform === 'darwin') {
+    mainWindow.webContents.on('dom-ready', () => {
+      mainWindow.webContents.executeJavaScript(
+        "document.documentElement.classList.add('platform-darwin');"
+      );
+    });
+  }
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
@@ -198,9 +237,188 @@ function createWindow() {
   });
 }
 
+// ─── macOS yt-dlp Setup Check ───
+
+async function checkMacYtDlp() {
+  if (process.platform !== 'darwin') return;
+
+  const { execFileSync, spawn } = require('child_process');
+
+  // Check if yt-dlp is already installed
+  const ytdlp = getYtDlpPath();
+  try {
+    execFileSync(ytdlp, ['--version'], { stdio: 'ignore', timeout: 5000 });
+    return; // yt-dlp works
+  } catch (_) {
+    // not found or broken — try auto-install
+  }
+
+  // Helper: verify yt-dlp actually works after install
+  function verifyYtDlp() {
+    const p = getYtDlpPath();
+    try {
+      execFileSync(p, ['--version'], { stdio: 'ignore', timeout: 5000 });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Helper: run brew install in a progress window with live log output
+  function runBrewInstall() {
+    return new Promise((resolve) => {
+      const progressWin = new BrowserWindow({
+        width: 480, height: 260,
+        parent: mainWindow,
+        modal: true,
+        resizable: false,
+        minimizable: false,
+        maximizable: false,
+        show: true,
+        frame: false,
+        transparent: false,
+        backgroundColor: '#0a0a0a',
+        webPreferences: { nodeIntegration: false, contextIsolation: true }
+      });
+
+      progressWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`<!DOCTYPE html>
+<html><head><style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #121212; color: #b3b3b3; padding: 24px; display: flex;
+    flex-direction: column; height: 100vh; -webkit-app-region: drag; user-select: none;
+    border-radius: 16px; overflow: hidden; }
+  h2 { font-size: 15px; font-weight: 600; margin-bottom: 6px; color: #fff; }
+  .status { font-size: 13px; color: #b3b3b3; margin-bottom: 16px; }
+  .spinner { display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.1); border-top-color: #aa55e6;
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+    vertical-align: middle; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .log-toggle { -webkit-app-region: no-drag; background: transparent; border: 1px solid rgba(255,255,255,0.1);
+    color: #b3b3b3; font-size: 12px; padding: 4px 12px; border-radius: 10px;
+    cursor: pointer; margin-bottom: 10px; align-self: flex-start; transition: all 0.15s; }
+  .log-toggle:hover { border-color: #aa55e6; color: #fff; }
+  .log-area { flex: 1; background: #0a0a0a; border-radius: 10px; padding: 10px;
+    font-family: "SF Mono", Menlo, monospace; font-size: 11px; color: #666;
+    overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+    display: none; min-height: 0; border: 1px solid rgba(255,255,255,0.06); }
+  .log-area.visible { display: block; }
+  .done { color: #aa55e6; }
+  .fail { color: #e74c3c; }
+</style></head><body>
+  <h2><span class="spinner" id="spinner"></span>Installing yt-dlp...</h2>
+  <p class="status" id="status">Running brew install yt-dlp — this may take a minute.</p>
+  <button class="log-toggle" id="logBtn" onclick="toggleLogs()">Show Logs</button>
+  <div class="log-area" id="logs"></div>
+  <script>
+    function toggleLogs() {
+      const el = document.getElementById('logs');
+      const btn = document.getElementById('logBtn');
+      const visible = el.classList.toggle('visible');
+      btn.textContent = visible ? 'Hide Logs' : 'Show Logs';
+    }
+    function addLog(text) {
+      const el = document.getElementById('logs');
+      el.textContent += text;
+      el.scrollTop = el.scrollHeight;
+    }
+    function setDone(ok, msg) {
+      document.getElementById('spinner').style.display = 'none';
+      const st = document.getElementById('status');
+      st.textContent = msg;
+      st.className = 'status ' + (ok ? 'done' : 'fail');
+    }
+  </script>
+</body></html>`));
+
+      progressWin.webContents.once('did-finish-load', () => {
+        const child = spawn('brew', ['install', 'yt-dlp'], {
+          env: { ...process.env, PATH: '/opt/homebrew/bin:/usr/local/bin:' + (process.env.PATH || '') },
+          stdio: ['ignore', 'pipe', 'pipe']
+        });
+
+        const sendLog = (data) => {
+          const text = data.toString().replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
+          try { progressWin.webContents.executeJavaScript(`addLog('${text}')`); } catch (_) {}
+        };
+        child.stdout.on('data', sendLog);
+        child.stderr.on('data', sendLog);
+
+        const timeout = setTimeout(() => {
+          try { child.kill(); } catch (_) {}
+        }, 120000);
+
+        child.on('close', (code) => {
+          clearTimeout(timeout);
+          const ok = verifyYtDlp();
+          const msg = ok ? 'yt-dlp installed successfully!' : `Installation failed (exit code ${code}). Try manually: brew install yt-dlp`;
+          try { progressWin.webContents.executeJavaScript(`setDone(${ok}, '${msg.replace(/'/g, "\\'")}')`); } catch (_) {}
+          // Keep the window open briefly so user can see the result
+          setTimeout(() => {
+            try { progressWin.close(); } catch (_) {}
+            resolve(ok);
+          }, ok ? 1500 : 4000);
+        });
+
+        child.on('error', () => {
+          clearTimeout(timeout);
+          try { progressWin.webContents.executeJavaScript(`setDone(false, 'Failed to run brew. Try manually: brew install yt-dlp')`); } catch (_) {}
+          setTimeout(() => {
+            try { progressWin.close(); } catch (_) {}
+            resolve(false);
+          }, 4000);
+        });
+      });
+    });
+  }
+
+  // Try auto-install with brew
+  const hasBrew = (() => { try { execFileSync('which', ['brew'], { stdio: 'ignore' }); return true; } catch (_) { return false; } })();
+  if (hasBrew) {
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'First Time Setup',
+      message: 'Installing yt-dlp...',
+      detail: 'yt-dlp is required for audio streaming. Homebrew was detected on your system.\n\nClick "Install" to install it automatically.',
+      buttons: ['Install', 'Cancel'],
+      defaultId: 0,
+      noLink: true
+    });
+    if (response === 0) {
+      const ok = await runBrewInstall();
+      if (ok) return;
+      await dialog.showMessageBox(mainWindow, {
+        type: 'error',
+        title: 'Installation Failed',
+        message: 'Could not install yt-dlp via Homebrew.',
+        detail: 'Please try manually in Terminal:\n\nbrew install yt-dlp',
+        buttons: ['OK']
+      });
+    }
+    return; // brew exists — user can retry on next launch
+  }
+
+  // No brew — show manual instructions to install Homebrew first
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: 'warning',
+    title: 'yt-dlp Not Found',
+    message: 'Setup Required',
+    detail: 'yt-dlp is required for audio streaming but could not be installed automatically.\n\nInstall Homebrew from https://brew.sh, then run:\n\nbrew install yt-dlp',
+    buttons: ['Open brew.sh', 'OK'],
+    defaultId: 1,
+    noLink: true
+  });
+
+  if (response === 0) {
+    shell.openExternal('https://brew.sh');
+  }
+}
+
 app.whenReady().then(async () => {
   await initYTMusic();
   createWindow();
+  await checkMacYtDlp();
   // Restore saved session after window is ready
   autoSignIn();
 });
@@ -1007,7 +1225,7 @@ ipcMain.handle('yt:browseMood', async (_event, browseId, params) => {
 });
 
 ipcMain.handle('yt:getStreamUrl', async (_event, videoUrl, quality) => {
-  const fmt = quality === 'worstaudio' ? 'worstaudio' : 'bestaudio';
+  const fmt = quality === 'worstaudio' ? 'worstaudio/worstaudio*/worst' : 'bestaudio/bestaudio*/best';
   const cacheKey = `audio:${videoUrl}:${fmt}`;
   const cached = getCachedUrl(cacheKey);
   if (cached) return cached;
