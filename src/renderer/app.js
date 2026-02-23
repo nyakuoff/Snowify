@@ -4,6 +4,22 @@
   const $ = (sel, ctx = document) => ctx.querySelector(sel);
   const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 
+  // ─── Generic slider tooltip ───
+  function setupSliderTooltip(sliderEl, formatValue) {
+    const tip = document.createElement('div');
+    tip.className = 'slider-tooltip';
+    sliderEl.style.position = 'relative';
+    sliderEl.appendChild(tip);
+    sliderEl.addEventListener('mouseenter', () => tip.classList.add('visible'));
+    sliderEl.addEventListener('mouseleave', () => tip.classList.remove('visible'));
+    sliderEl.addEventListener('mousemove', (e) => {
+      const rect = sliderEl.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      tip.textContent = formatValue(pct);
+      tip.style.left = (pct * rect.width) + 'px';
+    });
+  }
+
   const audio = $('#audio-player');
   const views = $$('.view');
   const navBtns = $$('.nav-btn');
@@ -1097,6 +1113,8 @@
     if (isDraggingProgress) seekTo(e);
   });
   document.addEventListener('mouseup', () => { isDraggingProgress = false; });
+
+  setupSliderTooltip(progressBar, (pct) => formatTime(pct * (audio.duration || 0)));
 
   function seekTo(e) {
     const rect = progressBar.getBoundingClientRect();
