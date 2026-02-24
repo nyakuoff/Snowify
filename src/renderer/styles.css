@@ -3446,7 +3446,7 @@ html, body {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 2;
+  z-index: 10;
   width: 32px;
   height: 32px;
   border: none;
@@ -3457,7 +3457,6 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 1;
   padding: 0;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }
@@ -3465,10 +3464,10 @@ html, body {
   background: var(--bg-highlight);
 }
 .scroll-arrow-left {
-  left: 4px;
+  left: -34px;
 }
 .scroll-arrow-right {
-  right: 4px;
+  right: -34px;
 }
 
 /* ═══════ Top Artists (Horizontal Scroll) ═══════ */
