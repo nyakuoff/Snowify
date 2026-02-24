@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('snowify', {
   // Custom themes
   scanThemes: () => ipcRenderer.invoke('theme:scan'),
   loadTheme: (id) => ipcRenderer.invoke('theme:load', id),
+  reloadTheme: (id) => ipcRenderer.invoke('theme:reload', id),
   addTheme: () => ipcRenderer.invoke('theme:add'),
   removeTheme: (id) => ipcRenderer.invoke('theme:remove', id),
   openThemesFolder: () => ipcRenderer.invoke('theme:openFolder'),

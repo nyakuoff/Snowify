@@ -73,13 +73,12 @@
   }
 
   function applyCustomThemeCss(css) {
-    let el = document.getElementById('custom-theme-style');
-    if (!el) {
-      el = document.createElement('style');
-      el.id = 'custom-theme-style';
-      document.head.appendChild(el);
-    }
+    // Remove existing to force full re-parse (including @import)
+    removeCustomThemeCss();
+    const el = document.createElement('style');
+    el.id = 'custom-theme-style';
     el.textContent = css;
+    document.head.appendChild(el);
   }
 
   function removeCustomThemeCss() {
@@ -4179,8 +4178,15 @@
     if (btnReloadTheme) {
       btnReloadTheme.onclick = async () => {
         if (isCustomTheme(state.theme)) {
-          const ok = await loadAndApplyThemeFile(state.theme);
-          showToast(ok ? 'Theme reloaded' : 'Theme file not found');
+          const id = customThemeId(state.theme);
+          // Re-copy from original source & reload fresh
+          const css = await window.snowify.reloadTheme(id);
+          if (css) {
+            applyCustomThemeCss(css);
+            showToast('Theme reloaded');
+          } else {
+            showToast('Theme file not found');
+          }
         } else {
           // Rescan folder in case files were added externally
           await populateCustomThemes(themeSelect, state.theme);

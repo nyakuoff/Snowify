@@ -1675,6 +1675,26 @@ function getThemesDir() {
   return dir;
 }
 
+function getThemeSourcesPath() {
+  return path.join(getThemesDir(), '_sources.json');
+}
+
+function readThemeSources() {
+  try {
+    const p = getThemeSourcesPath();
+    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf-8'));
+  } catch { /* ignore */ }
+  return {};
+}
+
+function writeThemeSources(map) {
+  try {
+    fs.writeFileSync(getThemeSourcesPath(), JSON.stringify(map, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Failed to write theme sources:', err);
+  }
+}
+
 function parseThemeName(css, filename) {
   const match = css.match(/\/\*\s*@name\s+(.+?)\s*\*\//i);
   if (match) return match[1].trim();
@@ -1719,24 +1739,52 @@ ipcMain.handle('theme:add', async () => {
   if (result.canceled || !result.filePaths.length) return null;
   const added = [];
   const dir = getThemesDir();
+  const sources = readThemeSources();
   for (const src of result.filePaths) {
     try {
       const filename = path.basename(src);
       const dest = path.join(dir, filename);
       fs.copyFileSync(src, dest);
+      sources[filename] = src; // Track original source path
       const css = fs.readFileSync(dest, 'utf-8');
       added.push({ id: filename, name: parseThemeName(css, filename) });
     } catch (err) {
       console.error('Theme add error:', err);
     }
   }
+  writeThemeSources(sources);
   return added.length ? added : null;
+});
+
+ipcMain.handle('theme:reload', async (_event, id) => {
+  try {
+    const filename = path.basename(id);
+    const dest = path.join(getThemesDir(), filename);
+    const sources = readThemeSources();
+    const srcPath = sources[filename];
+    // Re-copy from original source if it still exists
+    if (srcPath && fs.existsSync(srcPath)) {
+      fs.copyFileSync(srcPath, dest);
+    }
+    if (fs.existsSync(dest)) return fs.readFileSync(dest, 'utf-8');
+    return null;
+  } catch (err) {
+    console.error('Theme reload error:', err);
+    return null;
+  }
 });
 
 ipcMain.handle('theme:remove', async (_event, id) => {
   try {
-    const p = path.join(getThemesDir(), path.basename(id));
+    const filename = path.basename(id);
+    const p = path.join(getThemesDir(), filename);
     if (fs.existsSync(p)) fs.unlinkSync(p);
+    // Clean up source mapping
+    const sources = readThemeSources();
+    if (sources[filename]) {
+      delete sources[filename];
+      writeThemeSources(sources);
+    }
     return true;
   } catch (err) {
     console.error('Theme remove error:', err);
