@@ -2102,6 +2102,67 @@ html, body {
   padding: 0 4px;
 }
 
+/* ═══════ Search Artist Cards ═══════ */
+.search-artist-card {
+  flex: 0 0 120px;
+  width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+}
+.search-artist-card:hover {
+  background: var(--bg-elevated);
+  transform: translateY(-3px);
+}
+.search-artist-avatar {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-elevated);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+.search-artist-card:hover .search-artist-avatar {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+.search-artist-name {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+.search-artist-label {
+  font-size: 11px;
+  color: var(--text-subdued);
+  margin-top: -4px;
+}
+.search-artist-top {
+  flex: 0 0 160px;
+  width: 160px;
+}
+.search-artist-top .search-artist-avatar {
+  width: 130px;
+  height: 130px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.search-artist-top .search-artist-name {
+  font-size: 15px;
+}
+.search-artist-top .search-artist-label {
+  font-size: 12px;
+}
+[data-theme="light"] .search-artist-card:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
 /* ═══════ Playlist action buttons ═══════ */
 .playlist-actions-spacer { flex: 1; }
 .playlist-action-btn {
