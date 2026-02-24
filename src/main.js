@@ -1137,6 +1137,43 @@ ipcMain.handle('yt:searchArtists', async (_event, query) => {
   }
 });
 
+ipcMain.handle('yt:searchAlbums', async (_event, query) => {
+  try {
+    const albums = await ytmusic.searchAlbums(query);
+    return albums.map(a => ({
+      albumId: a.albumId,
+      name: a.name,
+      artist: a.artist?.name || 'Unknown Artist',
+      artistId: a.artist?.artistId || null,
+      year: a.year,
+      thumbnail: getSquareThumbnail(a.thumbnails)
+    }));
+  } catch (err) {
+    console.error('Search albums error:', err);
+    return [];
+  }
+});
+
+ipcMain.handle('yt:searchVideos', async (_event, query) => {
+  try {
+    const videos = await ytmusic.searchVideos(query);
+    return videos.map(v => ({
+      id: v.videoId,
+      title: v.name || 'Unknown',
+      artist: v.artist?.name || 'Unknown Artist',
+      artistId: v.artist?.artistId || null,
+      artists: v.artist ? [{ name: v.artist.name, id: v.artist.artistId || null }] : [],
+      thumbnail: getBestThumbnail(v.thumbnails),
+      duration: formatDuration(v.duration),
+      durationMs: v.duration ? Math.round(v.duration * 1000) : 0,
+      url: `https://music.youtube.com/watch?v=${v.videoId}`
+    }));
+  } catch (err) {
+    console.error('Search videos error:', err);
+    return [];
+  }
+});
+
 // ─── Explore (New Releases, Trending, Charts) ───
 
 ipcMain.handle('yt:setCountry', async (_event, countryCode) => {

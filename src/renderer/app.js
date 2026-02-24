@@ -460,19 +460,22 @@
     searchResults.innerHTML = `
       <div class="empty-state search-empty">
         <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#535353" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M16 16l4.5 4.5" stroke-linecap="round"/></svg>
-        <p>Search for songs, artists, or albums</p>
+        <p>Search for songs, artists, albums, or playlists</p>
       </div>`;
   }
 
   async function performSearch(query) {
     searchResults.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
     try {
-      const [results, artists] = await Promise.all([
+      const [results, artists, albums, playlists, videos] = await Promise.all([
         window.snowify.search(query, state.musicOnly),
-        window.snowify.searchArtists(query)
+        window.snowify.searchArtists(query),
+        window.snowify.searchAlbums(query),
+        window.snowify.searchPlaylists(query),
+        window.snowify.searchVideos(query)
       ]);
 
-      if (!results.length && !artists.length) {
+      if (!results.length && !artists.length && !albums.length && !playlists.length && !videos.length) {
         searchResults.innerHTML = `
           <div class="empty-state">
             <p>No results found for "${escapeHtml(query)}"</p>
@@ -482,42 +485,143 @@
 
       searchResults.innerHTML = '';
 
-      // Show top matching artist
-      const topArtist = artists[0];
-      if (topArtist) {
-        const artistSection = document.createElement('div');
-        artistSection.innerHTML = `
-          <h3 class="search-section-header">Artists</h3>
-          <div class="artist-result-card" data-artist-id="${escapeHtml(topArtist.artistId)}">
-            <img class="artist-result-avatar" src="${escapeHtml(topArtist.thumbnail || '')}" alt="" />
-            <div class="artist-result-info">
-              <div class="artist-result-name">${escapeHtml(topArtist.name)}</div>
-              <div class="artist-result-label">Artist${topArtist.subtitle ? ' · ' + escapeHtml(topArtist.subtitle) : ''}</div>
-            </div>
-          </div>`;
-        searchResults.appendChild(artistSection);
-
-        artistSection.querySelectorAll('.artist-result-card').forEach(card => {
-          card.addEventListener('click', () => {
-            const id = card.dataset.artistId;
-            if (id) openArtistPage(id);
-          });
-        });
-      }
-
-      // Show songs
-      if (results.length) {
-        const songsHeader = document.createElement('div');
-        songsHeader.innerHTML = `<h3 class="search-section-header">Songs</h3>`;
-        searchResults.appendChild(songsHeader);
-
-        const tracksWrapper = document.createElement('div');
-        searchResults.appendChild(tracksWrapper);
-        renderTrackList(tracksWrapper, results, 'search');
-      }
+      if (artists.length) renderSearchArtists(artists.slice(0, 3));
+      if (results.length) renderSearchSongs(results.slice(0, 10));
+      if (albums.length) renderSearchAlbums(albums);
+      if (playlists.length) renderSearchPlaylists(playlists);
+      if (videos.length) renderSearchVideos(videos);
     } catch (err) {
       searchResults.innerHTML = `<div class="empty-state"><p>Search failed. Please try again.</p></div>`;
     }
+  }
+
+  function renderSearchArtists(artists) {
+    const section = document.createElement('div');
+    section.innerHTML = `<h3 class="search-section-header">Artists</h3>`;
+    const scroll = document.createElement('div');
+    scroll.className = 'similar-artists-scroll';
+    scroll.innerHTML = artists.map((a, i) => `
+      <div class="search-artist-card${i === 0 ? ' search-artist-top' : ''}" data-artist-id="${escapeHtml(a.artistId)}">
+        <img class="search-artist-avatar" src="${escapeHtml(a.thumbnail || '')}" alt="" loading="lazy" />
+        <div class="search-artist-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
+        <div class="search-artist-label">Artist</div>
+      </div>
+    `).join('');
+    section.appendChild(scroll);
+    searchResults.appendChild(section);
+    scroll.querySelectorAll('.search-artist-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const id = card.dataset.artistId;
+        if (id) openArtistPage(id);
+      });
+    });
+  }
+
+  function renderSearchAlbums(albums) {
+    const section = document.createElement('div');
+    section.innerHTML = `<h3 class="search-section-header">Albums</h3>`;
+    const scroll = document.createElement('div');
+    scroll.className = 'album-scroll';
+    scroll.innerHTML = albums.map(a => `
+      <div class="album-card" data-album-id="${escapeHtml(a.albumId)}">
+        <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
+        <button class="album-card-play" title="Play">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
+        </button>
+        <div class="album-card-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
+        <div class="album-card-meta">${escapeHtml(a.artist || '')}${a.year ? ' \u00B7 ' + a.year : ''}</div>
+      </div>
+    `).join('');
+    section.appendChild(scroll);
+    searchResults.appendChild(section);
+    addScrollArrows(scroll);
+    scroll.querySelectorAll('.album-card').forEach(card => {
+      const albumId = card.dataset.albumId;
+      const meta = albums.find(al => al.albumId === albumId);
+      card.querySelector('.album-card-play').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const album = await window.snowify.albumTracks(albumId);
+        if (album && album.tracks.length) playFromList(album.tracks, 0);
+        else showToast('Could not load album');
+      });
+      card.addEventListener('click', () => showAlbumDetail(albumId, meta));
+      card.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        showAlbumContextMenu(e, albumId, meta);
+      });
+    });
+  }
+
+  function renderSearchPlaylists(playlists) {
+    const section = document.createElement('div');
+    section.innerHTML = `<h3 class="search-section-header">Playlists</h3>`;
+    const scroll = document.createElement('div');
+    scroll.className = 'album-scroll';
+    scroll.innerHTML = playlists.map(p => `
+      <div class="album-card" data-playlist-id="${escapeHtml(p.playlistId)}">
+        <img class="album-card-cover" src="${escapeHtml(p.thumbnail)}" alt="" loading="lazy" />
+        <button class="album-card-play" title="Play">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
+        </button>
+        <div class="album-card-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
+        <div class="album-card-meta">${escapeHtml(p.author || '')}</div>
+      </div>
+    `).join('');
+    section.appendChild(scroll);
+    searchResults.appendChild(section);
+    addScrollArrows(scroll);
+    scroll.querySelectorAll('.album-card').forEach(card => {
+      const pid = card.dataset.playlistId;
+      const meta = playlists.find(pl => pl.playlistId === pid);
+      card.querySelector('.album-card-play').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const tracks = await window.snowify.getPlaylistVideos(pid);
+        if (tracks && tracks.length) playFromList(tracks, 0);
+        else showToast('Could not load playlist');
+      });
+      card.addEventListener('click', () => showExternalPlaylistDetail(pid, meta));
+      card.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        showPlaylistContextMenu(e, pid, meta);
+      });
+    });
+  }
+
+  function renderSearchVideos(videos) {
+    const section = document.createElement('div');
+    section.innerHTML = `<h3 class="search-section-header">Videos</h3>`;
+    const scroll = document.createElement('div');
+    scroll.className = 'album-scroll';
+    scroll.innerHTML = videos.map(v => `
+      <div class="video-card" data-video-id="${escapeHtml(v.id)}">
+        <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
+        <button class="video-card-play" title="Watch">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
+        </button>
+        <div class="video-card-name" title="${escapeHtml(v.title)}">${escapeHtml(v.title)}</div>
+        ${v.duration ? `<div class="video-card-duration">${escapeHtml(v.duration)}</div>` : ''}
+      </div>
+    `).join('');
+    section.appendChild(scroll);
+    searchResults.appendChild(section);
+    addScrollArrows(scroll);
+    scroll.querySelectorAll('.video-card').forEach(card => {
+      const vid = card.dataset.videoId;
+      const video = videos.find(v => v.id === vid);
+      card.addEventListener('click', () => {
+        if (video) openVideoPlayer(video.id, video.title, video.artist);
+      });
+    });
+  }
+
+  function renderSearchSongs(results) {
+    const songsHeader = document.createElement('div');
+    songsHeader.innerHTML = `<h3 class="search-section-header">Songs</h3>`;
+    searchResults.appendChild(songsHeader);
+
+    const tracksWrapper = document.createElement('div');
+    searchResults.appendChild(tracksWrapper);
+    renderTrackList(tracksWrapper, results, 'search');
   }
 
   function renderTrackList(container, tracks, context, sourcePlaylistId = null) {
