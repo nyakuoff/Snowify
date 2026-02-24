@@ -42,6 +42,7 @@
     recentTracks: [],
     followedArtists: [],
     currentPlaylistId: null,
+    playingPlaylistId: null,
     isLoading: false,
     musicOnly: true,
     autoplay: false,
@@ -206,6 +207,8 @@
   const ICON_CLOCK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
   const ICON_SEARCH = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M16 16l4.5 4.5" stroke-linecap="round"/></svg>';
   const ICON_TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>';
+  const NOW_PLAYING_ICON_SVG = '<svg class="now-playing-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.016 1.125A.75.75 0 0 0 8.99.85l-4.2 3.43H1.75A.75.75 0 0 0 1 5.03v5.94a.75.75 0 0 0 .75.75h3.04l4.2 3.43a.75.75 0 0 0 1.026-.275.75.75 0 0 0 .1-.375V1.5a.75.75 0 0 0-.1-.375z"/><path class="sound-wave wave-1" opacity="0" d="M12.25 3.17a.75.75 0 0 0-.917 1.19 3.56 3.56 0 0 1 0 7.28.75.75 0 0 0 .918 1.19 5.06 5.06 0 0 0 0-9.66z"/><path class="sound-wave wave-2" opacity="0" d="M14.2 1.5a.75.75 0 0 0-.917 1.19 5.96 5.96 0 0 1 0 10.62.75.75 0 0 0 .918 1.19 7.46 7.46 0 0 0 0-13z"/></svg>';
+  const NOW_PLAYING_EQ_HTML = '<div class="track-eq"><span class="eq-bar"></span><span class="eq-bar"></span><span class="eq-bar"></span></div>';
   const ICON_BROKEN_HEART = '<svg width="20" height="20" viewBox="0 0 24 24" fill="var(--accent)"><path d="M2 8.5C2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09V21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5z"/><path d="M12 5.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35V5.09z" transform="translate(1.5, 2) rotate(8, 12, 12)"/></svg>';
 
   function closeSuggestions() {
@@ -517,7 +520,7 @@
     }
   }
 
-  function renderTrackList(container, tracks, context) {
+  function renderTrackList(container, tracks, context, sourcePlaylistId = null) {
     const showPlays = tracks.some(t => t.plays);
     const modifier = showPlays ? ' has-plays' : '';
 
@@ -531,14 +534,15 @@
       </div>`;
 
     tracks.forEach((track, i) => {
-      const isPlaying = state.queue[state.queueIndex]?.id === track.id && state.isPlaying;
+      const isPlaying = state.queue[state.queueIndex]?.id === track.id;
       const isLiked = state.likedSongs.some(t => t.id === track.id);
 
       html += `
         <div class="track-row ${isPlaying ? 'playing' : ''}${modifier}"
              data-track-id="${track.id}" data-context="${context}" data-index="${i}" draggable="true">
           <div class="track-num">
-            <span class="track-num-text">${isPlaying ? '♫' : i + 1}</span>
+            <span class="track-num-text">${i + 1}</span>
+            ${NOW_PLAYING_EQ_HTML}
             <span class="track-num-play">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
             </span>
@@ -567,7 +571,7 @@
     container.querySelectorAll('.track-row').forEach(row => {
       const idx = parseInt(row.dataset.index);
       const track = tracks[idx];
-      row.addEventListener('click', () => playFromList(tracks, idx));
+      row.addEventListener('click', () => playFromList(tracks, idx, sourcePlaylistId));
       row.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         showContextMenu(e, tracks[idx]);
@@ -660,7 +664,11 @@
       const action = item.dataset.action;
       if (action === 'none') return;
       switch (action) {
-        case 'play': playTrack(track); break;
+        case 'play':
+          state.playingPlaylistId = null;
+          playTrack(track);
+          updatePlaylistHighlight();
+          break;
         case 'play-next':
           if (state.queueIndex >= 0) {
             state.queue.splice(state.queueIndex + 1, 0, track);
@@ -881,7 +889,8 @@
     window.snowify.getStreamUrl(url, state.audioQuality).catch(() => {});
   }
 
-  function playFromList(tracks, index) {
+  function playFromList(tracks, index, sourcePlaylistId = null) {
+    state.playingPlaylistId = sourcePlaylistId;
     state.originalQueue = [...tracks];
     if (state.shuffle) {
       const picked = tracks[index];
@@ -898,6 +907,7 @@
     }
     playTrack(state.queue[state.queueIndex]);
     renderQueue();
+    updatePlaylistHighlight();
   }
 
   function playNext() {
@@ -990,6 +1000,8 @@
 
       state.queue.push(...newTracks);
       state.queueIndex++;
+      state.playingPlaylistId = null;
+      updatePlaylistHighlight();
       playTrack(state.queue[state.queueIndex]);
       renderQueue();
       showToast(`Autoplay: added ${newTracks.length} songs`);
@@ -1282,12 +1294,30 @@
       playIcon.classList.remove('hidden');
       pauseIcon.classList.add('hidden');
     }
+    document.body.classList.toggle('audio-playing', state.isPlaying);
   }
 
   function updateTrackHighlight() {
     $$('.track-row').forEach(row => {
       const current = state.queue[state.queueIndex];
       row.classList.toggle('playing', current && row.dataset.trackId === current.id);
+    });
+    updatePlaylistHighlight();
+  }
+
+  function updatePlaylistHighlight() {
+    $$('.playlist-item').forEach(item => {
+      const isPlaying = state.playingPlaylistId != null && item.dataset.playlist === state.playingPlaylistId;
+      const wasPlaying = item.classList.contains('playing');
+      item.classList.toggle('playing', isPlaying);
+      if (isPlaying && !wasPlaying) {
+        const icon = item.querySelector('.now-playing-icon');
+        if (icon) {
+          icon.classList.remove('animate-waves');
+          void icon.offsetWidth; // force reflow to restart CSS animation
+          icon.classList.add('animate-waves');
+        }
+      }
     });
   }
 
@@ -1459,6 +1489,7 @@
           <span class="playlist-name">Liked Songs</span>
           <span class="playlist-count">${state.likedSongs.length} song${state.likedSongs.length !== 1 ? 's' : ''}</span>
         </div>
+        ${NOW_PLAYING_ICON_SVG}
       </div>`;
 
     state.playlists.forEach(pl => {
@@ -1471,6 +1502,7 @@
             <span class="playlist-name">${escapeHtml(pl.name)}</span>
             <span class="playlist-count">${pl.tracks.length} song${pl.tracks.length !== 1 ? 's' : ''}</span>
           </div>
+          ${NOW_PLAYING_ICON_SVG}
         </div>`;
     });
 
@@ -1518,6 +1550,7 @@
         handleTrackDrop(e, item.dataset.playlist);
       });
     });
+    updatePlaylistHighlight();
   }
 
   function showSidebarPlaylistMenu(e, playlist, isLiked = false) {
@@ -1550,7 +1583,7 @@
       if (!item) return;
       switch (item.dataset.action) {
         case 'play':
-          if (playlist.tracks.length) playFromList(playlist.tracks, 0);
+          if (playlist.tracks.length) playFromList(playlist.tracks, 0, playlist.id);
           else showToast('Playlist is empty');
           break;
         case 'shuffle':
@@ -1560,7 +1593,7 @@
               const j = Math.floor(Math.random() * (i + 1));
               [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
             }
-            playFromList(shuffled, 0);
+            playFromList(shuffled, 0, playlist.id);
           } else showToast('Playlist is empty');
           break;
         case 'rename': {
@@ -1588,6 +1621,7 @@
           if (confirm(`Delete "${playlist.name}"?`)) {
             if (playlist.coverImage) window.snowify.deleteImage(playlist.coverImage);
             state.playlists = state.playlists.filter(p => p.id !== playlist.id);
+            if (state.playingPlaylistId === playlist.id) state.playingPlaylistId = null;
             saveState();
             renderPlaylists();
             if (state.currentPlaylistId === playlist.id) switchView('library');
@@ -1634,7 +1668,7 @@
     coverBtn.style.display = isLiked ? 'none' : '';
 
     if (playlist.tracks.length) {
-      renderTrackList(tracksContainer, playlist.tracks, 'playlist');
+      renderTrackList(tracksContainer, playlist.tracks, 'playlist', playlist.id);
 
       // Add remove-from-playlist to right-click
       tracksContainer.querySelectorAll('.track-row').forEach(row => {
@@ -1654,7 +1688,7 @@
     }
 
     $('#btn-play-all').onclick = () => {
-      if (playlist.tracks.length) playFromList(playlist.tracks, 0);
+      if (playlist.tracks.length) playFromList(playlist.tracks, 0, playlist.id);
     };
 
     $('#btn-shuffle-playlist').onclick = () => {
@@ -1664,7 +1698,7 @@
           const j = Math.floor(Math.random() * (i + 1));
           [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
         }
-        playFromList(shuffled, 0);
+        playFromList(shuffled, 0, playlist.id);
       }
     };
 
@@ -1690,6 +1724,7 @@
       if (confirm(`Delete "${playlist.name}"?\nThis cannot be undone.`)) {
         if (playlist.coverImage) window.snowify.deleteImage(playlist.coverImage);
         state.playlists = state.playlists.filter(p => p.id !== playlist.id);
+        if (state.playingPlaylistId === playlist.id) state.playingPlaylistId = null;
         saveState();
         renderPlaylists();
         switchView('library');
@@ -1732,7 +1767,11 @@
       if (!item) return;
       const action = item.dataset.action;
       switch (action) {
-        case 'play': playTrack(track); break;
+        case 'play':
+          state.playingPlaylistId = null;
+          playTrack(track);
+          updatePlaylistHighlight();
+          break;
         case 'play-next':
           if (state.queueIndex >= 0) state.queue.splice(state.queueIndex + 1, 0, track);
           else state.queue.push(track);
