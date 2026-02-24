@@ -57,6 +57,10 @@
     searchHistory: []
   };
 
+  // ─── Save button SVGs ───
+  const SAVE_SVG_CHECK = '<span class="save-burst"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  const SAVE_SVG_PLUS = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+
   function saveState() {
     localStorage.setItem('snowify_state', JSON.stringify({
       playlists: state.playlists,
@@ -205,6 +209,7 @@
   const ICON_TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>';
   const NOW_PLAYING_ICON_SVG = '<svg class="now-playing-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.016 1.125A.75.75 0 0 0 8.99.85l-4.2 3.43H1.75A.75.75 0 0 0 1 5.03v5.94a.75.75 0 0 0 .75.75h3.04l4.2 3.43a.75.75 0 0 0 1.026-.275.75.75 0 0 0 .1-.375V1.5a.75.75 0 0 0-.1-.375z"/><path class="sound-wave wave-1" opacity="0" d="M12.25 3.17a.75.75 0 0 0-.917 1.19 3.56 3.56 0 0 1 0 7.28.75.75 0 0 0 .918 1.19 5.06 5.06 0 0 0 0-9.66z"/><path class="sound-wave wave-2" opacity="0" d="M14.2 1.5a.75.75 0 0 0-.917 1.19 5.96 5.96 0 0 1 0 10.62.75.75 0 0 0 .918 1.19 7.46 7.46 0 0 0 0-13z"/></svg>';
   const NOW_PLAYING_EQ_HTML = '<div class="track-eq"><span class="eq-bar"></span><span class="eq-bar"></span><span class="eq-bar"></span></div>';
+  const ICON_BROKEN_HEART = '<svg width="20" height="20" viewBox="0 0 24 24" fill="var(--accent)"><path d="M2 8.5C2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09V21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5z"/><path d="M12 5.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35V5.09z" transform="translate(1.5, 2) rotate(8, 12, 12)"/></svg>';
 
   function closeSuggestions() {
     searchSuggestions.classList.add('hidden');
@@ -581,6 +586,7 @@
           const wasLiked = toggleLike(track);
           likeBtn.classList.toggle('liked', state.likedSongs.some(t => t.id === track.id));
           if (wasLiked) spawnHeartParticles(likeBtn);
+          else spawnBrokenHeart(likeBtn);
         });
       }
     });
@@ -709,18 +715,62 @@
     document.querySelectorAll('.context-menu').forEach(m => m.remove());
   }
 
-  function showAlbumContextMenu(e, albumId, meta) {
+  // ─── Generic save button setup (reused by album + playlist detail views) ───
+  function setupSaveButton(saveBtn, externalId, displayName, tracks) {
+    const updateSaveBtn = (animate) => {
+      const isSaved = state.playlists.some(p => p.externalId === externalId);
+      saveBtn.title = isSaved ? 'Remove from library' : 'Save to library';
+      saveBtn.classList.toggle('saved', isSaved);
+      saveBtn.innerHTML = isSaved ? SAVE_SVG_CHECK : SAVE_SVG_PLUS;
+      if (animate === 'save') {
+        saveBtn.classList.add('saving');
+        saveBtn.addEventListener('animationend', () => saveBtn.classList.remove('saving'), { once: true });
+      }
+    };
+
+    saveBtn.style.display = '';
+    saveBtn.classList.remove('saving', 'unsaving');
+    updateSaveBtn();
+
+    saveBtn.onclick = () => {
+      const existing = state.playlists.find(p => p.externalId === externalId);
+      if (existing) {
+        state.playlists = state.playlists.filter(p => p.externalId !== externalId);
+        saveBtn.classList.add('unsaving');
+        saveBtn.addEventListener('animationend', () => {
+          saveBtn.classList.remove('unsaving');
+          updateSaveBtn();
+        }, { once: true });
+        showToast(`Removed "${displayName}" from library`);
+      } else {
+        const pl = createPlaylist(displayName);
+        pl.externalId = externalId;
+        pl.tracks = tracks;
+        updateSaveBtn('save');
+        showToast(`Saved "${displayName}" with ${tracks.length} songs`);
+      }
+      saveState();
+      renderPlaylists();
+    };
+  }
+
+  // ─── Generic context menu for albums + playlists ───
+  function showCollectionContextMenu(e, externalId, meta, options) {
+    const { loadTracks, fallbackName = 'Playlist', playLabel = 'Play All', errorMsg = 'Could not load tracks', copyLink = null } = options;
     removeContextMenu();
     const menu = document.createElement('div');
     menu.className = 'context-menu';
     menu.style.left = e.clientX + 'px';
     menu.style.top = e.clientY + 'px';
 
+    const saved = state.playlists.find(p => p.externalId === externalId);
+
     menu.innerHTML = `
-      <div class="context-menu-item" data-action="play-all">Play All</div>
+      <div class="context-menu-item" data-action="play">${playLabel}</div>
       <div class="context-menu-item" data-action="shuffle">Shuffle Play</div>
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="share">Copy Link</div>
+      <div class="context-menu-item" data-action="${saved ? 'remove' : 'save'}">${saved ? 'Remove from library' : 'Save as Playlist'}</div>
+      ${copyLink ? '<div class="context-menu-item" data-action="share">Copy Link</div>' : ''}
     `;
 
     document.body.appendChild(menu);
@@ -731,25 +781,33 @@
     menu.addEventListener('click', async (ev) => {
       const item = ev.target.closest('.context-menu-item');
       if (!item) return;
-      switch (item.dataset.action) {
-        case 'play-all': {
-          const album = await window.snowify.albumTracks(albumId);
-          if (album && album.tracks.length) playFromList(album.tracks, 0);
-          else showToast('Could not load album');
-          break;
+      const action = item.dataset.action;
+
+      if (action === 'remove') {
+        state.playlists = state.playlists.filter(p => p.externalId !== externalId);
+        saveState();
+        renderPlaylists();
+        showToast(`Removed "${meta?.name || fallbackName}" from library`);
+      } else if (action === 'share' && copyLink) {
+        navigator.clipboard.writeText(copyLink);
+        showToast('Link copied to clipboard');
+      } else if (action === 'play' || action === 'shuffle' || action === 'save') {
+        const tracks = await loadTracks();
+        if (!tracks?.length) { showToast(errorMsg); removeContextMenu(); return; }
+
+        if (action === 'play') {
+          playFromList(tracks, 0);
+        } else if (action === 'shuffle') {
+          playFromList([...tracks].sort(() => Math.random() - 0.5), 0);
+        } else if (action === 'save') {
+          const name = meta?.name || fallbackName;
+          const pl = createPlaylist(name);
+          pl.externalId = externalId;
+          pl.tracks = tracks;
+          saveState();
+          renderPlaylists();
+          showToast(`Saved "${name}" with ${tracks.length} songs`);
         }
-        case 'shuffle': {
-          const album = await window.snowify.albumTracks(albumId);
-          if (album && album.tracks.length) {
-            const shuffled = [...album.tracks].sort(() => Math.random() - 0.5);
-            playFromList(shuffled, 0);
-          } else showToast('Could not load album');
-          break;
-        }
-        case 'share':
-          navigator.clipboard.writeText(`https://music.youtube.com/browse/${albumId}`);
-          showToast('Link copied to clipboard');
-          break;
       }
       removeContextMenu();
     });
@@ -757,6 +815,26 @@
     setTimeout(() => {
       document.addEventListener('click', removeContextMenu, { once: true });
     }, 10);
+  }
+
+  // Thin wrappers to keep existing call sites unchanged
+  function showAlbumContextMenu(e, albumId, meta) {
+    showCollectionContextMenu(e, albumId, meta, {
+      loadTracks: async () => { const a = await window.snowify.albumTracks(albumId); return a?.tracks || []; },
+      fallbackName: 'Album',
+      playLabel: 'Play All',
+      errorMsg: 'Could not load album',
+      copyLink: `https://music.youtube.com/browse/${albumId}`
+    });
+  }
+
+  function showPlaylistContextMenu(e, playlistId, meta) {
+    showCollectionContextMenu(e, playlistId, meta, {
+      loadTracks: () => window.snowify.getPlaylistVideos(playlistId),
+      fallbackName: 'Imported Playlist',
+      playLabel: 'Play',
+      errorMsg: 'Could not load playlist'
+    });
   }
 
   async function playTrack(track) {
@@ -1263,6 +1341,7 @@
     if (track) {
       const wasLiked = toggleLike(track);
       if (wasLiked) spawnHeartParticles(npLike);
+      else spawnBrokenHeart(npLike);
     }
   });
 
@@ -1307,6 +1386,17 @@
       document.body.appendChild(heart);
       heart.addEventListener('animationend', () => heart.remove());
     }
+  }
+
+  function spawnBrokenHeart(originEl) {
+    const rect = originEl.getBoundingClientRect();
+    const el = document.createElement('div');
+    el.className = 'broken-heart';
+    el.innerHTML = ICON_BROKEN_HEART;
+    el.style.left = rect.left + rect.width / 2 + 'px';
+    el.style.top = rect.top + rect.height / 2 + 'px';
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
   }
 
   function updateLikedCount() {
@@ -1430,14 +1520,16 @@
       });
 
       // Right-click context menu for playlists in sidebar
-      if (item.dataset.playlist !== 'liked') {
-        item.addEventListener('contextmenu', (e) => {
-          e.preventDefault();
-          const pl = state.playlists.find(p => p.id === item.dataset.playlist);
-          if (!pl) return;
-          showSidebarPlaylistMenu(e, pl);
-        });
-      }
+      item.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const pid = item.dataset.playlist;
+        if (pid === 'liked') {
+          showSidebarPlaylistMenu(e, { id: 'liked', name: 'Liked Songs', tracks: state.likedSongs }, true);
+        } else {
+          const pl = state.playlists.find(p => p.id === pid);
+          if (pl) showSidebarPlaylistMenu(e, pl, false);
+        }
+      });
 
       // Drop target for drag-and-drop
       item.addEventListener('dragover', (e) => {
@@ -1461,21 +1553,24 @@
     updatePlaylistHighlight();
   }
 
-  function showSidebarPlaylistMenu(e, playlist) {
+  function showSidebarPlaylistMenu(e, playlist, isLiked = false) {
     removeContextMenu();
     const menu = document.createElement('div');
     menu.className = 'context-menu';
     menu.style.left = e.clientX + 'px';
     menu.style.top = e.clientY + 'px';
 
-    menu.innerHTML = `
-      <div class="context-menu-item" data-action="play">Play</div>
-      <div class="context-menu-item" data-action="shuffle">Shuffle play</div>
+    const manageHtml = isLiked ? '' : `
       <div class="context-menu-divider"></div>
       <div class="context-menu-item" data-action="change-cover">Change cover</div>
       ${playlist.coverImage ? '<div class="context-menu-item" data-action="remove-cover">Remove cover</div>' : ''}
       <div class="context-menu-item" data-action="rename">Rename</div>
-      <div class="context-menu-item" data-action="delete" style="color:var(--red)">Delete</div>
+      <div class="context-menu-item" data-action="delete" style="color:var(--red)">Delete</div>`;
+
+    menu.innerHTML = `
+      <div class="context-menu-item" data-action="play">Play</div>
+      <div class="context-menu-item" data-action="shuffle">Shuffle play</div>
+      ${manageHtml}
     `;
 
     document.body.appendChild(menu);
@@ -2556,6 +2651,9 @@
   async function showAlbumDetail(albumId, albumMeta) {
     switchView('album');
 
+    const saveBtn = $('#btn-album-save');
+    setupSaveButton(saveBtn, albumId, albumMeta?.name || 'Album', []);
+
     const heroName = $('#album-hero-name');
     const heroMeta = $('#album-hero-meta');
     const heroCover = $('#album-hero-img');
@@ -2594,6 +2692,45 @@
         playFromList(shuffled, 0);
       }
     };
+
+    setupSaveButton(saveBtn, albumId, album.name || albumMeta?.name || 'Album', album.tracks);
+  }
+
+  async function showExternalPlaylistDetail(playlistId, meta) {
+    switchView('album');
+
+    const saveBtn = $('#btn-album-save');
+    setupSaveButton(saveBtn, playlistId, meta?.name || 'Playlist', []);
+
+    const heroName = $('#album-hero-name');
+    const heroMeta = $('#album-hero-meta');
+    const heroCover = $('#album-hero-img');
+    const heroType = $('#album-hero-type');
+    const tracksContainer = $('#album-tracks');
+
+    heroName.textContent = meta?.name || 'Loading...';
+    heroMeta.textContent = '';
+    heroType.textContent = 'PLAYLIST';
+    heroCover.src = meta?.thumbnail || '';
+    tracksContainer.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+
+    const tracks = await window.snowify.getPlaylistVideos(playlistId);
+    if (!tracks?.length) {
+      tracksContainer.innerHTML = `<div class="empty-state"><p>Could not load playlist.</p></div>`;
+      return;
+    }
+
+    heroMeta.textContent = `${tracks.length} song${tracks.length !== 1 ? 's' : ''}`;
+
+    renderTrackList(tracksContainer, tracks, 'playlist');
+
+    $('#btn-album-play-all').onclick = () => playFromList(tracks, 0);
+    $('#btn-album-shuffle').onclick = () => {
+      const shuffled = [...tracks].sort(() => Math.random() - 0.5);
+      playFromList(shuffled, 0);
+    };
+
+    setupSaveButton(saveBtn, playlistId, meta?.name || 'Imported Playlist', tracks);
   }
 
   async function openArtistPage(artistId) {
@@ -2616,6 +2753,8 @@
     const liveContainer = $('#artist-live');
     const fansSection = $('#artist-fans-section');
     const fansContainer = $('#artist-fans');
+    const featuredSection = $('#artist-featured-section');
+    const featuredContainer = $('#artist-featured');
 
     avatar.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     avatar.classList.remove('loaded');
@@ -2630,11 +2769,13 @@
     videosSection.style.display = 'none';
     liveSection.style.display = 'none';
     fansSection.style.display = 'none';
+    featuredSection.style.display = 'none';
     popularContainer.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
     discographyContainer.innerHTML = '';
     videosContainer.innerHTML = '';
     liveContainer.innerHTML = '';
     fansContainer.innerHTML = '';
+    featuredContainer.innerHTML = '';
 
     const info = await window.snowify.artistInfo(artistId);
 
@@ -2643,6 +2784,9 @@
       popularContainer.innerHTML = `<div class="empty-state"><p>Could not load artist info.</p></div>`;
       return;
     }
+
+    // Fire playlist search in background (don't block rest of render)
+    const searchPlaylistsPromise = window.snowify.searchPlaylists(info.name).catch(() => []);
 
     nameEl.textContent = info.name;
     followersEl.textContent = info.monthlyListeners || '';
@@ -2825,6 +2969,50 @@
         card.addEventListener('click', () => {
           const id = card.dataset.artistId;
           if (id) openArtistPage(id);
+        });
+      });
+    }
+
+    // Playlists section: merge Featured On + searchPlaylists, deduplicate
+    const featuredOn = (info.featuredOn || []).map(p => ({ ...p, subtitle: 'Featured on' }));
+    const searched = (await searchPlaylistsPromise) || [];
+
+    const seenPl = new Set();
+    const allPlaylists = [...featuredOn, ...searched].filter(p => {
+      if (!p.playlistId || seenPl.has(p.playlistId)) return false;
+      seenPl.add(p.playlistId);
+      return true;
+    });
+
+    if (allPlaylists.length) {
+      featuredSection.style.display = '';
+      featuredContainer.innerHTML = allPlaylists.map(p => `
+        <div class="album-card" data-playlist-id="${escapeHtml(p.playlistId)}">
+          <img class="album-card-cover" src="${escapeHtml(p.thumbnail)}" alt="" loading="lazy" />
+          <button class="album-card-play" title="Play">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
+          </button>
+          <div class="album-card-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
+          <div class="album-card-meta">${escapeHtml(p.subtitle || 'Playlist')}</div>
+        </div>
+      `).join('');
+
+      addScrollArrows(featuredContainer);
+      featuredContainer.querySelectorAll('.album-card').forEach(card => {
+        const pid = card.dataset.playlistId;
+        const meta = allPlaylists.find(p => p.playlistId === pid);
+        card.querySelector('.album-card-play').addEventListener('click', async (e) => {
+          e.stopPropagation();
+          try {
+            const tracks = await window.snowify.getPlaylistVideos(pid);
+            if (tracks?.length) playFromList(tracks, 0);
+            else showToast('Could not load playlist');
+          } catch { showToast('Could not load playlist'); }
+        });
+        card.addEventListener('click', () => showExternalPlaylistDetail(pid, meta));
+        card.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          showPlaylistContextMenu(e, pid, meta);
         });
       });
     }

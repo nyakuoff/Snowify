@@ -1066,6 +1066,20 @@ html, body {
   100% { opacity: 0; transform: translate(-50%, -50%) scale(var(--s, 1)) translate(var(--dx), var(--dy)); }
 }
 
+/* ── Broken heart unlike ── */
+.broken-heart {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  animation: brokenHeartFloat 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes brokenHeartFloat {
+  0%   { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+  30%  { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+  100% { opacity: 0; transform: translate(-50%, calc(-50% - 24px)) scale(1); }
+}
+
 .track-row-actions {
   display: flex;
   gap: 4px;
@@ -2098,6 +2112,67 @@ html, body {
 }
 .playlist-action-btn:hover { color: var(--text-primary); transform: scale(1.15); }
 .playlist-action-btn.btn-delete:hover { color: var(--red); }
+.playlist-action-btn.saved {
+  background: var(--accent);
+  color: #000;
+  border-radius: 50%;
+  position: relative;
+}
+.playlist-action-btn.saved:hover { background: var(--accent-hover, var(--accent)); color: #000; }
+/* Check stroke draw animation — only on save click */
+.playlist-action-btn.saving svg polyline {
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+  animation: check-draw .35s .15s ease-out forwards;
+}
+@keyframes check-draw {
+  to { stroke-dashoffset: 0; }
+}
+/* Elastic scale on save */
+.playlist-action-btn.saving {
+  animation: save-elastic .5s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes save-elastic {
+  0% { transform: scale(0); }
+  40% { transform: scale(1.25); }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+/* Particle burst */
+.playlist-action-btn .save-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 50%;
+}
+.playlist-action-btn .save-burst::before,
+.playlist-action-btn .save-burst::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  opacity: 0;
+}
+.playlist-action-btn.saving .save-burst::before {
+  animation: burst-ring .6s ease-out forwards;
+}
+.playlist-action-btn.saving .save-burst::after {
+  animation: burst-ring .6s .1s ease-out forwards;
+}
+@keyframes burst-ring {
+  0% { transform: scale(0.5); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+/* Fade out on unsave */
+.playlist-action-btn.unsaving {
+  animation: save-fadeout .3s ease-out;
+}
+@keyframes save-fadeout {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.5; }
+  100% { transform: scale(0.8); opacity: 0; }
+}
 
 /* ═══════ Settings Page ═══════ */
 .settings-content {
@@ -3448,7 +3523,7 @@ html, body {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 2;
+  z-index: 10;
   width: 32px;
   height: 32px;
   border: none;
@@ -3459,7 +3534,6 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 1;
   padding: 0;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }
@@ -3467,10 +3541,10 @@ html, body {
   background: var(--bg-highlight);
 }
 .scroll-arrow-left {
-  left: 4px;
+  left: -34px;
 }
 .scroll-arrow-right {
-  right: 4px;
+  right: -34px;
 }
 
 /* ═══════ Top Artists (Horizontal Scroll) ═══════ */
