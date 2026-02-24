@@ -1058,6 +1058,25 @@
     window.snowify.getStreamUrl(url, state.audioQuality).catch(() => {});
   }
 
+  const PLAY_SVG = '<svg width="24" height="24" viewBox="0 0 24 24" fill="#000"><path d="M8 5v14l11-7L8 5z"/></svg>';
+  const PAUSE_SVG = '<svg width="24" height="24" viewBox="0 0 24 24" fill="#000"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>';
+
+  function isCollectionPlaying(tracks, sourcePlaylistId) {
+    if (!state.queue.length || !tracks.length) return false;
+    // For playlists with a known ID, compare IDs
+    if (sourcePlaylistId && state.playingPlaylistId === sourcePlaylistId) return true;
+    // For albums/external playlists, compare first track
+    if (!sourcePlaylistId && state.queue[0]?.id === tracks[0]?.id && state.queue.length === tracks.length) return true;
+    return false;
+  }
+
+  function updatePlayAllBtn(btn, tracks, sourcePlaylistId) {
+    if (!btn) return;
+    const playing = isCollectionPlaying(tracks, sourcePlaylistId) && state.isPlaying;
+    btn.innerHTML = playing ? PAUSE_SVG : PLAY_SVG;
+    btn.title = playing ? 'Pause' : 'Play all';
+  }
+
   function playFromList(tracks, index, sourcePlaylistId = null) {
     state.playingPlaylistId = sourcePlaylistId;
     state.originalQueue = [...tracks];
@@ -1472,6 +1491,29 @@
     }
     document.body.classList.toggle('audio-playing', state.isPlaying);
     if (window.snowify.updateThumbar) window.snowify.updateThumbar(state.isPlaying);
+    // Sync play-all buttons on visible views
+    syncViewPlayAllBtns();
+  }
+
+  function syncViewPlayAllBtns() {
+    const playAllBtn = $('#btn-play-all');
+    const albumPlayBtn = $('#btn-album-play-all');
+    const artistPlayBtn = $('#btn-artist-play-all');
+    if (playAllBtn) {
+      const playing = state.playingPlaylistId && state.playingPlaylistId === state.currentPlaylistId && state.isPlaying;
+      playAllBtn.innerHTML = playing ? PAUSE_SVG : PLAY_SVG;
+      playAllBtn.title = playing ? 'Pause' : 'Play all';
+    }
+    if (albumPlayBtn) {
+      const isActive = state.queue.length > 0 && !state.playingPlaylistId && state.isPlaying;
+      albumPlayBtn.innerHTML = isActive ? PAUSE_SVG : PLAY_SVG;
+      albumPlayBtn.title = isActive ? 'Pause' : 'Play all';
+    }
+    if (artistPlayBtn) {
+      const isActive = state.queue.length > 0 && !state.playingPlaylistId && state.isPlaying;
+      artistPlayBtn.innerHTML = isActive ? PAUSE_SVG : PLAY_SVG;
+      artistPlayBtn.title = isActive ? 'Pause' : 'Play all';
+    }
   }
 
   function updateTrackHighlight() {
@@ -1882,8 +1924,17 @@
         </div>`;
     }
 
-    $('#btn-play-all').onclick = () => {
-      if (playlist.tracks.length) playFromList(playlist.tracks, 0, playlist.id);
+    const playAllBtn = $('#btn-play-all');
+    updatePlayAllBtn(playAllBtn, playlist.tracks, playlist.id);
+    playAllBtn.onclick = () => {
+      if (!playlist.tracks.length) return;
+      if (isCollectionPlaying(playlist.tracks, playlist.id)) {
+        togglePlay();
+        updatePlayAllBtn(playAllBtn, playlist.tracks, playlist.id);
+      } else {
+        playFromList(playlist.tracks, 0, playlist.id);
+        updatePlayAllBtn(playAllBtn, playlist.tracks, playlist.id);
+      }
     };
 
     $('#btn-shuffle-playlist').onclick = () => {
@@ -3117,13 +3168,23 @@
 
     renderTrackList(tracksContainer, album.tracks, 'album');
 
-    $('#btn-album-play-all').onclick = () => {
-      if (album.tracks.length) playFromList(album.tracks, 0);
+    const albumPlayBtn = $('#btn-album-play-all');
+    updatePlayAllBtn(albumPlayBtn, album.tracks, null);
+    albumPlayBtn.onclick = () => {
+      if (!album.tracks.length) return;
+      if (isCollectionPlaying(album.tracks, null)) {
+        togglePlay();
+        updatePlayAllBtn(albumPlayBtn, album.tracks, null);
+      } else {
+        playFromList(album.tracks, 0);
+        updatePlayAllBtn(albumPlayBtn, album.tracks, null);
+      }
     };
     $('#btn-album-shuffle').onclick = () => {
       if (album.tracks.length) {
         const shuffled = [...album.tracks].sort(() => Math.random() - 0.5);
         playFromList(shuffled, 0);
+        updatePlayAllBtn(albumPlayBtn, album.tracks, null);
       }
     };
 
@@ -3158,10 +3219,21 @@
 
     renderTrackList(tracksContainer, tracks, 'playlist');
 
-    $('#btn-album-play-all').onclick = () => playFromList(tracks, 0);
+    const extPlayBtn = $('#btn-album-play-all');
+    updatePlayAllBtn(extPlayBtn, tracks, null);
+    extPlayBtn.onclick = () => {
+      if (isCollectionPlaying(tracks, null)) {
+        togglePlay();
+        updatePlayAllBtn(extPlayBtn, tracks, null);
+      } else {
+        playFromList(tracks, 0);
+        updatePlayAllBtn(extPlayBtn, tracks, null);
+      }
+    };
     $('#btn-album-shuffle').onclick = () => {
       const shuffled = [...tracks].sort(() => Math.random() - 0.5);
       playFromList(shuffled, 0);
+      updatePlayAllBtn(extPlayBtn, tracks, null);
     };
 
     setupSaveButton(saveBtn, playlistId, meta?.name || 'Imported Playlist', tracks);
@@ -3452,8 +3524,17 @@
     }
 
     // Play all: use popular tracks
-    $('#btn-artist-play-all').onclick = () => {
-      if (popular.length) playFromList(popular, 0);
+    const artistPlayBtn = $('#btn-artist-play-all');
+    updatePlayAllBtn(artistPlayBtn, popular, null);
+    artistPlayBtn.onclick = () => {
+      if (!popular.length) return;
+      if (isCollectionPlaying(popular, null)) {
+        togglePlay();
+        updatePlayAllBtn(artistPlayBtn, popular, null);
+      } else {
+        playFromList(popular, 0);
+        updatePlayAllBtn(artistPlayBtn, popular, null);
+      }
     };
   }
 
