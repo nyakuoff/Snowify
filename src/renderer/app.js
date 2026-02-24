@@ -142,6 +142,12 @@
     }));
     localStorage.setItem('snowify_lastSave', String(Date.now()));
     cloudSaveDebounced();
+    // Queue persistence (local-only, not synced to cloud)
+    localStorage.setItem('snowify_queue', JSON.stringify({
+      queue: state.queue,
+      originalQueue: state.originalQueue,
+      queueIndex: state.queueIndex
+    }));
   }
 
   function loadState() {
@@ -181,6 +187,13 @@
         state.discordRpc = saved.discordRpc ?? false;
         state.country = saved.country || '';
         state.searchHistory = saved.searchHistory || [];
+      }
+      // Restore queue (local-only, separate from cloud sync)
+      const savedQueue = JSON.parse(localStorage.getItem('snowify_queue'));
+      if (savedQueue) {
+        state.queue = savedQueue.queue || [];
+        state.originalQueue = savedQueue.originalQueue || [];
+        state.queueIndex = savedQueue.queueIndex ?? -1;
       }
     } catch (_) {}
   }
@@ -756,7 +769,7 @@
     bindArtistLinks(container);
   }
 
-  function showContextMenu(e, track) {
+  function showContextMenu(e, track, { hideAddQueue = false, hidePlayNext = false } = {}) {
     removeContextMenu();
     const isLiked = state.likedSongs.some(t => t.id === track.id);
     const menu = document.createElement('div');
@@ -784,10 +797,13 @@
       playlistSection = '<div class="context-menu-divider"></div>' + inlineItems;
     }
 
+    const addQueueHtml = hideAddQueue ? '' : '<div class="context-menu-item" data-action="add-queue">Add to Queue</div>';
+    const playNextHtml = hidePlayNext ? '' : '<div class="context-menu-item" data-action="play-next">Play Next</div>';
+
     menu.innerHTML = `
       <div class="context-menu-item" data-action="play">Play</div>
-      <div class="context-menu-item" data-action="play-next">Play Next</div>
-      <div class="context-menu-item" data-action="add-queue">Add to Queue</div>
+      ${playNextHtml}
+      ${addQueueHtml}
       <div class="context-menu-divider"></div>
       <div class="context-menu-item" data-action="start-radio">Start Radio</div>
       <div class="context-menu-item" data-action="watch-video">Watch Video</div>
@@ -831,18 +847,8 @@
           playTrack(track);
           updatePlaylistHighlight();
           break;
-        case 'play-next':
-          if (state.queueIndex >= 0) {
-            state.queue.splice(state.queueIndex + 1, 0, track);
-          } else {
-            state.queue.push(track);
-          }
-          showToast('Added to play next');
-          break;
-        case 'add-queue':
-          state.queue.push(track);
-          showToast('Added to queue');
-          break;
+        case 'play-next': handlePlayNext(track); break;
+        case 'add-queue': handleAddToQueue(track); break;
         case 'watch-video':
           openVideoPlayer(track.id, track.title, track.artist);
           break;
@@ -1015,6 +1021,7 @@
       state.isLoading = false;
       addToRecent(track);
       updateDiscordPresence(track);
+      renderQueue();
       saveState();
       prefetchNextTrack();
     } catch (err) {
@@ -1179,6 +1186,7 @@
     if (!state.queue.length) return;
     if (audio.currentTime > 3) {
       audio.currentTime = 0;
+      renderQueue();
       return;
     }
     let prevIdx = state.queueIndex - 1;
@@ -1213,7 +1221,13 @@
 
   function togglePlay() {
     if (state.isLoading) return;
-    if (!audio.src) return;
+    // Restored queue but audio not loaded yet — load and play from start
+    if (!audio.src) {
+      const track = state.queue[state.queueIndex];
+      if (!track) return;
+      playTrack(track);
+      return;
+    }
     if (audio.paused) {
       audio.play();
       state.isPlaying = true;
@@ -1950,12 +1964,8 @@
           playTrack(track);
           updatePlaylistHighlight();
           break;
-        case 'play-next':
-          if (state.queueIndex >= 0) state.queue.splice(state.queueIndex + 1, 0, track);
-          else state.queue.push(track);
-          showToast('Added to play next');
-          break;
-        case 'add-queue': state.queue.push(track); showToast('Added to queue'); break;
+        case 'play-next': handlePlayNext(track); break;
+        case 'add-queue': handleAddToQueue(track); break;
         case 'like': toggleLike(track); break;
         case 'start-radio': {
           const upNexts = await window.snowify.getUpNexts(track.id);
@@ -2062,11 +2072,51 @@
     });
   }
 
+  function handlePlayNext(track) {
+    const existIdx = state.queue.findIndex((t, i) => i > state.queueIndex && t.id === track.id);
+    if (existIdx !== -1) state.queue.splice(existIdx, 1);
+    if (state.queueIndex >= 0) state.queue.splice(state.queueIndex + 1, 0, track);
+    else state.queue.push(track);
+    showToast(existIdx !== -1 ? 'Moved to play next' : 'Added to play next');
+    renderQueue();
+  }
+
+  function handleAddToQueue(track) {
+    if (state.queue.slice(state.queueIndex + 1).some(t => t.id === track.id)) {
+      showToast('Already in queue');
+    } else {
+      state.queue.push(track);
+      showToast('Added to queue');
+      renderQueue();
+    }
+  }
+
+  function renderNowPlayingSection(container) {
+    const current = state.queue[state.queueIndex];
+    if (current) {
+      container.innerHTML = renderQueueItem(current, true, false);
+      const nowItem = container.querySelector('.queue-item');
+      if (nowItem) {
+        bindArtistLinks(nowItem);
+        nowItem.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          showContextMenu(e, current, { hideAddQueue: true, hidePlayNext: true });
+        });
+      }
+    } else {
+      container.innerHTML = `<p style="color:var(--text-subdued);font-size:13px;">Nothing playing</p>`;
+    }
+  }
+
   const queuePanel = $('#queue-panel');
+  let _queueActiveTab = 'queue';
 
   $('#btn-queue').addEventListener('click', () => {
     queuePanel.classList.toggle('hidden');
     queuePanel.classList.toggle('visible');
+    // Always reset to Queue tab when opening
+    _queueActiveTab = 'queue';
+    switchQueueTab('queue');
     renderQueue();
   });
   $('#btn-close-queue').addEventListener('click', () => {
@@ -2074,49 +2124,245 @@
     queuePanel.classList.remove('visible');
   });
 
+  // Tab switching
+  $$('.queue-tab', queuePanel).forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.tab;
+      if (target === _queueActiveTab) return;
+      _queueActiveTab = target;
+      switchQueueTab(target);
+    });
+  });
+
+  function switchQueueTab(tab) {
+    $$('.queue-tab', queuePanel).forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    $('#queue-view').style.display = tab === 'queue' ? '' : 'none';
+    $('#history-view').style.display = tab === 'history' ? '' : 'none';
+    if (tab === 'history') renderHistory();
+  }
+
+  // Clear queue
+  $('#btn-clear-queue').addEventListener('click', () => {
+    state.queue = state.queue.slice(0, state.queueIndex + 1);
+    const remainingIds = new Set(state.queue.map(t => t.id));
+    state.originalQueue = state.originalQueue.filter(t => remainingIds.has(t.id));
+    renderQueue();
+    saveState();
+    showToast('Queue cleared');
+  });
+
+  // Clear history
+  $('#btn-clear-history').addEventListener('click', () => {
+    state.recentTracks = [];
+    saveState();
+    renderHistory();
+    renderRecentTracks();
+    renderQuickPicks();
+    showToast('History cleared');
+  });
+
   function renderQueue() {
     const nowPlaying = $('#queue-now-playing');
     const upNext = $('#queue-up-next');
+    const clearBtn = $('#btn-clear-queue');
 
-    const current = state.queue[state.queueIndex];
-    if (current) {
-      nowPlaying.innerHTML = renderQueueItem(current, true);
-    } else {
-      nowPlaying.innerHTML = `<p style="color:var(--text-subdued);font-size:13px;">Nothing playing</p>`;
-    }
+    renderNowPlayingSection(nowPlaying);
 
     const upcoming = state.queue.slice(state.queueIndex + 1);
+    clearBtn.style.display = upcoming.length ? '' : 'none';
+
     if (upcoming.length) {
-      upNext.innerHTML = upcoming.map(t => renderQueueItem(t, false)).join('');
+      upNext.innerHTML = upcoming.map((t, i) => {
+        const queueIdx = state.queueIndex + 1 + i;
+        return renderQueueItem(t, false, true, queueIdx);
+      }).join('');
+
+      upNext.querySelectorAll('.queue-item').forEach(item => {
+        const idx = parseInt(item.dataset.queueIndex, 10);
+        const track = state.queue[idx];
+        if (!track) return;
+
+        bindArtistLinks(item);
+
+        // Click to jump to track
+        item.addEventListener('click', (e) => {
+          if (e.target.closest('.queue-item-remove') || e.target.closest('a')) return;
+          state.queueIndex = idx;
+          playTrack(state.queue[idx]);
+          renderQueue();
+        });
+
+        // Right-click context menu
+        item.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          const isNext = idx === state.queueIndex + 1;
+          showContextMenu(e, track, { hideAddQueue: true, hidePlayNext: isNext });
+        });
+
+        // Remove button
+        const removeBtn = item.querySelector('.queue-item-remove');
+        if (removeBtn) {
+          removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            state.queue.splice(idx, 1);
+            state.originalQueue = state.originalQueue.filter(t => t.id !== track.id || state.queue.some(q => q.id === t.id));
+            renderQueue();
+            saveState();
+          });
+        }
+      });
+
+      bindQueueDragReorder();
     } else {
       upNext.innerHTML = `<p style="color:var(--text-subdued);font-size:13px;">Queue is empty</p>`;
     }
-
-    // Right-click + drag on all queue items
-    const allQueueItems = $$('.queue-item[data-track-id]', document.getElementById('queue-panel'));
-    allQueueItems.forEach(item => {
-      const track = state.queue.find(t => t.id === item.dataset.trackId);
-      if (!track) return;
-      bindArtistLinks(item);
-      item.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        showContextMenu(e, track);
-      });
-      item.addEventListener('dragstart', (e) => {
-        startTrackDrag(e, track);
-      });
-    });
   }
 
-  function renderQueueItem(track, isActive) {
+  function renderQueueItem(track, isActive, showRemove, queueIndex) {
+    const removeHtml = showRemove ? `
+      <button class="queue-item-remove" title="Remove from queue">
+        <svg width="14" height="14" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>` : '';
+    const indexAttr = queueIndex !== undefined ? ` data-queue-index="${queueIndex}"` : '';
+    const draggable = showRemove ? ' draggable="true"' : '';
     return `
-      <div class="queue-item ${isActive ? 'active' : ''}" data-track-id="${track.id}" draggable="true">
+      <div class="queue-item ${isActive ? 'active' : ''}" data-track-id="${track.id}"${indexAttr}${draggable}>
         <img src="${escapeHtml(track.thumbnail)}" alt="" />
         <div class="queue-item-info">
           <div class="queue-item-title">${escapeHtml(track.title)}</div>
           <div class="queue-item-artist">${renderArtistLinks(track)}</div>
         </div>
+        ${removeHtml}
       </div>`;
+  }
+
+  function renderHistory() {
+    renderNowPlayingSection($('#history-now-playing'));
+
+    // Recently Played list
+    const container = $('#history-list');
+    $('#btn-clear-history').style.display = state.recentTracks.length ? '' : 'none';
+    if (!state.recentTracks.length) {
+      container.innerHTML = `<p style="color:var(--text-subdued);font-size:13px;">No recently played tracks</p>`;
+      return;
+    }
+    container.innerHTML = state.recentTracks.map(t => renderQueueItem(t, false, false)).join('');
+    container.querySelectorAll('.queue-item').forEach(item => {
+      const track = state.recentTracks.find(t => t.id === item.dataset.trackId);
+      if (!track) return;
+      bindArtistLinks(item);
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('a')) return;
+        playFromList([track], 0);
+      });
+      item.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        showContextMenu(e, track);
+      });
+    });
+  }
+
+  // ─── Queue drag-to-reorder ───
+
+  let _dragScrollRAF = null;
+  let _dragScrollSpeed = 0;
+  let _queueDragAbort = null;
+
+  // Safety net: if dragend doesn't fire (e.g. ESC), clean up on any global dragend
+  document.addEventListener('dragend', () => stopDragScroll());
+
+  function bindQueueDragReorder() {
+    // Abort previous listeners to prevent accumulation
+    if (_queueDragAbort) _queueDragAbort.abort();
+    _queueDragAbort = new AbortController();
+    const signal = _queueDragAbort.signal;
+
+    const container = $('#queue-up-next');
+    const EDGE_ZONE = 40;
+    const MAX_SPEED = 12;
+    const items = container.querySelectorAll('.queue-item[draggable="true"]');
+
+    items.forEach(item => {
+      item.addEventListener('dragstart', (e) => {
+        item.classList.add('dragging');
+        container.classList.add('is-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', '');
+      }, { signal });
+
+      item.addEventListener('dragend', () => {
+        item.classList.remove('dragging');
+        container.classList.remove('is-dragging');
+        stopDragScroll();
+        // Read new order from DOM using queue indices (handles duplicate track IDs)
+        const reordered = [];
+        container.querySelectorAll('.queue-item').forEach(el => {
+          const qIdx = parseInt(el.dataset.queueIndex, 10);
+          if (state.queue[qIdx]) reordered.push(state.queue[qIdx]);
+        });
+        // Rebuild queue: [tracks before and including current] + [reordered upcoming]
+        const before = state.queue.slice(0, state.queueIndex + 1);
+        state.queue = [...before, ...reordered];
+        renderQueue();
+        saveState();
+      }, { signal });
+    });
+
+    container.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const afterElement = getDragAfterElement(container, e.clientY);
+      const dragging = container.querySelector('.dragging');
+      if (!dragging) return;
+      if (afterElement) {
+        container.insertBefore(dragging, afterElement);
+      } else {
+        container.appendChild(dragging);
+      }
+
+      // Auto-scroll when dragging near edges
+      const rect = queuePanel.getBoundingClientRect();
+      const distTop = e.clientY - rect.top;
+      const distBottom = rect.bottom - e.clientY;
+
+      if (distTop < EDGE_ZONE) {
+        _dragScrollSpeed = -Math.round(MAX_SPEED * (1 - distTop / EDGE_ZONE));
+        startDragScroll();
+      } else if (distBottom < EDGE_ZONE) {
+        _dragScrollSpeed = Math.round(MAX_SPEED * (1 - distBottom / EDGE_ZONE));
+        startDragScroll();
+      } else {
+        stopDragScroll();
+      }
+    }, { signal });
+  }
+
+  function startDragScroll() {
+    if (_dragScrollRAF) return;
+    const tick = () => {
+      queuePanel.scrollTop += _dragScrollSpeed;
+      _dragScrollRAF = requestAnimationFrame(tick);
+    };
+    _dragScrollRAF = requestAnimationFrame(tick);
+  }
+
+  function stopDragScroll() {
+    if (_dragScrollRAF) {
+      cancelAnimationFrame(_dragScrollRAF);
+      _dragScrollRAF = null;
+    }
+  }
+
+  function getDragAfterElement(container, y) {
+    const elements = [...container.querySelectorAll('.queue-item:not(.dragging)')];
+    return elements.reduce((closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closest.offset) {
+        return { offset, element: child };
+      }
+      return closest;
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
   }
 
   function addToRecent(track) {
@@ -2127,6 +2373,7 @@
     // Only update the lightweight parts — skip expensive API calls
     renderRecentTracks();
     renderQuickPicks();
+    if (_queueActiveTab === 'history') renderHistory();
   }
 
   async function renderHome() {
@@ -3636,7 +3883,14 @@
     renderPlaylists();
     renderHome();
     initSettings();
-    document.querySelector('#app').classList.add('no-player');
+    // Restore queue display (but don't auto-play)
+    const restoredTrack = state.queue[state.queueIndex];
+    if (restoredTrack) {
+      showNowPlaying(restoredTrack);
+      document.querySelector('#app').classList.remove('no-player');
+    } else {
+      document.querySelector('#app').classList.add('no-player');
+    }
   }
 
   function showWelcomeScreen() {

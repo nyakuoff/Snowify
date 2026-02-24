@@ -618,18 +618,41 @@
   <!-- ═══════ Queue Panel ═══════ -->
   <div id="queue-panel" class="queue-panel hidden">
     <div class="queue-header">
-      <h3>Queue</h3>
+      <div class="queue-tabs">
+        <button class="queue-tab active" data-tab="queue">Queue</button>
+        <button class="queue-tab" data-tab="history">Recently Played</button>
+      </div>
       <button class="icon-btn" id="btn-close-queue">
         <svg width="16" height="16" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       </button>
     </div>
-    <div class="queue-section">
-      <h4>Now Playing</h4>
-      <div id="queue-now-playing"></div>
+    <!-- Queue View -->
+    <div id="queue-view" class="queue-view">
+      <div class="queue-section">
+        <h4>Now Playing</h4>
+        <div id="queue-now-playing"></div>
+      </div>
+      <div class="queue-section">
+        <div class="queue-section-header">
+          <h4>Up Next</h4>
+          <button class="queue-clear-btn" id="btn-clear-queue">Clear</button>
+        </div>
+        <div id="queue-up-next"></div>
+      </div>
     </div>
-    <div class="queue-section">
-      <h4>Up Next</h4>
-      <div id="queue-up-next"></div>
+    <!-- History View -->
+    <div id="history-view" class="queue-view" style="display:none;">
+      <div class="queue-section">
+        <h4>Now Playing</h4>
+        <div id="history-now-playing"></div>
+      </div>
+      <div class="queue-section">
+        <div class="queue-section-header">
+          <h4>Recently Played</h4>
+          <button class="queue-clear-btn" id="btn-clear-history">Clear</button>
+        </div>
+        <div id="history-list"></div>
+      </div>
     </div>
   </div>
 
