@@ -244,6 +244,23 @@ function createWindow() {
 
   updateThumbarButtons(false);
 
+  // Intercept close to flush pending cloud saves before quitting
+  let _closeReady = false;
+  mainWindow.on('close', (e) => {
+    if (_closeReady) return;            // already flushed — let it close
+    e.preventDefault();
+    mainWindow.webContents.send('app:before-close');
+    // Safety timeout: if renderer doesn't respond in 4s, close anyway
+    setTimeout(() => {
+      _closeReady = true;
+      mainWindow?.close();
+    }, 4000);
+  });
+  ipcMain.once('app:close-ready', () => {
+    _closeReady = true;
+    mainWindow?.close();
+  });
+
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
@@ -1732,11 +1749,18 @@ function scoreMatch(song, targetTitle, targetArtist) {
   const sTitle = song.name || '';
   const sArtist = song.artist?.name || '';
 
-  // Title similarity (0–1) — weighted heaviest
+  // Title similarity (0–1)
   const titleScore = tokenSimilarity(targetTitle, sTitle);
 
-  // Artist similarity (0–1)
-  const artistScore = tokenSimilarity(targetArtist, sArtist);
+  // Artist similarity (0–1) — check both the primary artist and all listed artists
+  let artistScore = tokenSimilarity(targetArtist, sArtist);
+  // Also check if any artist in the song's artists array matches better
+  if (song.artists && Array.isArray(song.artists)) {
+    for (const a of song.artists) {
+      const s = tokenSimilarity(targetArtist, a?.name || '');
+      if (s > artistScore) artistScore = s;
+    }
+  }
 
   // Penalize unwanted variants unless the original title also has that tag
   const normTarget = normalizeStr(targetTitle);
@@ -1748,8 +1772,21 @@ function scoreMatch(song, targetTitle, targetArtist) {
     }
   }
 
-  // Composite: title matters most, artist second
-  return (titleScore * 0.6) + (artistScore * 0.4) - penalty;
+  // Also check album name for unwanted tags (some instrumentals are labeled in album, not title)
+  const normAlbum = normalizeStr(song.album?.name || '');
+  for (const tag of UNWANTED_TAGS) {
+    if (normAlbum.includes(tag) && !normTarget.includes(tag)) {
+      penalty += 0.15;
+    }
+  }
+
+  // Strong penalty if artist has zero overlap — likely a cover/wrong version
+  if (artistScore === 0 && normalizeStr(targetArtist).length > 0) {
+    penalty += 0.4;
+  }
+
+  // Composite: title matters most, artist second, with heavier artist weight
+  return (titleScore * 0.5) + (artistScore * 0.5) - penalty;
 }
 
 ipcMain.handle('spotify:matchTrack', async (_event, title, artist) => {
@@ -1768,6 +1805,8 @@ ipcMain.handle('spotify:matchTrack', async (_event, title, artist) => {
         bestSong = song;
       }
     }
+
+    console.log(`[Match] "${title}" by "${artist}" → "${bestSong.name}" by "${bestSong.artist?.name}" (score: ${bestScore.toFixed(3)})`);
 
     return mapSongToTrack(bestSong);
   } catch (err) {

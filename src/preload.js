@@ -74,6 +74,10 @@ contextBridge.exposeInMainWorld('snowify', {
   updatePresence: (data) => ipcRenderer.invoke('discord:updatePresence', data),
   clearPresence: () => ipcRenderer.invoke('discord:clearPresence'),
 
+  // Graceful close
+  onBeforeClose: (callback) => ipcRenderer.on('app:before-close', callback),
+  closeReady: () => ipcRenderer.send('app:close-ready'),
+
   // Auto-updater
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
   getChangelog: (version) => ipcRenderer.invoke('app:getChangelog', version),

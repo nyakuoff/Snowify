@@ -4225,6 +4225,16 @@
     else updateSyncStatus('Synced just now');
   }
 
+  // Flush any pending cloud save before the window closes
+  window.snowify.onBeforeClose(async () => {
+    if (_cloudSaveTimeout) {
+      clearTimeout(_cloudSaveTimeout);
+      _cloudSaveTimeout = null;
+      await forceCloudSave();
+    }
+    window.snowify.closeReady();
+  });
+
   // ─── Spotify Import (CSV) ───
 
   function openSpotifyImport() {
