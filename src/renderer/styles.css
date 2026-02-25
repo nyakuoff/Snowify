@@ -2337,6 +2337,17 @@ html, body {
   color: var(--text-primary);
   margin-bottom: 2px;
 }
+.experimental-tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 165, 0, 0.15);
+  color: #f0a020;
+  vertical-align: middle;
+  margin-left: 6px;
+}
 .setting-desc {
   display: block;
   font-size: 13px;
