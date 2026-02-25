@@ -22,18 +22,8 @@
 
   const audioA = $('#audio-player');
   const audioB = $('#audio-player-b');
-  let audio = audioA;
-  let activeAudio = audioA;
-  let standbyAudio = audioB;
-
-  // ─── Crossfade / Preload state ───
-  const CROSSFADE_MAX = 12;
-  let crossfadeTimer = null;
-  let crossfadeInProgress = false;
-  let crossfadeTriggered = false;
-  let preloadedTrack = null;
-  let preloadedUrl = null;
-  let preloadTriggered = false;
+  let engine; // initialized after state definition
+  let audio;  // mutable alias, synced with engine after swaps
 
   const views = $$('.view');
   const navBtns = $$('.nav-btn');
@@ -1025,11 +1015,13 @@
   }
 
   async function playTrack(track) {
-    if (crossfadeInProgress) cancelCrossfade();
+    if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
+    engine.resetTrigger();
 
     // Check preloaded BEFORE clearing — if it matches, use the standby
-    const usePreloaded = preloadedTrack && preloadedTrack.id === track.id && preloadedUrl;
-    if (!usePreloaded) clearPreload();
+    const preloaded = engine.getPreloaded();
+    const usePreloaded = preloaded && preloaded.track.id === track.id;
+    if (!usePreloaded) engine.clearPreload();
 
     state.isLoading = true;
     updatePlayButton();
@@ -1037,26 +1029,16 @@
 
     try {
       if (usePreloaded) {
-        const oldActive = activeAudio;
-        unbindAudioEvents(oldActive);
-        oldActive.pause();
-        oldActive.removeAttribute('src');
-        oldActive.load();
-
-        activeAudio = standbyAudio;
-        standbyAudio = oldActive;
-        audio = activeAudio;
-        bindAudioEvents(audio);
-        preloadedTrack = null;
-        preloadedUrl = null;
+        const newAudio = engine.consumePreloaded(track.id);
+        if (newAudio) audio = newAudio;
       } else {
         showToast(`Loading: ${track.title}`);
         const directUrl = await window.snowify.getStreamUrl(track.url, state.audioQuality);
-        audio.src = directUrl;
-        audio.load();
+        engine.setSource(directUrl);
+        audio = engine.getActiveAudio();
       }
 
-      audio.volume = state.volume * 0.3;
+      audio.volume = state.volume * engine.VOLUME_SCALE;
       await audio.play();
       state.isPlaying = true;
       state.isLoading = false;
@@ -1066,7 +1048,7 @@
       updatePositionState();
       saveState();
       // Reset preload flags so next track gets preloaded
-      preloadTriggered = false;
+      engine.resetPreloadFlag();
     } catch (err) {
       console.error('Playback error:', err);
       const msg = typeof err === 'string' ? err : (err.message || 'unknown error');
@@ -1121,8 +1103,8 @@
 
   function playFromList(tracks, index, sourcePlaylistId = null) {
     state.playingPlaylistId = sourcePlaylistId;
-    if (crossfadeInProgress) cancelCrossfade();
-    clearPreload();
+    if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
+    engine.clearPreload();
     state.originalQueue = [...tracks];
     if (state.shuffle) {
       const picked = tracks[index];
@@ -1143,11 +1125,11 @@
   }
 
   function playNext() {
-    if (crossfadeInProgress) cancelCrossfade();
+    if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     if (!state.queue.length) return;
 
     if (state.repeat === 'one') {
-      clearPreload();
+      engine.clearPreload();
       audio.currentTime = 0;
       audio.play();
       state.isPlaying = true;
@@ -1166,7 +1148,7 @@
 
     let nextIdx = state.queueIndex + 1;
     if (nextIdx >= state.queue.length) {
-      clearPreload();
+      engine.clearPreload();
       if (state.autoplay) {
         smartQueueFill();
         return;
@@ -1249,14 +1231,14 @@
   }
 
   function playPrev() {
-    if (crossfadeInProgress) cancelCrossfade();
+    if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     if (!state.queue.length) return;
     if (audio.currentTime > 3) {
       audio.currentTime = 0;
       renderQueue();
       return;
     }
-    clearPreload();
+    engine.clearPreload();
     let prevIdx = state.queueIndex - 1;
     if (prevIdx < 0) prevIdx = 0;
     state.queueIndex = prevIdx;
@@ -1289,6 +1271,25 @@
 
   function togglePlay() {
     if (state.isLoading) return;
+
+    // ─── Crossfade pause/resume handling ───
+    if (engine.isInProgress()) {
+      if (engine.isFadePaused()) {
+        engine.resumeFade();
+        audio = engine.getActiveAudio();
+        state.isPlaying = true;
+        const track = state.queue[state.queueIndex];
+        if (track) updateDiscordPresence(track);
+      } else {
+        engine.pauseFade();
+        state.isPlaying = false;
+        clearDiscordPresence();
+      }
+      updatePlayButton();
+      updatePositionState();
+      return;
+    }
+
     // Restored queue but audio not loaded yet — load and play from start
     if (!audio.src) {
       const track = state.queue[state.queueIndex];
@@ -1302,7 +1303,6 @@
       const track = state.queue[state.queueIndex];
       if (track) updateDiscordPresence(track);
     } else {
-      if (crossfadeInProgress) cancelCrossfade();
       audio.pause();
       state.isPlaying = false;
       clearDiscordPresence();
@@ -1311,21 +1311,71 @@
     updatePositionState();
   }
 
-  // ─── Named audio event handlers (for dual-audio swap) ───
-  function onAudioEnded() {
-    if (crossfadeInProgress) return; // crossfade handles transition
-    // If preloaded track is ready, do gapless swap
-    if (preloadedTrack && state.repeat !== 'one') {
-      doGaplessSwap();
-    } else {
-      playNext();
+  // ─── Engine transition handlers ───
+  function handleEngineTransition(evt) {
+    switch (evt.type) {
+      case 'gapless-complete':
+        audio = engine.getActiveAudio();
+        showNowPlaying(evt.track);
+        addToRecent(evt.track);
+        updateDiscordPresence(evt.track);
+        updatePositionState();
+        updatePlayButton();
+        updateTrackHighlight();
+        renderQueue();
+        saveState();
+        break;
+      case 'gapless-play-failed':
+        playNext();
+        break;
+      case 'crossfade-start':
+        showNowPlaying(evt.track);
+        addToRecent(evt.track);
+        updateDiscordPresence(evt.track);
+        updateTrackHighlight();
+        renderQueue();
+        saveState();
+        break;
+      case 'crossfade-complete':
+        audio = engine.getActiveAudio();
+        updatePositionState();
+        updatePlayButton();
+        break;
+      case 'crossfade-cancel':
+        audio = engine.getActiveAudio();
+        if (evt.track) {
+          showNowPlaying(evt.track);
+          updateTrackHighlight();
+          renderQueue();
+        }
+        break;
+      case 'ended-no-preload':
+        playNext();
+        break;
+      case 'seeked':
+        updatePositionState();
+        if (state.isPlaying) {
+          const track = state.queue[state.queueIndex];
+          if (track) updateDiscordPresence(track);
+        }
+        break;
+      case 'error':
+        state.isPlaying = false;
+        state.isLoading = false;
+        updatePlayButton();
+        clearDiscordPresence();
+        showToast('Audio error — skipping to next track');
+        if (evt.hasNext) {
+          state.queueIndex = evt.nextIndex;
+          playTrack(state.queue[evt.nextIndex]);
+          renderQueue();
+        }
+        break;
     }
   }
 
-  function onAudioTimeUpdate() {
+  function handleEngineTimeUpdate() {
     updateProgress();
-    checkPreload();
-    checkCrossfadeTrigger();
     const now = Date.now();
     if (now - lastPositionUpdate >= 1000) {
       lastPositionUpdate = now;
@@ -1333,305 +1383,15 @@
     }
   }
 
-  function onAudioSeeked() {
-    if (crossfadeInProgress) cancelCrossfade();
-    updatePositionState();
-    if (state.isPlaying) {
-      const track = state.queue[state.queueIndex];
-      if (track) updateDiscordPresence(track);
-    }
-  }
-
-  function onAudioError() {
-    state.isPlaying = false;
-    state.isLoading = false;
-    updatePlayButton();
-    clearDiscordPresence();
-    showToast('Audio error — skipping to next track');
-    const nextIdx = state.queueIndex + 1;
-    if (nextIdx < state.queue.length) {
-      state.queueIndex = nextIdx;
-      playTrack(state.queue[nextIdx]);
-      renderQueue();
-    }
-  }
-
-  function onAudioCanPlayThrough() {
-    triggerPreload();
-  }
-
-  function bindAudioEvents(el) {
-    el.addEventListener('ended', onAudioEnded);
-    el.addEventListener('timeupdate', onAudioTimeUpdate);
-    el.addEventListener('seeked', onAudioSeeked);
-    el.addEventListener('error', onAudioError);
-    el.addEventListener('canplaythrough', onAudioCanPlayThrough);
-  }
-
-  function unbindAudioEvents(el) {
-    el.removeEventListener('ended', onAudioEnded);
-    el.removeEventListener('timeupdate', onAudioTimeUpdate);
-    el.removeEventListener('seeked', onAudioSeeked);
-    el.removeEventListener('error', onAudioError);
-    el.removeEventListener('canplaythrough', onAudioCanPlayThrough);
-  }
-
-  bindAudioEvents(audio);
-
-  // ─── Preloading system ───
-  function getNextTrack() {
-    if (!state.queue.length) return null;
-    if (state.repeat === 'one') return null; // repeat-one restarts, no preload
-    if (state.repeat === 'all') {
-      let nextIdx = state.queueIndex + 1;
-      if (nextIdx >= state.queue.length) nextIdx = 0;
-      return state.queue[nextIdx] || null;
-    }
-    // Normal / off
-    const nextIdx = state.queueIndex + 1;
-    if (nextIdx >= state.queue.length) return null; // end of queue (autoplay handled separately)
-    return state.queue[nextIdx];
-  }
-
-  function triggerPreload() {
-    if (preloadTriggered) return;
-    preloadTriggered = true;
-    preloadNextTrack();
-  }
-
-  async function preloadNextTrack() {
-    const next = getNextTrack();
-    if (!next) return;
-    // Already preloaded this track?
-    if (preloadedTrack && preloadedTrack.id === next.id && preloadedUrl) return;
-    try {
-      const url = await window.snowify.getStreamUrl(next.url, state.audioQuality);
-      // Check the next track hasn't changed while we were fetching
-      const currentNext = getNextTrack();
-      if (!currentNext || currentNext.id !== next.id) return;
-      preloadedTrack = next;
-      preloadedUrl = url;
-      standbyAudio.src = url;
-      standbyAudio.load();
-    } catch (err) {
-      console.warn('Preload failed (will fallback):', err);
-      preloadedTrack = null;
-      preloadedUrl = null;
-    }
-  }
-
-  function clearPreload() {
-    preloadedTrack = null;
-    preloadedUrl = null;
-    preloadTriggered = false;
-    standbyAudio.removeAttribute('src');
-    standbyAudio.load(); // reset standby
-  }
-
-  function checkPreload() {
-    // If preload hasn't triggered and we have duration, try preloading
-    if (!preloadTriggered && audio.duration > 0 && audio.currentTime > 0) {
-      triggerPreload();
-    }
-  }
-
-  // ─── Gapless swap (crossfade OFF) ───
-  function doGaplessSwap() {
-    if (!preloadedTrack) { playNext(); return; }
-    // Advance queue index
-    advanceQueueIndex();
-    // Swap audio elements
-    swapAudioElements();
-    // Play the new active (was standby, already loaded)
-    audio.volume = state.volume * 0.3;
-    audio.play().catch(() => { playNext(); return; });
-    state.isPlaying = true;
-    state.isLoading = false;
-    const track = state.queue[state.queueIndex];
-    showNowPlaying(track);
-    addToRecent(track);
-    updateDiscordPresence(track);
-    updatePositionState();
-    updatePlayButton();
-    updateTrackHighlight();
-    renderQueue();
-    saveState();
-    // Preload the NEXT track after this one
-    preloadTriggered = false;
-    triggerPreload();
-  }
-
-  function advanceQueueIndex() {
-    if (state.repeat === 'all') {
-      state.queueIndex = (state.queueIndex + 1) % state.queue.length;
-    } else {
-      state.queueIndex++;
-    }
-  }
-
-  function swapAudioElements() {
-    const oldActive = activeAudio;
-    unbindAudioEvents(oldActive);
-    oldActive.pause();
-    oldActive.removeAttribute('src');
-    oldActive.load();
-
-    activeAudio = standbyAudio;
-    standbyAudio = oldActive;
-    audio = activeAudio;
-    bindAudioEvents(audio);
-    preloadedTrack = null;
-    preloadedUrl = null;
-  }
-
-  // ─── Crossfade system ───
-  function checkCrossfadeTrigger() {
-    if (state.crossfade <= 0) return;
-    if (crossfadeInProgress || crossfadeTriggered) return;
-    if (!audio.duration || audio.duration === Infinity) return;
-    // Don't crossfade if song is shorter than 2x the fade duration
-    if (audio.duration < state.crossfade * 2) return;
-    const remaining = audio.duration - audio.currentTime;
-    if (remaining <= state.crossfade && remaining > 0) {
-      crossfadeTriggered = true;
-      startCrossfade();
-    }
-  }
-
-  async function startCrossfade() {
-    const nextTrack = getNextTrack();
-    if (!nextTrack) { crossfadeTriggered = false; return; }
-
-    crossfadeInProgress = true;
-
-    try {
-      // Use preloaded track if available, otherwise fetch
-      if (preloadedTrack && preloadedTrack.id === nextTrack.id && preloadedUrl) {
-        // standbyAudio already has the URL loaded
-      } else {
-        const url = await window.snowify.getStreamUrl(nextTrack.url, state.audioQuality);
-        standbyAudio.src = url;
-        standbyAudio.load();
-        preloadedTrack = nextTrack;
-        preloadedUrl = url;
-      }
-
-      // Start playing standby at volume 0
-      standbyAudio.volume = 0;
-      await standbyAudio.play();
-
-      // Advance queue
-      advanceQueueIndex();
-
-      // Update UI to new track immediately
-      const track = state.queue[state.queueIndex];
-      showNowPlaying(track);
-      addToRecent(track);
-      updateDiscordPresence(track);
-      updateTrackHighlight();
-      renderQueue();
-      saveState();
-
-      // Unbind ended from old audio so it doesn't trigger playNext
-      activeAudio.removeEventListener('ended', onAudioEnded);
-
-      // Ramp volumes over crossfade duration
-      const fadeDuration = state.crossfade * 1000;
-      const stepMs = 50;
-      const steps = fadeDuration / stepMs;
-      let step = 0;
-      const oldAudio = activeAudio;
-      const startVolume = oldAudio.volume;
-
-      crossfadeTimer = setInterval(() => {
-        step++;
-        const progress = Math.min(step / steps, 1);
-        oldAudio.volume = Math.max(0, startVolume * (1 - progress));
-        standbyAudio.volume = state.volume * 0.3 * progress;
-        if (progress >= 1) {
-          completeCrossfade(oldAudio);
-        }
-      }, stepMs);
-    } catch (err) {
-      console.warn('Crossfade failed, falling back:', err);
-      cancelCrossfade();
-      // Revert queue index since we advanced it
-      if (state.repeat === 'all') {
-        state.queueIndex = (state.queueIndex - 1 + state.queue.length) % state.queue.length;
-      } else {
-        state.queueIndex = Math.max(0, state.queueIndex - 1);
-      }
-    }
-  }
-
-  function completeCrossfade(oldAudio) {
-    clearInterval(crossfadeTimer);
-    crossfadeTimer = null;
-    // Stop old audio
-    oldAudio.pause();
-    oldAudio.removeAttribute('src');
-    oldAudio.load();
-    unbindAudioEvents(oldAudio);
-    // Swap roles
-    activeAudio = standbyAudio;
-    standbyAudio = oldAudio;
-    audio = activeAudio;
-    bindAudioEvents(audio);
-    audio.volume = state.volume * 0.3;
-    preloadedTrack = null;
-    preloadedUrl = null;
-    crossfadeInProgress = false;
-    crossfadeTriggered = false;
-    // Start preloading next
-    preloadTriggered = false;
-    triggerPreload();
-    updatePositionState();
-    updatePlayButton();
-  }
-
-  function cancelCrossfade() {
-    if (!crossfadeInProgress) return;
-    clearInterval(crossfadeTimer);
-    crossfadeTimer = null;
-    // Stop standby, restore active volume
-    standbyAudio.pause();
-    standbyAudio.removeAttribute('src');
-    standbyAudio.load();
-    audio.volume = state.volume * 0.3;
-    // Re-bind ended on active (was removed during crossfade)
-    activeAudio.addEventListener('ended', onAudioEnded);
-    crossfadeInProgress = false;
-    crossfadeTriggered = false;
-    preloadedTrack = null;
-    preloadedUrl = null;
-  }
-
-  // ─── Playback watchdog ───
-  let _watchdogLastTime = -1;
-  let _watchdogStallTicks = 0;
-  const _watchdogHandle = setInterval(() => {
-    // Only check when we think we're playing; skip during crossfade
-    if (crossfadeInProgress || !state.isPlaying || state.isLoading || audio.paused) {
-      _watchdogLastTime = -1;
-      _watchdogStallTicks = 0;
-      return;
-    }
-    const ct = audio.currentTime;
-    if (_watchdogLastTime >= 0 && ct === _watchdogLastTime && ct > 0) {
-      _watchdogStallTicks++;
-      // ~8 seconds stalled, audio is stuck
-      if (_watchdogStallTicks >= 4) {
-        console.warn('Watchdog: playback stalled at', ct, '— advancing');
-        _watchdogStallTicks = 0;
-        _watchdogLastTime = -1;
-        showToast('Stream stalled — skipping to next');
-        playNext();
-      }
-    } else {
-      _watchdogStallTicks = 0;
-    }
-    _watchdogLastTime = ct;
-  }, 2000);
+  // ─── Initialize dual-audio engine ───
+  engine = window.DualAudioEngine(audioA, audioB, {
+    getState: () => state,
+    getStreamUrl: (url, q) => window.snowify.getStreamUrl(url, q),
+    onTransition: handleEngineTransition,
+    onTimeUpdate: handleEngineTimeUpdate,
+    onStall: () => { showToast('Stream stalled — skipping to next'); playNext(); },
+  });
+  audio = engine.getActiveAudio();
 
   $('#btn-play-pause').addEventListener('click', togglePlay);
   $('#btn-next').addEventListener('click', playNext);
@@ -1658,7 +1418,7 @@
         state.queue = [...state.originalQueue];
         state.queueIndex = idx >= 0 ? idx : 0;
       }
-      clearPreload();
+      engine.clearPreload();
       renderQueue();
     }
 
@@ -1672,7 +1432,7 @@
     state.repeat = modes[i];
     btnRepeat.classList.toggle('active', state.repeat !== 'off');
     updateRepeatButton();
-    clearPreload();
+    engine.clearPreload();
     saveState();
   });
 
@@ -1708,7 +1468,7 @@
 
   function updateProgress() {
     // During crossfade, show progress of the incoming track (standby)
-    const src = crossfadeInProgress ? standbyAudio : audio;
+    const src = engine.getActiveSource();
     if (!src.duration) return;
     const pct = (src.currentTime / src.duration) * 100;
     progressFill.style.width = pct + '%';
@@ -1726,15 +1486,21 @@
   });
   document.addEventListener('mouseup', () => { isDraggingProgress = false; });
 
-  setupSliderTooltip(progressBar, (pct) => formatTime(pct * (audio.duration || 0)));
+  setupSliderTooltip(progressBar, (pct) => {
+    const src = engine.getActiveSource();
+    return formatTime(pct * (src.duration || 0));
+  });
 
   function seekTo(e) {
-    if (crossfadeInProgress) cancelCrossfade();
+    if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     const rect = progressBar.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     if (audio.duration) {
-      crossfadeTriggered = false; // allow re-trigger after seek
-      audio.currentTime = pct * audio.duration;
+      const newTime = pct * audio.duration;
+      const remaining = audio.duration - newTime;
+      if (remaining > state.crossfade) engine.resetTrigger();
+      else engine.markTriggered();
+      audio.currentTime = newTime;
       progressFill.style.width = (pct * 100) + '%';
     }
   }
@@ -1745,10 +1511,7 @@
 
   function setVolume(vol) {
     state.volume = Math.max(0, Math.min(1, vol));
-    // During crossfade, the timer handles volumes; just update state
-    if (!crossfadeInProgress) {
-      audio.volume = state.volume * 0.3;
-    }
+    engine.applyVolume(state.volume);
     volumeFill.style.width = (state.volume * 100) + '%';
     const isMuted = state.volume === 0;
     $('.vol-icon', btnVolume).classList.toggle('hidden', isMuted);
@@ -1883,15 +1646,17 @@
           { src: track.thumbnail, sizes: '512x512', type: 'image/jpeg' }
         ]
       });
-      navigator.mediaSession.setActionHandler('play', () => { audio.play(); state.isPlaying = true; updatePlayButton(); updateDiscordPresence(track); });
-      navigator.mediaSession.setActionHandler('pause', () => { if (crossfadeInProgress) cancelCrossfade(); audio.pause(); state.isPlaying = false; updatePlayButton(); clearDiscordPresence(); });
+      navigator.mediaSession.setActionHandler('play', () => togglePlay());
+      navigator.mediaSession.setActionHandler('pause', () => togglePlay());
       navigator.mediaSession.setActionHandler('previoustrack', playPrev);
       navigator.mediaSession.setActionHandler('nexttrack', playNext);
       navigator.mediaSession.setActionHandler('seekto', (details) => {
-        if (crossfadeInProgress) cancelCrossfade();
+        if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
         if (audio.duration) {
           audio.currentTime = details.seekTime;
-          crossfadeTriggered = false;
+          const remaining = audio.duration - details.seekTime;
+          if (remaining > state.crossfade) engine.resetTrigger();
+          else engine.markTriggered();
           updatePositionState();
         }
       });
@@ -1908,12 +1673,13 @@
   let lastPositionUpdate = 0;
   function updatePositionState() {
     if (!('mediaSession' in navigator)) return;
-    if (!audio.duration || !isFinite(audio.duration)) return;
+    const src = engine.getActiveSource();
+    if (!src.duration || !isFinite(src.duration)) return;
     try {
       navigator.mediaSession.setPositionState({
-        duration: audio.duration,
-        playbackRate: audio.playbackRate,
-        position: Math.min(audio.currentTime, audio.duration)
+        duration: src.duration,
+        playbackRate: src.playbackRate,
+        position: Math.min(src.currentTime, src.duration)
       });
     } catch (e) { /* ignore invalid state errors */ }
   }
@@ -2497,7 +2263,7 @@
     if (existIdx !== -1) state.queue.splice(existIdx, 1);
     if (state.queueIndex >= 0) state.queue.splice(state.queueIndex + 1, 0, track);
     else state.queue.push(track);
-    clearPreload();
+    engine.clearPreload();
     showToast(existIdx !== -1 ? 'Moved to play next' : 'Added to play next');
     renderQueue();
   }
@@ -2627,6 +2393,7 @@
             e.stopPropagation();
             state.queue.splice(idx, 1);
             state.originalQueue = state.originalQueue.filter(t => t.id !== track.id || state.queue.some(q => q.id === t.id));
+            engine.clearPreload();
             renderQueue();
             saveState();
           });
@@ -2724,6 +2491,7 @@
         // Rebuild queue: [tracks before and including current] + [reordered upcoming]
         const before = state.queue.slice(0, state.queueIndex + 1);
         state.queue = [...before, ...reordered];
+        engine.clearPreload();
         renderQueue();
         saveState();
       }, { signal });
@@ -3360,17 +3128,23 @@
       case 'ArrowRight':
         if (e.ctrlKey) playNext();
         else if (audio.duration) {
-          if (crossfadeInProgress) cancelCrossfade();
-          crossfadeTriggered = false;
-          audio.currentTime = Math.min(audio.duration, audio.currentTime + 5);
+          if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
+          const newTime = Math.min(audio.duration, audio.currentTime + 5);
+          const remaining = audio.duration - newTime;
+          if (remaining > state.crossfade) engine.resetTrigger();
+          else engine.markTriggered();
+          audio.currentTime = newTime;
         }
         break;
       case 'ArrowLeft':
         if (e.ctrlKey) playPrev();
         else if (audio.duration) {
-          if (crossfadeInProgress) cancelCrossfade();
-          crossfadeTriggered = false;
-          audio.currentTime = Math.max(0, audio.currentTime - 5);
+          if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
+          const newTime = Math.max(0, audio.currentTime - 5);
+          const remaining = audio.duration - newTime;
+          if (remaining > state.crossfade) engine.resetTrigger();
+          else engine.markTriggered();
+          audio.currentTime = newTime;
         }
         break;
       case 'ArrowUp':
@@ -4138,7 +3912,7 @@
   let _lastActiveLyricIdx = -1;
   function syncLyrics() {
     if (!_lyricsLines.length || !_lyricsVisible) return;
-    const ct = audio.currentTime;
+    const ct = engine.getActiveSource().currentTime;
 
     // Find current line index
     let activeIdx = -1;
@@ -4233,7 +4007,7 @@
       if (result.audioUrl) {
         // Split streams: sync a separate audio element
         _videoAudio = new Audio(result.audioUrl);
-        _videoAudio.volume = state.volume * 0.3;
+        _videoAudio.volume = state.volume * engine.VOLUME_SCALE;
 
         videoPlayer.muted = true;
 
@@ -4498,12 +4272,12 @@
       const cfvl = $('#crossfade-value');
       if (cff && cfvl) {
         const v = state.crossfade > 0 ? state.crossfade : 5;
-        cff.style.width = ((v - 1) / (CROSSFADE_MAX - 1) * 100) + '%';
+        cff.style.width = ((v - 1) / (engine.CROSSFADE_MAX - 1) * 100) + '%';
         cfvl.textContent = v + 's';
       }
       document.documentElement.classList.toggle('no-animations', !state.animations);
       document.documentElement.classList.toggle('no-effects', !state.effects);
-      audio.volume = state.volume * 0.3;
+      engine.applyVolume(state.volume);
       showToast('Synced from cloud');
       return true;
     }
@@ -4867,7 +4641,7 @@
     // Crossfade: toggle ON if value > 0, show slider
     crossfadeToggle.checked = state.crossfade > 0;
     crossfadeSliderRow.classList.toggle('hidden', state.crossfade <= 0);
-    $('.crossfade-label-max').textContent = CROSSFADE_MAX + 's';
+    $('.crossfade-label-max').textContent = engine.CROSSFADE_MAX + 's';
     updateCrossfadeSlider(_cfValue);
     videoQualitySelect.value = state.videoQuality;
     videoPremuxedToggle.checked = state.videoPremuxed;
@@ -4996,8 +4770,8 @@
     });
 
     function updateCrossfadeSlider(val) {
-      _cfValue = Math.max(1, Math.min(CROSSFADE_MAX, val));
-      const pct = ((_cfValue - 1) / (CROSSFADE_MAX - 1)) * 100;
+      _cfValue = Math.max(1, Math.min(engine.CROSSFADE_MAX, val));
+      const pct = ((_cfValue - 1) / (engine.CROSSFADE_MAX - 1)) * 100;
       crossfadeFill.style.width = pct + '%';
       crossfadeValueLabel.textContent = _cfValue + 's';
     }
@@ -5005,7 +4779,7 @@
     function setCrossfadeFromPointer(e) {
       const rect = crossfadeSlider.getBoundingClientRect();
       const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      const raw = 1 + pct * (CROSSFADE_MAX - 1);
+      const raw = 1 + pct * (engine.CROSSFADE_MAX - 1);
       const snapped = Math.round(raw);
       updateCrossfadeSlider(snapped);
       state.crossfade = _cfValue;
