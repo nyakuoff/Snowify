@@ -2388,6 +2388,7 @@
             e.stopPropagation();
             state.queue.splice(idx, 1);
             state.originalQueue = state.originalQueue.filter(t => t.id !== track.id || state.queue.some(q => q.id === t.id));
+            engine.clearPreload();
             renderQueue();
             saveState();
           });
@@ -2485,6 +2486,7 @@
         // Rebuild queue: [tracks before and including current] + [reordered upcoming]
         const before = state.queue.slice(0, state.queueIndex + 1);
         state.queue = [...before, ...reordered];
+        engine.clearPreload();
         renderQueue();
         saveState();
       }, { signal });
