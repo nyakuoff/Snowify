@@ -1496,8 +1496,10 @@
     const rect = progressBar.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     if (audio.duration) {
-      engine.resetTrigger();
-      audio.currentTime = pct * audio.duration;
+      const newTime = pct * audio.duration;
+      const remaining = audio.duration - newTime;
+      if (remaining > state.crossfade) engine.resetTrigger();
+      audio.currentTime = newTime;
       progressFill.style.width = (pct * 100) + '%';
     }
   }
@@ -1651,7 +1653,8 @@
         if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
         if (audio.duration) {
           audio.currentTime = details.seekTime;
-          engine.resetTrigger();
+          const remaining = audio.duration - details.seekTime;
+          if (remaining > state.crossfade) engine.resetTrigger();
           updatePositionState();
         }
       });
@@ -3124,16 +3127,20 @@
         if (e.ctrlKey) playNext();
         else if (audio.duration) {
           if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
-          engine.resetTrigger();
-          audio.currentTime = Math.min(audio.duration, audio.currentTime + 5);
+          const newTime = Math.min(audio.duration, audio.currentTime + 5);
+          const remaining = audio.duration - newTime;
+          if (remaining > state.crossfade) engine.resetTrigger();
+          audio.currentTime = newTime;
         }
         break;
       case 'ArrowLeft':
         if (e.ctrlKey) playPrev();
         else if (audio.duration) {
           if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
-          engine.resetTrigger();
-          audio.currentTime = Math.max(0, audio.currentTime - 5);
+          const newTime = Math.max(0, audio.currentTime - 5);
+          const remaining = audio.duration - newTime;
+          if (remaining > state.crossfade) engine.resetTrigger();
+          audio.currentTime = newTime;
         }
         break;
       case 'ArrowUp':
