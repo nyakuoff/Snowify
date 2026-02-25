@@ -76,6 +76,7 @@ contextBridge.exposeInMainWorld('snowify', {
 
   // Auto-updater
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
+  getChangelog: (version) => ipcRenderer.invoke('app:getChangelog', version),
   checkForUpdates: () => ipcRenderer.invoke('updater:check'),
   installUpdate: () => ipcRenderer.send('updater:install'),
   onUpdateStatus: (callback) => {

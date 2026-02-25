@@ -2830,6 +2830,107 @@ html, body {
   text-overflow: ellipsis;
 }
 
+/* ═══════ Changelog Modal ═══════ */
+.changelog-modal-box {
+  max-width: 560px;
+  width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.changelog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.changelog-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+.changelog-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+.changelog-body {
+  flex: 1;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-primary);
+  padding-right: 8px;
+  min-height: 100px;
+  max-height: 50vh;
+}
+.changelog-body::-webkit-scrollbar { width: 6px; }
+.changelog-body::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 3px;
+}
+.changelog-body h1, .changelog-body h2, .changelog-body h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 16px 0 8px;
+  color: var(--text-primary);
+}
+.changelog-body h1:first-child, .changelog-body h2:first-child, .changelog-body h3:first-child {
+  margin-top: 0;
+}
+.changelog-body p {
+  margin: 8px 0;
+}
+.changelog-body ul, .changelog-body ol {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+.changelog-body li {
+  margin: 4px 0;
+}
+.changelog-body code {
+  background: rgba(255,255,255,0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: monospace;
+}
+.changelog-body a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.changelog-body a:hover {
+  text-decoration: underline;
+}
+.changelog-body blockquote {
+  border-left: 3px solid var(--accent);
+  margin: 8px 0;
+  padding: 4px 12px;
+  color: var(--text-secondary);
+}
+.changelog-body hr {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  margin: 12px 0;
+}
+.changelog-body img {
+  max-width: 100%;
+  border-radius: var(--radius);
+}
+.changelog-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px;
+  color: var(--text-secondary);
+}
+.changelog-empty {
+  text-align: center;
+  padding: 32px;
+  color: var(--text-secondary);
+}
+
 /* ═══════ Input Modal ═══════ */
 .modal-overlay {
   position: fixed;

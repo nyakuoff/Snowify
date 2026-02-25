@@ -497,6 +497,13 @@
               </div>
               <button class="btn-setting-action" id="btn-check-update">Check for updates</button>
             </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label">Changelog</span>
+                <span class="setting-desc">See what's new in this version</span>
+              </div>
+              <button class="btn-setting-action" id="btn-open-changelog">View changelog</button>
+            </div>
             <div class="setting-row" id="update-status-row" style="display:none;">
               <div class="setting-info">
                 <span class="setting-label" id="update-status-label">Checking...</span>
@@ -750,6 +757,25 @@
       <div class="video-loading hidden" id="video-loading">
         <div class="spinner"></div>
         <p>Loading video...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ Changelog Modal ═══════ -->
+  <div id="changelog-modal" class="modal-overlay hidden">
+    <div class="modal-box changelog-modal-box">
+      <div class="changelog-header">
+        <h3 id="changelog-title">What's New</h3>
+        <button class="icon-btn" id="changelog-close" title="Close">
+          <svg width="18" height="18" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="changelog-meta" id="changelog-meta"></div>
+      <div class="changelog-body" id="changelog-body">
+        <div class="changelog-loading"><div class="spinner"></div><p>Loading changelog...</p></div>
+      </div>
+      <div class="modal-buttons">
+        <button class="modal-btn modal-confirm" id="changelog-ok">Got it</button>
       </div>
     </div>
   </div>

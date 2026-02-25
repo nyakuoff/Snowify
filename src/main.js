@@ -1988,6 +1988,37 @@ function initAutoUpdater() {
 
 ipcMain.handle('app:getVersion', () => app.getVersion());
 
+ipcMain.handle('app:getChangelog', async (_event, version) => {
+  try {
+    const tag = version.startsWith('v') ? version : `v${version}`;
+    const url = `https://api.github.com/repos/nyakuoff/Snowify/releases/tags/${tag}`;
+    const https = require('https');
+    const body = await new Promise((resolve, reject) => {
+      const req = https.get(url, { headers: { 'User-Agent': 'Snowify', 'Accept': 'application/vnd.github+json' } }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          if (res.statusCode === 200) resolve(data);
+          else reject(new Error(`GitHub API ${res.statusCode}`));
+        });
+      });
+      req.on('error', reject);
+      req.setTimeout(10000, () => { req.destroy(); reject(new Error('Timeout')); });
+    });
+    const release = JSON.parse(body);
+    return {
+      version: release.tag_name?.replace(/^v/, '') || version,
+      name: release.name || `v${version}`,
+      body: release.body || '',
+      date: release.published_at || release.created_at || '',
+      url: release.html_url || ''
+    };
+  } catch (err) {
+    console.error('Failed to fetch changelog:', err);
+    return null;
+  }
+});
+
 ipcMain.handle('updater:check', async () => {
   if (_isDev) {
     sendUpdateStatus('error', { message: 'Auto-update is not available in dev mode' });

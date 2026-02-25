@@ -4653,6 +4653,106 @@
       }
     });
 
+    // ─── Changelog ───
+    function renderMarkdown(md) {
+      // Simple markdown → HTML for release notes
+      let html = escapeHtml(md);
+      // Headers
+      html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+      html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+      html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+      // Bold / italic
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      // Inline code
+      html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+      // Horizontal rules
+      html = html.replace(/^---$/gm, '<hr>');
+      // Links  [text](url)
+      html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+      // Images  ![alt](url) → just a link (since we escaped the html)
+      html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />');
+      // Unordered lists
+      html = html.replace(/^[*\-] (.+)$/gm, '<li>$1</li>');
+      html = html.replace(/((?:<li>.+<\/li>\n?)+)/g, '<ul>$1</ul>');
+      // Blockquotes
+      html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+      // Line breaks → paragraphs
+      html = html.replace(/\n{2,}/g, '</p><p>');
+      html = '<p>' + html + '</p>';
+      // Clean up empty paragraphs
+      html = html.replace(/<p>\s*<\/p>/g, '');
+      html = html.replace(/<p>\s*(<h[123]>)/g, '$1');
+      html = html.replace(/(<\/h[123]>)\s*<\/p>/g, '$1');
+      html = html.replace(/<p>\s*(<ul>)/g, '$1');
+      html = html.replace(/(<\/ul>)\s*<\/p>/g, '$1');
+      html = html.replace(/<p>\s*(<hr>)\s*<\/p>/g, '$1');
+      html = html.replace(/<p>\s*(<blockquote>)/g, '$1');
+      html = html.replace(/(<\/blockquote>)\s*<\/p>/g, '$1');
+      return html;
+    }
+
+    async function openChangelog(version) {
+      const modal = $('#changelog-modal');
+      const body = $('#changelog-body');
+      const meta = $('#changelog-meta');
+      const title = $('#changelog-title');
+
+      body.innerHTML = '<div class="changelog-loading"><div class="spinner"></div><p>Loading changelog...</p></div>';
+      meta.textContent = '';
+      title.textContent = "What's New";
+      modal.classList.remove('hidden');
+
+      const data = await window.snowify.getChangelog(version);
+
+      if (!data || !data.body) {
+        body.innerHTML = '<div class="changelog-empty"><p>No changelog available for this version.</p></div>';
+        meta.textContent = `v${version}`;
+        return;
+      }
+
+      title.textContent = data.name || `What's New in v${data.version}`;
+      if (data.date) {
+        const d = new Date(data.date);
+        meta.textContent = `Released ${d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}`;
+      }
+      body.innerHTML = renderMarkdown(data.body);
+
+      // Make links open externally
+      body.querySelectorAll('a[href]').forEach(a => {
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          window.snowify.openExternal(a.href);
+        });
+      });
+    }
+
+    function closeChangelog() {
+      $('#changelog-modal').classList.add('hidden');
+    }
+
+    $('#changelog-close').addEventListener('click', closeChangelog);
+    $('#changelog-ok').addEventListener('click', closeChangelog);
+    $('#changelog-modal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeChangelog();
+    });
+
+    $('#btn-open-changelog').addEventListener('click', async () => {
+      const version = await window.snowify.getVersion();
+      openChangelog(version);
+    });
+
+    // Show changelog after update (version changed since last seen)
+    (async () => {
+      const version = await window.snowify.getVersion();
+      const lastSeenVersion = localStorage.getItem('snowify_last_changelog_version');
+      if (lastSeenVersion && lastSeenVersion !== version) {
+        // Version changed — show changelog after a short delay
+        setTimeout(() => openChangelog(version), 1500);
+      }
+      localStorage.setItem('snowify_last_changelog_version', version);
+    })();
+
     // ─── Auto Updater UI ───
     (async () => {
       const version = await window.snowify.getVersion();
