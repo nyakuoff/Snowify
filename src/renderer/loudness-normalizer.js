@@ -150,6 +150,10 @@ window.LoudnessNormalizer = function LoudnessNormalizer(audioA, audioB) {
     const node = getWorkletNode(audioEl);
     if (!node) return;
 
+    // If already measuring on this element, finalize the old measurement first
+    const isMeasuring = audioEl === audioA ? _measuringElA : _measuringElB;
+    if (isMeasuring) finalizeMeasurement(audioEl, true);
+
     // Send volume compensation before reset
     const vol = audioEl.volume;
     const comp = vol > 0.001 ? 1 / vol : 1.0;
@@ -297,6 +301,7 @@ window.LoudnessNormalizer = function LoudnessNormalizer(audioA, audioB) {
     setEnabled,
     setTarget,
     isEnabled()            { return _enabled; },
+    isWorkletReady()       { return _workletReady; },
     getTarget()            { return _target; },
     getCachedLUFS(trackId) { return _cache.get(trackId) || null; },
     analyzeAndApply,

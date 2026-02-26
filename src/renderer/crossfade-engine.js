@@ -253,7 +253,8 @@ window.DualAudioEngine = function DualAudioEngine(audioA, audioB, opts) {
 
     preloadTriggered = false;
     triggerPreload();
-    onTransition({ type: 'crossfade-complete' });
+    const cfTrack = getState().queue[getState().queueIndex];
+    onTransition({ type: 'crossfade-complete', track: cfTrack });
   }
 
   function cancelCrossfade() {

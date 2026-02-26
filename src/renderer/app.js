@@ -1338,6 +1338,7 @@
   function handleEngineTransition(evt) {
     switch (evt.type) {
       case 'gapless-complete':
+        normalizer.finalizeMeasurement(audio, false); // finalize old track before swap
         audio = engine.getActiveAudio();
         showNowPlaying(evt.track);
         addToRecent(evt.track);
@@ -1369,11 +1370,10 @@
         audio = engine.getActiveAudio();
         updatePositionState();
         updatePlayButton();
-        const cfTrack = state.queue[state.queueIndex];
-        if (cfTrack) {
-          const cached = normalizer.getCachedLUFS(cfTrack.id);
+        if (evt.track) {
+          const cached = normalizer.getCachedLUFS(evt.track.id);
           if (!cached || cached.partial) {
-            normalizer.startMeasurement(audio, cfTrack.id);
+            normalizer.startMeasurement(audio, evt.track.id);
           }
         }
         break;
@@ -5595,6 +5595,7 @@
       normTargetRow.classList.toggle('hidden', !state.normalization);
       if (state.normalization) {
         await normalizer.initAudioContext();
+        if (!normalizer.isWorkletReady()) showToast('Loudness normalization failed to initialize');
         normalizer.setTarget(state.normalizationTarget);
         // Analyze current track if playing
         const track = state.queue[state.queueIndex];
