@@ -43,7 +43,6 @@
       "target": [
         "AppImage"
       ],
-      "artifactName": "${productName}.${ext}",
       "category": "Audio",
       "icon": "assets/logo.png",
       "extraResources": [
