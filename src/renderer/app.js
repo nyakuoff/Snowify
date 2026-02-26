@@ -20,7 +20,11 @@
     });
   }
 
-  const audio = $('#audio-player');
+  const audioA = $('#audio-player');
+  const audioB = $('#audio-player-b');
+  let engine; // initialized after state definition
+  let audio;  // mutable alias, synced with engine after swaps
+
   const views = $$('.view');
   const navBtns = $$('.nav-btn');
 
@@ -54,7 +58,8 @@
     theme: 'dark',
     discordRpc: false,
     country: '',
-    searchHistory: []
+    searchHistory: [],
+    crossfade: 0
   };
 
   // ─── Save button SVGs ───
@@ -138,7 +143,8 @@
       theme: state.theme,
       discordRpc: state.discordRpc,
       country: state.country,
-      searchHistory: state.searchHistory
+      searchHistory: state.searchHistory,
+      crossfade: state.crossfade
     }));
     localStorage.setItem('snowify_lastSave', String(Date.now()));
     cloudSaveDebounced();
@@ -188,6 +194,7 @@
         state.discordRpc = saved.discordRpc ?? false;
         state.country = saved.country || '';
         state.searchHistory = saved.searchHistory || [];
+        state.crossfade = saved.crossfade ?? 0;
       }
       // Restore queue (local-only, separate from cloud sync)
       const savedQueue = JSON.parse(localStorage.getItem('snowify_queue'));
@@ -1017,12 +1024,30 @@
   }
 
   async function playTrack(track) {
+    if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
+    engine.resetTrigger();
+
+    // Check preloaded BEFORE clearing — if it matches, use the standby
+    const preloaded = engine.getPreloaded();
+    const usePreloaded = preloaded && preloaded.track.id === track.id;
+    if (!usePreloaded) engine.clearPreload();
+
     state.isLoading = true;
     updatePlayButton();
     showNowPlaying(track);
-    showToast(`Loading: ${track.title}`);
 
     try {
+      if (usePreloaded) {
+        const newAudio = engine.consumePreloaded(track.id);
+        if (newAudio) audio = newAudio;
+      } else {
+        showToast(`Loading: ${track.title}`);
+        const directUrl = await window.snowify.getStreamUrl(track.url, state.audioQuality);
+        engine.setSource(directUrl);
+        audio = engine.getActiveAudio();
+      }
+
+      audio.volume = state.volume * engine.VOLUME_SCALE;
       const directUrl = await window.snowify.getStreamUrl(track.url, state.audioQuality);
       audio.src = directUrl;
       audio.volume = state.volume * VOLUME_SCALE;
@@ -1033,8 +1058,10 @@
       addToRecent(track);
       updateDiscordPresence(track);
       renderQueue();
+      updatePositionState();
       saveState();
-      prefetchNextTrack();
+      // Reset preload flags so next track gets preloaded
+      engine.resetPreloadFlag();
     } catch (err) {
       console.error('Playback error:', err);
       const msg = typeof err === 'string' ? err : (err.message || 'unknown error');
@@ -1043,7 +1070,6 @@
       state.isLoading = false;
       updatePlayButton();
       updateTrackHighlight();
-      // Auto-advance to next track on failure (avoid infinite loop via flag)
       if (!playTrack._skipAdvance) {
         const nextIdx = state.queueIndex + 1;
         if (nextIdx < state.queue.length) {
@@ -1090,6 +1116,8 @@
 
   function playFromList(tracks, index, sourcePlaylistId = null) {
     state.playingPlaylistId = sourcePlaylistId;
+    if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
+    engine.clearPreload();
     state.originalQueue = [...tracks];
     if (state.shuffle) {
       const picked = tracks[index];
@@ -1110,9 +1138,11 @@
   }
 
   function playNext() {
+    if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     if (!state.queue.length) return;
 
     if (state.repeat === 'one') {
+      engine.clearPreload();
       audio.currentTime = 0;
       audio.play();
       state.isPlaying = true;
@@ -1131,6 +1161,7 @@
 
     let nextIdx = state.queueIndex + 1;
     if (nextIdx >= state.queue.length) {
+      engine.clearPreload();
       if (state.autoplay) {
         smartQueueFill();
         return;
@@ -1213,12 +1244,14 @@
   }
 
   function playPrev() {
+    if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     if (!state.queue.length) return;
     if (audio.currentTime > 3) {
       audio.currentTime = 0;
       renderQueue();
       return;
     }
+    engine.clearPreload();
     let prevIdx = state.queueIndex - 1;
     if (prevIdx < 0) prevIdx = 0;
     state.queueIndex = prevIdx;
@@ -1251,6 +1284,25 @@
 
   function togglePlay() {
     if (state.isLoading) return;
+
+    // ─── Crossfade pause/resume handling ───
+    if (engine.isInProgress()) {
+      if (engine.isFadePaused()) {
+        engine.resumeFade();
+        audio = engine.getActiveAudio();
+        state.isPlaying = true;
+        const track = state.queue[state.queueIndex];
+        if (track) updateDiscordPresence(track);
+      } else {
+        engine.pauseFade();
+        state.isPlaying = false;
+        clearDiscordPresence();
+      }
+      updatePlayButton();
+      updatePositionState();
+      return;
+    }
+
     // Restored queue but audio not loaded yet — load and play from start
     if (!audio.src) {
       const track = state.queue[state.queueIndex];
@@ -1269,57 +1321,90 @@
       clearDiscordPresence();
     }
     updatePlayButton();
+    updatePositionState();
   }
 
-  audio.addEventListener('ended', playNext);
-  audio.addEventListener('timeupdate', updateProgress);
-  audio.addEventListener('seeked', () => {
-    if (state.isPlaying) {
-      const track = state.queue[state.queueIndex];
-      if (track) updateDiscordPresence(track);
-    }
-  });
-  audio.addEventListener('error', () => {
-    state.isPlaying = false;
-    state.isLoading = false;
-    updatePlayButton();
-    clearDiscordPresence();
-    showToast('Audio error — skipping to next track');
-    // Auto-advance on audio error
-    const nextIdx = state.queueIndex + 1;
-    if (nextIdx < state.queue.length) {
-      state.queueIndex = nextIdx;
-      playTrack(state.queue[nextIdx]);
-      renderQueue();
-    }
-  });
-
-  // ─── Playback watchdog ───
-  let _watchdogLastTime = -1;
-  let _watchdogStallTicks = 0;
-  const _watchdogHandle = setInterval(() => {
-    // Only check when we think we're playing
-    if (!state.isPlaying || state.isLoading || audio.paused) {
-      _watchdogLastTime = -1;
-      _watchdogStallTicks = 0;
-      return;
-    }
-    const ct = audio.currentTime;
-    if (_watchdogLastTime >= 0 && ct === _watchdogLastTime && ct > 0) {
-      _watchdogStallTicks++;
-      // ~8 seconds stalled, audio is stuck
-      if (_watchdogStallTicks >= 4) {
-        console.warn('Watchdog: playback stalled at', ct, '— advancing');
-        _watchdogStallTicks = 0;
-        _watchdogLastTime = -1;
-        showToast('Stream stalled — skipping to next');
+  // ─── Engine transition handlers ───
+  function handleEngineTransition(evt) {
+    switch (evt.type) {
+      case 'gapless-complete':
+        audio = engine.getActiveAudio();
+        showNowPlaying(evt.track);
+        addToRecent(evt.track);
+        updateDiscordPresence(evt.track);
+        updatePositionState();
+        updatePlayButton();
+        updateTrackHighlight();
+        renderQueue();
+        saveState();
+        break;
+      case 'gapless-play-failed':
         playNext();
-      }
-    } else {
-      _watchdogStallTicks = 0;
+        break;
+      case 'crossfade-start':
+        showNowPlaying(evt.track);
+        addToRecent(evt.track);
+        updateDiscordPresence(evt.track);
+        updateTrackHighlight();
+        renderQueue();
+        saveState();
+        break;
+      case 'crossfade-complete':
+        audio = engine.getActiveAudio();
+        updatePositionState();
+        updatePlayButton();
+        break;
+      case 'crossfade-cancel':
+        audio = engine.getActiveAudio();
+        if (evt.track) {
+          showNowPlaying(evt.track);
+          updateTrackHighlight();
+          renderQueue();
+        }
+        break;
+      case 'ended-no-preload':
+        playNext();
+        break;
+      case 'seeked':
+        updatePositionState();
+        if (state.isPlaying) {
+          const track = state.queue[state.queueIndex];
+          if (track) updateDiscordPresence(track);
+        }
+        break;
+      case 'error':
+        state.isPlaying = false;
+        state.isLoading = false;
+        updatePlayButton();
+        clearDiscordPresence();
+        showToast('Audio error — skipping to next track');
+        if (evt.hasNext) {
+          state.queueIndex = evt.nextIndex;
+          playTrack(state.queue[evt.nextIndex]);
+          renderQueue();
+        }
+        break;
     }
-    _watchdogLastTime = ct;
-  }, 2000);
+  }
+
+  function handleEngineTimeUpdate() {
+    updateProgress();
+    const now = Date.now();
+    if (now - lastPositionUpdate >= 1000) {
+      lastPositionUpdate = now;
+      updatePositionState();
+    }
+  }
+
+  // ─── Initialize dual-audio engine ───
+  engine = window.DualAudioEngine(audioA, audioB, {
+    getState: () => state,
+    getStreamUrl: (url, q) => window.snowify.getStreamUrl(url, q),
+    onTransition: handleEngineTransition,
+    onTimeUpdate: handleEngineTimeUpdate,
+    onStall: () => { showToast('Stream stalled — skipping to next'); playNext(); },
+  });
+  audio = engine.getActiveAudio();
 
   $('#btn-play-pause').addEventListener('click', togglePlay);
   $('#btn-next').addEventListener('click', playNext);
@@ -1346,6 +1431,7 @@
         state.queue = [...state.originalQueue];
         state.queueIndex = idx >= 0 ? idx : 0;
       }
+      engine.clearPreload();
       renderQueue();
     }
 
@@ -1359,6 +1445,7 @@
     state.repeat = modes[i];
     btnRepeat.classList.toggle('active', state.repeat !== 'off');
     updateRepeatButton();
+    engine.clearPreload();
     saveState();
   });
 
@@ -1393,11 +1480,13 @@
   const progressFill = $('#progress-fill');
 
   function updateProgress() {
-    if (!audio.duration) return;
-    const pct = (audio.currentTime / audio.duration) * 100;
+    // During crossfade, show progress of the incoming track (standby)
+    const src = engine.getActiveSource();
+    if (!src.duration) return;
+    const pct = (src.currentTime / src.duration) * 100;
     progressFill.style.width = pct + '%';
-    $('#time-current').textContent = formatTime(audio.currentTime);
-    $('#time-total').textContent = formatTime(audio.duration);
+    $('#time-current').textContent = formatTime(src.currentTime);
+    $('#time-total').textContent = formatTime(src.duration);
   }
 
   let isDraggingProgress = false;
@@ -1410,13 +1499,21 @@
   });
   document.addEventListener('mouseup', () => { isDraggingProgress = false; });
 
-  setupSliderTooltip(progressBar, (pct) => formatTime(pct * (audio.duration || 0)));
+  setupSliderTooltip(progressBar, (pct) => {
+    const src = engine.getActiveSource();
+    return formatTime(pct * (src.duration || 0));
+  });
 
   function seekTo(e) {
+    if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     const rect = progressBar.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     if (audio.duration) {
-      audio.currentTime = pct * audio.duration;
+      const newTime = pct * audio.duration;
+      const remaining = audio.duration - newTime;
+      if (remaining > state.crossfade) engine.resetTrigger();
+      else engine.markTriggered();
+      audio.currentTime = newTime;
       progressFill.style.width = (pct * 100) + '%';
     }
   }
@@ -1427,6 +1524,7 @@
 
   function setVolume(vol) {
     state.volume = Math.max(0, Math.min(1, vol));
+    engine.applyVolume(state.volume);
     audio.volume = state.volume * VOLUME_SCALE;
     if (_videoAudio) _videoAudio.volume = state.volume * VOLUME_SCALE;
     if (videoPlayer && !videoPlayer.muted) videoPlayer.volume = state.volume * VOLUME_SCALE;
@@ -1558,12 +1656,26 @@
       navigator.mediaSession.metadata = new MediaMetadata({
         title: track.title,
         artist: track.artist,
-        artwork: [{ src: track.thumbnail, sizes: '512x512', type: 'image/jpeg' }]
+        artwork: [
+          { src: track.thumbnail, sizes: '96x96', type: 'image/jpeg' },
+          { src: track.thumbnail, sizes: '256x256', type: 'image/jpeg' },
+          { src: track.thumbnail, sizes: '512x512', type: 'image/jpeg' }
+        ]
       });
-      navigator.mediaSession.setActionHandler('play', () => { audio.play(); state.isPlaying = true; updatePlayButton(); updateDiscordPresence(track); });
-      navigator.mediaSession.setActionHandler('pause', () => { audio.pause(); state.isPlaying = false; updatePlayButton(); clearDiscordPresence(); });
+      navigator.mediaSession.setActionHandler('play', () => togglePlay());
+      navigator.mediaSession.setActionHandler('pause', () => togglePlay());
       navigator.mediaSession.setActionHandler('previoustrack', playPrev);
       navigator.mediaSession.setActionHandler('nexttrack', playNext);
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
+        if (audio.duration) {
+          audio.currentTime = details.seekTime;
+          const remaining = audio.duration - details.seekTime;
+          if (remaining > state.crossfade) engine.resetTrigger();
+          else engine.markTriggered();
+          updatePositionState();
+        }
+      });
     }
   }
 
@@ -1572,6 +1684,20 @@
     window.snowify.onThumbarPrev(() => playPrev());
     window.snowify.onThumbarPlayPause(() => togglePlay());
     window.snowify.onThumbarNext(() => playNext());
+  }
+
+  let lastPositionUpdate = 0;
+  function updatePositionState() {
+    if (!('mediaSession' in navigator)) return;
+    const src = engine.getActiveSource();
+    if (!src.duration || !isFinite(src.duration)) return;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: src.duration,
+        playbackRate: src.playbackRate,
+        position: Math.min(src.currentTime, src.duration)
+      });
+    } catch (e) { /* ignore invalid state errors */ }
   }
 
   const npLike = $('#np-like');
@@ -2153,6 +2279,7 @@
     if (existIdx !== -1) state.queue.splice(existIdx, 1);
     if (state.queueIndex >= 0) state.queue.splice(state.queueIndex + 1, 0, track);
     else state.queue.push(track);
+    engine.clearPreload();
     showToast(existIdx !== -1 ? 'Moved to play next' : 'Added to play next');
     renderQueue();
   }
@@ -2282,6 +2409,7 @@
             e.stopPropagation();
             state.queue.splice(idx, 1);
             state.originalQueue = state.originalQueue.filter(t => t.id !== track.id || state.queue.some(q => q.id === t.id));
+            engine.clearPreload();
             renderQueue();
             saveState();
           });
@@ -2379,6 +2507,7 @@
         // Rebuild queue: [tracks before and including current] + [reordered upcoming]
         const before = state.queue.slice(0, state.queueIndex + 1);
         state.queue = [...before, ...reordered];
+        engine.clearPreload();
         renderQueue();
         saveState();
       }, { signal });
@@ -3014,11 +3143,25 @@
         break;
       case 'ArrowRight':
         if (e.ctrlKey) playNext();
-        else if (audio.duration) audio.currentTime = Math.min(audio.duration, audio.currentTime + 5);
+        else if (audio.duration) {
+          if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
+          const newTime = Math.min(audio.duration, audio.currentTime + 5);
+          const remaining = audio.duration - newTime;
+          if (remaining > state.crossfade) engine.resetTrigger();
+          else engine.markTriggered();
+          audio.currentTime = newTime;
+        }
         break;
       case 'ArrowLeft':
         if (e.ctrlKey) playPrev();
-        else if (audio.duration) audio.currentTime = Math.max(0, audio.currentTime - 5);
+        else if (audio.duration) {
+          if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
+          const newTime = Math.max(0, audio.currentTime - 5);
+          const remaining = audio.duration - newTime;
+          if (remaining > state.crossfade) engine.resetTrigger();
+          else engine.markTriggered();
+          audio.currentTime = newTime;
+        }
         break;
       case 'ArrowUp':
         e.preventDefault();
@@ -3793,7 +3936,7 @@
   let _lastActiveLyricIdx = -1;
   function syncLyrics() {
     if (!_lyricsLines.length || !_lyricsVisible) return;
-    const ct = audio.currentTime;
+    const ct = engine.getActiveSource().currentTime;
 
     // Find current line index
     let activeIdx = -1;
@@ -3992,6 +4135,7 @@
       if (result.audioUrl) {
         // Split streams: sync a separate audio element
         _videoAudio = new Audio(result.audioUrl);
+        _videoAudio.volume = state.volume * engine.VOLUME_SCALE;
         _videoAudio.volume = state.volume * VOLUME_SCALE;
 
         videoPlayer.muted = true;
@@ -4334,7 +4478,8 @@
         effects: state.effects,
         theme: isCustomTheme(state.theme) ? 'dark' : state.theme,
         discordRpc: state.discordRpc,
-        country: state.country
+        country: state.country,
+        crossfade: state.crossfade
       };
       const result = await window.snowify.cloudSave(data);
       if (result?.error) console.error('Cloud save failed:', result.error);
@@ -4369,6 +4514,7 @@
       }
       state.discordRpc = cloud.discordRpc ?? state.discordRpc;
       state.country = cloud.country || state.country;
+      state.crossfade = cloud.crossfade ?? state.crossfade;
       // Pause cloud save so saveState() doesn't push old data back up
       _cloudSyncPaused = true;
       saveState();
@@ -4393,8 +4539,18 @@
       const co = $('#setting-country'); if (co) co.value = state.country || '';
       const ts = $('#theme-select'); if (ts) { await populateCustomThemes(ts, state.theme); }
       if (state.country) window.snowify.setCountry(state.country);
+      const cft = $('#setting-crossfade-toggle'); if (cft) cft.checked = state.crossfade > 0;
+      const cfsl = $('#crossfade-slider-row'); if (cfsl) cfsl.classList.toggle('hidden', state.crossfade <= 0);
+      const cff = $('#crossfade-fill');
+      const cfvl = $('#crossfade-value');
+      if (cff && cfvl) {
+        const v = state.crossfade > 0 ? state.crossfade : 5;
+        cff.style.width = ((v - 1) / (engine.CROSSFADE_MAX - 1) * 100) + '%';
+        cfvl.textContent = v + 's';
+      }
       document.documentElement.classList.toggle('no-animations', !state.animations);
       document.documentElement.classList.toggle('no-effects', !state.effects);
+      engine.applyVolume(state.volume);
       audio.volume = state.volume * VOLUME_SCALE;
       showToast('Synced from cloud');
       return true;
@@ -4744,10 +4900,23 @@
     const effectsToggle = $('#setting-effects');
     const discordRpcToggle = $('#setting-discord-rpc');
     const countrySelect = $('#setting-country');
+    const crossfadeToggle = $('#setting-crossfade-toggle');
+    const crossfadeSlider = $('#crossfade-slider');
+    const crossfadeFill = $('#crossfade-fill');
+    const crossfadeSliderRow = $('#crossfade-slider-row');
+    const crossfadeValueLabel = $('#crossfade-value');
+    let _cfDragging = false;
+    let _cfValue = state.crossfade > 0 ? state.crossfade : 5; // internal slider value
 
     autoplayToggle.checked = state.autoplay;
     discordRpcToggle.checked = state.discordRpc;
     qualitySelect.value = state.audioQuality;
+
+    // Crossfade: toggle ON if value > 0, show slider
+    crossfadeToggle.checked = state.crossfade > 0;
+    crossfadeSliderRow.classList.toggle('hidden', state.crossfade <= 0);
+    $('.crossfade-label-max').textContent = engine.CROSSFADE_MAX + 's';
+    updateCrossfadeSlider(_cfValue);
     videoQualitySelect.value = state.videoQuality;
     videoPremuxedToggle.checked = state.videoPremuxed;
     videoQualitySelect.disabled = state.videoPremuxed;
@@ -4871,6 +5040,43 @@
 
     qualitySelect.addEventListener('change', () => {
       state.audioQuality = qualitySelect.value;
+      saveState();
+    });
+
+    function updateCrossfadeSlider(val) {
+      _cfValue = Math.max(1, Math.min(engine.CROSSFADE_MAX, val));
+      const pct = ((_cfValue - 1) / (engine.CROSSFADE_MAX - 1)) * 100;
+      crossfadeFill.style.width = pct + '%';
+      crossfadeValueLabel.textContent = _cfValue + 's';
+    }
+
+    function setCrossfadeFromPointer(e) {
+      const rect = crossfadeSlider.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const raw = 1 + pct * (engine.CROSSFADE_MAX - 1);
+      const snapped = Math.round(raw);
+      updateCrossfadeSlider(snapped);
+      state.crossfade = _cfValue;
+      saveState();
+    }
+
+    crossfadeSlider.addEventListener('mousedown', (e) => {
+      _cfDragging = true;
+      setCrossfadeFromPointer(e);
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (_cfDragging) setCrossfadeFromPointer(e);
+    });
+    document.addEventListener('mouseup', () => { _cfDragging = false; });
+
+    crossfadeToggle.addEventListener('change', () => {
+      if (crossfadeToggle.checked) {
+        state.crossfade = _cfValue;
+        crossfadeSliderRow.classList.remove('hidden');
+      } else {
+        state.crossfade = 0;
+        crossfadeSliderRow.classList.add('hidden');
+      }
       saveState();
     });
 

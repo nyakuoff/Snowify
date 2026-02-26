@@ -2337,6 +2337,17 @@ html, body {
   color: var(--text-primary);
   margin-bottom: 2px;
 }
+.experimental-tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 165, 0, 0.15);
+  color: #f0a020;
+  vertical-align: middle;
+  margin-left: 6px;
+}
 .setting-desc {
   display: block;
   font-size: 13px;
@@ -2445,6 +2456,72 @@ html, body {
   opacity: 0.35;
   cursor: not-allowed;
   pointer-events: none;
+}
+/* Crossfade slider */
+.crossfade-slider-row {
+  padding-top: 0 !important;
+  padding-bottom: 14px;
+}
+.crossfade-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.crossfade-slider {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+}
+.crossfade-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  width: 36.4%;
+  position: relative;
+  pointer-events: none;
+  transition: width 0.05s ease;
+}
+.crossfade-handle {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  position: absolute;
+  top: 50%;
+  right: -7px;
+  transform: translateY(-50%);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  transition: transform 0.15s ease;
+}
+.crossfade-slider:hover .crossfade-handle {
+  transform: translateY(-50%) scale(1.15);
+}
+.crossfade-slider:active .crossfade-handle {
+  transform: translateY(-50%) scale(1.25);
+}
+.crossfade-label-min,
+.crossfade-label-max {
+  font-size: 12px;
+  color: var(--text-subdued);
+  flex-shrink: 0;
+  user-select: none;
+}
+.crossfade-label-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  min-width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+  user-select: none;
+}
+[data-theme="light"] .crossfade-slider {
+  background: rgba(0, 0, 0, 0.1);
 }
 /* Action buttons in settings */
 .btn-setting-action {
