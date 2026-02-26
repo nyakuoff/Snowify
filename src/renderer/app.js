@@ -242,6 +242,7 @@
       renderExplore();
     }
     if (name === 'search') {
+      syncSearchHint();
       setTimeout(() => $('#search-input').focus(), 100);
     }
     if (name === 'library') {
@@ -258,6 +259,17 @@
   // ── Floating search pill ──
   const floatingSearch = $('#floating-search');
   floatingSearch.addEventListener('click', () => switchView('search'));
+
+  // ── Search shortcut hint (Ctrl+K / ⌘K) ──
+  const isMac = navigator.platform.includes('Mac');
+  const searchShortcutHint = $('#search-shortcut-hint');
+  const searchShortcutMod = $('#search-shortcut-mod');
+  const floatingSearchMod = $('#floating-search-mod');
+  if (searchShortcutMod) searchShortcutMod.textContent = isMac ? '⌘' : 'Ctrl';
+  if (floatingSearchMod) floatingSearchMod.textContent = isMac ? '⌘' : 'Ctrl';
+  function syncSearchHint() {
+    if (searchShortcutHint) searchShortcutHint.classList.toggle('hidden', !!searchInput.value.trim());
+  }
 
   function updateFloatingSearch() {
     const show = ['home', 'explore', 'library', 'artist', 'album', 'playlist'].includes(state.currentView);
@@ -350,6 +362,11 @@
         ${item.type === 'history' ? `<button class="search-suggestion-delete" data-query="${escapeHtml(item.text)}" title="Remove">${ICON_TRASH}</button>` : ''}
       </div>`;
     }).join('');
+    searchSuggestions.insertAdjacentHTML('beforeend',
+      '<div class="suggestions-hint-bar">' +
+        '<span class="suggestions-hint"><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>' +
+        '<span class="suggestions-hint"><kbd>Enter</kbd> Search</span>' +
+      '</div>');
     searchSuggestions.classList.remove('hidden');
 
     // Bind clickable artist links inside song suggestions
@@ -360,6 +377,7 @@
         if (q) addToSearchHistory(q);
         searchInput.value = '';
         searchClear.classList.add('hidden');
+        syncSearchHint();
         closeSuggestions();
       });
     });
@@ -374,6 +392,7 @@
           if (q) addToSearchHistory(q);
           searchInput.value = '';
           searchClear.classList.add('hidden');
+          syncSearchHint();
           closeSuggestions();
           openArtistPage(el.dataset.artistId);
         } else if (type === 'album') {
@@ -382,6 +401,7 @@
           if (q) addToSearchHistory(q);
           searchInput.value = '';
           searchClear.classList.add('hidden');
+          syncSearchHint();
           closeSuggestions();
           showAlbumDetail(el.dataset.albumId, albumItem ? { name: albumItem.name, thumbnail: albumItem.thumbnail } : null);
         } else if (type === 'song') {
@@ -391,6 +411,7 @@
             if (q) addToSearchHistory(q);
             searchInput.value = '';
             searchClear.classList.add('hidden');
+            syncSearchHint();
             closeSuggestions();
             playFromList([songItem], 0);
           }
@@ -398,6 +419,7 @@
           const text = el.dataset.text;
           searchInput.value = text;
           searchClear.classList.toggle('hidden', !text);
+          syncSearchHint();
           closeSuggestions();
           addToSearchHistory(text);
           performSearch(text);
@@ -463,6 +485,7 @@
   searchInput.addEventListener('input', () => {
     const q = searchInput.value.trim();
     searchClear.classList.toggle('hidden', !q);
+    syncSearchHint();
     clearTimeout(searchTimeout);
     clearTimeout(suggestionsTimeout);
     if (!q) {
@@ -500,6 +523,7 @@
           const text = el.dataset.text;
           searchInput.value = text;
           searchClear.classList.toggle('hidden', !text);
+          syncSearchHint();
           closeSuggestions();
           addToSearchHistory(text);
           performSearch(text);
@@ -528,6 +552,7 @@
   searchClear.addEventListener('click', () => {
     searchInput.value = '';
     searchClear.classList.add('hidden');
+    syncSearchHint();
     renderSearchEmpty();
     closeSuggestions();
     searchInput.focus();
@@ -3147,6 +3172,16 @@
   }
 
   document.addEventListener('keydown', (e) => {
+    // Ctrl+K / Cmd+K — focus search (works even from inputs)
+    if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      searchInput.value = '';
+      searchClear.classList.add('hidden');
+      closeSuggestions();
+      switchView('search');
+      return;
+    }
+
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
       if (e.key === 'Escape') e.target.blur();
       return;
