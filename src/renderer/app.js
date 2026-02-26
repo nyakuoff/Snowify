@@ -5676,6 +5676,10 @@
       openChangelog(version);
     });
 
+    $('#btn-discord-server').addEventListener('click', () => {
+      window.snowify.openExternal('https://discord.gg/JHDZraE5TD');
+    });
+
     // Show changelog after update (version changed since last seen)
     (async () => {
       const version = await window.snowify.getVersion();
