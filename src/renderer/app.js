@@ -5564,6 +5564,11 @@
     });
     document.addEventListener('mouseup', () => { _cfDragging = false; });
 
+    setupSliderTooltip(crossfadeSlider, (pct) => {
+      const val = Math.round(1 + pct * (engine.CROSSFADE_MAX - 1));
+      return val + 's';
+    });
+
     crossfadeToggle.addEventListener('change', () => {
       if (crossfadeToggle.checked) {
         state.crossfade = _cfValue;
