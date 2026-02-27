@@ -4219,6 +4219,80 @@
 
   // ─── Maximized Now Playing Screen ───
 
+  // Extract a vibrant/dominant color from an image for lyrics tinting
+  function extractDominantColor(imgEl) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const size = 64; // small sample for speed
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, size, size);
+          const data = ctx.getImageData(0, 0, size, size).data;
+
+          // Bucket colors, prefer saturated/bright ones
+          const buckets = {};
+          for (let i = 0; i < data.length; i += 16) { // sample every 4th pixel
+            const r = data[i], g = data[i + 1], b = data[i + 2];
+            const max = Math.max(r, g, b), min = Math.min(r, g, b);
+            const l = (max + min) / 2;
+            const sat = max === 0 ? 0 : (max - min) / max;
+            // Skip very dark, very bright, or desaturated pixels
+            if (l < 40 || l > 230 || sat < 0.2) continue;
+            // Quantize to reduce buckets
+            const qr = Math.round(r / 32) * 32;
+            const qg = Math.round(g / 32) * 32;
+            const qb = Math.round(b / 32) * 32;
+            const key = `${qr},${qg},${qb}`;
+            if (!buckets[key]) buckets[key] = { r: 0, g: 0, b: 0, count: 0, satSum: 0 };
+            buckets[key].r += r;
+            buckets[key].g += g;
+            buckets[key].b += b;
+            buckets[key].count++;
+            buckets[key].satSum += sat;
+          }
+
+          const entries = Object.values(buckets);
+          if (!entries.length) { resolve(null); return; }
+
+          // Score by count * average saturation — prefer vibrant + common
+          entries.sort((a, b) => (b.count * (b.satSum / b.count)) - (a.count * (a.satSum / a.count)));
+          const best = entries[0];
+          const r = Math.round(best.r / best.count);
+          const g = Math.round(best.g / best.count);
+          const b2 = Math.round(best.b / best.count);
+
+          // Boost lightness so it reads well on dark backgrounds
+          const max = Math.max(r, g, b2);
+          const boost = max < 140 ? 140 / max : 1;
+          resolve({
+            r: Math.min(255, Math.round(r * boost)),
+            g: Math.min(255, Math.round(g * boost)),
+            b: Math.min(255, Math.round(b2 * boost))
+          });
+        } catch (_) {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = imgEl.src;
+    });
+  }
+
+  function applyMaxNPLyricsColor(color) {
+    if (color) {
+      maxNP.style.setProperty('--lyrics-color', `rgb(${color.r}, ${color.g}, ${color.b})`);
+      maxNP.style.setProperty('--lyrics-glow', `rgba(${color.r}, ${color.g}, ${color.b}, 0.35)`);
+    } else {
+      maxNP.style.removeProperty('--lyrics-color');
+      maxNP.style.removeProperty('--lyrics-glow');
+    }
+  }
+
   const maxNP = $('#max-np');
   const maxNPBgA = $('#max-np-bg-a');
   const maxNPBgB = $('#max-np-bg-b');
@@ -4285,6 +4359,9 @@
     const thumbUrl = track.thumbnail ? track.thumbnail.replace(/=w\d+-h\d+/, '=w800-h800') : '';
     const imgSrc = thumbUrl || track.thumbnail;
     maxNPArt.src = imgSrc;
+
+    // Extract dominant color from cover for lyrics tinting
+    extractDominantColor(maxNPArt).then(applyMaxNPLyricsColor);
 
     // Crossfade background: new image on layer B (front), fade it in on top of A
     // Layer A always stays visible underneath — no transparent gap

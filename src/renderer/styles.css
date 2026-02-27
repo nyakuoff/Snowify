@@ -3927,10 +3927,10 @@ html, body {
 .max-np-lyrics .lyrics-line.active {
   opacity: 1 !important;
   transform: scale(1.04);
-  color: var(--accent);
+  color: var(--lyrics-color, var(--accent));
   text-shadow:
-    0 0 20px var(--accent-glow),
-    0 0 40px var(--accent-glow),
+    0 0 20px var(--lyrics-glow, var(--accent-glow)),
+    0 0 40px var(--lyrics-glow, var(--accent-glow)),
     0 0 60px rgba(170, 85, 230, 0.1);
 }
 
