@@ -420,6 +420,7 @@ html, body {
 .playlist-list {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -441,6 +442,7 @@ html, body {
 .playlist-item.active { background: rgba(255, 255, 255, 0.08); }
 
 .playlist-cover {
+  position: relative;
   width: 48px;
   height: 48px;
   border-radius: 6px;
@@ -457,6 +459,22 @@ html, body {
   height: 100%;
   object-fit: cover;
 }
+.playlist-cover-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  z-index: 1;
+}
+.playlist-cover-overlay svg { width: 20px; height: 20px; fill: #fff; }
+.playlist-item:hover .playlist-cover-overlay { opacity: 1; }
 
 /* 2x2 grid for playlist covers */
 .playlist-cover-grid {
@@ -484,6 +502,7 @@ html, body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0;
 }
 .playlist-name {
   font-size: 14px;
@@ -1045,8 +1064,10 @@ html, body {
   justify-content: center;
   color: #fff;
 }
-.track-row.playing .track-num-text { display: none; }
-.track-row.playing .track-eq { display: flex; justify-content: center; }
+.track-row.playing .track-num-text { display: inline; }
+.track-row.playing .track-eq { display: none; }
+body.audio-playing .track-row.playing .track-num-text { display: none; }
+body.audio-playing .track-row.playing .track-eq { display: flex; justify-content: center; }
 .track-row:hover .track-eq { display: none !important; }
 
 .track-main {
@@ -1388,6 +1409,7 @@ html, body {
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
+#time-total, #max-np-time-total { cursor: pointer; user-select: none; }
 
 .progress-bar {
   flex: 1;
