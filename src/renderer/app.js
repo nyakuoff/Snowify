@@ -4996,10 +4996,7 @@
 
     positionContextMenu(menu);
 
-    const track = makeTrackFromVideo(video);
-
     menu.addEventListener('click', async (ev) => {
-    menu.addEventListener('click', (ev) => {
       const item = ev.target.closest('[data-action]');
       if (!item) return;
       const action = item.dataset.action;
