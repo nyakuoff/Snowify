@@ -316,6 +316,8 @@
   const ICON_TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>';
   const NOW_PLAYING_ICON_SVG = '<svg class="now-playing-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.016 1.125A.75.75 0 0 0 8.99.85l-4.2 3.43H1.75A.75.75 0 0 0 1 5.03v5.94a.75.75 0 0 0 .75.75h3.04l4.2 3.43a.75.75 0 0 0 1.026-.275.75.75 0 0 0 .1-.375V1.5a.75.75 0 0 0-.1-.375z"/><path class="sound-wave wave-1" opacity="0" d="M12.25 3.17a.75.75 0 0 0-.917 1.19 3.56 3.56 0 0 1 0 7.28.75.75 0 0 0 .918 1.19 5.06 5.06 0 0 0 0-9.66z"/><path class="sound-wave wave-2" opacity="0" d="M14.2 1.5a.75.75 0 0 0-.917 1.19 5.96 5.96 0 0 1 0 10.62.75.75 0 0 0 .918 1.19 7.46 7.46 0 0 0 0-13z"/></svg>';
   const NOW_PLAYING_EQ_HTML = '<div class="track-eq"><span class="eq-bar"></span><span class="eq-bar"></span><span class="eq-bar"></span></div>';
+  const SIDEBAR_PLAY_SVG = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7L8 5z"/></svg>';
+  const SIDEBAR_PAUSE_SVG = '<svg viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>';
   const ICON_BROKEN_HEART = '<svg width="20" height="20" viewBox="0 0 24 24" fill="var(--accent)"><path d="M2 8.5C2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09V21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5z"/><path d="M12 5.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35V5.09z" transform="translate(1.5, 2) rotate(8, 12, 12)"/></svg>';
 
   function closeSuggestions() {
@@ -1663,6 +1665,7 @@
 
   const progressBar = $('#progress-bar');
   const progressFill = $('#progress-fill');
+  let _showTimeRemaining = false;
 
   function updateProgress() {
     // During crossfade, show progress of the incoming track (standby)
@@ -1671,7 +1674,9 @@
     const pct = (src.currentTime / src.duration) * 100;
     progressFill.style.width = pct + '%';
     $('#time-current').textContent = formatTime(src.currentTime);
-    $('#time-total').textContent = formatTime(src.duration);
+    $('#time-total').textContent = _showTimeRemaining
+      ? '-' + formatTime(Math.max(0, src.duration - src.currentTime))
+      : formatTime(src.duration);
     // Sync maximized NP progress bar
     if (_maxNPOpen && typeof updateMaxNPProgress === 'function') updateMaxNPProgress();
   }
@@ -1685,6 +1690,11 @@
     if (isDraggingProgress) seekTo(e);
   });
   document.addEventListener('mouseup', () => { isDraggingProgress = false; });
+
+  $('#time-total').addEventListener('click', () => {
+    _showTimeRemaining = !_showTimeRemaining;
+    updateProgress();
+  });
 
   setupSliderTooltip(progressBar, (pct) => {
     const src = engine.getActiveSource();
@@ -1804,6 +1814,7 @@
     syncViewPlayAllBtns();
     // Sync maximized NP controls if open
     if (_maxNPOpen && typeof syncMaxNPControls === 'function') syncMaxNPControls();
+    updatePlaylistHighlight();
   }
 
   function syncViewPlayAllBtns() {
@@ -1837,7 +1848,7 @@
 
   function updatePlaylistHighlight() {
     $$('.playlist-item').forEach(item => {
-      const isPlaying = state.playingPlaylistId != null && item.dataset.playlist === state.playingPlaylistId;
+      const isPlaying = state.isPlaying && state.playingPlaylistId != null && item.dataset.playlist === state.playingPlaylistId;
       const wasPlaying = item.classList.contains('playing');
       item.classList.toggle('playing', isPlaying);
       if (isPlaying && !wasPlaying) {
@@ -1848,6 +1859,8 @@
           icon.classList.add('animate-waves');
         }
       }
+      const overlay = item.querySelector('.playlist-cover-overlay');
+      if (overlay) overlay.innerHTML = isPlaying ? SIDEBAR_PAUSE_SVG : SIDEBAR_PLAY_SVG;
     });
   }
 
@@ -1979,6 +1992,7 @@
     state.playlists.push(playlist);
     saveState();
     renderPlaylists();
+    renderLibrary();
     showToast(`Created "${playlist.name}"`);
     return playlist;
   }
@@ -2014,6 +2028,7 @@
       playlist.coverImage = savedPath;
       saveState();
       renderPlaylists();
+      renderLibrary();
       showToast('Cover image updated');
       // Re-render detail if we're viewing this playlist
       if (state.currentPlaylistId === playlist.id) {
@@ -2030,6 +2045,7 @@
       delete playlist.coverImage;
       saveState();
       renderPlaylists();
+      renderLibrary();
       showToast('Cover image removed');
       if (state.currentPlaylistId === playlist.id) {
         showPlaylistDetail(playlist, false);
@@ -2043,6 +2059,7 @@
       <div class="playlist-item" data-playlist="liked">
         <div class="playlist-cover liked-cover">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          <div class="playlist-cover-overlay">${SIDEBAR_PLAY_SVG}</div>
         </div>
         <div class="playlist-info">
           <span class="playlist-name">Liked Songs</span>
@@ -2056,6 +2073,7 @@
         <div class="playlist-item" data-playlist="${pl.id}">
           <div class="playlist-cover">
             ${getPlaylistCoverHtml(pl, 'normal')}
+            <div class="playlist-cover-overlay">${SIDEBAR_PLAY_SVG}</div>
           </div>
           <div class="playlist-info">
             <span class="playlist-name">${escapeHtml(pl.name)}</span>
@@ -2089,6 +2107,22 @@
           if (pl) showSidebarPlaylistMenu(e, pl, false);
         }
       });
+
+      // Play/pause overlay on playlist cover
+      const overlay = item.querySelector('.playlist-cover-overlay');
+      if (overlay) {
+        overlay.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const pid = item.dataset.playlist;
+          const tracks = pid === 'liked' ? state.likedSongs : state.playlists.find(p => p.id === pid)?.tracks;
+          if (!tracks || !tracks.length) return;
+          if (state.playingPlaylistId === pid) {
+            togglePlay();
+          } else {
+            playFromList(tracks, 0, pid);
+          }
+        });
+      }
 
       // Drop target for drag-and-drop
       item.addEventListener('dragover', (e) => {
@@ -2164,6 +2198,7 @@
             playlist.name = newName;
             saveState();
             renderPlaylists();
+            renderLibrary();
             showToast(`Renamed to "${playlist.name}"`);
           }
           return;
@@ -2192,6 +2227,7 @@
             if (state.playingPlaylistId === playlist.id) state.playingPlaylistId = null;
             saveState();
             renderPlaylists();
+            renderLibrary();
             if (state.currentPlaylistId === playlist.id) switchView('library');
             showToast(`Deleted "${playlist.name}"`);
           }
@@ -2288,6 +2324,7 @@
         saveState();
         heroName.textContent = playlist.name;
         renderPlaylists();
+        renderLibrary();
         showToast(`Renamed to "${playlist.name}"`);
       }
     };
@@ -2311,6 +2348,7 @@
         if (state.playingPlaylistId === playlist.id) state.playingPlaylistId = null;
         saveState();
         renderPlaylists();
+        renderLibrary();
         switchView('library');
         showToast(`Deleted "${playlist.name}"`);
       }
@@ -2469,6 +2507,16 @@
         } else {
           const pl = state.playlists.find(p => p.id === pid);
           if (pl) showPlaylistDetail(pl, false);
+        }
+      });
+      card.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const pid = card.dataset.playlist;
+        if (pid === 'liked') {
+          showSidebarPlaylistMenu(e, { id: 'liked', name: 'Liked Songs', tracks: state.likedSongs }, true);
+        } else {
+          const pl = state.playlists.find(p => p.id === pid);
+          if (pl) showSidebarPlaylistMenu(e, pl, false);
         }
       });
     });
@@ -4751,8 +4799,15 @@
     const pct = (src.currentTime / src.duration) * 100;
     maxNPProgressFill.style.width = pct + '%';
     maxNPTimeCurrent.textContent = formatTime(src.currentTime);
-    maxNPTimeTotal.textContent = formatTime(src.duration);
+    maxNPTimeTotal.textContent = _showTimeRemaining
+      ? '-' + formatTime(Math.max(0, src.duration - src.currentTime))
+      : formatTime(src.duration);
   }
+
+  maxNPTimeTotal.addEventListener('click', () => {
+    _showTimeRemaining = !_showTimeRemaining;
+    updateProgress();
+  });
 
   // Playback controls in maximized view
   $('#max-np-prev').addEventListener('click', playPrev);
