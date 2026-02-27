@@ -78,6 +78,10 @@ contextBridge.exposeInMainWorld('snowify', {
   onBeforeClose: (callback) => ipcRenderer.on('app:before-close', callback),
   closeReady: () => ipcRenderer.send('app:close-ready'),
 
+  // i18n
+  getLocale: () => ipcRenderer.invoke('app:getLocale'),
+  setLocale: (locale) => ipcRenderer.invoke('app:setLocale', locale),
+
   // Auto-updater
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
   getChangelog: (version) => ipcRenderer.invoke('app:getChangelog', version),

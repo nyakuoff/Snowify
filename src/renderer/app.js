@@ -108,7 +108,7 @@
     if (themes.length) {
       const sep = document.createElement('option');
       sep.disabled = true;
-      sep.textContent = '── Custom ──';
+      sep.textContent = I18n.t('settings.customThemeSeparator');
       sep.dataset.custom = '1';
       selectEl.appendChild(sep);
       for (const t of themes) {
@@ -224,8 +224,8 @@
 
   function updateGreeting() {
     const h = new Date().getHours();
-    const text = h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
-    $('#greeting-time').textContent = text;
+    const key = h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
+    $('#greeting-text').textContent = I18n.t('home.greeting.' + key);
   }
 
   function switchView(name) {
@@ -348,7 +348,7 @@
           <img class="suggestion-thumb suggestion-thumb-round" src="${escapeHtml(item.thumbnail || '')}" alt="" />
           <div class="suggestion-info">
             <div class="suggestion-title">${escapeHtml(item.name)}</div>
-            <div class="suggestion-subtitle">Artist${item.subtitle ? ' \u00b7 ' + escapeHtml(item.subtitle) : ''}</div>
+            <div class="suggestion-subtitle">${I18n.t('search.artist')}${item.subtitle ? ' \u00b7 ' + escapeHtml(item.subtitle) : ''}</div>
           </div>
         </div>`;
       }
@@ -357,7 +357,7 @@
           <img class="suggestion-thumb" src="${escapeHtml(item.thumbnail || '')}" alt="" />
           <div class="suggestion-info">
             <div class="suggestion-title">${escapeHtml(item.name)}</div>
-            <div class="suggestion-subtitle">Album${item.subtitle ? ' \u00b7 ' + escapeHtml(item.subtitle) : ''}</div>
+            <div class="suggestion-subtitle">${I18n.t('search.album')}${item.subtitle ? ' \u00b7 ' + escapeHtml(item.subtitle) : ''}</div>
           </div>
         </div>`;
       }
@@ -366,7 +366,7 @@
           <img class="suggestion-thumb" src="${escapeHtml(item.thumbnail || '')}" alt="" />
           <div class="suggestion-info">
             <div class="suggestion-title">${escapeHtml(item.title)}</div>
-            <div class="suggestion-subtitle">Song \u00b7 ${renderArtistLinks(item)}</div>
+            <div class="suggestion-subtitle">${I18n.t('search.song')} \u00b7 ${renderArtistLinks(item)}</div>
           </div>
         </div>`;
       }
@@ -374,13 +374,13 @@
       return `<div class="search-suggestion-item" data-index="${dataIdx}" data-type="${item.type}" data-text="${escapeHtml(item.text)}">
         <span class="search-suggestion-icon">${item.type === 'history' ? ICON_CLOCK : ICON_SEARCH}</span>
         <span class="search-suggestion-text">${escapeHtml(item.text)}</span>
-        ${item.type === 'history' ? `<button class="search-suggestion-delete" data-query="${escapeHtml(item.text)}" title="Remove">${ICON_TRASH}</button>` : ''}
+        ${item.type === 'history' ? `<button class="search-suggestion-delete" data-query="${escapeHtml(item.text)}" title="${I18n.t('common.remove')}">${ICON_TRASH}</button>` : ''}
       </div>`;
     }).join('');
     searchSuggestions.insertAdjacentHTML('beforeend',
       '<div class="suggestions-hint-bar">' +
-        '<span class="suggestions-hint"><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>' +
-        '<span class="suggestions-hint"><kbd>Enter</kbd> Search</span>' +
+        `<span class="suggestions-hint"><kbd>↑</kbd><kbd>↓</kbd> ${I18n.t('search.hintNavigate')}</span>` +
+        `<span class="suggestions-hint"><kbd>Enter</kbd> ${I18n.t('search.hintSearch')}</span>` +
       '</div>');
     searchSuggestions.classList.remove('hidden');
 
@@ -580,7 +580,7 @@
     searchResults.innerHTML = `
       <div class="empty-state search-empty">
         <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#535353" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M16 16l4.5 4.5" stroke-linecap="round"/></svg>
-        <p>Search for songs, artists, albums, or playlists</p>
+        <p>${I18n.t('search.empty')}</p>
       </div>`;
   }
 
@@ -602,7 +602,7 @@
       if (!results.length && !artists.length && !albums.length && !playlists.length && !videos.length) {
         searchResults.innerHTML = `
           <div class="empty-state">
-            <p>No results found for "${escapeHtml(query)}"</p>
+            <p>${I18n.t('search.noResultsFor', { query: escapeHtml(query) })}</p>
           </div>`;
         return;
       }
@@ -616,20 +616,20 @@
       if (videos.length) renderSearchVideos(videos);
     } catch (err) {
       if (gen !== _searchGeneration) return; // stale — don't show error for superseded search
-      searchResults.innerHTML = `<div class="empty-state"><p>Search failed. Please try again.</p></div>`;
+      searchResults.innerHTML = `<div class="empty-state"><p>${I18n.t('search.searchFailed')}</p></div>`;
     }
   }
 
   function renderSearchArtists(artists) {
     const section = document.createElement('div');
-    section.innerHTML = `<h3 class="search-section-header">Artists</h3>`;
+    section.innerHTML = `<h3 class="search-section-header">${I18n.t('search.artists')}</h3>`;
     const scroll = document.createElement('div');
     scroll.className = 'similar-artists-scroll';
     scroll.innerHTML = artists.map((a, i) => `
       <div class="search-artist-card${i === 0 ? ' search-artist-top' : ''}" data-artist-id="${escapeHtml(a.artistId)}">
         <img class="search-artist-avatar" src="${escapeHtml(a.thumbnail || '')}" alt="" loading="lazy" />
         <div class="search-artist-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
-        <div class="search-artist-label">Artist</div>
+        <div class="search-artist-label">${I18n.t('artist.type')}</div>
       </div>
     `).join('');
     section.appendChild(scroll);
@@ -648,13 +648,13 @@
 
   function renderSearchAlbums(albums) {
     const section = document.createElement('div');
-    section.innerHTML = `<h3 class="search-section-header">Albums</h3>`;
+    section.innerHTML = `<h3 class="search-section-header">${I18n.t('search.albums')}</h3>`;
     const scroll = document.createElement('div');
     scroll.className = 'album-scroll';
     scroll.innerHTML = albums.map(a => `
       <div class="album-card" data-album-id="${escapeHtml(a.albumId)}">
         <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
-        <button class="album-card-play" title="Play">
+        <button class="album-card-play" title="${I18n.t('player.play')}">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
         <div class="album-card-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
@@ -671,7 +671,7 @@
         e.stopPropagation();
         const album = await window.snowify.albumTracks(albumId);
         if (album && album.tracks.length) playFromList(album.tracks, 0);
-        else showToast('Could not load album');
+        else showToast(I18n.t('toast.failedLoadAlbum'));
       });
       card.addEventListener('click', () => showAlbumDetail(albumId, meta));
       card.addEventListener('contextmenu', (e) => {
@@ -683,13 +683,13 @@
 
   function renderSearchPlaylists(playlists) {
     const section = document.createElement('div');
-    section.innerHTML = `<h3 class="search-section-header">Playlists</h3>`;
+    section.innerHTML = `<h3 class="search-section-header">${I18n.t('search.playlists')}</h3>`;
     const scroll = document.createElement('div');
     scroll.className = 'album-scroll';
     scroll.innerHTML = playlists.map(p => `
       <div class="album-card" data-playlist-id="${escapeHtml(p.playlistId)}">
         <img class="album-card-cover" src="${escapeHtml(p.thumbnail)}" alt="" loading="lazy" />
-        <button class="album-card-play" title="Play">
+        <button class="album-card-play" title="${I18n.t('player.play')}">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
         <div class="album-card-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
@@ -706,7 +706,7 @@
         e.stopPropagation();
         const tracks = await window.snowify.getPlaylistVideos(pid);
         if (tracks && tracks.length) playFromList(tracks, 0);
-        else showToast('Could not load playlist');
+        else showToast(I18n.t('toast.couldNotLoadPlaylist'));
       });
       card.addEventListener('click', () => showExternalPlaylistDetail(pid, meta));
       card.addEventListener('contextmenu', (e) => {
@@ -718,13 +718,13 @@
 
   function renderSearchVideos(videos) {
     const section = document.createElement('div');
-    section.innerHTML = `<h3 class="search-section-header">Videos</h3>`;
+    section.innerHTML = `<h3 class="search-section-header">${I18n.t('search.videos')}</h3>`;
     const scroll = document.createElement('div');
     scroll.className = 'album-scroll';
     scroll.innerHTML = videos.map(v => `
       <div class="video-card" data-video-id="${escapeHtml(v.id)}">
         <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
-        <button class="video-card-play" title="Watch">
+        <button class="video-card-play" title="${I18n.t('video.watch')}">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
         <div class="video-card-name" title="${escapeHtml(v.title)}">${escapeHtml(v.title)}</div>
@@ -749,7 +749,7 @@
 
   function renderSearchSongs(results) {
     const songsHeader = document.createElement('div');
-    songsHeader.innerHTML = `<h3 class="search-section-header">Songs</h3>`;
+    songsHeader.innerHTML = `<h3 class="search-section-header">${I18n.t('search.songs')}</h3>`;
     searchResults.appendChild(songsHeader);
 
     const tracksWrapper = document.createElement('div');
@@ -764,10 +764,10 @@
     let html = `
       <div class="track-list-header${modifier}">
         <span>#</span>
-        <span>Title</span>
-        <span>Artist</span>
+        <span>${I18n.t('trackList.title')}</span>
+        <span>${I18n.t('trackList.artist')}</span>
         <span></span>
-        ${showPlays ? '<span style="text-align:right">Plays</span>' : ''}
+        ${showPlays ? `<span style="text-align:right">${I18n.t('trackList.plays')}</span>` : ''}
       </div>`;
 
     tracks.forEach((track, i) => {
@@ -792,7 +792,7 @@
           </div>
           <div class="track-artist-col">${renderArtistLinks(track)}</div>
           <div class="track-like-col">
-            <button class="track-like-btn${isLiked ? ' liked' : ''}" title="Like">
+            <button class="track-like-btn${isLiked ? ' liked' : ''}" title="${I18n.t('player.like')}">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
               </svg>
@@ -848,7 +848,7 @@
     return `
       <div class="context-menu-divider"></div>
       <div class="context-menu-item context-menu-has-sub" data-action="none">
-        <span>Add to playlist</span>
+        <span>${I18n.t('context.addToPlaylist')}</span>
         <svg class="sub-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         <div class="context-submenu">${subItems}</div>
       </div>`;
@@ -860,10 +860,10 @@
     const idx = pl.tracks.findIndex(t => t.id === track.id);
     if (idx !== -1) {
       pl.tracks.splice(idx, 1);
-      showToast(`Removed from "${pl.name}"`);
+      showToast(I18n.t('toast.removedFromPlaylist', { name: pl.name }));
     } else {
       pl.tracks.push(track);
-      showToast(`Added to "${pl.name}"`);
+      showToast(I18n.t('toast.addedToPlaylist', { name: pl.name }));
     }
     saveState();
     renderPlaylists();
@@ -914,20 +914,20 @@
     menu.style.top = e.clientY + 'px';
 
     const playlistSection = buildPlaylistSectionHtml(track);
-    const addQueueHtml = hideAddQueue ? '' : '<div class="context-menu-item" data-action="add-queue">Add to Queue</div>';
-    const playNextHtml = hidePlayNext ? '' : '<div class="context-menu-item" data-action="play-next">Play Next</div>';
+    const addQueueHtml = hideAddQueue ? '' : `<div class="context-menu-item" data-action="add-queue">${I18n.t('context.addToQueue')}</div>`;
+    const playNextHtml = hidePlayNext ? '' : `<div class="context-menu-item" data-action="play-next">${I18n.t('context.playNext')}</div>`;
 
     menu.innerHTML = `
-      <div class="context-menu-item" data-action="play">Play</div>
+      <div class="context-menu-item" data-action="play">${I18n.t('context.play')}</div>
       ${playNextHtml}
       ${addQueueHtml}
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="start-radio">Start Radio</div>
-      <div class="context-menu-item" data-action="watch-video">Watch Video</div>
-      <div class="context-menu-item" data-action="like">${isLiked ? 'Unlike' : 'Like'}</div>
+      <div class="context-menu-item" data-action="start-radio">${I18n.t('context.startRadio')}</div>
+      <div class="context-menu-item" data-action="watch-video">${I18n.t('context.watchVideo')}</div>
+      <div class="context-menu-item" data-action="like">${isLiked ? I18n.t('context.unlike') : I18n.t('context.like')}</div>
       ${playlistSection}
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="share">Copy Link</div>
+      <div class="context-menu-item" data-action="share">${I18n.t('context.copyLink')}</div>
     `;
 
     positionContextMenu(menu);
@@ -948,33 +948,14 @@
         case 'watch-video':
           openVideoPlayer(track.id, track.title, track.artist);
           break;
-        case 'start-radio': {
-          const upNexts = await window.snowify.getUpNexts(track.id);
-          if (upNexts.length) {
-            const alreadyPlaying = state.isPlaying && state.queue[state.queueIndex]?.id === track.id;
-            if (alreadyPlaying) {
-              const remaining = upNexts.filter(t => t.id !== track.id);
-              state.queue = [track, ...remaining];
-              state.originalQueue = [...state.queue];
-              state.queueIndex = 0;
-              renderQueue();
-              showToast('Radio started');
-            } else {
-              playFromList([track, ...upNexts.filter(t => t.id !== track.id)], 0);
-              showToast('Radio started');
-            }
-          } else {
-            showToast('Could not start radio');
-          }
-          break;
-        }
+        case 'start-radio': await startRadio(track); break;
         case 'like': toggleLike(track); break;
         case 'toggle-playlist':
           handleTogglePlaylist(item.dataset.pid, track);
           break;
         case 'share':
           navigator.clipboard.writeText(track.url || `https://music.youtube.com/watch?v=${track.id}`);
-          showToast('Link copied to clipboard');
+          showToast(I18n.t('toast.linkCopied'));
           break;
       }
       removeContextMenu();
@@ -993,7 +974,7 @@
   function setupSaveButton(saveBtn, externalId, displayName, tracks) {
     const updateSaveBtn = (animate) => {
       const isSaved = state.playlists.some(p => p.externalId === externalId);
-      saveBtn.title = isSaved ? 'Remove from library' : 'Save to library';
+      saveBtn.title = isSaved ? I18n.t('context.removeFromLibrary') : I18n.t('context.saveToLibrary');
       saveBtn.classList.toggle('saved', isSaved);
       saveBtn.innerHTML = isSaved ? SAVE_SVG_CHECK : SAVE_SVG_PLUS;
       if (animate === 'save') {
@@ -1015,13 +996,13 @@
           saveBtn.classList.remove('unsaving');
           updateSaveBtn();
         }, { once: true });
-        showToast(`Removed "${displayName}" from library`);
+        showToast(I18n.t('toast.removedFromLibrary', { name: displayName }));
       } else {
         const pl = createPlaylist(displayName);
         pl.externalId = externalId;
         pl.tracks = tracks;
         updateSaveBtn('save');
-        showToast(`Saved "${displayName}" with ${tracks.length} songs`);
+        showToast(I18n.t('toast.savedToLibrary', { name: displayName, count: tracks.length }));
       }
       saveState();
       renderPlaylists();
@@ -1030,7 +1011,7 @@
 
   // ─── Generic context menu for albums + playlists ───
   function showCollectionContextMenu(e, externalId, meta, options) {
-    const { loadTracks, fallbackName = 'Playlist', playLabel = 'Play All', errorMsg = 'Could not load tracks', copyLink = null } = options;
+    const { loadTracks, fallbackName = I18n.t('common.playlist'), playLabel = I18n.t('playlist.playAll'), errorMsg = I18n.t('toast.couldNotLoadTracks'), copyLink = null } = options;
     removeContextMenu();
     const menu = document.createElement('div');
     menu.className = 'context-menu';
@@ -1041,11 +1022,11 @@
 
     menu.innerHTML = `
       <div class="context-menu-item" data-action="play">${playLabel}</div>
-      <div class="context-menu-item" data-action="shuffle">Shuffle Play</div>
-      <div class="context-menu-item" data-action="start-radio">Start Radio</div>
+      <div class="context-menu-item" data-action="shuffle">${I18n.t('context.shufflePlay')}</div>
+      <div class="context-menu-item" data-action="start-radio">${I18n.t('context.startRadio')}</div>
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="${saved ? 'remove' : 'save'}">${saved ? 'Remove from library' : 'Save as Playlist'}</div>
-      ${copyLink ? '<div class="context-menu-item" data-action="share">Copy Link</div>' : ''}
+      <div class="context-menu-item" data-action="${saved ? 'remove' : 'save'}">${saved ? I18n.t('context.removeFromLibrary') : I18n.t('context.saveToLibrary')}</div>
+      ${copyLink ? `<div class="context-menu-item" data-action="share">${I18n.t('context.copyLink')}</div>` : ''}
     `;
 
     document.body.appendChild(menu);
@@ -1062,21 +1043,14 @@
         state.playlists = state.playlists.filter(p => p.externalId !== externalId);
         saveState();
         renderPlaylists();
-        showToast(`Removed "${meta?.name || fallbackName}" from library`);
+        showToast(I18n.t('toast.removedFromLibrary', { name: meta?.name || fallbackName }));
       } else if (action === 'share' && copyLink) {
         navigator.clipboard.writeText(copyLink);
-        showToast('Link copied to clipboard');
+        showToast(I18n.t('toast.linkCopied'));
       } else if (action === 'start-radio') {
         const tracks = await loadTracks();
         if (!tracks?.length) { showToast(errorMsg); removeContextMenu(); return; }
-        const seed = tracks[0];
-        const upNexts = await window.snowify.getUpNexts(seed.id);
-        if (upNexts.length) {
-          playFromList([seed, ...upNexts.filter(t => t.id !== seed.id)], 0);
-          showToast('Radio started');
-        } else {
-          showToast('Could not start radio');
-        }
+        await startRadio(tracks[0]);
       } else if (action === 'play' || action === 'shuffle' || action === 'save') {
         const tracks = await loadTracks();
         if (!tracks?.length) { showToast(errorMsg); removeContextMenu(); return; }
@@ -1092,7 +1066,7 @@
           pl.tracks = tracks;
           saveState();
           renderPlaylists();
-          showToast(`Saved "${name}" with ${tracks.length} songs`);
+          showToast(I18n.t('toast.savedToLibrary', { name: name, count: tracks.length }));
         }
       }
       removeContextMenu();
@@ -1111,7 +1085,7 @@
     menu.style.left = e.clientX + 'px';
     menu.style.top = e.clientY + 'px';
     menu.innerHTML = `
-      <div class="context-menu-item" data-action="start-radio">Start Radio</div>
+      <div class="context-menu-item" data-action="start-radio">${I18n.t('context.startRadio')}</div>
     `;
     document.body.appendChild(menu);
     const rect = menu.getBoundingClientRect();
@@ -1122,17 +1096,7 @@
       const item = ev.target.closest('.context-menu-item');
       if (!item) return;
       if (item.dataset.action === 'start-radio') {
-        showToast('Loading radio...');
-        const info = await window.snowify.artistInfo(artistId);
-        const seed = info?.topSongs?.[0];
-        if (!seed) { showToast('Could not start radio'); removeContextMenu(); return; }
-        const upNexts = await window.snowify.getUpNexts(seed.id);
-        if (upNexts.length) {
-          playFromList([seed, ...upNexts.filter(t => t.id !== seed.id)], 0);
-          showToast('Radio started');
-        } else {
-          showToast('Could not start radio');
-        }
+        await startRadio(null, { fromArtistId: artistId });
       }
       removeContextMenu();
     });
@@ -1146,9 +1110,9 @@
   function showAlbumContextMenu(e, albumId, meta) {
     showCollectionContextMenu(e, albumId, meta, {
       loadTracks: async () => { const a = await window.snowify.albumTracks(albumId); return a?.tracks || []; },
-      fallbackName: 'Album',
-      playLabel: 'Play All',
-      errorMsg: 'Could not load album',
+      fallbackName: I18n.t('album.type'),
+      playLabel: I18n.t('context.playAll'),
+      errorMsg: I18n.t('toast.failedLoadAlbum'),
       copyLink: `https://music.youtube.com/browse/${albumId}`
     });
   }
@@ -1156,9 +1120,9 @@
   function showPlaylistContextMenu(e, playlistId, meta) {
     showCollectionContextMenu(e, playlistId, meta, {
       loadTracks: () => window.snowify.getPlaylistVideos(playlistId),
-      fallbackName: 'Imported Playlist',
-      playLabel: 'Play',
-      errorMsg: 'Could not load playlist'
+      fallbackName: I18n.t('playlist.type'),
+      playLabel: I18n.t('context.play'),
+      errorMsg: I18n.t('toast.failedLoadPlaylist')
     });
   }
 
@@ -1186,7 +1150,7 @@
         const newAudio = engine.consumePreloaded(track.id);
         if (newAudio) audio = newAudio;
       } else {
-        showToast(`Loading: ${track.title}`);
+        showToast(I18n.t('toast.loadingTrack', { title: track.title }));
         const directUrl = await window.snowify.getStreamUrl(track.url, state.audioQuality);
         if (gen !== _playGeneration) return; // stale call — newer playTrack superseded us
         engine.setSource(directUrl);
@@ -1214,7 +1178,7 @@
       if (err && err.name === 'AbortError') return;
       console.error('Playback error:', err);
       const msg = typeof err === 'string' ? err : (err.message || 'unknown error');
-      showToast('Playback failed: ' + msg);
+      showToast(I18n.t('toast.playbackFailed', { error: msg }));
       state.isPlaying = false;
       state.isLoading = false;
       updatePlayButton();
@@ -1228,7 +1192,7 @@
           renderQueue();
         }
       } else {
-        showToast('Multiple tracks failed — stopping playback');
+        showToast(I18n.t('toast.multipleFailures'));
         _consecutiveFailures = 0;
       }
       return;
@@ -1268,7 +1232,7 @@
     if (!btn) return;
     const playing = isCollectionPlaying(tracks, sourcePlaylistId) && state.isPlaying;
     btn.innerHTML = playing ? PAUSE_SVG : PLAY_SVG;
-    btn.title = playing ? 'Pause' : 'Play all';
+    btn.title = playing ? I18n.t('player.pause') : I18n.t('playlist.playAll');
   }
 
   function playFromList(tracks, index, sourcePlaylistId = null) {
@@ -1554,7 +1518,7 @@
         state.isLoading = false;
         updatePlayButton();
         clearDiscordPresence();
-        showToast('Audio error — skipping to next track');
+        showToast(I18n.t('toast.audioError'));
         if (evt.hasNext) {
           state.queueIndex = evt.nextIndex;
           playTrack(state.queue[evt.nextIndex]);
@@ -1579,7 +1543,7 @@
     getStreamUrl: (url, q) => window.snowify.getStreamUrl(url, q),
     onTransition: handleEngineTransition,
     onTimeUpdate: handleEngineTimeUpdate,
-    onStall: () => { showToast('Stream stalled — skipping to next'); playNext(); },
+    onStall: () => { showToast(I18n.t('toast.streamStalled')); playNext(); },
   });
   audio = engine.getActiveAudio();
 
@@ -1636,7 +1600,7 @@
 
   function updateRepeatButton() {
     if (state.repeat === 'one') {
-      btnRepeat.title = 'Repeat One';
+      btnRepeat.title = I18n.t('player.repeatOne');
       btnRepeat.innerHTML = `
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/>
@@ -1644,7 +1608,7 @@
           <text x="12" y="15" text-anchor="middle" font-size="8" fill="currentColor" stroke="none" font-weight="bold">1</text>
         </svg>`;
     } else if (state.repeat === 'all') {
-      btnRepeat.title = 'Repeat All';
+      btnRepeat.title = I18n.t('player.repeatAll');
       btnRepeat.innerHTML = `
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/>
@@ -1652,7 +1616,7 @@
           <text x="12" y="15" text-anchor="middle" font-size="7" fill="currentColor" stroke="none" font-weight="bold">∞</text>
         </svg>`;
     } else {
-      btnRepeat.title = 'Repeat';
+      btnRepeat.title = I18n.t('player.repeat');
       btnRepeat.innerHTML = `
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/>
@@ -1813,17 +1777,17 @@
     if (playAllBtn) {
       const playing = state.playingPlaylistId && state.playingPlaylistId === state.currentPlaylistId && state.isPlaying;
       playAllBtn.innerHTML = playing ? PAUSE_SVG : PLAY_SVG;
-      playAllBtn.title = playing ? 'Pause' : 'Play all';
+      playAllBtn.title = playing ? I18n.t('player.pause') : I18n.t('playlist.playAll');
     }
     if (albumPlayBtn) {
       const isActive = state.queue.length > 0 && !state.playingPlaylistId && state.isPlaying;
       albumPlayBtn.innerHTML = isActive ? PAUSE_SVG : PLAY_SVG;
-      albumPlayBtn.title = isActive ? 'Pause' : 'Play all';
+      albumPlayBtn.title = isActive ? I18n.t('player.pause') : I18n.t('playlist.playAll');
     }
     if (artistPlayBtn) {
       const isActive = state.queue.length > 0 && !state.playingPlaylistId && state.isPlaying;
       artistPlayBtn.innerHTML = isActive ? PAUSE_SVG : PLAY_SVG;
-      artistPlayBtn.title = isActive ? 'Pause' : 'Play all';
+      artistPlayBtn.title = isActive ? I18n.t('player.pause') : I18n.t('playlist.playAll');
     }
   }
 
@@ -1917,10 +1881,10 @@
     const idx = state.likedSongs.findIndex(t => t.id === track.id);
     if (idx >= 0) {
       state.likedSongs.splice(idx, 1);
-      showToast('Removed from Liked Songs');
+      showToast(I18n.t('toast.removedFromLiked'));
     } else {
       state.likedSongs.push(track);
-      showToast('Added to Liked Songs');
+      showToast(I18n.t('toast.addedToLiked'));
     }
     saveState();
     updateLikedCount();
@@ -1970,7 +1934,7 @@
 
   function updateLikedCount() {
     const el = document.querySelector('[data-playlist="liked"] .playlist-count');
-    if (el) el.textContent = `${state.likedSongs.length} song${state.likedSongs.length !== 1 ? 's' : ''}`;
+    if (el) el.textContent = I18n.tp('sidebar.songCount', state.likedSongs.length);
   }
 
   function createPlaylist(name) {
@@ -1979,7 +1943,7 @@
     state.playlists.push(playlist);
     saveState();
     renderPlaylists();
-    showToast(`Created "${playlist.name}"`);
+    showToast(I18n.t('toast.createdPlaylist', { name: playlist.name }));
     return playlist;
   }
 
@@ -2014,13 +1978,13 @@
       playlist.coverImage = savedPath;
       saveState();
       renderPlaylists();
-      showToast('Cover image updated');
+      showToast(I18n.t('toast.coverUpdated'));
       // Re-render detail if we're viewing this playlist
       if (state.currentPlaylistId === playlist.id) {
         showPlaylistDetail(playlist, false);
       }
     } else {
-      showToast('Failed to save image');
+      showToast(I18n.t('toast.failedSaveImage'));
     }
   }
 
@@ -2030,7 +1994,7 @@
       delete playlist.coverImage;
       saveState();
       renderPlaylists();
-      showToast('Cover image removed');
+      showToast(I18n.t('toast.coverRemoved'));
       if (state.currentPlaylistId === playlist.id) {
         showPlaylistDetail(playlist, false);
       }
@@ -2045,8 +2009,8 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
         </div>
         <div class="playlist-info">
-          <span class="playlist-name">Liked Songs</span>
-          <span class="playlist-count">${state.likedSongs.length} song${state.likedSongs.length !== 1 ? 's' : ''}</span>
+          <span class="playlist-name">${I18n.t('sidebar.likedSongs')}</span>
+          <span class="playlist-count">${I18n.tp('sidebar.songCount', state.likedSongs.length)}</span>
         </div>
         ${NOW_PLAYING_ICON_SVG}
       </div>`;
@@ -2059,7 +2023,7 @@
           </div>
           <div class="playlist-info">
             <span class="playlist-name">${escapeHtml(pl.name)}</span>
-            <span class="playlist-count">${pl.tracks.length} song${pl.tracks.length !== 1 ? 's' : ''}</span>
+            <span class="playlist-count">${I18n.tp('sidebar.songCount', pl.tracks.length)}</span>
           </div>
           ${NOW_PLAYING_ICON_SVG}
         </div>`;
@@ -2071,7 +2035,7 @@
         if (_dragActive) return;
         const pid = item.dataset.playlist;
         if (pid === 'liked') {
-          showPlaylistDetail({ id: 'liked', name: 'Liked Songs', tracks: state.likedSongs }, true);
+          showPlaylistDetail(getLikedSongsPlaylist(), true);
         } else {
           const pl = state.playlists.find(p => p.id === pid);
           if (pl) showPlaylistDetail(pl, false);
@@ -2083,7 +2047,7 @@
         e.preventDefault();
         const pid = item.dataset.playlist;
         if (pid === 'liked') {
-          showSidebarPlaylistMenu(e, { id: 'liked', name: 'Liked Songs', tracks: state.likedSongs }, true);
+          showSidebarPlaylistMenu(e, getLikedSongsPlaylist(), true);
         } else {
           const pl = state.playlists.find(p => p.id === pid);
           if (pl) showSidebarPlaylistMenu(e, pl, false);
@@ -2121,16 +2085,16 @@
 
     const manageHtml = isLiked ? '' : `
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="change-cover">Change cover</div>
-      ${playlist.coverImage ? '<div class="context-menu-item" data-action="remove-cover">Remove cover</div>' : ''}
-      <div class="context-menu-item" data-action="rename">Rename</div>
-      <div class="context-menu-item" data-action="delete" style="color:var(--red)">Delete</div>`;
+      <div class="context-menu-item" data-action="change-cover">${I18n.t('context.changeCover')}</div>
+      ${playlist.coverImage ? `<div class="context-menu-item" data-action="remove-cover">${I18n.t('context.removeCover')}</div>` : ''}
+      <div class="context-menu-item" data-action="rename">${I18n.t('context.rename')}</div>
+      <div class="context-menu-item" data-action="delete" style="color:var(--red)">${I18n.t('context.delete')}</div>`;
 
     menu.innerHTML = `
-      <div class="context-menu-item" data-action="play">Play</div>
-      <div class="context-menu-item" data-action="shuffle">Shuffle play</div>
+      <div class="context-menu-item" data-action="play">${I18n.t('context.play')}</div>
+      <div class="context-menu-item" data-action="shuffle">${I18n.t('context.shufflePlay')}</div>
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="export-csv">Export as CSV</div>
+      <div class="context-menu-item" data-action="export-csv">${I18n.t('playlist.exportCsv')}</div>
       ${manageHtml}
     `;
 
@@ -2145,7 +2109,7 @@
       switch (item.dataset.action) {
         case 'play':
           if (playlist.tracks.length) playFromList(playlist.tracks, 0, playlist.id);
-          else showToast('Playlist is empty');
+          else showToast(I18n.t('toast.playlistEmpty'));
           break;
         case 'shuffle':
           if (playlist.tracks.length) {
@@ -2155,16 +2119,16 @@
               [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
             }
             playFromList(shuffled, 0, playlist.id);
-          } else showToast('Playlist is empty');
+          } else showToast(I18n.t('toast.playlistEmpty'));
           break;
         case 'rename': {
           removeContextMenu();
-          const newName = await showInputModal('Rename playlist', playlist.name);
+          const newName = await showInputModal(I18n.t('modal.renamePlaylist'), playlist.name);
           if (newName && newName !== playlist.name) {
             playlist.name = newName;
             saveState();
             renderPlaylists();
-            showToast(`Renamed to "${playlist.name}"`);
+            showToast(I18n.t('toast.renamedTo', { name: playlist.name }));
           }
           return;
         }
@@ -2180,20 +2144,20 @@
         }
         case 'export-csv': {
           removeContextMenu();
-          if (!playlist.tracks.length) { showToast('Playlist is empty'); return; }
+          if (!playlist.tracks.length) { showToast(I18n.t('toast.playlistEmpty')); return; }
           const ok = await window.snowify.exportPlaylistCsv(playlist.name, playlist.tracks);
-          if (ok) showToast('Playlist exported successfully');
+          if (ok) showToast(I18n.t('toast.playlistExported'));
           return;
         }
         case 'delete':
-          if (confirm(`Delete "${playlist.name}"?`)) {
+          if (confirm(I18n.t('playlist.confirmDelete', { name: playlist.name }))) {
             if (playlist.coverImage) window.snowify.deleteImage(playlist.coverImage);
             state.playlists = state.playlists.filter(p => p.id !== playlist.id);
             if (state.playingPlaylistId === playlist.id) state.playingPlaylistId = null;
             saveState();
             renderPlaylists();
             if (state.currentPlaylistId === playlist.id) switchView('library');
-            showToast(`Deleted "${playlist.name}"`);
+            showToast(I18n.t('toast.deletedPlaylist', { name: playlist.name }));
           }
           break;
       }
@@ -2215,7 +2179,7 @@
     const tracksContainer = $('#playlist-tracks');
 
     heroName.textContent = playlist.name;
-    heroCount.textContent = `${playlist.tracks.length} song${playlist.tracks.length !== 1 ? 's' : ''}`;
+    heroCount.textContent = I18n.tp('sidebar.songCount', playlist.tracks.length);
 
     if (isLiked) {
       heroCover.innerHTML = `<svg width="64" height="64" viewBox="0 0 24 24" fill="#fff"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
@@ -2251,8 +2215,8 @@
     } else {
       tracksContainer.innerHTML = `
         <div class="empty-state">
-          <p>This playlist is empty</p>
-          <p>Find songs you like and add them here</p>
+          <p>${I18n.t('playlist.empty')}</p>
+          <p>${I18n.t('playlist.emptyHint')}</p>
         </div>`;
     }
 
@@ -2282,13 +2246,13 @@
 
     renameBtn.onclick = async () => {
       if (isLiked) return;
-      const newName = await showInputModal('Rename playlist', playlist.name);
+      const newName = await showInputModal(I18n.t('modal.renamePlaylist'), playlist.name);
       if (newName && newName !== playlist.name) {
         playlist.name = newName;
         saveState();
         heroName.textContent = playlist.name;
         renderPlaylists();
-        showToast(`Renamed to "${playlist.name}"`);
+        showToast(I18n.t('toast.renamedTo', { name: playlist.name }));
       }
     };
 
@@ -2298,21 +2262,21 @@
     };
 
     exportBtn.onclick = async () => {
-      if (!playlist.tracks.length) return showToast('Playlist is empty');
+      if (!playlist.tracks.length) return showToast(I18n.t('toast.playlistEmpty'));
       const ok = await window.snowify.exportPlaylistCsv(playlist.name, playlist.tracks);
-      if (ok) showToast('Playlist exported successfully');
+      if (ok) showToast(I18n.t('toast.playlistExported'));
     };
 
     deleteBtn.onclick = () => {
       if (isLiked) return;
-      if (confirm(`Delete "${playlist.name}"?\nThis cannot be undone.`)) {
+      if (confirm(I18n.t('playlist.confirmDelete', { name: playlist.name }))) {
         if (playlist.coverImage) window.snowify.deleteImage(playlist.coverImage);
         state.playlists = state.playlists.filter(p => p.id !== playlist.id);
         if (state.playingPlaylistId === playlist.id) state.playingPlaylistId = null;
         saveState();
         renderPlaylists();
         switchView('library');
-        showToast(`Deleted "${playlist.name}"`);
+        showToast(I18n.t('toast.deletedPlaylist', { name: playlist.name }));
       }
     };
   }
@@ -2327,18 +2291,18 @@
     const liked = state.likedSongs.some(t => t.id === track.id);
 
     menu.innerHTML = `
-      <div class="context-menu-item" data-action="play">Play</div>
-      <div class="context-menu-item" data-action="play-next">Play Next</div>
-      <div class="context-menu-item" data-action="add-queue">Add to Queue</div>
+      <div class="context-menu-item" data-action="play">${I18n.t('context.play')}</div>
+      <div class="context-menu-item" data-action="play-next">${I18n.t('context.playNext')}</div>
+      <div class="context-menu-item" data-action="add-queue">${I18n.t('context.addToQueue')}</div>
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="like">${liked ? 'Unlike' : 'Like'}</div>
-      <div class="context-menu-item" data-action="start-radio">Start Radio</div>
+      <div class="context-menu-item" data-action="like">${liked ? I18n.t('context.unlike') : I18n.t('context.like')}</div>
+      <div class="context-menu-item" data-action="start-radio">${I18n.t('context.startRadio')}</div>
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="remove">Remove from ${isLiked ? 'Liked Songs' : 'playlist'}</div>
-      ${!isLiked && idx > 0 ? '<div class="context-menu-item" data-action="move-up">Move up</div>' : ''}
-      ${!isLiked && idx < playlist.tracks.length - 1 ? '<div class="context-menu-item" data-action="move-down">Move down</div>' : ''}
+      <div class="context-menu-item" data-action="remove">${isLiked ? I18n.t('context.removeFromLiked') : I18n.t('context.removeFromPlaylist')}</div>
+      ${!isLiked && idx > 0 ? `<div class="context-menu-item" data-action="move-up">${I18n.t('context.moveUp')}</div>` : ''}
+      ${!isLiked && idx < playlist.tracks.length - 1 ? `<div class="context-menu-item" data-action="move-down">${I18n.t('context.moveDown')}</div>` : ''}
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="share">Copy Link</div>
+      <div class="context-menu-item" data-action="share">${I18n.t('context.copyLink')}</div>
     `;
 
     document.body.appendChild(menu);
@@ -2359,39 +2323,20 @@
         case 'play-next': handlePlayNext(track); break;
         case 'add-queue': handleAddToQueue(track); break;
         case 'like': toggleLike(track); break;
-        case 'start-radio': {
-          const upNexts = await window.snowify.getUpNexts(track.id);
-          if (upNexts.length) {
-            const alreadyPlaying = state.isPlaying && state.queue[state.queueIndex]?.id === track.id;
-            if (alreadyPlaying) {
-              const remaining = upNexts.filter(t => t.id !== track.id);
-              state.queue = [track, ...remaining];
-              state.originalQueue = [...state.queue];
-              state.queueIndex = 0;
-              renderQueue();
-              showToast('Radio started');
-            } else {
-              playFromList([track, ...upNexts.filter(t => t.id !== track.id)], 0);
-              showToast('Radio started');
-            }
-          } else {
-            showToast('Could not start radio');
-          }
-          break;
-        }
+        case 'start-radio': await startRadio(track); break;
         case 'remove':
           if (isLiked) {
             state.likedSongs = state.likedSongs.filter(t => t.id !== track.id);
             saveState();
             updateLikedCount();
-            showPlaylistDetail({ id: 'liked', name: 'Liked Songs', tracks: state.likedSongs }, true);
-            showToast('Removed from Liked Songs');
+            showPlaylistDetail(getLikedSongsPlaylist(), true);
+            showToast(I18n.t('toast.removedFromLiked'));
           } else {
             playlist.tracks.splice(idx, 1);
             saveState();
             renderPlaylists();
             showPlaylistDetail(playlist, false);
-            showToast('Removed from playlist');
+            showToast(I18n.t('toast.removedFromPlaylistShort'));
           }
           break;
         case 'move-up':
@@ -2406,7 +2351,7 @@
           break;
         case 'share':
           navigator.clipboard.writeText(track.url || `https://music.youtube.com/watch?v=${track.id}`);
-          showToast('Link copied to clipboard');
+          showToast(I18n.t('toast.linkCopied'));
           break;
       }
       removeContextMenu();
@@ -2418,11 +2363,11 @@
   }
 
   $('#btn-create-playlist').addEventListener('click', async () => {
-    const name = await showInputModal('Create playlist', 'My Playlist');
+    const name = await showInputModal(I18n.t('modal.createPlaylist'), I18n.t('modal.defaultPlaylistName'));
     if (name) createPlaylist(name);
   });
   $('#btn-lib-create-playlist')?.addEventListener('click', async () => {
-    const name = await showInputModal('Create playlist', 'My Playlist');
+    const name = await showInputModal(I18n.t('modal.createPlaylist'), I18n.t('modal.defaultPlaylistName'));
     if (name) createPlaylist(name);
   });
   $('#btn-spotify-import').addEventListener('click', () => openSpotifyImport());
@@ -2430,7 +2375,7 @@
   function renderLibrary() {
     const container = $('#library-content');
     const allPlaylists = [
-      { id: 'liked', name: 'Liked Songs', tracks: state.likedSongs, isLiked: true },
+      { ...getLikedSongsPlaylist(), isLiked: true },
       ...state.playlists.map(p => ({ ...p, isLiked: false }))
     ];
 
@@ -2438,12 +2383,12 @@
       container.innerHTML = `
         <div class="empty-state">
           <svg width="64" height="64" viewBox="0 0 24 24" fill="#535353"><path d="M4 4h2v16H4V4zm5 0h2v16H9V4zm5 2h2v14h-2V6zm5-2h2v16h-2V4z"/></svg>
-          <h3>Create your first playlist</h3>
-          <p>It\u2019s easy \u2014 we\u2019ll help you</p>
-          <button class="btn-primary" id="btn-lib-create-playlist-2">Create playlist</button>
+          <h3>${I18n.t('library.emptyTitle')}</h3>
+          <p>${I18n.t('library.emptyDesc')}</p>
+          <button class="btn-primary" id="btn-lib-create-playlist-2">${I18n.t('library.createPlaylist')}</button>
         </div>`;
       $('#btn-lib-create-playlist-2')?.addEventListener('click', async () => {
-        const name = await showInputModal('Create playlist', 'My Playlist');
+        const name = await showInputModal(I18n.t('modal.createPlaylist'), I18n.t('modal.defaultPlaylistName'));
         if (name) { createPlaylist(name); renderLibrary(); }
       });
       return;
@@ -2457,7 +2402,7 @@
         <div class="lib-card" data-playlist="${p.id}">
           ${coverHtml}
           <div class="lib-card-name">${escapeHtml(p.name)}</div>
-          <div class="lib-card-meta">Playlist \u00b7 ${p.tracks.length} song${p.tracks.length !== 1 ? 's' : ''}</div>
+          <div class="lib-card-meta">${I18n.t('common.playlist')} \u00b7 ${I18n.tp('sidebar.songCount', p.tracks.length)}</div>
         </div>`;
     }).join('')}</div>`;
 
@@ -2465,7 +2410,7 @@
       card.addEventListener('click', () => {
         const pid = card.dataset.playlist;
         if (pid === 'liked') {
-          showPlaylistDetail({ id: 'liked', name: 'Liked Songs', tracks: state.likedSongs }, true);
+          showPlaylistDetail(getLikedSongsPlaylist(), true);
         } else {
           const pl = state.playlists.find(p => p.id === pid);
           if (pl) showPlaylistDetail(pl, false);
@@ -2480,18 +2425,43 @@
     if (state.queueIndex >= 0) state.queue.splice(state.queueIndex + 1, 0, track);
     else state.queue.push(track);
     engine.clearPreload();
-    showToast(existIdx !== -1 ? 'Moved to play next' : 'Added to play next');
+    showToast(existIdx !== -1 ? I18n.t('toast.movedToPlayNext') : I18n.t('toast.addedToPlayNext'));
     renderQueue();
   }
 
   function handleAddToQueue(track) {
     if (state.queue.slice(state.queueIndex + 1).some(t => t.id === track.id)) {
-      showToast('Already in queue');
+      showToast(I18n.t('toast.alreadyInQueue'));
     } else {
       state.queue.push(track);
-      showToast('Added to queue');
+      showToast(I18n.t('toast.addedToQueue'));
       renderQueue();
     }
+  }
+
+  async function startRadio(seed, { fromArtistId } = {}) {
+    if (fromArtistId) {
+      showToast(I18n.t('toast.loadingRadio'));
+      const info = await window.snowify.artistInfo(fromArtistId);
+      seed = info?.topSongs?.[0];
+      if (!seed) { showToast(I18n.t('toast.couldNotStartRadio')); return; }
+    }
+    const upNexts = await window.snowify.getUpNexts(seed.id);
+    if (!upNexts.length) { showToast(I18n.t('toast.couldNotStartRadio')); return; }
+    const alreadyPlaying = state.isPlaying && state.queue[state.queueIndex]?.id === seed.id;
+    if (alreadyPlaying) {
+      state.queue = [seed, ...upNexts.filter(t => t.id !== seed.id)];
+      state.originalQueue = [...state.queue];
+      state.queueIndex = 0;
+      renderQueue();
+    } else {
+      playFromList([seed, ...upNexts.filter(t => t.id !== seed.id)], 0);
+    }
+    showToast(I18n.t('toast.radioStarted'));
+  }
+
+  function getLikedSongsPlaylist() {
+    return { id: 'liked', name: I18n.t('sidebar.likedSongs'), tracks: state.likedSongs };
   }
 
   function renderNowPlayingSection(container) {
@@ -2507,7 +2477,7 @@
         });
       }
     } else {
-      container.innerHTML = `<p style="color:var(--text-subdued);font-size:13px;">Nothing playing</p>`;
+      container.innerHTML = `<p style="color:var(--text-subdued);font-size:13px;">${I18n.t('queue.nothingPlaying')}</p>`;
     }
   }
 
@@ -2569,7 +2539,7 @@
     state.originalQueue = state.originalQueue.filter(t => remainingIds.has(t.id));
     renderQueue();
     saveState();
-    showToast('Queue cleared');
+    showToast(I18n.t('toast.queueCleared'));
   });
 
   // Clear history
@@ -2579,7 +2549,7 @@
     renderHistory();
     renderRecentTracks();
     renderQuickPicks();
-    showToast('History cleared');
+    showToast(I18n.t('toast.historyViewCleared'));
   });
 
   function renderQueue() {
@@ -2636,13 +2606,13 @@
 
       bindQueueDragReorder();
     } else {
-      upNext.innerHTML = `<p style="color:var(--text-subdued);font-size:13px;">Queue is empty</p>`;
+      upNext.innerHTML = `<p style="color:var(--text-subdued);font-size:13px;">${I18n.t('queue.empty')}</p>`;
     }
   }
 
   function renderQueueItem(track, isActive, showRemove, queueIndex) {
     const removeHtml = showRemove ? `
-      <button class="queue-item-remove" title="Remove from queue">
+      <button class="queue-item-remove" title="${I18n.t('queue.removeFromQueue')}">
         <svg width="14" height="14" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       </button>` : '';
     const indexAttr = queueIndex !== undefined ? ` data-queue-index="${queueIndex}"` : '';
@@ -2665,7 +2635,7 @@
     const container = $('#history-list');
     $('#btn-clear-history').style.display = state.recentTracks.length ? '' : 'none';
     if (!state.recentTracks.length) {
-      container.innerHTML = `<p style="color:var(--text-subdued);font-size:13px;">No recently played tracks</p>`;
+      container.innerHTML = `<p style="color:var(--text-subdued);font-size:13px;">${I18n.t('queue.noRecentTracks')}</p>`;
       return;
     }
     container.innerHTML = state.recentTracks.map(t => renderQueueItem(t, false, false)).join('');
@@ -2891,7 +2861,7 @@
     container.innerHTML = releases.map(a => `
       <div class="album-card" data-album-id="${a.albumId}">
         <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
-        <button class="album-card-play" title="Play">
+        <button class="album-card-play" title="${I18n.t('player.play')}">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
         <div class="album-card-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
@@ -2924,8 +2894,8 @@
     if (!state.recentTracks.length) {
       container.innerHTML = `
         <div class="empty-state">
-          <p>Your recently played tracks will show up here.</p>
-          <p>Start by searching for something!</p>
+          <p>${I18n.t('home.recentEmpty')}</p>
+          <p>${I18n.t('home.recentEmptyHint')}</p>
         </div>`;
       return;
     }
@@ -2935,7 +2905,7 @@
         <img class="card-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" />
         <div class="card-title">${escapeHtml(track.title)}</div>
         <div class="card-artist">${renderArtistLinks(track)}</div>
-        <button class="card-play" title="Play">
+        <button class="card-play" title="${I18n.t('player.play')}">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
       </div>
@@ -2970,7 +2940,7 @@
       <div class="quick-pick-card" data-track-id="${track.id}" draggable="true">
         <img src="${escapeHtml(track.thumbnail)}" alt="" />
         <span>${escapeHtml(track.title)}</span>
-        <button class="qp-play" title="Play">
+        <button class="qp-play" title="${I18n.t('player.play')}">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
       </div>
@@ -3050,7 +3020,7 @@
           <img class="card-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" />
           <div class="card-title">${escapeHtml(track.title)}</div>
           <div class="card-artist">${renderArtistLinks(track)}</div>
-          <button class="card-play" title="Play">
+          <button class="card-play" title="${I18n.t('player.play')}">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
         </div>
@@ -3129,7 +3099,7 @@
     ]);
 
     if (!exploreData && !chartsData) {
-      content.innerHTML = `<div class="empty-state"><p>Could not load explore data.</p></div>`;
+      content.innerHTML = `<div class="empty-state"><p>${I18n.t('explore.couldNotLoad')}</p></div>`;
       return;
     }
 
@@ -3145,11 +3115,11 @@
 
     // ── New Albums & Singles ──
     if (exploreData?.newAlbums?.length) {
-      html += `<div class="explore-section"><h2>New Albums & Singles</h2><div class="scroll-container"><button class="scroll-arrow scroll-arrow-left" data-dir="left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="album-scroll">`;
+      html += `<div class="explore-section"><h2>${I18n.t('explore.newAlbums')}</h2><div class="scroll-container"><button class="scroll-arrow scroll-arrow-left" data-dir="left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="album-scroll">`;
       html += exploreData.newAlbums.map(a => `
         <div class="album-card" data-album-id="${escapeHtml(a.albumId)}">
           <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
-          <button class="album-card-play" title="Play">
+          <button class="album-card-play" title="${I18n.t('player.play')}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
           <div class="album-card-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
@@ -3161,7 +3131,7 @@
 
     // ── Trending (from charts) ──
     if (chartsData?.topSongs?.length) {
-      html += `<div class="explore-section"><h2>Trending</h2><div class="top-songs-grid">`;
+      html += `<div class="explore-section"><h2>${I18n.t('explore.trending')}</h2><div class="top-songs-grid">`;
       html += chartsData.topSongs.map((track, i) => `
         <div class="top-song-item" data-track-id="${escapeHtml(track.id)}">
           <div class="top-song-rank">${track.rank || i + 1}</div>
@@ -3180,7 +3150,7 @@
 
     // ── Top Artists (from charts) ──
     if (chartsData?.topArtists?.length) {
-      html += `<div class="explore-section"><h2>Top Artists</h2><div class="scroll-container"><button class="scroll-arrow scroll-arrow-left" data-dir="left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="album-scroll top-artists-scroll">`;
+      html += `<div class="explore-section"><h2>${I18n.t('explore.topArtists')}</h2><div class="scroll-container"><button class="scroll-arrow scroll-arrow-left" data-dir="left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="album-scroll top-artists-scroll">`;
       html += chartsData.topArtists.map((a, i) => `
         <div class="top-artist-card" data-artist-id="${escapeHtml(a.artistId)}">
           <img class="top-artist-avatar" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
@@ -3193,11 +3163,11 @@
 
     // ── New Music Videos ──
     if (exploreData?.newMusicVideos?.length) {
-      html += `<div class="explore-section"><h2>New Music Videos</h2><div class="scroll-container"><button class="scroll-arrow scroll-arrow-left" data-dir="left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="album-scroll music-video-scroll">`;
+      html += `<div class="explore-section"><h2>${I18n.t('explore.newMusicVideos')}</h2><div class="scroll-container"><button class="scroll-arrow scroll-arrow-left" data-dir="left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="album-scroll music-video-scroll">`;
       html += exploreData.newMusicVideos.slice(0, 15).map(v => `
         <div class="video-card" data-video-id="${escapeHtml(v.id)}">
           <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
-          <button class="video-card-play" title="Watch">
+          <button class="video-card-play" title="${I18n.t('video.watch')}">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
           <div class="video-card-name" title="${escapeHtml(v.title)}">${escapeHtml(v.title)}</div>
@@ -3211,7 +3181,7 @@
     if (exploreData?.moods?.length) {
       const filteredMoods = exploreData.moods.filter(m => POPULAR_MOODS.has(m.label.toLowerCase()));
       const displayMoods = filteredMoods.length ? filteredMoods : exploreData.moods.slice(0, 16);
-      html += `<div class="explore-section" id="explore-moods-section"><h2>Moods & Genres</h2><div class="mood-grid">`;
+      html += `<div class="explore-section" id="explore-moods-section"><h2>${I18n.t('explore.moodsAndGenres')}</h2><div class="mood-grid">`;
       html += displayMoods.map((m, i) => {
         const bg = MOOD_COLORS[i % MOOD_COLORS.length];
         return `<div class="mood-card" data-browse-id="${escapeHtml(m.browseId)}" data-params="${escapeHtml(m.params || '')}" style="border-left-color:${bg}">${escapeHtml(m.label)}</div>`;
@@ -3219,7 +3189,7 @@
       html += `</div></div>`;
     }
 
-    content.innerHTML = html || `<div class="empty-state"><p>No explore data available.</p></div>`;
+    content.innerHTML = html || `<div class="empty-state"><p>${I18n.t('explore.noData')}</p></div>`;
 
     // ── Attach listeners ──
     // Country hint link
@@ -3292,12 +3262,12 @@
         const playlists = await window.snowify.browseMood(card.dataset.browseId, card.dataset.params);
         if (!playlists?.length) {
           moodsSection.innerHTML = savedHtml;
-          showToast('No playlists found for this mood');
+          showToast(I18n.t('toast.noPlaylistsForMood'));
           attachMoodListeners(moodsSection.parentElement, moods);
           return;
         }
         let moodHtml = `<h2>${escapeHtml(card.textContent)}</h2>`;
-        moodHtml += `<button class="explore-back-btn" id="explore-mood-back">← Back to Moods & Genres</button>`;
+        moodHtml += `<button class="explore-back-btn" id="explore-mood-back">${I18n.t('explore.backToMoods')}</button>`;
         moodHtml += `<div class="album-scroll">`;
         moodHtml += playlists.map(p => `
           <div class="album-card" data-playlist-id="${escapeHtml(p.playlistId)}">
@@ -3323,9 +3293,9 @@
             try {
               const vids = await window.snowify.getPlaylistVideos?.(pid);
               if (vids?.length) playFromList(vids, 0);
-              else showToast('Could not load playlist');
+              else showToast(I18n.t('toast.couldNotLoadPlaylist'));
             } catch {
-              showToast('Could not load playlist');
+              showToast(I18n.t('toast.couldNotLoadPlaylist'));
             }
           });
         });
@@ -3501,7 +3471,7 @@
     if (track.artistId) {
       return `<span class="artist-link" data-artist-id="${escapeHtml(track.artistId)}">${escapeHtml(track.artist)}</span>`;
     }
-    return escapeHtml(track.artist || 'Unknown Artist');
+    return escapeHtml(track.artist || I18n.t('common.unknownArtist'));
   }
 
   function bindArtistLinks(container) {
@@ -3521,14 +3491,14 @@
   }
 
   document.querySelector('[data-playlist="liked"]')?.addEventListener('click', () => {
-    showPlaylistDetail({ id: 'liked', name: 'Liked Songs', tracks: state.likedSongs }, true);
+    showPlaylistDetail(getLikedSongsPlaylist(), true);
   });
 
   async function showAlbumDetail(albumId, albumMeta) {
     switchView('album');
 
     const saveBtn = $('#btn-album-save');
-    setupSaveButton(saveBtn, albumId, albumMeta?.name || 'Album', []);
+    setupSaveButton(saveBtn, albumId, albumMeta?.name || I18n.t('album.type'), []);
 
     const heroName = $('#album-hero-name');
     const heroMeta = $('#album-hero-meta');
@@ -3536,23 +3506,23 @@
     const heroType = $('#album-hero-type');
     const tracksContainer = $('#album-tracks');
 
-    heroName.textContent = albumMeta?.name || 'Loading...';
+    heroName.textContent = albumMeta?.name || I18n.t('common.loading');
     heroMeta.textContent = '';
-    heroType.textContent = (albumMeta?.type || 'ALBUM').toUpperCase();
+    heroType.textContent = (albumMeta?.type || I18n.t('album.type')).toUpperCase();
     heroCover.src = albumMeta?.thumbnail || '';
     tracksContainer.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
 
     const album = await window.snowify.albumTracks(albumId);
     if (!album || !album.tracks.length) {
-      tracksContainer.innerHTML = `<div class="empty-state"><p>Could not load album tracks.</p></div>`;
+      tracksContainer.innerHTML = `<div class="empty-state"><p>${I18n.t('album.couldNotLoad')}</p></div>`;
       return;
     }
 
-    heroName.textContent = album.name || albumMeta?.name || 'Album';
+    heroName.textContent = album.name || albumMeta?.name || I18n.t('album.type');
     const parts = [];
     if (album.artist) parts.push(renderArtistLinks(album));
     if (albumMeta?.year) parts.push(escapeHtml(String(albumMeta.year)));
-    parts.push(`${album.tracks.length} song${album.tracks.length !== 1 ? 's' : ''}`);
+    parts.push(I18n.tp('sidebar.songCount', album.tracks.length));
     heroMeta.innerHTML = parts.join(' \u00B7 ');
     bindArtistLinks(heroMeta);
     if (album.thumbnail) heroCover.src = album.thumbnail;
@@ -3579,14 +3549,14 @@
       }
     };
 
-    setupSaveButton(saveBtn, albumId, album.name || albumMeta?.name || 'Album', album.tracks);
+    setupSaveButton(saveBtn, albumId, album.name || albumMeta?.name || I18n.t('album.type'), album.tracks);
   }
 
   async function showExternalPlaylistDetail(playlistId, meta) {
     switchView('album');
 
     const saveBtn = $('#btn-album-save');
-    setupSaveButton(saveBtn, playlistId, meta?.name || 'Playlist', []);
+    setupSaveButton(saveBtn, playlistId, meta?.name || I18n.t('playlist.type'), []);
 
     const heroName = $('#album-hero-name');
     const heroMeta = $('#album-hero-meta');
@@ -3594,19 +3564,19 @@
     const heroType = $('#album-hero-type');
     const tracksContainer = $('#album-tracks');
 
-    heroName.textContent = meta?.name || 'Loading...';
+    heroName.textContent = meta?.name || I18n.t('common.loading');
     heroMeta.textContent = '';
-    heroType.textContent = 'PLAYLIST';
+    heroType.textContent = I18n.t('playlist.type');
     heroCover.src = meta?.thumbnail || '';
     tracksContainer.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
 
     const tracks = await window.snowify.getPlaylistVideos(playlistId);
     if (!tracks?.length) {
-      tracksContainer.innerHTML = `<div class="empty-state"><p>Could not load playlist.</p></div>`;
+      tracksContainer.innerHTML = `<div class="empty-state"><p>${I18n.t('toast.failedLoadPlaylist')}</p></div>`;
       return;
     }
 
-    heroMeta.textContent = `${tracks.length} song${tracks.length !== 1 ? 's' : ''}`;
+    heroMeta.textContent = I18n.tp('sidebar.songCount', tracks.length);
 
     renderTrackList(tracksContainer, tracks, 'playlist');
 
@@ -3627,7 +3597,7 @@
       updatePlayAllBtn(extPlayBtn, tracks, null);
     };
 
-    setupSaveButton(saveBtn, playlistId, meta?.name || 'Imported Playlist', tracks);
+    setupSaveButton(saveBtn, playlistId, meta?.name || I18n.t('playlist.type'), tracks);
   }
 
   async function openArtistPage(artistId) {
@@ -3658,7 +3628,7 @@
     avatar.classList.add('shimmer');
     bannerEl.style.display = 'none';
     bannerImg.src = '';
-    nameEl.textContent = 'Loading...';
+    nameEl.textContent = I18n.t('common.loading');
     followersEl.textContent = '';
     descEl.textContent = '';
     tagsEl.innerHTML = '';
@@ -3677,8 +3647,8 @@
     const info = await window.snowify.artistInfo(artistId);
 
     if (!info) {
-      nameEl.textContent = 'Artist not found';
-      popularContainer.innerHTML = `<div class="empty-state"><p>Could not load artist info.</p></div>`;
+      nameEl.textContent = I18n.t('artist.notFound');
+      popularContainer.innerHTML = `<div class="empty-state"><p>${I18n.t('artist.couldNotLoad')}</p></div>`;
       return;
     }
 
@@ -3709,17 +3679,17 @@
     const followBtn = $('#btn-artist-follow');
     const isFollowed = () => state.followedArtists.some(a => a.artistId === artistId);
     const updateFollowBtn = () => {
-      followBtn.textContent = isFollowed() ? 'Following' : 'Follow';
+      followBtn.textContent = isFollowed() ? I18n.t('artist.following') : I18n.t('artist.follow');
       followBtn.classList.toggle('following', isFollowed());
     };
     updateFollowBtn();
     followBtn.onclick = () => {
       if (isFollowed()) {
         state.followedArtists = state.followedArtists.filter(a => a.artistId !== artistId);
-        showToast(`Unfollowed ${info.name}`);
+        showToast(I18n.t('toast.unfollowed', { name: info.name }));
       } else {
         state.followedArtists.push({ artistId, name: info.name, avatar: info.avatar || '' });
-        showToast(`Following ${info.name}`);
+        showToast(I18n.t('toast.following', { name: info.name }));
       }
       _cachedReleases = null;
       _lastReleaseFetch = 0;
@@ -3731,14 +3701,14 @@
     const shareBtn = $('#btn-artist-share');
     shareBtn.onclick = () => {
       navigator.clipboard.writeText(`https://music.youtube.com/channel/${artistId}`);
-      showToast('Link copied to clipboard');
+      showToast(I18n.t('toast.linkCopied'));
     };
 
     // Use topSongs for popular section
     const popular = (info.topSongs || []).slice(0, 5);
 
     if (!popular.length) {
-      popularContainer.innerHTML = `<div class="empty-state"><p>No tracks found for this artist.</p></div>`;
+      popularContainer.innerHTML = `<div class="empty-state"><p>${I18n.t('artist.noTracks')}</p></div>`;
       discographyContainer.innerHTML = '';
       return;
     }
@@ -3754,17 +3724,17 @@
     function renderDiscography(filter) {
       const items = filter === 'all' ? allReleases : allReleases.filter(a => a.type === filter);
       if (!items.length) {
-        discographyContainer.innerHTML = `<div class="empty-state"><p>No releases found.</p></div>`;
+        discographyContainer.innerHTML = `<div class="empty-state"><p>${I18n.t('artist.noReleases')}</p></div>`;
         return;
       }
       discographyContainer.innerHTML = items.map(a => `
         <div class="album-card" data-album-id="${a.albumId}">
           <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
-          <button class="album-card-play" title="Play">
+          <button class="album-card-play" title="${I18n.t('player.play')}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
           <div class="album-card-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
-          <div class="album-card-meta">${[a.year, a.type].filter(Boolean).join(' \u00B7 ')}</div>
+          <div class="album-card-meta">${[a.year, a.type === 'Album' ? I18n.t('artist.typeAlbum') : a.type === 'Single' ? I18n.t('artist.typeSingle') : a.type].filter(Boolean).join(' \u00B7 ')}</div>
         </div>
       `).join('');
 
@@ -3808,7 +3778,7 @@
       videosContainer.innerHTML = topVideos.map(v => `
         <div class="video-card" data-video-id="${escapeHtml(v.videoId)}">
           <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
-          <button class="video-card-play" title="Watch">
+          <button class="video-card-play" title="${I18n.t('video.watch')}">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
           <div class="video-card-name" title="${escapeHtml(v.name)}">${escapeHtml(v.name)}</div>
@@ -3837,7 +3807,7 @@
       liveContainer.innerHTML = livePerfs.map(v => `
         <div class="video-card" data-video-id="${escapeHtml(v.videoId)}">
           <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
-          <button class="video-card-play" title="Watch">
+          <button class="video-card-play" title="${I18n.t('video.watch')}">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
           <div class="video-card-name" title="${escapeHtml(v.name)}">${escapeHtml(v.name)}</div>
@@ -3883,7 +3853,7 @@
     }
 
     // Playlists section: merge Featured On + searchPlaylists, deduplicate
-    const featuredOn = (info.featuredOn || []).map(p => ({ ...p, subtitle: 'Featured on' }));
+    const featuredOn = (info.featuredOn || []).map(p => ({ ...p, subtitle: I18n.t('artist.featuredOn') }));
     const searched = (await searchPlaylistsPromise) || [];
 
     const seenPl = new Set();
@@ -3898,11 +3868,11 @@
       featuredContainer.innerHTML = allPlaylists.map(p => `
         <div class="album-card" data-playlist-id="${escapeHtml(p.playlistId)}">
           <img class="album-card-cover" src="${escapeHtml(p.thumbnail)}" alt="" loading="lazy" />
-          <button class="album-card-play" title="Play">
+          <button class="album-card-play" title="${I18n.t('player.play')}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
           <div class="album-card-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
-          <div class="album-card-meta">${escapeHtml(p.subtitle || 'Playlist')}</div>
+          <div class="album-card-meta">${escapeHtml(p.subtitle || I18n.t('common.playlist'))}</div>
         </div>
       `).join('');
 
@@ -3915,8 +3885,8 @@
           try {
             const tracks = await window.snowify.getPlaylistVideos(pid);
             if (tracks?.length) playFromList(tracks, 0);
-            else showToast('Could not load playlist');
-          } catch { showToast('Could not load playlist'); }
+            else showToast(I18n.t('toast.couldNotLoadPlaylist'));
+          } catch { showToast(I18n.t('toast.couldNotLoadPlaylist')); }
         });
         card.addEventListener('click', () => showExternalPlaylistDetail(pid, meta));
         card.addEventListener('contextmenu', (e) => {
@@ -3977,24 +3947,24 @@
 
     if (playlistId === 'liked') {
       if (state.likedSongs.some(t => t.id === track.id)) {
-        showToast('Already in Liked Songs');
+        showToast(I18n.t('toast.alreadyInLiked'));
         return;
       }
       state.likedSongs.push(track);
       saveState();
       updateLikedCount();
-      showToast('Added to Liked Songs');
+      showToast(I18n.t('toast.addedToLiked'));
     } else {
       const pl = state.playlists.find(p => p.id === playlistId);
       if (!pl) return;
       if (pl.tracks.some(t => t.id === track.id)) {
-        showToast(`Already in "${pl.name}"`);
+        showToast(I18n.t('toast.alreadyInPlaylist', { name: pl.name }));
         return;
       }
       pl.tracks.push(track);
       saveState();
       renderPlaylists();
-      showToast(`Added to "${pl.name}"`);
+      showToast(I18n.t('toast.addedToPlaylist', { name: pl.name }));
     }
   }
 
@@ -4052,7 +4022,7 @@
     _lyricsLines = [];
     _lastActiveLyricIdx = -1;
 
-    lyricsBody.innerHTML = '<div class="lyrics-loading"><div class="spinner"></div><p>Searching for lyrics\u2026</p></div>';
+    lyricsBody.innerHTML = `<div class="lyrics-loading"><div class="spinner"></div><p>${I18n.t('lyrics.searching')}</p></div>`;
 
     // Parse duration: try audio.duration first, then the track string "m:ss"
     let durationSec = null;
@@ -4080,7 +4050,7 @@
         startLyricsSync();
       } else if (result.plain) {
         renderPlainLyrics(result.plain);
-        showToast('Synced lyrics not available for this song');
+        showToast(I18n.t('toast.lyricsNotAvailable'));
       } else {
         showLyricsEmpty();
       }
@@ -4088,7 +4058,7 @@
     } catch (err) {
       console.error('Lyrics error:', err);
       if (_lyricsTrackId === track.id) {
-        lyricsBody.innerHTML = '<div class="lyrics-empty"><p>Failed to load lyrics</p></div>';
+        lyricsBody.innerHTML = `<div class="lyrics-empty"><p>${I18n.t('lyrics.failed')}</p></div>`;
       }
     }
   }
@@ -4096,7 +4066,7 @@
   function showLyricsEmpty() {
     lyricsBody.innerHTML = `<div class="lyrics-empty">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-subdued)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-      <p>No lyrics found for this song</p>
+      <p>${I18n.t('lyrics.notFound')}</p>
     </div>`;
   }
 
@@ -4437,13 +4407,13 @@
       } else {
         const emptyOrLoading = lyricsBody.querySelector('.lyrics-empty, .lyrics-loading');
         maxNPLyrics.innerHTML = emptyOrLoading ? emptyOrLoading.outerHTML :
-          `<div class="lyrics-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><p style="color:rgba(255,255,255,0.4)">No lyrics found</p></div>`;
+          `<div class="lyrics-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><p style="color:rgba(255,255,255,0.4)">${I18n.t('lyrics.notFound')}</p></div>`;
       }
     } else {
       // Lyrics not fetched yet — trigger fetch
       const current = state.queue[state.queueIndex];
       if (current) {
-        maxNPLyrics.innerHTML = '<div class="lyrics-loading"><div class="spinner"></div><p>Searching for lyrics\u2026</p></div>';
+        maxNPLyrics.innerHTML = `<div class="lyrics-loading"><div class="spinner"></div><p>${I18n.t('lyrics.searching')}</p></div>`;
         fetchMaxNPLyrics(current);
       }
     }
@@ -4463,7 +4433,7 @@
     _lyricsLines = [];
     _lastActiveLyricIdx = -1;
 
-    maxNPLyrics.innerHTML = '<div class="lyrics-loading"><div class="spinner"></div><p>Searching for lyrics\u2026</p></div>';
+    maxNPLyrics.innerHTML = `<div class="lyrics-loading"><div class="spinner"></div><p>${I18n.t('lyrics.searching')}</p></div>`;
 
     let durationSec = null;
     if (audio.duration && !isNaN(audio.duration) && audio.duration > 0) {
@@ -4478,7 +4448,7 @@
       if (_lyricsTrackId !== track.id) return;
 
       if (!result) {
-        maxNPLyrics.innerHTML = `<div class="lyrics-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><p style="color:rgba(255,255,255,0.4)">No lyrics found</p></div>`;
+        maxNPLyrics.innerHTML = `<div class="lyrics-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><p style="color:rgba(255,255,255,0.4)">${I18n.t('lyrics.notFound')}</p></div>`;
         return;
       }
 
@@ -4498,11 +4468,11 @@
         // Also update the regular lyrics panel if open
         if (_lyricsVisible) renderPlainLyrics(result.plain);
       } else {
-        maxNPLyrics.innerHTML = `<div class="lyrics-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><p style="color:rgba(255,255,255,0.4)">No lyrics found</p></div>`;
+        maxNPLyrics.innerHTML = `<div class="lyrics-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><p style="color:rgba(255,255,255,0.4)">${I18n.t('lyrics.notFound')}</p></div>`;
       }
     } catch (err) {
       console.error('Max NP lyrics error:', err);
-      maxNPLyrics.innerHTML = '<div class="lyrics-empty"><p style="color:rgba(255,255,255,0.4)">Failed to load lyrics</p></div>';
+      maxNPLyrics.innerHTML = `<div class="lyrics-empty"><p style="color:rgba(255,255,255,0.4)">${I18n.t('lyrics.failed')}</p></div>`;
     }
   }
 
@@ -4646,13 +4616,13 @@
     const playlistSection = buildPlaylistSectionHtml();
 
     menu.innerHTML = `
-      <div class="context-menu-item" data-action="start-radio">Start Radio</div>
-      <div class="context-menu-item" data-action="watch-video">Watch Video</div>
-      <div class="context-menu-item" data-action="like">${isLiked ? 'Unlike' : 'Like'}</div>
+      <div class="context-menu-item" data-action="start-radio">${I18n.t('context.startRadio')}</div>
+      <div class="context-menu-item" data-action="watch-video">${I18n.t('context.watchVideo')}</div>
+      <div class="context-menu-item" data-action="like">${isLiked ? I18n.t('context.unlike') : I18n.t('context.like')}</div>
       ${playlistSection}
-      ${track.artistId ? '<div class="context-menu-divider"></div><div class="context-menu-item" data-action="go-to-artist">Go to Artist</div>' : ''}
+      ${track.artistId ? `<div class="context-menu-divider"></div><div class="context-menu-item" data-action="go-to-artist">${I18n.t('context.goToArtist')}</div>` : ''}
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="share">Copy Link</div>
+      <div class="context-menu-item" data-action="share">${I18n.t('context.copyLink')}</div>
     `;
 
     positionContextMenu(menu);
@@ -4663,26 +4633,7 @@
       const action = item.dataset.action;
       if (action === 'none') return;
       switch (action) {
-        case 'start-radio': {
-          const upNexts = await window.snowify.getUpNexts(track.id);
-          if (upNexts.length) {
-            const alreadyPlaying = state.isPlaying && state.queue[state.queueIndex]?.id === track.id;
-            if (alreadyPlaying) {
-              const remaining = upNexts.filter(t => t.id !== track.id);
-              state.queue = [track, ...remaining];
-              state.originalQueue = [...state.queue];
-              state.queueIndex = 0;
-              renderQueue();
-              showToast('Radio started');
-            } else {
-              playFromList([track, ...upNexts.filter(t => t.id !== track.id)], 0);
-              showToast('Radio started');
-            }
-          } else {
-            showToast('Could not start radio');
-          }
-          break;
-        }
+        case 'start-radio': await startRadio(track); break;
         case 'watch-video':
           openVideoPlayer(track.id, track.title, track.artist);
           break;
@@ -4695,7 +4646,7 @@
           break;
         case 'share':
           navigator.clipboard.writeText(track.url || `https://music.youtube.com/watch?v=${track.id}`);
-          showToast('Link copied to clipboard');
+          showToast(I18n.t('toast.linkCopied'));
           break;
       }
       removeContextMenu();
@@ -4931,7 +4882,7 @@
     resetVideoOverlayPosition();
 
     _currentVideoId = videoId;
-    videoTitle.textContent = name || 'Music Video';
+    videoTitle.textContent = name || I18n.t('video.musicVideo');
     videoArtist.textContent = artist || '';
     videoPlayer.src = '';
     videoPlayer.poster = '';
@@ -4992,7 +4943,7 @@
     } catch (err) {
       console.error('Video playback error:', err);
       videoLoading.classList.add('hidden');
-      showToast('Failed to load video');
+      showToast(I18n.t('toast.failedLoadVideo'));
       closeVideoPlayer();
     }
   }
@@ -5127,16 +5078,16 @@
     const playlistSection = buildPlaylistSectionHtml(track);
 
     menu.innerHTML = `
-      <div class="context-menu-item" data-action="watch-video">Play Video</div>
-      <div class="context-menu-item" data-action="play-audio">Play as Audio</div>
+      <div class="context-menu-item" data-action="watch-video">${I18n.t('context.playVideo')}</div>
+      <div class="context-menu-item" data-action="play-audio">${I18n.t('context.playAudio')}</div>
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="play-next">Play Next</div>
-      <div class="context-menu-item" data-action="add-queue">Add to Queue</div>
+      <div class="context-menu-item" data-action="play-next">${I18n.t('context.playNext')}</div>
+      <div class="context-menu-item" data-action="add-queue">${I18n.t('context.addToQueue')}</div>
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="start-radio">Start Radio</div>
+      <div class="context-menu-item" data-action="start-radio">${I18n.t('context.startRadio')}</div>
       ${playlistSection}
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="share">Copy Link</div>
+      <div class="context-menu-item" data-action="share">${I18n.t('context.copyLink')}</div>
     `;
 
     positionContextMenu(menu);
@@ -5162,19 +5113,10 @@
         case 'toggle-playlist':
           handleTogglePlaylist(item.dataset.pid, track);
           break;
-        case 'start-radio': {
-          const upNexts = await window.snowify.getUpNexts(track.id);
-          if (upNexts.length) {
-            playFromList([track, ...upNexts.filter(t => t.id !== track.id)], 0);
-            showToast('Radio started');
-          } else {
-            showToast('Could not start radio');
-          }
-          break;
-        }
+        case 'start-radio': await startRadio(track); break;
         case 'share':
           navigator.clipboard.writeText(`https://music.youtube.com/watch?v=${v.id}`);
-          showToast('Link copied to clipboard');
+          showToast(I18n.t('toast.linkCopied'));
           break;
       }
       removeContextMenu();
@@ -5185,7 +5127,10 @@
     }, 10);
   }
 
-  function init() {
+  async function init() {
+    const systemLocale = await window.snowify.getLocale();
+    await I18n.init(systemLocale);
+
     loadState();
 
     // Show welcome screen on first launch (no account, never skipped)
@@ -5251,25 +5196,25 @@
       clearError();
       const email = emailInput.value.trim();
       const password = passInput.value;
-      if (!email || !password) { showError('Please enter email and password'); return; }
+      if (!email || !password) { showError(I18n.t('welcome.enterEmailPassword')); return; }
       const result = await window.snowify.signInWithEmail(email, password);
       if (result?.error) { showError(result.error); return; }
       localStorage.setItem('snowify_welcome_skipped', '1');
       dismissWelcome();
-      showToast('Signed in successfully');
+      showToast(I18n.t('toast.signedIn'));
     });
 
     $('#btn-welcome-sign-up').addEventListener('click', async () => {
       clearError();
       const email = emailInput.value.trim();
       const password = passInput.value;
-      if (!email || !password) { showError('Please enter email and password'); return; }
-      if (password.length < 6) { showError('Password must be at least 6 characters'); return; }
+      if (!email || !password) { showError(I18n.t('welcome.enterEmailPassword')); return; }
+      if (password.length < 6) { showError(I18n.t('welcome.passwordMinLength')); return; }
       const result = await window.snowify.signUpWithEmail(email, password);
       if (result?.error) { showError(result.error); return; }
       localStorage.setItem('snowify_welcome_skipped', '1');
       dismissWelcome();
-      showToast('Account created & signed in');
+      showToast(I18n.t('toast.accountCreated'));
     });
 
     $('#btn-welcome-skip').addEventListener('click', () => {
@@ -5322,7 +5267,7 @@
       };
       const result = await window.snowify.cloudSave(data);
       if (result?.error) console.error('Cloud save failed:', result.error);
-      else updateSyncStatus('Synced just now');
+      else updateSyncStatus(I18n.t('sync.syncedJustNow'));
     }, 3000);
   }
 
@@ -5387,7 +5332,7 @@
       if (cff && cfvl) {
         const v = state.crossfade > 0 ? state.crossfade : 5;
         cff.style.width = ((v - 1) / (engine.CROSSFADE_MAX - 1) * 100) + '%';
-        cfvl.textContent = v + 's';
+        cfvl.textContent = I18n.t('settings.seconds', { value: v });
       }
       const nt = $('#setting-normalization'); if (nt) nt.checked = state.normalization;
       const ntr = $('#normalization-target-row'); if (ntr) ntr.classList.toggle('hidden', !state.normalization);
@@ -5397,7 +5342,7 @@
       document.documentElement.classList.toggle('no-effects', !state.effects);
       engine.applyVolume(state.volume);
       audio.volume = state.volume * VOLUME_SCALE;
-      showToast('Synced from cloud');
+      showToast(I18n.t('toast.syncedFromCloud'));
       return true;
     }
     return false;
@@ -5418,7 +5363,7 @@
       const avatar = $('#profile-avatar');
       const nameEl = $('#profile-display-name');
       const emailEl = $('#profile-email');
-      nameEl.textContent = user.displayName || 'User';
+      nameEl.textContent = user.displayName || I18n.t('common.user');
       emailEl.textContent = user.email || '';
       // Default avatar: first letter of name on accent background
       if (user.photoURL) {
@@ -5426,7 +5371,7 @@
       } else {
         avatar.src = generateDefaultAvatar(user.displayName || user.email || 'U');
       }
-      updateSyncStatus('Connected');
+      updateSyncStatus(I18n.t('sync.connected'));
     } else {
       signedOut.classList.remove('hidden');
       signedIn.classList.add('hidden');
@@ -5495,7 +5440,7 @@
     };
     const result = await window.snowify.cloudSave(data);
     if (result?.error) console.error('Cloud save failed:', result.error);
-    else updateSyncStatus('Synced just now');
+    else updateSyncStatus(I18n.t('sync.syncedJustNow'));
   }
 
   // Flush any pending saves before the window closes
@@ -5539,8 +5484,8 @@
 
     function resetModal() {
       startBtn.disabled = true;
-      startBtn.textContent = 'Import';
-      $('#spotify-modal-title').textContent = 'Import Spotify Playlists';
+      startBtn.textContent = I18n.t('spotify.import');
+      $('#spotify-modal-title').textContent = I18n.t('spotify.title');
       $('#spotify-done-buttons').style.display = 'none';
       pendingPlaylists = null;
     }
@@ -5570,14 +5515,14 @@
 
     startBtn.onclick = async () => {
       if (!pendingPlaylists || !pendingPlaylists.length) {
-        errorEl.textContent = 'Please select at least one CSV file';
+        errorEl.textContent = I18n.t('spotify.selectAtLeastOne');
         errorEl.classList.remove('hidden');
         return;
       }
 
       errorEl.classList.add('hidden');
       startBtn.disabled = true;
-      startBtn.textContent = 'Importing...';
+      startBtn.textContent = I18n.t('spotify.importing');
 
       // Switch to progress view
       stepSelect.classList.add('hidden');
@@ -5598,14 +5543,14 @@
         const pl = pendingPlaylists[pi];
 
         if (pendingPlaylists.length > 1) {
-          $('#spotify-modal-title').textContent = `Importing ${pi + 1} of ${pendingPlaylists.length}: ${pl.name}`;
+          $('#spotify-modal-title').textContent = I18n.t('spotify.importingProgress', { current: pi + 1, total: pendingPlaylists.length, name: pl.name });
         } else {
           $('#spotify-modal-title').textContent = pl.name;
         }
 
         progressFill.style.width = '0%';
         progressCount.textContent = '';
-        progressText.textContent = 'Matching tracks...';
+        progressText.textContent = I18n.t('spotify.matching');
         trackList.innerHTML = '';
 
         const total = pl.tracks.length;
@@ -5668,8 +5613,8 @@
           progressCount.textContent = `${done} / ${total}`;
           progressFill.style.width = `${(done / total) * 100}%`;
           progressText.textContent = pendingPlaylists.length > 1
-            ? `Playlist ${pi + 1}/${pendingPlaylists.length} — Matching tracks...`
-            : 'Matching tracks...';
+            ? I18n.t('spotify.matchingPlaylist', { current: pi + 1, total: pendingPlaylists.length })
+            : I18n.t('spotify.matching');
 
           const lastEl = $(`#sp-track-${Math.min(i + BATCH_SIZE, total) - 1}`);
           lastEl?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -5698,30 +5643,30 @@
         }
 
         allFailedTracks.push(...failedTracks);
-        progressText.textContent = `Matched ${matched} of ${total}` + (failed ? ` (${failed} not found)` : '');
+        progressText.textContent = I18n.t('spotify.matchedOf', { matched, total }) + (failed ? ` (${I18n.t('spotify.notFound', { count: failed })})` : '');
       }
 
       if (cancelled) {
-        showToast('Import cancelled');
+        showToast(I18n.t('toast.importCancelled'));
         return;
       }
 
       // Final summary
       if (pendingPlaylists.length > 1) {
-        $('#spotify-modal-title').textContent = 'Import Complete';
-        progressText.textContent = `Imported ${totalPlaylists} playlist${totalPlaylists !== 1 ? 's' : ''} — ${totalImported} tracks total`;
+        $('#spotify-modal-title').textContent = I18n.t('spotify.importComplete');
+        progressText.textContent = I18n.t('toast.importedPlaylists', { playlistCount: totalPlaylists, trackCount: totalImported });
         progressFill.style.width = '100%';
         progressCount.textContent = '';
-        showToast(`Imported ${totalPlaylists} playlist${totalPlaylists !== 1 ? 's' : ''} — ${totalImported} tracks`);
+        showToast(I18n.t('toast.importedPlaylists', { playlistCount: totalPlaylists, trackCount: totalImported }));
       } else if (totalPlaylists) {
-        showToast(`Imported ${totalImported} tracks`);
+        showToast(I18n.t('toast.importedTracks', { count: totalImported }));
       } else {
-        showToast('No tracks could be matched');
+        showToast(I18n.t('toast.noTracksMatched'));
       }
 
       // Show failed tracks summary
       if (allFailedTracks.length) {
-        trackList.innerHTML = `<div class="spotify-failed-header">Failed to match (${allFailedTracks.length})</div>` +
+        trackList.innerHTML = `<div class="spotify-failed-header">${I18n.t('spotify.failedToMatch', { count: allFailedTracks.length })}</div>` +
           allFailedTracks.map(t =>
             `<div class="spotify-track-item unmatched"><span class="spotify-track-status"><svg class="cross" width="16" height="16" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></span><span class="spotify-track-title">${escapeHtml(t.title)}</span><span class="spotify-track-artist">${escapeHtml(t.artist)}</span></div>`
           ).join('');
@@ -5817,7 +5762,7 @@
           state.theme = newVal;
           applyTheme(state.theme);
           saveState();
-          showToast(`Added ${added.length} theme${added.length > 1 ? 's' : ''}`);
+          showToast(I18n.tp('toast.themeAdded', added.length));
         }
       };
     }
@@ -5829,14 +5774,14 @@
           const css = await window.snowify.reloadTheme(id);
           if (css) {
             applyCustomThemeCss(css);
-            showToast('Theme reloaded');
+            showToast(I18n.t('toast.themeReloaded'));
           } else {
-            showToast('Theme file not found');
+            showToast(I18n.t('toast.themeNotFound'));
           }
         } else {
           // Rescan folder in case files were added externally
           await populateCustomThemes(themeSelect, state.theme);
-          showToast('Theme list refreshed');
+          showToast(I18n.t('toast.themeListRefreshed'));
         }
       };
     }
@@ -5848,11 +5793,11 @@
     if (btnRemoveTheme) {
       btnRemoveTheme.onclick = async () => {
         if (!isCustomTheme(state.theme)) {
-          showToast('Select a custom theme first');
+          showToast(I18n.t('toast.selectCustomTheme'));
           return;
         }
         const id = customThemeId(state.theme);
-        if (!confirm(`Remove theme "${id}"?`)) return;
+        if (!confirm(I18n.t('settings.confirmRemoveTheme', { id }))) return;
         await window.snowify.removeTheme(id);
         removeCustomThemeCss();
         state.theme = 'dark';
@@ -5860,7 +5805,7 @@
         applyTheme(state.theme);
         saveState();
         await populateCustomThemes(themeSelect, state.theme);
-        showToast('Theme removed');
+        showToast(I18n.t('toast.themeRemoved'));
       };
     }
 
@@ -5875,7 +5820,7 @@
       if (state.discordRpc) {
         const ok = await window.snowify.connectDiscord();
         if (!ok) {
-          showToast('Could not connect to Discord — is it running?');
+          showToast(I18n.t('toast.discordError'));
           state.discordRpc = false;
           discordRpcToggle.checked = false;
           saveState();
@@ -5899,7 +5844,7 @@
       _cfValue = Math.max(1, Math.min(engine.CROSSFADE_MAX, val));
       const pct = ((_cfValue - 1) / (engine.CROSSFADE_MAX - 1)) * 100;
       crossfadeFill.style.width = pct + '%';
-      crossfadeValueLabel.textContent = _cfValue + 's';
+      crossfadeValueLabel.textContent = I18n.t('settings.seconds', { value: _cfValue });
     }
 
     function setCrossfadeFromPointer(e) {
@@ -5923,7 +5868,7 @@
 
     setupSliderTooltip(crossfadeSlider, (pct) => {
       const val = Math.round(1 + pct * (engine.CROSSFADE_MAX - 1));
-      return val + 's';
+      return I18n.t('settings.seconds', { value: val });
     });
 
     crossfadeToggle.addEventListener('change', () => {
@@ -5952,7 +5897,7 @@
       normTargetRow.classList.toggle('hidden', !state.normalization);
       if (state.normalization) {
         await normalizer.initAudioContext();
-        if (!normalizer.isWorkletReady()) showToast('Loudness normalization failed to initialize');
+        if (!normalizer.isWorkletReady()) showToast(I18n.t('toast.normalizationFailed'));
         normalizer.setTarget(state.normalizationTarget);
         // Analyze current track if playing
         const track = state.queue[state.queueIndex];
@@ -6006,28 +5951,28 @@
       _exploreCacheTime = 0;
       _chartsCacheTime = 0;
       saveState();
-      showToast(state.country ? `Explore region set to ${countrySelect.options[countrySelect.selectedIndex].text}` : 'Explore region cleared');
+      showToast(state.country ? I18n.t('toast.exploreRegionSet', { region: countrySelect.options[countrySelect.selectedIndex].text }) : I18n.t('toast.exploreRegionCleared'));
     });
 
     $('#setting-clear-history').addEventListener('click', () => {
-      if (confirm('Clear play history?')) {
+      if (confirm(I18n.t('settings.confirmClearHistory'))) {
         state.recentTracks = [];
         saveState();
         renderHome();
-        showToast('Play history cleared');
+        showToast(I18n.t('toast.historyCleared'));
       }
     });
 
     $('#setting-clear-search-history').addEventListener('click', () => {
-      if (confirm('Clear search history?')) {
+      if (confirm(I18n.t('settings.confirmClearSearchHistory'))) {
         state.searchHistory = [];
         saveState();
-        showToast('Search history cleared');
+        showToast(I18n.t('toast.searchHistoryCleared'));
       }
     });
 
     $('#setting-reset-all').addEventListener('click', () => {
-      if (confirm('Reset ALL data? This will delete all playlists, liked songs, and settings.')) {
+      if (confirm(I18n.t('settings.confirmResetAll'))) {
         localStorage.removeItem('snowify_state');
         location.reload();
       }
@@ -6113,9 +6058,9 @@
       const meta = $('#changelog-meta');
       const title = $('#changelog-title');
 
-      body.innerHTML = '<div class="changelog-loading"><div class="spinner"></div><p>Loading changelog...</p></div>';
+      body.innerHTML = `<div class="changelog-loading"><div class="spinner"></div><p>${I18n.t('changelog.loading')}</p></div>`;
       meta.textContent = '';
-      title.textContent = "What's New";
+      title.textContent = I18n.t('changelog.title');
       modal.classList.remove('hidden');
 
       // Multi-version mode: fetch releases between sinceVersion and version
@@ -6132,10 +6077,10 @@
         }
 
         title.textContent = missed.length === 1
-          ? (missed[0].name || `What's New in v${version}`)
-          : "What's New";
+          ? (missed[0].name || I18n.t('changelog.whatsNewVersion', { version }))
+          : I18n.t('changelog.title');
         meta.textContent = missed.length > 1
-          ? `${missed.length} updates since v${sinceVersion}`
+          ? I18n.t('changelog.updatesSince', { count: missed.length, version: sinceVersion })
           : '';
 
         let html = '';
@@ -6157,10 +6102,10 @@
         // Single version — set proper title/meta
         if (missed.length === 1) {
           const rel = missed[0];
-          title.textContent = rel.name || `What's New in v${rel.version}`;
+          title.textContent = rel.name || I18n.t('changelog.whatsNewVersion', { version: rel.version });
           if (rel.date) {
             const d = new Date(rel.date);
-            meta.textContent = `Released ${d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}`;
+            meta.textContent = I18n.t('changelog.released', { date: d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) });
           }
         }
       } else {
@@ -6168,15 +6113,15 @@
         const data = await window.snowify.getChangelog(version);
 
         if (!data || !data.body) {
-          body.innerHTML = '<div class="changelog-empty"><p>No changelog available for this version.</p></div>';
+          body.innerHTML = `<div class="changelog-empty"><p>${I18n.t('changelog.noChangelog')}</p></div>`;
           meta.textContent = `v${version}`;
           return;
         }
 
-        title.textContent = data.name || `What's New in v${data.version}`;
+        title.textContent = data.name || I18n.t('changelog.whatsNewVersion', { version: data.version });
         if (data.date) {
           const d = new Date(data.date);
-          meta.textContent = `Released ${d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}`;
+          meta.textContent = I18n.t('changelog.released', { date: d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) });
         }
         body.innerHTML = renderMarkdown(data.body);
       }
@@ -6234,21 +6179,21 @@
 
     btnCheckUpdate.addEventListener('click', async () => {
       btnCheckUpdate.disabled = true;
-      btnCheckUpdate.textContent = 'Checking...';
+      btnCheckUpdate.textContent = I18n.t('settings.checking');
       updateStatusRow.style.display = '';
-      updateStatusLabel.textContent = 'Checking for updates...';
+      updateStatusLabel.textContent = I18n.t('update.checking');
       updateStatusDesc.textContent = '';
       btnInstallUpdate.style.display = 'none';
       await window.snowify.checkForUpdates();
       setTimeout(() => {
         btnCheckUpdate.disabled = false;
-        btnCheckUpdate.textContent = 'Check for updates';
+        btnCheckUpdate.textContent = I18n.t('settings.checkUpdates');
       }, 3000);
     });
 
     btnInstallUpdate.addEventListener('click', () => {
       btnInstallUpdate.disabled = true;
-      btnInstallUpdate.textContent = 'Downloading...';
+      btnInstallUpdate.textContent = I18n.t('settings.downloading');
       window.snowify.installUpdate();
     });
 
@@ -6256,48 +6201,48 @@
       updateStatusRow.style.display = '';
       switch (data.status) {
         case 'checking':
-          updateStatusLabel.textContent = 'Checking for updates...';
+          updateStatusLabel.textContent = I18n.t('update.checking');
           updateStatusDesc.textContent = '';
           btnInstallUpdate.style.display = 'none';
           break;
         case 'available':
-          updateStatusLabel.textContent = `Update available: v${data.version}`;
-          updateStatusDesc.textContent = 'A new version is ready to download.';
+          updateStatusLabel.textContent = I18n.t('update.available', { version: data.version });
+          updateStatusDesc.textContent = I18n.t('update.availableDesc');
           btnInstallUpdate.style.display = '';
           btnInstallUpdate.disabled = false;
-          btnInstallUpdate.textContent = 'Download & Install';
-          showToast(`Update v${data.version} available`);
+          btnInstallUpdate.textContent = I18n.t('settings.downloadInstall');
+          showToast(I18n.t('toast.updateAvailable', { version: data.version }));
           break;
         case 'up-to-date':
-          updateStatusLabel.textContent = 'You\u2019re up to date!';
+          updateStatusLabel.textContent = I18n.t('update.upToDate');
           updateStatusDesc.textContent = '';
           btnInstallUpdate.style.display = 'none';
           break;
         case 'downloading':
-          updateStatusLabel.textContent = `Downloading update... ${data.percent}%`;
+          updateStatusLabel.textContent = I18n.t('update.downloading', { percent: data.percent });
           updateStatusDesc.textContent = '';
           btnInstallUpdate.style.display = 'none';
           break;
         case 'downloaded':
-          updateStatusLabel.textContent = `Update v${data.version} downloaded`;
-          updateStatusDesc.textContent = 'Restart now to apply the update.';
+          updateStatusLabel.textContent = I18n.t('update.downloaded', { version: data.version });
+          updateStatusDesc.textContent = I18n.t('update.downloadedDesc');
           btnInstallUpdate.style.display = '';
           btnInstallUpdate.disabled = false;
-          btnInstallUpdate.textContent = 'Restart & Update';
+          btnInstallUpdate.textContent = I18n.t('settings.restartUpdate');
           btnInstallUpdate.onclick = () => {
             // electron-updater quitAndInstall
             window.snowify.installUpdate();
           };
-          showToast('Update downloaded — restart to apply');
+          showToast(I18n.t('toast.updateDownloaded'));
           break;
         case 'error': {
-          updateStatusLabel.textContent = 'Update check failed';
+          updateStatusLabel.textContent = I18n.t('update.error');
           // Show a clean, short message
           let errMsg = data.message || '';
           if (errMsg.includes('latest.yml') || errMsg.includes('latest-linux.yml')) {
-            errMsg = 'No update metadata found in the latest release. Ensure the release was built with "npm run publish".';
+            errMsg = I18n.t('update.errorNoMetadata');
           } else if (errMsg.includes('net::') || errMsg.includes('ENOTFOUND')) {
-            errMsg = 'Could not reach update server. Check your internet connection.';
+            errMsg = I18n.t('update.errorNoConnection');
           } else if (errMsg.length > 120) {
             errMsg = errMsg.slice(0, 120) + '…';
           }
@@ -6315,7 +6260,7 @@
       const errorEl = $('#auth-error');
       errorEl.classList.add('hidden');
       if (!email || !password) {
-        errorEl.textContent = 'Please enter email and password';
+        errorEl.textContent = I18n.t('welcome.enterEmailPassword');
         errorEl.classList.remove('hidden');
         return;
       }
@@ -6324,7 +6269,7 @@
         errorEl.textContent = result.error;
         errorEl.classList.remove('hidden');
       } else {
-        showToast('Signed in successfully');
+        showToast(I18n.t('toast.signedIn'));
       }
     });
 
@@ -6334,12 +6279,12 @@
       const errorEl = $('#auth-error');
       errorEl.classList.add('hidden');
       if (!email || !password) {
-        errorEl.textContent = 'Please enter email and password';
+        errorEl.textContent = I18n.t('welcome.enterEmailPassword');
         errorEl.classList.remove('hidden');
         return;
       }
       if (password.length < 6) {
-        errorEl.textContent = 'Password must be at least 6 characters';
+        errorEl.textContent = I18n.t('welcome.passwordMinLength');
         errorEl.classList.remove('hidden');
         return;
       }
@@ -6348,20 +6293,20 @@
         errorEl.textContent = result.error;
         errorEl.classList.remove('hidden');
       } else {
-        showToast('Account created & signed in');
+        showToast(I18n.t('toast.accountCreated'));
       }
     });
 
     $('#btn-sign-out').addEventListener('click', async () => {
       await window.snowify.authSignOut();
-      showToast('Signed out');
+      showToast(I18n.t('toast.signedOut'));
     });
 
     $('#btn-sync-now').addEventListener('click', async () => {
-      updateSyncStatus('Syncing...');
+      updateSyncStatus(I18n.t('sync.syncing'));
       await cloudLoadAndMerge({ forceCloud: true });
       await forceCloudSave();
-      updateSyncStatus('Synced just now');
+      updateSyncStatus(I18n.t('sync.syncedJustNow'));
     });
 
     // ── Profile editing ──
@@ -6384,12 +6329,12 @@
       if (!name) return;
       const result = await window.snowify.updateProfile({ displayName: name });
       if (result?.error) {
-        showToast('Failed to update name');
+        showToast(I18n.t('toast.failedUpdateName'));
       } else {
         $('#profile-display-name').textContent = name;
         $('#profile-avatar').src = result.photoURL || generateDefaultAvatar(name);
         $('#profile-edit-name-row').classList.add('hidden');
-        showToast('Display name updated');
+        showToast(I18n.t('toast.nameUpdated'));
       }
     });
 
@@ -6403,10 +6348,10 @@
       if (!filePath) return;
       try {
         const dataUrl = await window.snowify.readImage(filePath);
-        if (!dataUrl) { showToast('Failed to load image'); return; }
+        if (!dataUrl) { showToast(I18n.t('toast.failedLoadImage')); return; }
         // Resize to 128×128 to keep the data URL small for Firebase
         const img = new Image();
-        img.onerror = () => showToast('Failed to load image');
+        img.onerror = () => showToast(I18n.t('toast.failedLoadImage'));
         img.onload = async () => {
           try {
             const canvas = document.createElement('canvas');
@@ -6421,18 +6366,34 @@
             const resized = canvas.toDataURL('image/jpeg', 0.5);
             const updateResult = await window.snowify.updateProfile({ photoURL: resized });
             if (updateResult?.error) {
-              showToast('Failed to update avatar: ' + updateResult.error);
+              showToast(I18n.t('toast.failedUpdateAvatarMsg', { error: updateResult.error }));
             } else {
               $('#profile-avatar').src = resized;
-              showToast('Profile picture updated');
+              showToast(I18n.t('toast.avatarUpdated'));
             }
           } catch (err) {
-            showToast('Failed to update avatar');
+            showToast(I18n.t('toast.failedUpdateAvatar'));
           }
         };
         img.src = dataUrl;
       } catch (_) {
-        showToast('Failed to load image');
+        showToast(I18n.t('toast.failedLoadImage'));
+      }
+    });
+
+    // ─── Language ───
+    const langSelect = $('#setting-language');
+    langSelect.value = localStorage.getItem('snowify_locale') || 'auto';
+    langSelect.addEventListener('change', async () => {
+      const val = langSelect.value;
+      if (val === 'auto') {
+        localStorage.removeItem('snowify_locale');
+        const systemLocale = await window.snowify.getLocale();
+        await I18n.init(systemLocale);
+        window.snowify.setLocale(systemLocale);
+      } else {
+        await I18n.changeLanguage(val);
+        window.snowify.setLocale(val);
       }
     });
 
@@ -6440,6 +6401,20 @@
     const user = await window.snowify.getUser();
     if (user) updateAccountUI(user);
   }
+
+  I18n.onChange(() => {
+    updateGreeting();
+    renderPlaylists();
+    renderHome();
+    renderQueue();
+    const view = state.currentView;
+    if (view === 'settings') {
+      _settingsInitialized = false;
+      initSettings();
+    }
+    if (view === 'library') renderLibrary();
+    if (view === 'explore') renderExplore();
+  });
 
   init();
 })();

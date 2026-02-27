@@ -7,6 +7,25 @@ const { autoUpdater } = require('electron-updater');
 
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 
+// ─── i18n for main process dialogs ───
+const _mainTranslations = {};
+function loadMainTranslations(overrideLocale) {
+  const supported = ['en','es','pt','fr','de','ja','ko','zh','it','tr','ru','hi'];
+  const lang = (overrideLocale || app.getLocale()).split('-')[0].toLowerCase();
+  const locale = supported.includes(lang) ? lang : 'en';
+  const filePath = path.join(__dirname, 'locales', locale + '.json');
+  try {
+    _mainTranslations.data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+  } catch {
+    _mainTranslations.data = JSON.parse(fs.readFileSync(path.join(__dirname, 'locales', 'en.json'), 'utf-8'));
+  }
+}
+function mt(key, params) {
+  let str = _mainTranslations.data?.[key] ?? key;
+  if (params) for (const [k, v] of Object.entries(params)) str = str.replaceAll('{{' + k + '}}', v);
+  return str;
+}
+
 let mainWindow;
 let ytmusic;
 let _currentCountry = '';
@@ -124,9 +143,9 @@ const thumbIcons = process.platform === 'win32' ? {
 function updateThumbarButtons(isPlaying) {
   if (process.platform !== 'win32' || !mainWindow) return;
   mainWindow.setThumbarButtons([
-    { tooltip: 'Previous', icon: thumbIcons.prev, click: () => mainWindow.webContents.send('thumbar:prev') },
-    { tooltip: isPlaying ? 'Pause' : 'Play', icon: isPlaying ? thumbIcons.pause : thumbIcons.play, click: () => mainWindow.webContents.send('thumbar:playPause') },
-    { tooltip: 'Next', icon: thumbIcons.next, click: () => mainWindow.webContents.send('thumbar:next') }
+    { tooltip: mt('player.previous'), icon: thumbIcons.prev, click: () => mainWindow.webContents.send('thumbar:prev') },
+    { tooltip: mt(isPlaying ? 'player.pause' : 'player.play'), icon: isPlaying ? thumbIcons.pause : thumbIcons.play, click: () => mainWindow.webContents.send('thumbar:playPause') },
+    { tooltip: mt('player.next'), icon: thumbIcons.next, click: () => mainWindow.webContents.send('thumbar:next') }
   ]);
 }
 
@@ -357,16 +376,17 @@ async function checkMacYtDlp() {
   .done { color: #aa55e6; }
   .fail { color: #e74c3c; }
 </style></head><body>
-  <h2><span class="spinner" id="spinner"></span>Installing yt-dlp...</h2>
-  <p class="status" id="status">Running brew install yt-dlp — this may take a minute.</p>
-  <button class="log-toggle" id="logBtn" onclick="toggleLogs()">Show Logs</button>
+  <h2><span class="spinner" id="spinner"></span>${mt('dialog.installingYtdlp')}</h2>
+  <p class="status" id="status">${mt('dialog.brewRunning')}</p>
+  <button class="log-toggle" id="logBtn" onclick="toggleLogs()">${mt('dialog.showLogs')}</button>
   <div class="log-area" id="logs"></div>
   <script>
+    const _i18n = { hideLogs: '${mt('dialog.hideLogs').replace(/'/g, "\\'")}', showLogs: '${mt('dialog.showLogs').replace(/'/g, "\\'")}' };
     function toggleLogs() {
       const el = document.getElementById('logs');
       const btn = document.getElementById('logBtn');
       const visible = el.classList.toggle('visible');
-      btn.textContent = visible ? 'Hide Logs' : 'Show Logs';
+      btn.textContent = visible ? _i18n.hideLogs : _i18n.showLogs;
     }
     function addLog(text) {
       const el = document.getElementById('logs');
@@ -402,7 +422,7 @@ async function checkMacYtDlp() {
         child.on('close', (code) => {
           clearTimeout(timeout);
           const ok = verifyYtDlp();
-          const msg = ok ? 'yt-dlp installed successfully!' : `Installation failed (exit code ${code}). Try manually: brew install yt-dlp`;
+          const msg = ok ? mt('dialog.ytdlpInstalled') : mt('dialog.ytdlpInstallFailed', { code });
           try { progressWin.webContents.executeJavaScript(`setDone(${ok}, '${msg.replace(/'/g, "\\'")}')`); } catch (_) {}
           // Keep the window open briefly so user can see the result
           setTimeout(() => {
@@ -413,7 +433,7 @@ async function checkMacYtDlp() {
 
         child.on('error', () => {
           clearTimeout(timeout);
-          try { progressWin.webContents.executeJavaScript(`setDone(false, 'Failed to run brew. Try manually: brew install yt-dlp')`); } catch (_) {}
+          try { progressWin.webContents.executeJavaScript(`setDone(false, '${mt('dialog.brewFailed').replace(/'/g, "\\'")}')`); } catch (_) {}
           setTimeout(() => {
             try { progressWin.close(); } catch (_) {}
             resolve(false);
@@ -428,10 +448,10 @@ async function checkMacYtDlp() {
   if (hasBrew) {
     const { response } = await dialog.showMessageBox(mainWindow, {
       type: 'info',
-      title: 'First Time Setup',
-      message: 'Installing yt-dlp...',
-      detail: 'yt-dlp is required for audio streaming. Homebrew was detected on your system.\n\nClick "Install" to install it automatically.',
-      buttons: ['Install', 'Cancel'],
+      title: mt('dialog.firstTimeSetup'),
+      message: mt('dialog.installingYtdlp'),
+      detail: mt('dialog.ytdlpRequired'),
+      buttons: [mt('dialog.install'), mt('modal.cancel')],
       defaultId: 0,
       noLink: true
     });
@@ -440,10 +460,10 @@ async function checkMacYtDlp() {
       if (ok) return;
       await dialog.showMessageBox(mainWindow, {
         type: 'error',
-        title: 'Installation Failed',
-        message: 'Could not install yt-dlp via Homebrew.',
-        detail: 'Please try manually in Terminal:\n\nbrew install yt-dlp',
-        buttons: ['OK']
+        title: mt('dialog.installFailed'),
+        message: mt('dialog.installFailedMsg'),
+        detail: mt('dialog.installFailedDetail'),
+        buttons: [mt('modal.ok')]
       });
     }
     return; // brew exists — user can retry on next launch
@@ -452,10 +472,10 @@ async function checkMacYtDlp() {
   // No brew — show manual instructions to install Homebrew first
   const { response } = await dialog.showMessageBox(mainWindow, {
     type: 'warning',
-    title: 'yt-dlp Not Found',
-    message: 'Setup Required',
-    detail: 'yt-dlp is required for audio streaming but could not be installed automatically.\n\nInstall Homebrew from https://brew.sh, then run:\n\nbrew install yt-dlp',
-    buttons: ['Open brew.sh', 'OK'],
+    title: mt('dialog.ytdlpNotFound'),
+    message: mt('dialog.setupRequired'),
+    detail: mt('dialog.ytdlpManualInstall'),
+    buttons: [mt('dialog.openBrewSh'), mt('modal.ok')],
     defaultId: 1,
     noLink: true
   });
@@ -466,6 +486,7 @@ async function checkMacYtDlp() {
 }
 
 app.whenReady().then(async () => {
+  loadMainTranslations();
   await initYTMusic();
   createWindow();
   await checkMacYtDlp();
@@ -561,7 +582,7 @@ ipcMain.handle('auth:signInWithGoogle', async () => {
     // For Electron, we use signInWithCredential after getting a Google token
     // Simplified: use email/password or custom token approach
     authWindow.close();
-    return { error: 'Use email sign-in' };
+    return { error: mt('auth.useEmailSignIn') };
   } catch (err) {
     return { error: err.message };
   }
@@ -643,7 +664,7 @@ ipcMain.handle('auth:getUser', async () => {
 
 ipcMain.handle('profile:update', async (_event, { displayName, photoURL }) => {
   const user = firebase.auth.currentUser;
-  if (!user) return { error: 'Not signed in' };
+  if (!user) return { error: mt('auth.notSignedIn') };
   try {
     // Only store displayName in Firebase Auth (photoURL goes to Firestore only
     // because Firebase Auth has a URL length limit that rejects data URIs)
@@ -679,7 +700,7 @@ ipcMain.handle('profile:readImage', async (_event, filePath) => {
 
 ipcMain.handle('cloud:save', async (_event, data) => {
   const user = firebase.auth.currentUser;
-  if (!user) { console.log('Cloud save skipped: no user'); return { error: 'Not signed in' }; }
+  if (!user) { console.log('Cloud save skipped: no user'); return { error: mt('auth.notSignedIn') }; }
   try {
     console.log('Cloud save: writing to Firestore for', user.uid);
     const docRef = firebase.doc(firebase.db, 'users', user.uid);
@@ -2066,6 +2087,11 @@ function initAutoUpdater() {
 }
 
 ipcMain.handle('app:getVersion', () => app.getVersion());
+ipcMain.handle('app:getLocale', () => app.getLocale());
+ipcMain.handle('app:setLocale', (_event, locale) => {
+  loadMainTranslations(locale);
+  updateThumbarButtons(false);
+});
 
 ipcMain.handle('app:getChangelog', async (_event, version) => {
   try {
