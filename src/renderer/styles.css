@@ -1514,7 +1514,9 @@ html, body {
   background: var(--bg-surface);
   border-left: 1px solid rgba(255, 255, 255, 0.05);
   z-index: 90;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 20px;
   transform: translateX(100%);
   transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1575,6 +1577,60 @@ html, body {
   letter-spacing: 1.5px;
   font-weight: 600;
   margin-bottom: 8px;
+}
+.queue-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+.queue-view > .queue-section:first-child {
+  flex-shrink: 0;
+}
+.queue-upnext-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  margin-bottom: 0;
+}
+.queue-upnext-section .queue-section-header {
+  flex-shrink: 0;
+}
+#queue-up-next,
+#history-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.queue-scroll-top {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, background var(--transition);
+  z-index: 5;
+}
+.queue-scroll-top.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.queue-scroll-top:hover {
+  background: var(--bg-highlight);
 }
 
 .queue-item {
@@ -1778,15 +1834,28 @@ html, body {
   left: auto;
   right: 100%;
 }
-.context-menu-has-sub:hover > .context-submenu {
+.context-menu-has-sub.submenu-open > .context-submenu {
   display: block;
 }
 .context-sub-item {
+  display: flex;
+  align-items: center;
   padding: 8px 14px;
   font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.playlist-toggle-icon {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--text-subdued);
+}
+.playlist-toggle-icon.is-added {
+  background: var(--accent);
+  color: #000;
+  border-radius: 50%;
+  padding: 2px;
 }
 
 /* ═══════ Responsive ═══════ */

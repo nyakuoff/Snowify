@@ -817,25 +817,36 @@
     bindArtistLinks(container);
   }
 
-  function buildPlaylistSectionHtml() {
-    if (state.playlists.length >= 5) {
-      const subItems = state.playlists.map(p =>
-        `<div class="context-menu-item context-sub-item" data-action="add-to-playlist" data-pid="${p.id}">${escapeHtml(p.name)}</div>`
-      ).join('');
-      return `
-        <div class="context-menu-divider"></div>
-        <div class="context-menu-item context-menu-has-sub" data-action="none">
-          <span>Add to playlist</span>
-          <span class="sub-arrow">▸</span>
-          <div class="context-submenu">${subItems}</div>
-        </div>`;
-    } else if (state.playlists.length) {
-      const inlineItems = state.playlists.map(p =>
-        `<div class="context-menu-item" data-action="add-to-playlist" data-pid="${p.id}">${escapeHtml(p.name)}</div>`
-      ).join('');
-      return '<div class="context-menu-divider"></div>' + inlineItems;
+  function buildPlaylistSectionHtml(track) {
+    if (!state.playlists.length) return '';
+    const alreadyIn = (pl) => pl.tracks.some(t => t.id === track.id);
+    const checkIcon = '<svg class="playlist-toggle-icon is-added" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    const plusIcon = '<svg class="playlist-toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+    const subItems = state.playlists.map(p =>
+      `<div class="context-menu-item context-sub-item" data-action="toggle-playlist" data-pid="${p.id}"><span>${escapeHtml(p.name)}</span>${alreadyIn(p) ? checkIcon : plusIcon}</div>`
+    ).join('');
+    return `
+      <div class="context-menu-divider"></div>
+      <div class="context-menu-item context-menu-has-sub" data-action="none">
+        <span>Add to playlist</span>
+        <svg class="sub-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        <div class="context-submenu">${subItems}</div>
+      </div>`;
+  }
+
+  function handleTogglePlaylist(playlistId, track) {
+    const pl = state.playlists.find(p => p.id === playlistId);
+    if (!pl) return;
+    const idx = pl.tracks.findIndex(t => t.id === track.id);
+    if (idx !== -1) {
+      pl.tracks.splice(idx, 1);
+      showToast(`Removed from "${pl.name}"`);
+    } else {
+      pl.tracks.push(track);
+      showToast(`Added to "${pl.name}"`);
     }
-    return '';
+    saveState();
+    renderPlaylists();
   }
 
   function positionContextMenu(menu) {
@@ -844,10 +855,15 @@
     if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 8) + 'px';
     if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 8) + 'px';
 
-    const subMenuEl = menu.querySelector('.context-submenu');
-    if (subMenuEl) {
-      const parentItem = subMenuEl.parentElement;
-      parentItem.addEventListener('mouseenter', () => {
+    menu.querySelectorAll('.context-menu-has-sub').forEach(parentItem => {
+      const subMenuEl = parentItem.querySelector('.context-submenu');
+      let hideTimeout = null;
+      const show = () => {
+        clearTimeout(hideTimeout);
+        menu.querySelectorAll('.context-menu-has-sub.submenu-open').forEach(el => {
+          if (el !== parentItem) el.classList.remove('submenu-open');
+        });
+        parentItem.classList.add('submenu-open');
         const subRect = subMenuEl.getBoundingClientRect();
         if (subRect.right > window.innerWidth) {
           subMenuEl.classList.add('open-left');
@@ -858,8 +874,15 @@
           subMenuEl.style.top = 'auto';
           subMenuEl.style.bottom = '0';
         }
-      });
-    }
+      };
+      const hide = () => {
+        hideTimeout = setTimeout(() => parentItem.classList.remove('submenu-open'), 250);
+      };
+      parentItem.addEventListener('mouseenter', show);
+      parentItem.addEventListener('mouseleave', hide);
+      subMenuEl.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+      subMenuEl.addEventListener('mouseleave', hide);
+    });
   }
 
   function showContextMenu(e, track, { hideAddQueue = false, hidePlayNext = false } = {}) {
@@ -870,7 +893,7 @@
     menu.style.left = e.clientX + 'px';
     menu.style.top = e.clientY + 'px';
 
-    const playlistSection = buildPlaylistSectionHtml();
+    const playlistSection = buildPlaylistSectionHtml(track);
     const addQueueHtml = hideAddQueue ? '' : '<div class="context-menu-item" data-action="add-queue">Add to Queue</div>';
     const playNextHtml = hidePlayNext ? '' : '<div class="context-menu-item" data-action="play-next">Play Next</div>';
 
@@ -926,8 +949,8 @@
           break;
         }
         case 'like': toggleLike(track); break;
-        case 'add-to-playlist':
-          addToPlaylist(item.dataset.pid, track);
+        case 'toggle-playlist':
+          handleTogglePlaylist(item.dataset.pid, track);
           break;
         case 'share':
           navigator.clipboard.writeText(track.url || `https://music.youtube.com/watch?v=${track.id}`);
@@ -1955,19 +1978,6 @@
     }
   }
 
-  function addToPlaylist(playlistId, track) {
-    const pl = state.playlists.find(p => p.id === playlistId);
-    if (!pl) return;
-    if (pl.tracks.some(t => t.id === track.id)) {
-      showToast('Already in this playlist');
-      return;
-    }
-    pl.tracks.push(track);
-    saveState();
-    renderPlaylists();
-    showToast(`Added to "${pl.name}"`);
-  }
-
   function renderPlaylists() {
     const container = $('#playlist-list');
     let html = `
@@ -2445,6 +2455,24 @@
   const queuePanel = $('#queue-panel');
   let _queueActiveTab = 'queue';
 
+  // Scroll-to-top buttons
+  const queueUpNext = $('#queue-up-next');
+  const historyList = $('#history-list');
+
+  $('#queue-scroll-top').addEventListener('click', () => {
+    queueUpNext.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+  $('#history-scroll-top').addEventListener('click', () => {
+    historyList.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  queueUpNext.addEventListener('scroll', () => {
+    $('#queue-scroll-top').classList.toggle('visible', queueUpNext.scrollTop > 100);
+  });
+  historyList.addEventListener('scroll', () => {
+    $('#history-scroll-top').classList.toggle('visible', historyList.scrollTop > 100);
+  });
+
   $('#btn-queue').addEventListener('click', () => {
     queuePanel.classList.toggle('hidden');
     queuePanel.classList.toggle('visible');
@@ -2657,7 +2685,7 @@
       }
 
       // Auto-scroll when dragging near edges
-      const rect = queuePanel.getBoundingClientRect();
+      const rect = container.getBoundingClientRect();
       const distTop = e.clientY - rect.top;
       const distBottom = rect.bottom - e.clientY;
 
@@ -2676,7 +2704,7 @@
   function startDragScroll() {
     if (_dragScrollRAF) return;
     const tick = () => {
-      queuePanel.scrollTop += _dragScrollSpeed;
+      $('#queue-up-next').scrollTop += _dragScrollSpeed;
       _dragScrollRAF = requestAnimationFrame(tick);
     };
     _dragScrollRAF = requestAnimationFrame(tick);
@@ -4458,6 +4486,81 @@
     }
   });
 
+  // Now playing context menu
+  $('.np-track-info').addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const track = state.queue[state.queueIndex];
+    if (!track) return;
+    removeContextMenu();
+    const isLiked = state.likedSongs.some(t => t.id === track.id);
+    const menu = document.createElement('div');
+    menu.className = 'context-menu';
+    menu.style.left = e.clientX + 'px';
+    menu.style.top = e.clientY + 'px';
+
+    const playlistSection = buildPlaylistSectionHtml();
+
+    menu.innerHTML = `
+      <div class="context-menu-item" data-action="start-radio">Start Radio</div>
+      <div class="context-menu-item" data-action="watch-video">Watch Video</div>
+      <div class="context-menu-item" data-action="like">${isLiked ? 'Unlike' : 'Like'}</div>
+      ${playlistSection}
+      ${track.artistId ? '<div class="context-menu-divider"></div><div class="context-menu-item" data-action="go-to-artist">Go to Artist</div>' : ''}
+      <div class="context-menu-divider"></div>
+      <div class="context-menu-item" data-action="share">Copy Link</div>
+    `;
+
+    positionContextMenu(menu);
+
+    menu.addEventListener('click', async (ev) => {
+      const item = ev.target.closest('[data-action]');
+      if (!item) return;
+      const action = item.dataset.action;
+      if (action === 'none') return;
+      switch (action) {
+        case 'start-radio': {
+          const upNexts = await window.snowify.getUpNexts(track.id);
+          if (upNexts.length) {
+            const alreadyPlaying = state.isPlaying && state.queue[state.queueIndex]?.id === track.id;
+            if (alreadyPlaying) {
+              const remaining = upNexts.filter(t => t.id !== track.id);
+              state.queue = [track, ...remaining];
+              state.originalQueue = [...state.queue];
+              state.queueIndex = 0;
+              renderQueue();
+              showToast('Radio started');
+            } else {
+              playFromList([track, ...upNexts.filter(t => t.id !== track.id)], 0);
+              showToast('Radio started');
+            }
+          } else {
+            showToast('Could not start radio');
+          }
+          break;
+        }
+        case 'watch-video':
+          openVideoPlayer(track.id, track.title, track.artist);
+          break;
+        case 'like': toggleLike(track); break;
+        case 'add-to-playlist':
+          addToPlaylist(item.dataset.pid, track);
+          break;
+        case 'go-to-artist':
+          openArtistPage(track.artistId);
+          break;
+        case 'share':
+          navigator.clipboard.writeText(track.url || `https://music.youtube.com/watch?v=${track.id}`);
+          showToast('Link copied to clipboard');
+          break;
+      }
+      removeContextMenu();
+    });
+
+    setTimeout(() => {
+      document.addEventListener('click', removeContextMenu, { once: true });
+    }, 10);
+  });
+
   // Open maximized view on thumbnail click
   $('#np-thumbnail').addEventListener('click', () => {
     if (_maxNPOpen) {
@@ -4870,12 +4973,13 @@
   function showVideoContextMenu(e, video) {
     removeContextMenu();
     const v = normalizeVideo(video);
+    const track = makeTrackFromVideo(video);
     const menu = document.createElement('div');
     menu.className = 'context-menu';
     menu.style.left = e.clientX + 'px';
     menu.style.top = e.clientY + 'px';
 
-    const playlistSection = buildPlaylistSectionHtml();
+    const playlistSection = buildPlaylistSectionHtml(track);
 
     menu.innerHTML = `
       <div class="context-menu-item" data-action="watch-video">Play Video</div>
@@ -4895,6 +4999,7 @@
     const track = makeTrackFromVideo(video);
 
     menu.addEventListener('click', async (ev) => {
+    menu.addEventListener('click', (ev) => {
       const item = ev.target.closest('[data-action]');
       if (!item) return;
       const action = item.dataset.action;
@@ -4912,8 +5017,8 @@
         case 'add-queue':
           handleAddToQueue(track);
           break;
-        case 'add-to-playlist':
-          addToPlaylist(item.dataset.pid, track);
+        case 'toggle-playlist':
+          handleTogglePlaylist(item.dataset.pid, track);
           break;
         case 'start-radio': {
           const upNexts = await window.snowify.getUpNexts(track.id);
