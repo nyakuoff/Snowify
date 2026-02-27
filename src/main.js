@@ -265,20 +265,25 @@ function createWindow() {
   });
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': [
-          "default-src 'self'; " +
-          "script-src 'self' 'unsafe-inline'; " +
-          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-          "font-src 'self' https://fonts.gstatic.com; " +
-          "img-src 'self' https: data: file:; " +
-          "media-src 'self' blob: https:; " +
-          "connect-src 'self' https: http:;"
-        ]
-      }
-    });
+    const responseHeaders = { ...details.responseHeaders };
+
+    // CORS injection for YouTube CDN (required for Web Audio MediaElementSource)
+    if (details.url.includes('.googlevideo.com/')) {
+      responseHeaders['Access-Control-Allow-Origin'] = ['*'];
+    }
+
+    // CSP (all requests)
+    responseHeaders['Content-Security-Policy'] = [
+      "default-src 'self'; " +
+      "script-src 'self' 'unsafe-inline'; " +
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+      "font-src 'self' https://fonts.gstatic.com; " +
+      "img-src 'self' https: data: file:; " +
+      "media-src 'self' blob: https:; " +
+      "connect-src 'self' https: http:;"
+    ];
+
+    callback({ responseHeaders });
   });
 }
 

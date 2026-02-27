@@ -70,6 +70,7 @@ window.DualAudioEngine = function DualAudioEngine(audioA, audioB, opts) {
       preloadedUrl = url;
       standbyAudio.src = url;
       standbyAudio.load();
+      onTransition({ type: 'preload-ready', track: preloadedTrack, url: preloadedUrl });
     } catch (err) {
       console.warn('Preload failed (will fallback):', err);
       preloadedTrack = null;
@@ -252,7 +253,8 @@ window.DualAudioEngine = function DualAudioEngine(audioA, audioB, opts) {
 
     preloadTriggered = false;
     triggerPreload();
-    onTransition({ type: 'crossfade-complete' });
+    const cfTrack = getState().queue[getState().queueIndex];
+    onTransition({ type: 'crossfade-complete', track: cfTrack });
   }
 
   function cancelCrossfade() {
