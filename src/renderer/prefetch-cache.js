@@ -24,6 +24,7 @@ window.PrefetchCache = function PrefetchCache(opts) {
   let _currentDownloadId = null;
   let _prefetchCount = 0;   // 0 = off
   let _destroyed = false;
+  let _generation = 0;      // incremented on clear/onTrackChanged to invalidate stale loops
 
   // ─── Public API ───
 
@@ -54,8 +55,11 @@ window.PrefetchCache = function PrefetchCache(opts) {
       cancelDownload().catch(() => {});
       _cache.delete(_currentDownloadId);
       _currentDownloadId = null;
-      _isDownloading = false;
     }
+
+    // Invalidate any running _processQueue loop
+    _generation++;
+    _isDownloading = false;
 
     // Build download queue — IDs in window that aren't cached yet
     _downloadQueue = [];
@@ -65,7 +69,7 @@ window.PrefetchCache = function PrefetchCache(opts) {
       }
     }
 
-    _processQueue(queue);
+    _processQueue();
   }
 
   /** Called when a track finishes playing — removes it from cache */
@@ -90,6 +94,7 @@ window.PrefetchCache = function PrefetchCache(opts) {
 
   /** Cancel all downloads and delete all cached files */
   function clear() {
+    _generation++; // invalidate any running _processQueue loop
     if (_isDownloading) {
       cancelDownload().catch(() => {});
       _isDownloading = false;
@@ -118,6 +123,10 @@ window.PrefetchCache = function PrefetchCache(opts) {
     const ids = new Set();
     if (!queue || !queue.length) return ids;
 
+    // Include current track so its file isn't evicted while playing
+    const current = queue[queueIndex];
+    if (current && current.id) ids.add(current.id);
+
     const start = queueIndex + 1;
     const end = _prefetchCount === -1
       ? queue.length
@@ -131,18 +140,20 @@ window.PrefetchCache = function PrefetchCache(opts) {
   }
 
   /** Process the download queue sequentially */
-  async function _processQueue(queue) {
+  async function _processQueue() {
     if (_isDownloading || _destroyed || !_downloadQueue.length) return;
     _isDownloading = true;
+    const gen = _generation;
 
-    while (_downloadQueue.length && !_destroyed) {
+    while (_downloadQueue.length && !_destroyed && gen === _generation) {
       const videoId = _downloadQueue.shift();
 
       // Skip if already cached (might have been added while waiting)
       if (_cache.has(videoId)) continue;
 
-      // Find the track in the queue to get its URL
-      const track = queue.find(t => t.id === videoId);
+      // Find the track in the current queue to get its URL
+      const currentQueue = getState().queue;
+      const track = currentQueue.find(t => t.id === videoId);
       if (!track || !track.url) continue;
 
       _currentDownloadId = videoId;
@@ -151,7 +162,7 @@ window.PrefetchCache = function PrefetchCache(opts) {
       try {
         const state = getState();
         const result = await downloadAudio(track.url, state.audioQuality, videoId);
-        if (_destroyed) break;
+        if (_destroyed || gen !== _generation) break;
 
         // Verify the entry still exists (might have been evicted)
         if (_cache.has(videoId)) {
@@ -169,7 +180,7 @@ window.PrefetchCache = function PrefetchCache(opts) {
       _currentDownloadId = null;
     }
 
-    _isDownloading = false;
+    if (gen === _generation) _isDownloading = false;
   }
 
   return { getCachedPath, onTrackChanged, onTrackFinished, setCount, onCacheUpdateCb, clear, destroy };

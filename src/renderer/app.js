@@ -960,6 +960,8 @@
               state.queue = [track, ...remaining];
               state.originalQueue = [...state.queue];
               state.queueIndex = 0;
+              prefetchCache.clear();
+              if (state.prefetchCount !== 0) prefetchCache.onTrackChanged(0, state.queue);
               renderQueue();
               showToast('Radio started');
             } else {
@@ -1192,7 +1194,7 @@
         const cachedPath = prefetchCache.getCachedPath(track.id);
         if (!cachedPath) showToast(`Loading: ${track.title}`);
         const directUrl = cachedPath
-          ? 'file://' + cachedPath
+          ? pathToFileUrl(cachedPath)
           : await window.snowify.getStreamUrl(track.url, state.audioQuality);
         if (gen !== _playGeneration) return; // stale call — newer playTrack superseded us
         engine.setSource(directUrl);
@@ -1602,7 +1604,7 @@
       const videoId = url.includes('watch?v=') ? new URL(url).searchParams.get('v') : null;
       if (videoId) {
         const cached = prefetchCache.getCachedPath(videoId);
-        if (cached) return 'file://' + cached;
+        if (cached) return pathToFileUrl(cached);
       }
       return window.snowify.getStreamUrl(url, q);
     },
@@ -1621,6 +1623,17 @@
   }
 
   // ─── Initialize prefetch cache ───
+  function updateCachedCount() {
+    const el = $('#queue-cached-count');
+    if (!el) return;
+    if (state.prefetchCount === 0) { el.textContent = ''; return; }
+    let count = 0;
+    for (let i = state.queueIndex + 1; i < state.queue.length; i++) {
+      if (prefetchCache.getCachedPath(state.queue[i].id)) count++;
+    }
+    el.textContent = count > 0 ? `${count} cached` : '';
+  }
+
   const prefetchCache = window.PrefetchCache({
     getState: () => state,
     downloadAudio: (url, q, id) => window.snowify.downloadAudio(url, q, id),
@@ -1634,13 +1647,7 @@
       prefetchCache.onTrackChanged(state.queueIndex, state.queue);
     }
   }
-  prefetchCache.onCacheUpdateCb((trackId) => {
-    document.querySelectorAll(`.queue-item[data-track-id="${trackId}"] .queue-item-artist`).forEach(el => {
-      if (!el.querySelector('.queue-cached-dot')) {
-        el.insertAdjacentHTML('afterbegin', QUEUE_CACHED_ICON);
-      }
-    });
-  });
+  prefetchCache.onCacheUpdateCb(() => updateCachedCount());
   $('#btn-play-pause').addEventListener('click', togglePlay);
   $('#btn-next').addEventListener('click', playNext);
   $('#btn-prev').addEventListener('click', playPrev);
@@ -2419,6 +2426,8 @@
               state.queue = [track, ...remaining];
               state.originalQueue = [...state.queue];
               state.queueIndex = 0;
+              prefetchCache.clear();
+              if (state.prefetchCount !== 0) prefetchCache.onTrackChanged(0, state.queue);
               renderQueue();
               showToast('Radio started');
             } else {
@@ -2620,6 +2629,7 @@
     state.queue = state.queue.slice(0, state.queueIndex + 1);
     const remainingIds = new Set(state.queue.map(t => t.id));
     state.originalQueue = state.originalQueue.filter(t => remainingIds.has(t.id));
+    prefetchCache.clear();
     renderQueue();
     saveState();
     showToast('Queue cleared');
@@ -2681,6 +2691,7 @@
             state.queue.splice(idx, 1);
             state.originalQueue = state.originalQueue.filter(t => t.id !== track.id || state.queue.some(q => q.id === t.id));
             engine.clearPreload();
+            if (state.prefetchCount !== 0) prefetchCache.onTrackChanged(state.queueIndex, state.queue);
             renderQueue();
             saveState();
           });
@@ -2691,9 +2702,8 @@
     } else {
       upNext.innerHTML = `<p style="color:var(--text-subdued);font-size:13px;">Queue is empty</p>`;
     }
+    updateCachedCount();
   }
-
-  const QUEUE_CACHED_ICON = '<span class="queue-cached-dot"></span>';
 
   function renderQueueItem(track, isActive, showRemove, queueIndex) {
     const removeHtml = showRemove ? `
@@ -2702,13 +2712,12 @@
       </button>` : '';
     const indexAttr = queueIndex !== undefined ? ` data-queue-index="${queueIndex}"` : '';
     const draggable = showRemove ? ' draggable="true"' : '';
-    const cached = state.prefetchCount !== 0 && prefetchCache.getCachedPath(track.id);
     return `
       <div class="queue-item ${isActive ? 'active' : ''}" data-track-id="${track.id}"${indexAttr}${draggable}>
         <img src="${escapeHtml(track.thumbnail)}" alt="" />
         <div class="queue-item-info">
           <div class="queue-item-title">${escapeHtml(track.title)}</div>
-          <div class="queue-item-artist">${cached ? QUEUE_CACHED_ICON : ''}${renderArtistLinks(track)}</div>
+          <div class="queue-item-artist">${renderArtistLinks(track)}</div>
         </div>
         ${removeHtml}
       </div>`;
@@ -2782,6 +2791,7 @@
         const before = state.queue.slice(0, state.queueIndex + 1);
         state.queue = [...before, ...reordered];
         engine.clearPreload();
+        if (state.prefetchCount !== 0) prefetchCache.onTrackChanged(state.queueIndex, state.queue);
         renderQueue();
         saveState();
       }, { signal });
@@ -3522,6 +3532,11 @@
   function escapeHtml(str) {
     if (!str) return '';
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function pathToFileUrl(p) {
+    const normalized = p.replace(/\\/g, '/');
+    return normalized.startsWith('/') ? 'file://' + normalized : 'file:///' + normalized;
   }
 
   /** Wrap an .album-scroll or .similar-artists-scroll element with scroll arrows if not already wrapped. */
@@ -4728,6 +4743,8 @@
               state.queue = [track, ...remaining];
               state.originalQueue = [...state.queue];
               state.queueIndex = 0;
+              prefetchCache.clear();
+              if (state.prefetchCount !== 0) prefetchCache.onTrackChanged(0, state.queue);
               renderQueue();
               showToast('Radio started');
             } else {

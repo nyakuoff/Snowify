@@ -1525,9 +1525,14 @@ ipcMain.handle('yt:downloadAudio', async (_event, videoUrl, quality, videoId) =>
       '--no-check-certificates',
       videoUrl
     ], { timeout: 120000 }, (err, _stdout, stderr) => {
-      _activeDownloadProc = null;
+      if (_activeDownloadProc === proc) _activeDownloadProc = null;
       if (err) {
-        if (err.killed || err.signal === 'SIGTERM') return reject('cancelled');
+        // Clean up partial file left by --no-part after SIGTERM
+        if (err.killed || err.signal === 'SIGTERM') {
+          const partial = fs.readdirSync(cacheDir).find(f => f.startsWith(videoId + '.'));
+          if (partial) try { fs.unlinkSync(path.join(cacheDir, partial)); } catch (_) {}
+          return reject('cancelled');
+        }
         return reject(stderr?.trim() || err.message);
       }
       const downloaded = fs.readdirSync(cacheDir).find(f => f.startsWith(videoId + '.'));
@@ -1541,7 +1546,7 @@ ipcMain.handle('yt:downloadAudio', async (_event, videoUrl, quality, videoId) =>
 ipcMain.handle('cache:deleteFile', async (_event, filePath) => {
   // Safety: only allow deleting inside cache dir
   const resolved = path.resolve(filePath);
-  if (!resolved.startsWith(AUDIO_CACHE_DIR)) return { error: 'Invalid path' };
+  if (!resolved.startsWith(AUDIO_CACHE_DIR + path.sep)) return { error: 'Invalid path' };
   try { fs.unlinkSync(resolved); } catch (_) {}
   return { ok: true };
 });

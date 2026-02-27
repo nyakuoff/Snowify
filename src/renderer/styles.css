@@ -1652,6 +1652,20 @@ html, body {
   border-radius: 6px;
   object-fit: cover;
 }
+.queue-cached-count {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  vertical-align: middle;
+  margin-left: 6px;
+}
+.queue-cached-count:empty {
+  display: none;
+}
 .queue-item-info {
   flex: 1;
   overflow: hidden;
@@ -1664,19 +1678,8 @@ html, body {
   text-overflow: ellipsis;
 }
 .queue-item-artist {
-  display: flex;
-  align-items: center;
-  gap: 4px;
   font-size: 12px;
   color: var(--text-subdued);
-}
-.queue-cached-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  flex-shrink: 0;
-  opacity: 0.85;
 }
 .queue-item.active { background: var(--accent-dim); }
 .queue-item.active .queue-item-title { color: var(--accent); }
