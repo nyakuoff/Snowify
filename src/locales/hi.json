@@ -4,7 +4,6 @@
   "nav.search": "खोजें",
   "nav.library": "लाइब्रेरी",
   "nav.settings": "सेटिंग्स",
-
   "welcome.title": "Snowify में आपका स्वागत है",
   "welcome.desc": "अपने सभी डिवाइसों पर प्लेलिस्ट, पसंदीदा गाने और सेटिंग्स सिंक करने के लिए साइन इन करें।",
   "welcome.signIn": "साइन इन करें",
@@ -13,7 +12,6 @@
   "welcome.warning": "बिना अकाउंट के, आपका डेटा लोकल स्टोर होता है और खोने पर रिकवर नहीं किया जा सकता।",
   "welcome.enterEmailPassword": "कृपया ईमेल और पासवर्ड दर्ज करें",
   "welcome.passwordMinLength": "पासवर्ड कम से कम 6 अक्षरों का होना चाहिए",
-
   "home.greeting.morning": "सुप्रभात",
   "home.greeting.afternoon": "नमस्कार",
   "home.greeting.evening": "शुभ संध्या",
@@ -22,7 +20,6 @@
   "home.recentEmptyHint": "कुछ खोजकर शुरू करें!",
   "home.newFromArtists": "आपके फ़ॉलो किए हुए आर्टिस्ट से नया",
   "home.recommendedSongs": "आपके लिए सुझाए गए गाने",
-
   "search.placeholder": "आप क्या सुनना चाहते हैं?",
   "search.empty": "गाने, आर्टिस्ट, एल्बम या प्लेलिस्ट खोजें",
   "search.floatingText": "खोजें",
@@ -39,17 +36,14 @@
   "search.noResults": "कोई परिणाम नहीं मिला",
   "search.noResultsFor": "\"{{query}}\" के लिए कोई परिणाम नहीं मिला",
   "search.searchFailed": "खोज विफल रही। कृपया पुनः प्रयास करें।",
-
   "library.title": "आपकी लाइब्रेरी",
   "library.emptyTitle": "अपनी पहली प्लेलिस्ट बनाएँ",
   "library.emptyDesc": "यह आसान है — हम आपकी मदद करेंगे",
   "library.createPlaylist": "प्लेलिस्ट बनाएँ",
-
   "sidebar.playlists": "प्लेलिस्ट",
   "sidebar.likedSongs": "पसंदीदा गाने",
   "sidebar.songCount.one": "{{count}} गाना",
   "sidebar.songCount.other": "{{count}} गाने",
-
   "playlist.type": "PLAYLIST",
   "playlist.playAll": "सभी चलाएँ",
   "playlist.shufflePlay": "शफ़ल प्ले",
@@ -59,14 +53,9 @@
   "playlist.delete": "प्लेलिस्ट हटाएँ",
   "playlist.empty": "यह प्लेलिस्ट खाली है",
   "playlist.emptyHint": "अपने पसंदीदा गाने ढूँढें और यहाँ जोड़ें",
-  "playlist.exportSuccess": "प्लेलिस्ट सफलतापूर्वक एक्सपोर्ट की गई",
   "playlist.confirmDelete": "\"{{name}}\" हटाएँ?\nइसे वापस नहीं किया जा सकता।",
-
   "album.type": "ALBUM",
-  "album.single": "SINGLE",
-  "album.ep": "EP",
   "album.couldNotLoad": "एल्बम ट्रैक लोड नहीं हो सके।",
-
   "artist.type": "ARTIST",
   "artist.follow": "फ़ॉलो करें",
   "artist.following": "फ़ॉलो किया हुआ",
@@ -86,11 +75,10 @@
   "artist.notFound": "आर्टिस्ट नहीं मिला",
   "artist.noTracks": "इस आर्टिस्ट के लिए कोई ट्रैक नहीं मिला।",
   "artist.noReleases": "कोई रिलीज़ नहीं मिली।",
+  "artist.featuredOn": "शामिल है",
   "artist.couldNotLoad": "आर्टिस्ट की जानकारी लोड नहीं हो सकी।",
-
   "auth.notSignedIn": "साइन इन नहीं किया है",
   "auth.useEmailSignIn": "ईमेल से साइन इन करें",
-
   "player.play": "चलाएँ",
   "player.pause": "रोकें",
   "player.previous": "पिछला",
@@ -104,7 +92,6 @@
   "player.volume": "वॉल्यूम",
   "player.repeatAll": "सभी दोहराएँ",
   "player.repeatOne": "एक दोहराएँ",
-
   "queue.title": "कतार",
   "queue.recentlyPlayed": "हाल ही में सुने गए",
   "queue.nowPlaying": "अभी बज रहा है",
@@ -115,14 +102,12 @@
   "queue.nothingPlaying": "कुछ नहीं बज रहा",
   "queue.noRecentTracks": "हाल ही में कोई ट्रैक नहीं सुना गया",
   "queue.removeFromQueue": "कतार से हटाएँ",
-
   "lyrics.title": "बोल",
   "lyrics.empty": "बोल देखने के लिए कोई गाना चलाएँ",
   "lyrics.notFound": "इस गाने के बोल नहीं मिले",
   "lyrics.searching": "बोल खोज रहे हैं…",
   "lyrics.failed": "बोल लोड करने में विफल",
   "lyrics.toggleLyrics": "बोल टॉगल करें",
-
   "context.play": "चलाएँ",
   "context.playAll": "सभी चलाएँ",
   "context.playNext": "अगला चलाएँ",
@@ -140,7 +125,6 @@
   "context.moveUp": "ऊपर ले जाएँ",
   "context.moveDown": "नीचे ले जाएँ",
   "context.goToArtist": "आर्टिस्ट पर जाएँ",
-  "context.goToAlbum": "एल्बम पर जाएँ",
   "context.remove": "हटाएँ",
   "context.rename": "नाम बदलें",
   "context.delete": "हटाएँ",
@@ -149,7 +133,6 @@
   "context.saveToLibrary": "प्लेलिस्ट के रूप में सेव करें",
   "context.removeFromLibrary": "लाइब्रेरी से हटाएँ",
   "context.shufflePlay": "शफ़ल प्ले",
-
   "settings.title": "सेटिंग्स",
   "settings.account": "अकाउंट",
   "settings.accountDesc": "सभी डिवाइसों पर प्लेलिस्ट, पसंदीदा गाने और सेटिंग्स सिंक करने के लिए साइन इन करें।",
@@ -230,10 +213,8 @@
   "settings.language": "भाषा",
   "settings.languageDesc": "ऐप डिस्प्ले भाषा",
   "settings.langAuto": "सिस्टम डिफ़ॉल्ट",
-  "settings.langEn": "English",
-  "settings.langEs": "Español",
+  "settings.seconds": "{{value}}से.",
   "settings.customThemeSeparator": "── कस्टम ──",
-
   "update.checking": "अपडेट्स चेक हो रहे हैं...",
   "update.available": "अपडेट उपलब्ध: v{{version}}",
   "update.availableDesc": "एक नया वर्शन डाउनलोड के लिए तैयार है।",
@@ -244,13 +225,12 @@
   "update.error": "अपडेट चेक विफल",
   "update.errorNoConnection": "अपडेट सर्वर से संपर्क नहीं हो सका। अपना इंटरनेट कनेक्शन जाँचें।",
   "update.errorNoMetadata": "नवीनतम रिलीज़ में कोई अपडेट मेटाडेटा नहीं मिला।",
-
   "modal.enterName": "नाम दर्ज करें",
   "modal.cancel": "रद्द करें",
   "modal.ok": "ठीक है",
   "modal.createPlaylist": "प्लेलिस्ट बनाएँ",
   "modal.renamePlaylist": "प्लेलिस्ट का नाम बदलें",
-
+  "modal.defaultPlaylistName": "मेरी प्लेलिस्ट",
   "spotify.title": "Spotify प्लेलिस्ट इम्पोर्ट करें",
   "spotify.desc": "{{link}} का उपयोग करके अपनी Spotify प्लेलिस्ट को CSV के रूप में एक्सपोर्ट करें, फिर फ़ाइलें यहाँ इम्पोर्ट करें।",
   "spotify.selectFiles": "CSV फ़ाइलें चुनें",
@@ -265,7 +245,7 @@
   "spotify.matchingPlaylist": "Playlist {{current}}/{{total}} — ट्रैक मैच हो रहे हैं...",
   "spotify.failedToMatch": "मैच नहीं हो सके ({{count}})",
   "spotify.notFound": "({{count}} नहीं मिले)",
-
+  "spotify.selectAtLeastOne": "कम से कम एक प्लेलिस्ट चुनें",
   "changelog.title": "नया क्या है",
   "changelog.loading": "चेंजलॉग लोड हो रहा है...",
   "changelog.gotIt": "समझ गए",
@@ -273,7 +253,6 @@
   "changelog.updatesSince": "v{{version}} के बाद से {{count}} अपडेट",
   "changelog.released": "{{date}} को रिलीज़ हुआ",
   "changelog.whatsNewVersion": "v{{version}} में नया क्या है",
-
   "video.listenOnly": "केवल सुनें",
   "video.minimize": "छोटा करें",
   "video.expand": "बड़ा करें",
@@ -281,11 +260,9 @@
   "video.loading": "वीडियो लोड हो रहा है...",
   "video.musicVideo": "म्यूज़िक वीडियो",
   "video.watch": "देखें",
-
   "trackList.title": "शीर्षक",
   "trackList.artist": "आर्टिस्ट",
   "trackList.plays": "बार सुना गया",
-
   "toast.radioStarted": "रेडियो शुरू हुआ",
   "toast.couldNotStartRadio": "रेडियो शुरू नहीं हो सका",
   "toast.linkCopied": "लिंक क्लिपबोर्ड पर कॉपी हुआ",
@@ -356,7 +333,6 @@
   "toast.noPlaylistsForMood": "इस मूड के लिए कोई प्लेलिस्ट नहीं मिली",
   "toast.couldNotLoadPlaylist": "प्लेलिस्ट लोड नहीं हो सकी",
   "toast.couldNotLoadTracks": "ट्रैक लोड नहीं हो सके",
-
   "common.clear": "साफ़ करें",
   "common.close": "बंद करें",
   "common.minimize": "छोटा करें",
@@ -371,7 +347,6 @@
   "common.password": "पासवर्ड",
   "common.unknownArtist": "अज्ञात आर्टिस्ट",
   "common.remove": "हटाएँ",
-
   "dialog.firstTimeSetup": "पहली बार सेटअप",
   "dialog.installingYtdlp": "yt-dlp इंस्टॉल हो रहा है...",
   "dialog.ytdlpRequired": "ऑडियो स्ट्रीमिंग के लिए yt-dlp ज़रूरी है। आपके सिस्टम पर Homebrew मिला है।\n\nइसे ऑटोमैटिक इंस्टॉल करने के लिए \"इंस्टॉल करें\" पर क्लिक करें।",
@@ -389,15 +364,14 @@
   "dialog.showLogs": "लॉग दिखाएँ",
   "dialog.ytdlpInstallFailed": "इंस्टॉलेशन विफल (एक्ज़िट कोड {{code}})। मैन्युअली ट्राई करें: brew install yt-dlp",
   "dialog.ytdlpInstalled": "yt-dlp सफलतापूर्वक इंस्टॉल हो गया!",
-
   "explore.backToMoods": "← मूड और शैलियाँ पर वापस जाएँ",
+  "explore.noData": "कोई डेटा उपलब्ध नहीं है।",
   "explore.couldNotLoad": "एक्सप्लोर डेटा लोड नहीं हो सका।",
   "explore.moodsAndGenres": "मूड और शैलियाँ",
   "explore.newAlbums": "नए एल्बम और Singles",
   "explore.newMusicVideos": "नए म्यूज़िक वीडियो",
   "explore.topArtists": "टॉप आर्टिस्ट",
   "explore.trending": "ट्रेंडिंग",
-
   "sync.connected": "कनेक्टेड",
   "sync.syncing": "सिंक हो रहा है...",
   "sync.syncedJustNow": "अभी सिंक हुआ"

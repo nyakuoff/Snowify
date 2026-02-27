@@ -4,7 +4,6 @@
   "nav.search": "Ara",
   "nav.library": "Kitaplık",
   "nav.settings": "Ayarlar",
-
   "welcome.title": "Snowify'a Hoş Geldiniz",
   "welcome.desc": "Çalma listelerinizi, beğenilen şarkılarınızı ve ayarlarınızı tüm cihazlarınızda senkronize etmek için giriş yapın.",
   "welcome.signIn": "Giriş Yap",
@@ -13,7 +12,6 @@
   "welcome.warning": "Hesap olmadan verileriniz yerel olarak depolanır ve kaybolursa kurtarılamaz.",
   "welcome.enterEmailPassword": "Lütfen e-posta ve şifrenizi girin",
   "welcome.passwordMinLength": "Şifre en az 6 karakter olmalıdır",
-
   "home.greeting.morning": "Günaydın",
   "home.greeting.afternoon": "İyi günler",
   "home.greeting.evening": "İyi akşamlar",
@@ -22,7 +20,6 @@
   "home.recentEmptyHint": "Bir şey arayarak başlayın!",
   "home.newFromArtists": "Takip Ettiğiniz Sanatçılardan Yeni",
   "home.recommendedSongs": "Önerilen Şarkılar",
-
   "search.placeholder": "Ne dinlemek istiyorsun?",
   "search.empty": "Şarkı, sanatçı, albüm veya çalma listesi arayın",
   "search.floatingText": "Ara",
@@ -39,17 +36,14 @@
   "search.noResults": "Sonuç bulunamadı",
   "search.noResultsFor": "\"{{query}}\" için sonuç bulunamadı",
   "search.searchFailed": "Arama başarısız oldu. Lütfen tekrar deneyin.",
-
   "library.title": "Kitaplığınız",
   "library.emptyTitle": "İlk çalma listenizi oluşturun",
   "library.emptyDesc": "Çok kolay — size yardımcı olacağız",
   "library.createPlaylist": "Playlist oluştur",
-
   "sidebar.playlists": "Playlist'ler",
   "sidebar.likedSongs": "Beğenilen Şarkılar",
   "sidebar.songCount.one": "{{count}} şarkı",
   "sidebar.songCount.other": "{{count}} şarkı",
-
   "playlist.type": "PLAYLİST",
   "playlist.playAll": "Tümünü çal",
   "playlist.shufflePlay": "Karışık çal",
@@ -59,14 +53,9 @@
   "playlist.delete": "Playlist'i sil",
   "playlist.empty": "Bu çalma listesi boş",
   "playlist.emptyHint": "Beğendiğiniz şarkıları bulun ve buraya ekleyin",
-  "playlist.exportSuccess": "Playlist başarıyla dışa aktarıldı",
   "playlist.confirmDelete": "\"{{name}}\" silinsin mi?\nBu işlem geri alınamaz.",
-
   "album.type": "ALBÜM",
-  "album.single": "SINGLE",
-  "album.ep": "EP",
   "album.couldNotLoad": "Albüm parçaları yüklenemedi.",
-
   "artist.type": "SANATÇI",
   "artist.follow": "Takip Et",
   "artist.following": "Takip Ediliyor",
@@ -86,11 +75,10 @@
   "artist.notFound": "Sanatçı bulunamadı",
   "artist.noTracks": "Bu sanatçı için parça bulunamadı.",
   "artist.noReleases": "Yayın bulunamadı.",
+  "artist.featuredOn": "Yer aldığı",
   "artist.couldNotLoad": "Sanatçı bilgileri yüklenemedi.",
-
   "auth.notSignedIn": "Giriş yapılmadı",
   "auth.useEmailSignIn": "E-posta ile giriş yap",
-
   "player.play": "Çal",
   "player.pause": "Duraklat",
   "player.previous": "Önceki",
@@ -104,7 +92,6 @@
   "player.volume": "Ses Seviyesi",
   "player.repeatAll": "Tümünü Tekrarla",
   "player.repeatOne": "Birini Tekrarla",
-
   "queue.title": "Sıra",
   "queue.recentlyPlayed": "Son Çalınanlar",
   "queue.nowPlaying": "Şu An Çalıyor",
@@ -115,14 +102,12 @@
   "queue.nothingPlaying": "Hiçbir şey çalmıyor",
   "queue.noRecentTracks": "Son çalınan parça yok",
   "queue.removeFromQueue": "Sıradan kaldır",
-
   "lyrics.title": "Şarkı Sözleri",
   "lyrics.empty": "Sözleri görmek için bir şarkı çalın",
   "lyrics.notFound": "Bu şarkı için söz bulunamadı",
   "lyrics.searching": "Şarkı sözleri aranıyor…",
   "lyrics.failed": "Şarkı sözleri yüklenemedi",
   "lyrics.toggleLyrics": "Şarkı Sözlerini Aç/Kapat",
-
   "context.play": "Çal",
   "context.playAll": "Tümünü Çal",
   "context.playNext": "Sıradaki Olarak Çal",
@@ -140,7 +125,6 @@
   "context.moveUp": "Yukarı taşı",
   "context.moveDown": "Aşağı taşı",
   "context.goToArtist": "Sanatçıya Git",
-  "context.goToAlbum": "Albüme Git",
   "context.remove": "Kaldır",
   "context.rename": "Yeniden Adlandır",
   "context.delete": "Sil",
@@ -149,7 +133,6 @@
   "context.saveToLibrary": "Playlist Olarak Kaydet",
   "context.removeFromLibrary": "Kitaplıktan kaldır",
   "context.shufflePlay": "Karışık Çal",
-
   "settings.title": "Ayarlar",
   "settings.account": "Hesap",
   "settings.accountDesc": "Çalma listelerinizi, beğenilen şarkılarınızı ve ayarlarınızı cihazlar arasında senkronize etmek için giriş yapın.",
@@ -230,10 +213,8 @@
   "settings.language": "Dil",
   "settings.languageDesc": "Uygulama görüntüleme dili",
   "settings.langAuto": "Sistem varsayılanı",
-  "settings.langEn": "English",
-  "settings.langEs": "Español",
+  "settings.seconds": "{{value}}s",
   "settings.customThemeSeparator": "── Özel ──",
-
   "update.checking": "Güncellemeler kontrol ediliyor...",
   "update.available": "Güncelleme mevcut: v{{version}}",
   "update.availableDesc": "Yeni bir sürüm indirilmeye hazır.",
@@ -244,13 +225,12 @@
   "update.error": "Güncelleme kontrolü başarısız oldu",
   "update.errorNoConnection": "Güncelleme sunucusuna ulaşılamadı. İnternet bağlantınızı kontrol edin.",
   "update.errorNoMetadata": "Son sürümde güncelleme meta verisi bulunamadı.",
-
   "modal.enterName": "Ad girin",
   "modal.cancel": "İptal",
   "modal.ok": "Tamam",
   "modal.createPlaylist": "Playlist oluştur",
   "modal.renamePlaylist": "Playlist'i yeniden adlandır",
-
+  "modal.defaultPlaylistName": "Çalma Listem",
   "spotify.title": "Spotify Playlist'lerini İçe Aktar",
   "spotify.desc": "Spotify çalma listelerinizi {{link}} kullanarak CSV olarak dışa aktarın, ardından dosyaları buradan içe aktarın.",
   "spotify.selectFiles": "CSV Dosyalarını Seç",
@@ -265,7 +245,7 @@
   "spotify.matchingPlaylist": "Playlist {{current}}/{{total}} — Parçalar eşleştiriliyor...",
   "spotify.failedToMatch": "Eşleştirilemedi ({{count}})",
   "spotify.notFound": "({{count}} bulunamadı)",
-
+  "spotify.selectAtLeastOne": "En az bir playlist seçin",
   "changelog.title": "Yenilikler",
   "changelog.loading": "Değişiklik günlüğü yükleniyor...",
   "changelog.gotIt": "Anladım",
@@ -273,7 +253,6 @@
   "changelog.updatesSince": "v{{version}} sürümünden bu yana {{count}} güncelleme",
   "changelog.released": "{{date}} tarihinde yayınlandı",
   "changelog.whatsNewVersion": "v{{version}} Sürümündeki Yenilikler",
-
   "video.listenOnly": "Yalnızca dinle",
   "video.minimize": "Küçült",
   "video.expand": "Genişlet",
@@ -281,11 +260,9 @@
   "video.loading": "Video yükleniyor...",
   "video.musicVideo": "Müzik Videosu",
   "video.watch": "İzle",
-
   "trackList.title": "Başlık",
   "trackList.artist": "Sanatçı",
   "trackList.plays": "Çalma Sayısı",
-
   "toast.radioStarted": "Radyo başlatıldı",
   "toast.couldNotStartRadio": "Radyo başlatılamadı",
   "toast.linkCopied": "Bağlantı panoya kopyalandı",
@@ -356,7 +333,6 @@
   "toast.noPlaylistsForMood": "Bu ruh hali için playlist bulunamadı",
   "toast.couldNotLoadPlaylist": "Playlist yüklenemedi",
   "toast.couldNotLoadTracks": "Parçalar yüklenemedi",
-
   "common.clear": "Temizle",
   "common.close": "Kapat",
   "common.minimize": "Küçült",
@@ -371,7 +347,6 @@
   "common.password": "Şifre",
   "common.unknownArtist": "Bilinmeyen Sanatçı",
   "common.remove": "Kaldır",
-
   "dialog.firstTimeSetup": "İlk Kurulum",
   "dialog.installingYtdlp": "yt-dlp kuruluyor...",
   "dialog.ytdlpRequired": "Ses akışı için yt-dlp gereklidir. Sisteminizde Homebrew algılandı.\n\nOtomatik olarak kurmak için \"Kur\" düğmesine tıklayın.",
@@ -389,15 +364,14 @@
   "dialog.showLogs": "Günlükleri Göster",
   "dialog.ytdlpInstallFailed": "Kurulum başarısız oldu (çıkış kodu {{code}}). Manuel olarak deneyin: brew install yt-dlp",
   "dialog.ytdlpInstalled": "yt-dlp başarıyla kuruldu!",
-
   "explore.backToMoods": "← Ruh Halleri ve Türlere Dön",
+  "explore.noData": "Veri mevcut değil.",
   "explore.couldNotLoad": "Keşfet verileri yüklenemedi.",
   "explore.moodsAndGenres": "Ruh Halleri ve Türler",
   "explore.newAlbums": "Yeni Albümler ve Single'lar",
   "explore.newMusicVideos": "Yeni Müzik Videoları",
   "explore.topArtists": "En İyi Sanatçılar",
   "explore.trending": "Trendler",
-
   "sync.connected": "Bağlı",
   "sync.syncing": "Senkronize ediliyor...",
   "sync.syncedJustNow": "Az önce senkronize edildi"

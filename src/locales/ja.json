@@ -4,7 +4,6 @@
   "nav.search": "検索",
   "nav.library": "ライブラリ",
   "nav.settings": "設定",
-
   "welcome.title": "Snowifyへようこそ",
   "welcome.desc": "サインインして、プレイリスト、お気に入りの曲、設定をすべてのデバイスで同期しましょう。",
   "welcome.signIn": "サインイン",
@@ -13,7 +12,6 @@
   "welcome.warning": "アカウントなしの場合、データはローカルに保存され、紛失しても復元できません。",
   "welcome.enterEmailPassword": "メールアドレスとパスワードを入力してください",
   "welcome.passwordMinLength": "パスワードは6文字以上にしてください",
-
   "home.greeting.morning": "おはようございます",
   "home.greeting.afternoon": "こんにちは",
   "home.greeting.evening": "こんばんは",
@@ -22,7 +20,6 @@
   "home.recentEmptyHint": "まずは何か検索してみましょう！",
   "home.newFromArtists": "フォロー中のアーティストの新曲",
   "home.recommendedSongs": "おすすめの曲",
-
   "search.placeholder": "何を聴きたいですか？",
   "search.empty": "曲、アーティスト、アルバム、プレイリストを検索",
   "search.floatingText": "検索",
@@ -39,17 +36,14 @@
   "search.noResults": "結果が見つかりません",
   "search.noResultsFor": "「{{query}}」の結果が見つかりません",
   "search.searchFailed": "検索に失敗しました。もう一度お試しください。",
-
   "library.title": "ライブラリ",
   "library.emptyTitle": "最初のプレイリストを作成",
   "library.emptyDesc": "簡単です — お手伝いします",
   "library.createPlaylist": "プレイリストを作成",
-
   "sidebar.playlists": "プレイリスト",
   "sidebar.likedSongs": "お気に入りの曲",
   "sidebar.songCount.one": "{{count}}曲",
   "sidebar.songCount.other": "{{count}}曲",
-
   "playlist.type": "プレイリスト",
   "playlist.playAll": "すべて再生",
   "playlist.shufflePlay": "シャッフル再生",
@@ -59,14 +53,9 @@
   "playlist.delete": "プレイリストを削除",
   "playlist.empty": "このプレイリストは空です",
   "playlist.emptyHint": "お気に入りの曲を見つけてここに追加しましょう",
-  "playlist.exportSuccess": "プレイリストをエクスポートしました",
   "playlist.confirmDelete": "「{{name}}」を削除しますか？\nこの操作は取り消せません。",
-
   "album.type": "アルバム",
-  "album.single": "シングル",
-  "album.ep": "EP",
   "album.couldNotLoad": "アルバムのトラックを読み込めませんでした。",
-
   "artist.type": "アーティスト",
   "artist.follow": "フォロー",
   "artist.following": "フォロー中",
@@ -86,11 +75,10 @@
   "artist.notFound": "アーティストが見つかりません",
   "artist.noTracks": "このアーティストのトラックが見つかりません。",
   "artist.noReleases": "リリースが見つかりません。",
+  "artist.featuredOn": "収録先",
   "artist.couldNotLoad": "アーティスト情報を読み込めませんでした。",
-
   "auth.notSignedIn": "サインインしていません",
   "auth.useEmailSignIn": "メールでサインイン",
-
   "player.play": "再生",
   "player.pause": "一時停止",
   "player.previous": "前の曲",
@@ -104,7 +92,6 @@
   "player.volume": "音量",
   "player.repeatAll": "すべてリピート",
   "player.repeatOne": "1曲リピート",
-
   "queue.title": "キュー",
   "queue.recentlyPlayed": "最近再生した曲",
   "queue.nowPlaying": "再生中",
@@ -115,14 +102,12 @@
   "queue.nothingPlaying": "再生中の曲はありません",
   "queue.noRecentTracks": "最近再生した曲はありません",
   "queue.removeFromQueue": "キューから削除",
-
   "lyrics.title": "歌詞",
   "lyrics.empty": "曲を再生すると歌詞が表示されます",
   "lyrics.notFound": "この曲の歌詞が見つかりません",
   "lyrics.searching": "歌詞を検索中…",
   "lyrics.failed": "歌詞の読み込みに失敗しました",
   "lyrics.toggleLyrics": "歌詞の表示切替",
-
   "context.play": "再生",
   "context.playAll": "すべて再生",
   "context.playNext": "次に再生",
@@ -140,7 +125,6 @@
   "context.moveUp": "上に移動",
   "context.moveDown": "下に移動",
   "context.goToArtist": "アーティストへ移動",
-  "context.goToAlbum": "アルバムへ移動",
   "context.remove": "削除",
   "context.rename": "名前を変更",
   "context.delete": "削除",
@@ -149,7 +133,6 @@
   "context.saveToLibrary": "プレイリストとして保存",
   "context.removeFromLibrary": "ライブラリから削除",
   "context.shufflePlay": "シャッフル再生",
-
   "settings.title": "設定",
   "settings.account": "アカウント",
   "settings.accountDesc": "サインインして、プレイリスト、お気に入りの曲、設定をデバイス間で同期しましょう。",
@@ -230,10 +213,8 @@
   "settings.language": "言語",
   "settings.languageDesc": "アプリの表示言語",
   "settings.langAuto": "システムの既定",
-  "settings.langEn": "English",
-  "settings.langEs": "Español",
+  "settings.seconds": "{{value}}秒",
   "settings.customThemeSeparator": "── カスタム ──",
-
   "update.checking": "アップデートを確認中...",
   "update.available": "アップデートあり: v{{version}}",
   "update.availableDesc": "新しいバージョンがダウンロードできます。",
@@ -244,13 +225,12 @@
   "update.error": "アップデートの確認に失敗しました",
   "update.errorNoConnection": "アップデートサーバーに接続できません。インターネット接続を確認してください。",
   "update.errorNoMetadata": "最新リリースにアップデートのメタデータが見つかりません。",
-
   "modal.enterName": "名前を入力",
   "modal.cancel": "キャンセル",
   "modal.ok": "OK",
   "modal.createPlaylist": "プレイリストを作成",
   "modal.renamePlaylist": "プレイリスト名を変更",
-
+  "modal.defaultPlaylistName": "マイプレイリスト",
   "spotify.title": "Spotifyプレイリストをインポート",
   "spotify.desc": "{{link}}を使ってSpotifyのプレイリストをCSVにエクスポートし、ここでインポートしてください。",
   "spotify.selectFiles": "CSVファイルを選択",
@@ -265,7 +245,7 @@
   "spotify.matchingPlaylist": "プレイリスト {{current}}/{{total}} — トラックをマッチング中...",
   "spotify.failedToMatch": "マッチ失敗（{{count}}曲）",
   "spotify.notFound": "（{{count}}曲が見つかりません）",
-
+  "spotify.selectAtLeastOne": "プレイリストを1つ以上選択してください",
   "changelog.title": "新機能",
   "changelog.loading": "変更履歴を読み込み中...",
   "changelog.gotIt": "了解",
@@ -273,7 +253,6 @@
   "changelog.updatesSince": "v{{version}}以降、{{count}}件のアップデート",
   "changelog.released": "{{date}}にリリース",
   "changelog.whatsNewVersion": "v{{version}}の新機能",
-
   "video.listenOnly": "音声のみ",
   "video.minimize": "最小化",
   "video.expand": "拡大",
@@ -281,11 +260,9 @@
   "video.loading": "動画を読み込み中...",
   "video.musicVideo": "ミュージックビデオ",
   "video.watch": "視聴",
-
   "trackList.title": "タイトル",
   "trackList.artist": "アーティスト",
   "trackList.plays": "再生回数",
-
   "toast.radioStarted": "ラジオを開始しました",
   "toast.couldNotStartRadio": "ラジオを開始できませんでした",
   "toast.linkCopied": "リンクをクリップボードにコピーしました",
@@ -356,7 +333,6 @@
   "toast.noPlaylistsForMood": "このムードのプレイリストが見つかりません",
   "toast.couldNotLoadPlaylist": "プレイリストを読み込めませんでした",
   "toast.couldNotLoadTracks": "トラックを読み込めませんでした",
-
   "common.clear": "クリア",
   "common.close": "閉じる",
   "common.minimize": "最小化",
@@ -371,7 +347,6 @@
   "common.password": "パスワード",
   "common.unknownArtist": "不明なアーティスト",
   "common.remove": "削除",
-
   "dialog.firstTimeSetup": "初回セットアップ",
   "dialog.installingYtdlp": "yt-dlpをインストール中...",
   "dialog.ytdlpRequired": "音声ストリーミングにはyt-dlpが必要です。お使いのシステムでHomebrewが検出されました。\n\n「インストール」をクリックすると自動的にインストールされます。",
@@ -389,15 +364,14 @@
   "dialog.showLogs": "ログを表示",
   "dialog.ytdlpInstallFailed": "インストールに失敗しました（終了コード {{code}}）。手動でお試しください: brew install yt-dlp",
   "dialog.ytdlpInstalled": "yt-dlpのインストールが完了しました！",
-
   "explore.backToMoods": "← ムード＆ジャンルに戻る",
+  "explore.noData": "データがありません。",
   "explore.couldNotLoad": "データを読み込めませんでした。",
   "explore.moodsAndGenres": "ムード＆ジャンル",
   "explore.newAlbums": "新着アルバム＆シングル",
   "explore.newMusicVideos": "新着ミュージックビデオ",
   "explore.topArtists": "トップアーティスト",
   "explore.trending": "トレンド",
-
   "sync.connected": "接続済み",
   "sync.syncing": "同期中...",
   "sync.syncedJustNow": "たった今同期しました"

@@ -4,7 +4,6 @@
   "nav.search": "Suche",
   "nav.library": "Bibliothek",
   "nav.settings": "Einstellungen",
-
   "welcome.title": "Willkommen bei Snowify",
   "welcome.desc": "Melde dich an, um deine Playlists, Lieblingssongs und Einstellungen auf allen Geräten zu synchronisieren.",
   "welcome.signIn": "Anmelden",
@@ -13,7 +12,6 @@
   "welcome.warning": "Ohne Konto werden deine Daten lokal gespeichert und können bei Verlust nicht wiederhergestellt werden.",
   "welcome.enterEmailPassword": "Bitte E-Mail und Passwort eingeben",
   "welcome.passwordMinLength": "Das Passwort muss mindestens 6 Zeichen lang sein",
-
   "home.greeting.morning": "Guten Morgen",
   "home.greeting.afternoon": "Guten Tag",
   "home.greeting.evening": "Guten Abend",
@@ -22,7 +20,6 @@
   "home.recentEmptyHint": "Suche einfach nach etwas!",
   "home.newFromArtists": "Neu von Künstlern, denen du folgst",
   "home.recommendedSongs": "Empfohlene Songs",
-
   "search.placeholder": "Was möchtest du hören?",
   "search.empty": "Suche nach Songs, Künstlern, Alben oder Playlists",
   "search.floatingText": "Suche",
@@ -39,17 +36,14 @@
   "search.noResults": "Keine Ergebnisse gefunden",
   "search.noResultsFor": "Keine Ergebnisse für \"{{query}}\" gefunden",
   "search.searchFailed": "Suche fehlgeschlagen. Bitte versuche es erneut.",
-
   "library.title": "Deine Bibliothek",
   "library.emptyTitle": "Erstelle deine erste Playlist",
   "library.emptyDesc": "Das ist ganz einfach – wir helfen dir",
   "library.createPlaylist": "Playlist erstellen",
-
   "sidebar.playlists": "Playlists",
   "sidebar.likedSongs": "Lieblingssongs",
   "sidebar.songCount.one": "{{count}} Song",
   "sidebar.songCount.other": "{{count}} Songs",
-
   "playlist.type": "PLAYLIST",
   "playlist.playAll": "Alle abspielen",
   "playlist.shufflePlay": "Zufallswiedergabe",
@@ -59,14 +53,9 @@
   "playlist.delete": "Playlist löschen",
   "playlist.empty": "Diese Playlist ist leer",
   "playlist.emptyHint": "Finde Songs, die dir gefallen, und füge sie hier hinzu",
-  "playlist.exportSuccess": "Playlist erfolgreich exportiert",
   "playlist.confirmDelete": "\"{{name}}\" löschen?\nDies kann nicht rückgängig gemacht werden.",
-
   "album.type": "ALBUM",
-  "album.single": "SINGLE",
-  "album.ep": "EP",
   "album.couldNotLoad": "Album-Titel konnten nicht geladen werden.",
-
   "artist.type": "KÜNSTLER",
   "artist.follow": "Folgen",
   "artist.following": "Folge ich",
@@ -86,11 +75,10 @@
   "artist.notFound": "Künstler nicht gefunden",
   "artist.noTracks": "Keine Titel für diesen Künstler gefunden.",
   "artist.noReleases": "Keine Veröffentlichungen gefunden.",
+  "artist.featuredOn": "Zu sehen in",
   "artist.couldNotLoad": "Künstler-Informationen konnten nicht geladen werden.",
-
   "auth.notSignedIn": "Nicht angemeldet",
   "auth.useEmailSignIn": "Mit E-Mail anmelden",
-
   "player.play": "Abspielen",
   "player.pause": "Pausieren",
   "player.previous": "Vorheriger",
@@ -104,7 +92,6 @@
   "player.volume": "Lautstärke",
   "player.repeatAll": "Alle wiederholen",
   "player.repeatOne": "Einen wiederholen",
-
   "queue.title": "Warteschlange",
   "queue.recentlyPlayed": "Zuletzt gespielt",
   "queue.nowPlaying": "Wird gerade gespielt",
@@ -115,14 +102,12 @@
   "queue.nothingPlaying": "Nichts wird abgespielt",
   "queue.noRecentTracks": "Keine kürzlich gespielten Titel",
   "queue.removeFromQueue": "Aus Warteschlange entfernen",
-
   "lyrics.title": "Songtext",
   "lyrics.empty": "Spiele einen Song ab, um den Songtext zu sehen",
   "lyrics.notFound": "Kein Songtext für diesen Song gefunden",
-  "lyrics.searching": "Songtext wird gesucht\u2026",
+  "lyrics.searching": "Songtext wird gesucht…",
   "lyrics.failed": "Songtext konnte nicht geladen werden",
   "lyrics.toggleLyrics": "Songtext ein-/ausblenden",
-
   "context.play": "Abspielen",
   "context.playAll": "Alle abspielen",
   "context.playNext": "Als Nächstes abspielen",
@@ -140,7 +125,6 @@
   "context.moveUp": "Nach oben verschieben",
   "context.moveDown": "Nach unten verschieben",
   "context.goToArtist": "Zum Künstler",
-  "context.goToAlbum": "Zum Album",
   "context.remove": "Entfernen",
   "context.rename": "Umbenennen",
   "context.delete": "Löschen",
@@ -149,7 +133,6 @@
   "context.saveToLibrary": "Als Playlist speichern",
   "context.removeFromLibrary": "Aus Bibliothek entfernen",
   "context.shufflePlay": "Zufallswiedergabe",
-
   "settings.title": "Einstellungen",
   "settings.account": "Konto",
   "settings.accountDesc": "Melde dich an, um deine Playlists, Lieblingssongs und Einstellungen geräteübergreifend zu synchronisieren.",
@@ -230,10 +213,8 @@
   "settings.language": "Sprache",
   "settings.languageDesc": "Anzeigesprache der App",
   "settings.langAuto": "Systemstandard",
-  "settings.langEn": "English",
-  "settings.langEs": "Español",
+  "settings.seconds": "{{value}}s",
   "settings.customThemeSeparator": "── Benutzerdefiniert ──",
-
   "update.checking": "Suche nach Updates...",
   "update.available": "Update verfügbar: v{{version}}",
   "update.availableDesc": "Eine neue Version steht zum Herunterladen bereit.",
@@ -244,13 +225,12 @@
   "update.error": "Update-Überprüfung fehlgeschlagen",
   "update.errorNoConnection": "Update-Server nicht erreichbar. Überprüfe deine Internetverbindung.",
   "update.errorNoMetadata": "Keine Update-Metadaten in der neuesten Version gefunden.",
-
   "modal.enterName": "Namen eingeben",
   "modal.cancel": "Abbrechen",
   "modal.ok": "OK",
   "modal.createPlaylist": "Playlist erstellen",
   "modal.renamePlaylist": "Playlist umbenennen",
-
+  "modal.defaultPlaylistName": "Meine Playlist",
   "spotify.title": "Spotify-Playlists importieren",
   "spotify.desc": "Exportiere deine Spotify-Playlists als CSV mit {{link}} und importiere die Dateien hier.",
   "spotify.selectFiles": "CSV-Dateien auswählen",
@@ -265,7 +245,7 @@
   "spotify.matchingPlaylist": "Playlist {{current}}/{{total}} — Titel werden abgeglichen...",
   "spotify.failedToMatch": "Zuordnung fehlgeschlagen ({{count}})",
   "spotify.notFound": "({{count}} nicht gefunden)",
-
+  "spotify.selectAtLeastOne": "Wähle mindestens eine Playlist aus",
   "changelog.title": "Neuigkeiten",
   "changelog.loading": "Änderungsprotokoll wird geladen...",
   "changelog.gotIt": "Verstanden",
@@ -273,7 +253,6 @@
   "changelog.updatesSince": "{{count}} Updates seit v{{version}}",
   "changelog.released": "Veröffentlicht am {{date}}",
   "changelog.whatsNewVersion": "Neuigkeiten in v{{version}}",
-
   "video.listenOnly": "Nur anhören",
   "video.minimize": "Minimieren",
   "video.expand": "Erweitern",
@@ -281,11 +260,9 @@
   "video.loading": "Video wird geladen...",
   "video.musicVideo": "Musikvideo",
   "video.watch": "Ansehen",
-
   "trackList.title": "Titel",
   "trackList.artist": "Künstler",
   "trackList.plays": "Wiedergaben",
-
   "toast.radioStarted": "Radio gestartet",
   "toast.couldNotStartRadio": "Radio konnte nicht gestartet werden",
   "toast.linkCopied": "Link in die Zwischenablage kopiert",
@@ -356,7 +333,6 @@
   "toast.noPlaylistsForMood": "Keine Playlists für diese Stimmung gefunden",
   "toast.couldNotLoadPlaylist": "Playlist konnte nicht geladen werden",
   "toast.couldNotLoadTracks": "Titel konnten nicht geladen werden",
-
   "common.clear": "Leeren",
   "common.close": "Schließen",
   "common.minimize": "Minimieren",
@@ -371,7 +347,6 @@
   "common.password": "Passwort",
   "common.unknownArtist": "Unbekannter Künstler",
   "common.remove": "Entfernen",
-
   "dialog.firstTimeSetup": "Ersteinrichtung",
   "dialog.installingYtdlp": "yt-dlp wird installiert...",
   "dialog.ytdlpRequired": "yt-dlp wird für das Audio-Streaming benötigt. Homebrew wurde auf deinem System erkannt.\n\nKlicke auf \"Installieren\", um es automatisch zu installieren.",
@@ -389,15 +364,14 @@
   "dialog.showLogs": "Protokolle anzeigen",
   "dialog.ytdlpInstallFailed": "Installation fehlgeschlagen (Exit-Code {{code}}). Versuche manuell: brew install yt-dlp",
   "dialog.ytdlpInstalled": "yt-dlp wurde erfolgreich installiert!",
-
   "explore.backToMoods": "← Zurück zu Stimmungen & Genres",
+  "explore.noData": "Keine Daten verfügbar.",
   "explore.couldNotLoad": "Entdecken-Daten konnten nicht geladen werden.",
   "explore.moodsAndGenres": "Stimmungen & Genres",
   "explore.newAlbums": "Neue Alben & Singles",
   "explore.newMusicVideos": "Neue Musikvideos",
   "explore.topArtists": "Top-Künstler",
   "explore.trending": "Im Trend",
-
   "sync.connected": "Verbunden",
   "sync.syncing": "Synchronisiere...",
   "sync.syncedJustNow": "Gerade eben synchronisiert"

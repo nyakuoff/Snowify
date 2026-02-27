@@ -4,7 +4,6 @@
   "nav.search": "Поиск",
   "nav.library": "Библиотека",
   "nav.settings": "Настройки",
-
   "welcome.title": "Добро пожаловать в Snowify",
   "welcome.desc": "Войдите, чтобы синхронизировать плейлисты, избранные треки и настройки на всех устройствах.",
   "welcome.signIn": "Войти",
@@ -13,7 +12,6 @@
   "welcome.warning": "Без аккаунта ваши данные хранятся локально и не могут быть восстановлены в случае утери.",
   "welcome.enterEmailPassword": "Введите email и пароль",
   "welcome.passwordMinLength": "Пароль должен содержать не менее 6 символов",
-
   "home.greeting.morning": "Доброе утро",
   "home.greeting.afternoon": "Добрый день",
   "home.greeting.evening": "Добрый вечер",
@@ -22,7 +20,6 @@
   "home.recentEmptyHint": "Начните с поиска чего-нибудь!",
   "home.newFromArtists": "Новинки от ваших исполнителей",
   "home.recommendedSongs": "Рекомендованные треки",
-
   "search.placeholder": "Что вы хотите послушать?",
   "search.empty": "Ищите песни, исполнителей, альбомы или плейлисты",
   "search.floatingText": "Поиск",
@@ -39,17 +36,14 @@
   "search.noResults": "Ничего не найдено",
   "search.noResultsFor": "По запросу «{{query}}» ничего не найдено",
   "search.searchFailed": "Ошибка поиска. Попробуйте ещё раз.",
-
   "library.title": "Ваша библиотека",
   "library.emptyTitle": "Создайте свой первый плейлист",
   "library.emptyDesc": "Это просто — мы поможем",
   "library.createPlaylist": "Создать плейлист",
-
   "sidebar.playlists": "Плейлисты",
   "sidebar.likedSongs": "Избранные треки",
   "sidebar.songCount.one": "{{count}} трек",
   "sidebar.songCount.other": "{{count}} треков",
-
   "playlist.type": "ПЛЕЙЛИСТ",
   "playlist.playAll": "Воспроизвести всё",
   "playlist.shufflePlay": "Перемешать",
@@ -59,14 +53,9 @@
   "playlist.delete": "Удалить плейлист",
   "playlist.empty": "Этот плейлист пуст",
   "playlist.emptyHint": "Найдите понравившиеся треки и добавьте их сюда",
-  "playlist.exportSuccess": "Плейлист успешно экспортирован",
   "playlist.confirmDelete": "Удалить «{{name}}»?\nЭто действие нельзя отменить.",
-
   "album.type": "АЛЬБОМ",
-  "album.single": "СИНГЛ",
-  "album.ep": "EP",
   "album.couldNotLoad": "Не удалось загрузить треки альбома.",
-
   "artist.type": "ИСПОЛНИТЕЛЬ",
   "artist.follow": "Подписаться",
   "artist.following": "Вы подписаны",
@@ -86,11 +75,10 @@
   "artist.notFound": "Исполнитель не найден",
   "artist.noTracks": "Треки этого исполнителя не найдены.",
   "artist.noReleases": "Релизы не найдены.",
+  "artist.featuredOn": "Присутствует в",
   "artist.couldNotLoad": "Не удалось загрузить информацию об исполнителе.",
-
   "auth.notSignedIn": "Вы не вошли",
   "auth.useEmailSignIn": "Войти по email",
-
   "player.play": "Воспроизвести",
   "player.pause": "Пауза",
   "player.previous": "Предыдущий",
@@ -104,7 +92,6 @@
   "player.volume": "Громкость",
   "player.repeatAll": "Повторять все",
   "player.repeatOne": "Повторять один",
-
   "queue.title": "Очередь",
   "queue.recentlyPlayed": "Недавно прослушанные",
   "queue.nowPlaying": "Сейчас играет",
@@ -115,14 +102,12 @@
   "queue.nothingPlaying": "Ничего не воспроизводится",
   "queue.noRecentTracks": "Нет недавно прослушанных треков",
   "queue.removeFromQueue": "Удалить из очереди",
-
   "lyrics.title": "Текст песни",
   "lyrics.empty": "Включите песню, чтобы увидеть текст",
   "lyrics.notFound": "Текст для этой песни не найден",
   "lyrics.searching": "Поиск текста…",
   "lyrics.failed": "Не удалось загрузить текст песни",
   "lyrics.toggleLyrics": "Показать/скрыть текст",
-
   "context.play": "Воспроизвести",
   "context.playAll": "Воспроизвести всё",
   "context.playNext": "Воспроизвести следующим",
@@ -140,7 +125,6 @@
   "context.moveUp": "Переместить вверх",
   "context.moveDown": "Переместить вниз",
   "context.goToArtist": "Перейти к исполнителю",
-  "context.goToAlbum": "Перейти к альбому",
   "context.remove": "Удалить",
   "context.rename": "Переименовать",
   "context.delete": "Удалить",
@@ -149,7 +133,6 @@
   "context.saveToLibrary": "Сохранить как плейлист",
   "context.removeFromLibrary": "Удалить из библиотеки",
   "context.shufflePlay": "Перемешать",
-
   "settings.title": "Настройки",
   "settings.account": "Аккаунт",
   "settings.accountDesc": "Войдите, чтобы синхронизировать плейлисты, избранные треки и настройки на всех устройствах.",
@@ -230,10 +213,8 @@
   "settings.language": "Язык",
   "settings.languageDesc": "Язык интерфейса приложения",
   "settings.langAuto": "Системный по умолчанию",
-  "settings.langEn": "English",
-  "settings.langEs": "Español",
+  "settings.seconds": "{{value}}с",
   "settings.customThemeSeparator": "── Пользовательские ──",
-
   "update.checking": "Проверка обновлений...",
   "update.available": "Доступно обновление: v{{version}}",
   "update.availableDesc": "Новая версия готова к загрузке.",
@@ -244,13 +225,12 @@
   "update.error": "Ошибка проверки обновлений",
   "update.errorNoConnection": "Не удалось связаться с сервером обновлений. Проверьте подключение к интернету.",
   "update.errorNoMetadata": "Метаданные обновления не найдены в последнем релизе.",
-
   "modal.enterName": "Введите название",
   "modal.cancel": "Отмена",
   "modal.ok": "ОК",
   "modal.createPlaylist": "Создать плейлист",
   "modal.renamePlaylist": "Переименовать плейлист",
-
+  "modal.defaultPlaylistName": "Мой плейлист",
   "spotify.title": "Импорт плейлистов из Spotify",
   "spotify.desc": "Экспортируйте плейлисты Spotify в формате CSV с помощью {{link}}, затем импортируйте файлы сюда.",
   "spotify.selectFiles": "Выбрать CSV файлы",
@@ -265,7 +245,7 @@
   "spotify.matchingPlaylist": "Плейлист {{current}}/{{total}} — Сопоставление треков...",
   "spotify.failedToMatch": "Не удалось сопоставить ({{count}})",
   "spotify.notFound": "({{count}} не найдено)",
-
+  "spotify.selectAtLeastOne": "Выберите хотя бы один плейлист",
   "changelog.title": "Что нового",
   "changelog.loading": "Загрузка списка изменений...",
   "changelog.gotIt": "Понятно",
@@ -273,7 +253,6 @@
   "changelog.updatesSince": "{{count}} обновлений с версии v{{version}}",
   "changelog.released": "Выпущено {{date}}",
   "changelog.whatsNewVersion": "Что нового в v{{version}}",
-
   "video.listenOnly": "Только аудио",
   "video.minimize": "Свернуть",
   "video.expand": "Развернуть",
@@ -281,11 +260,9 @@
   "video.loading": "Загрузка видео...",
   "video.musicVideo": "Музыкальное видео",
   "video.watch": "Смотреть",
-
   "trackList.title": "Название",
   "trackList.artist": "Исполнитель",
   "trackList.plays": "Прослушивания",
-
   "toast.radioStarted": "Радио запущено",
   "toast.couldNotStartRadio": "Не удалось запустить радио",
   "toast.linkCopied": "Ссылка скопирована в буфер обмена",
@@ -356,7 +333,6 @@
   "toast.noPlaylistsForMood": "Плейлисты для этого настроения не найдены",
   "toast.couldNotLoadPlaylist": "Не удалось загрузить плейлист",
   "toast.couldNotLoadTracks": "Не удалось загрузить треки",
-
   "common.clear": "Очистить",
   "common.close": "Закрыть",
   "common.minimize": "Свернуть",
@@ -371,7 +347,6 @@
   "common.password": "Пароль",
   "common.unknownArtist": "Неизвестный исполнитель",
   "common.remove": "Удалить",
-
   "dialog.firstTimeSetup": "Первоначальная настройка",
   "dialog.installingYtdlp": "Установка yt-dlp...",
   "dialog.ytdlpRequired": "yt-dlp необходим для потоковой передачи аудио. На вашей системе обнаружен Homebrew.\n\nНажмите «Установить» для автоматической установки.",
@@ -389,15 +364,14 @@
   "dialog.showLogs": "Показать логи",
   "dialog.ytdlpInstallFailed": "Ошибка установки (код выхода {{code}}). Попробуйте вручную: brew install yt-dlp",
   "dialog.ytdlpInstalled": "yt-dlp успешно установлен!",
-
   "explore.backToMoods": "← Назад к настроениям и жанрам",
+  "explore.noData": "Нет доступных данных.",
   "explore.couldNotLoad": "Не удалось загрузить данные раздела «Обзор».",
   "explore.moodsAndGenres": "Настроения и жанры",
   "explore.newAlbums": "Новые альбомы и синглы",
   "explore.newMusicVideos": "Новые музыкальные видео",
   "explore.topArtists": "Лучшие исполнители",
   "explore.trending": "В тренде",
-
   "sync.connected": "Подключено",
   "sync.syncing": "Синхронизация...",
   "sync.syncedJustNow": "Синхронизировано только что"

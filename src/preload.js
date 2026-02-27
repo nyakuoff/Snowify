@@ -80,6 +80,7 @@ contextBridge.exposeInMainWorld('snowify', {
 
   // i18n
   getLocale: () => ipcRenderer.invoke('app:getLocale'),
+  setLocale: (locale) => ipcRenderer.invoke('app:setLocale', locale),
 
   // Auto-updater
   getVersion: () => ipcRenderer.invoke('app:getVersion'),

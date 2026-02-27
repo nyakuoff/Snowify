@@ -4,7 +4,6 @@
   "nav.search": "검색",
   "nav.library": "라이브러리",
   "nav.settings": "설정",
-
   "welcome.title": "Snowify에 오신 것을 환영합니다",
   "welcome.desc": "로그인하면 플레이리스트, 좋아요한 노래, 설정을 모든 기기에서 동기화할 수 있습니다.",
   "welcome.signIn": "로그인",
@@ -13,7 +12,6 @@
   "welcome.warning": "계정 없이 사용하면 데이터가 기기에만 저장되며, 분실 시 복구할 수 없습니다.",
   "welcome.enterEmailPassword": "이메일과 비밀번호를 입력해 주세요",
   "welcome.passwordMinLength": "비밀번호는 6자 이상이어야 합니다",
-
   "home.greeting.morning": "좋은 아침이에요",
   "home.greeting.afternoon": "좋은 오후에요",
   "home.greeting.evening": "좋은 저녁이에요",
@@ -22,7 +20,6 @@
   "home.recentEmptyHint": "먼저 검색해 보세요!",
   "home.newFromArtists": "팔로우한 아티스트의 신곡",
   "home.recommendedSongs": "추천 곡",
-
   "search.placeholder": "무엇을 듣고 싶으세요?",
   "search.empty": "곡, 아티스트, 앨범 또는 플레이리스트를 검색하세요",
   "search.floatingText": "검색",
@@ -39,17 +36,14 @@
   "search.noResults": "검색 결과가 없습니다",
   "search.noResultsFor": "\"{{query}}\"에 대한 검색 결과가 없습니다",
   "search.searchFailed": "검색에 실패했습니다. 다시 시도해 주세요.",
-
   "library.title": "내 라이브러리",
   "library.emptyTitle": "첫 번째 플레이리스트를 만들어 보세요",
   "library.emptyDesc": "간단해요 — 도와드릴게요",
   "library.createPlaylist": "플레이리스트 만들기",
-
   "sidebar.playlists": "플레이리스트",
   "sidebar.likedSongs": "좋아요한 노래",
   "sidebar.songCount.one": "{{count}}곡",
   "sidebar.songCount.other": "{{count}}곡",
-
   "playlist.type": "플레이리스트",
   "playlist.playAll": "전체 재생",
   "playlist.shufflePlay": "셔플 재생",
@@ -59,14 +53,9 @@
   "playlist.delete": "플레이리스트 삭제",
   "playlist.empty": "이 플레이리스트는 비어 있습니다",
   "playlist.emptyHint": "좋아하는 노래를 찾아서 여기에 추가하세요",
-  "playlist.exportSuccess": "플레이리스트를 내보냈습니다",
   "playlist.confirmDelete": "\"{{name}}\"을(를) 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.",
-
   "album.type": "앨범",
-  "album.single": "싱글",
-  "album.ep": "EP",
   "album.couldNotLoad": "앨범 트랙을 불러올 수 없습니다.",
-
   "artist.type": "아티스트",
   "artist.follow": "팔로우",
   "artist.following": "팔로잉",
@@ -86,11 +75,10 @@
   "artist.notFound": "아티스트를 찾을 수 없습니다",
   "artist.noTracks": "이 아티스트의 트랙이 없습니다.",
   "artist.noReleases": "발매된 작품이 없습니다.",
+  "artist.featuredOn": "수록 앨범",
   "artist.couldNotLoad": "아티스트 정보를 불러올 수 없습니다.",
-
   "auth.notSignedIn": "로그인되지 않음",
   "auth.useEmailSignIn": "이메일로 로그인",
-
   "player.play": "재생",
   "player.pause": "일시정지",
   "player.previous": "이전",
@@ -104,7 +92,6 @@
   "player.volume": "음량",
   "player.repeatAll": "전체 반복",
   "player.repeatOne": "한 곡 반복",
-
   "queue.title": "재생 대기열",
   "queue.recentlyPlayed": "최근 재생",
   "queue.nowPlaying": "현재 재생 중",
@@ -115,14 +102,12 @@
   "queue.nothingPlaying": "재생 중인 곡이 없습니다",
   "queue.noRecentTracks": "최근 재생한 트랙이 없습니다",
   "queue.removeFromQueue": "대기열에서 제거",
-
   "lyrics.title": "가사",
   "lyrics.empty": "노래를 재생하면 가사가 표시됩니다",
   "lyrics.notFound": "이 노래의 가사를 찾을 수 없습니다",
   "lyrics.searching": "가사를 검색하는 중…",
   "lyrics.failed": "가사를 불러오지 못했습니다",
   "lyrics.toggleLyrics": "가사 표시 전환",
-
   "context.play": "재생",
   "context.playAll": "전체 재생",
   "context.playNext": "다음에 재생",
@@ -140,7 +125,6 @@
   "context.moveUp": "위로 이동",
   "context.moveDown": "아래로 이동",
   "context.goToArtist": "아티스트로 이동",
-  "context.goToAlbum": "앨범으로 이동",
   "context.remove": "제거",
   "context.rename": "이름 변경",
   "context.delete": "삭제",
@@ -149,7 +133,6 @@
   "context.saveToLibrary": "플레이리스트로 저장",
   "context.removeFromLibrary": "라이브러리에서 제거",
   "context.shufflePlay": "셔플 재생",
-
   "settings.title": "설정",
   "settings.account": "계정",
   "settings.accountDesc": "로그인하면 플레이리스트, 좋아요한 노래, 설정을 여러 기기에서 동기화할 수 있습니다.",
@@ -230,10 +213,8 @@
   "settings.language": "언어",
   "settings.languageDesc": "앱 표시 언어",
   "settings.langAuto": "시스템 기본값",
-  "settings.langEn": "English",
-  "settings.langEs": "Español",
+  "settings.seconds": "{{value}}초",
   "settings.customThemeSeparator": "── 사용자 정의 ──",
-
   "update.checking": "업데이트를 확인하는 중...",
   "update.available": "업데이트 가능: v{{version}}",
   "update.availableDesc": "새 버전을 다운로드할 수 있습니다.",
@@ -244,13 +225,12 @@
   "update.error": "업데이트 확인 실패",
   "update.errorNoConnection": "업데이트 서버에 연결할 수 없습니다. 인터넷 연결을 확인해 주세요.",
   "update.errorNoMetadata": "최신 릴리스에서 업데이트 메타데이터를 찾을 수 없습니다.",
-
   "modal.enterName": "이름 입력",
   "modal.cancel": "취소",
   "modal.ok": "확인",
   "modal.createPlaylist": "플레이리스트 만들기",
   "modal.renamePlaylist": "플레이리스트 이름 변경",
-
+  "modal.defaultPlaylistName": "내 플레이리스트",
   "spotify.title": "Spotify 플레이리스트 가져오기",
   "spotify.desc": "{{link}}을(를) 사용하여 Spotify 플레이리스트를 CSV로 내보낸 다음 여기에서 파일을 가져오세요.",
   "spotify.selectFiles": "CSV 파일 선택",
@@ -265,7 +245,7 @@
   "spotify.matchingPlaylist": "플레이리스트 {{current}}/{{total}} — 트랙 매칭 중...",
   "spotify.failedToMatch": "매칭 실패 ({{count}}개)",
   "spotify.notFound": "({{count}}개를 찾을 수 없음)",
-
+  "spotify.selectAtLeastOne": "플레이리스트를 하나 이상 선택하세요",
   "changelog.title": "새로운 기능",
   "changelog.loading": "변경 사항을 불러오는 중...",
   "changelog.gotIt": "확인",
@@ -273,7 +253,6 @@
   "changelog.updatesSince": "v{{version}} 이후 {{count}}개의 업데이트",
   "changelog.released": "{{date}} 출시",
   "changelog.whatsNewVersion": "v{{version}}의 새로운 기능",
-
   "video.listenOnly": "오디오만",
   "video.minimize": "최소화",
   "video.expand": "확대",
@@ -281,11 +260,9 @@
   "video.loading": "동영상 로딩 중...",
   "video.musicVideo": "뮤직비디오",
   "video.watch": "보기",
-
   "trackList.title": "제목",
   "trackList.artist": "아티스트",
   "trackList.plays": "재생 수",
-
   "toast.radioStarted": "라디오가 시작되었습니다",
   "toast.couldNotStartRadio": "라디오를 시작할 수 없습니다",
   "toast.linkCopied": "링크가 클립보드에 복사되었습니다",
@@ -356,7 +333,6 @@
   "toast.noPlaylistsForMood": "이 분위기에 맞는 플레이리스트를 찾을 수 없습니다",
   "toast.couldNotLoadPlaylist": "플레이리스트를 불러올 수 없습니다",
   "toast.couldNotLoadTracks": "트랙을 불러올 수 없습니다",
-
   "common.clear": "지우기",
   "common.close": "닫기",
   "common.minimize": "최소화",
@@ -371,7 +347,6 @@
   "common.password": "비밀번호",
   "common.unknownArtist": "알 수 없는 아티스트",
   "common.remove": "제거",
-
   "dialog.firstTimeSetup": "초기 설정",
   "dialog.installingYtdlp": "yt-dlp 설치 중...",
   "dialog.ytdlpRequired": "오디오 스트리밍을 위해 yt-dlp가 필요합니다. 시스템에서 Homebrew가 감지되었습니다.\n\n\"설치\"를 클릭하면 자동으로 설치됩니다.",
@@ -389,15 +364,14 @@
   "dialog.showLogs": "로그 표시",
   "dialog.ytdlpInstallFailed": "설치 실패 (종료 코드 {{code}}). 직접 시도하세요: brew install yt-dlp",
   "dialog.ytdlpInstalled": "yt-dlp가 성공적으로 설치되었습니다!",
-
   "explore.backToMoods": "← 분위기 및 장르로 돌아가기",
+  "explore.noData": "둘러보기 데이터가 없습니다.",
   "explore.couldNotLoad": "둘러보기 데이터를 불러올 수 없습니다.",
   "explore.moodsAndGenres": "분위기 및 장르",
   "explore.newAlbums": "새 앨범 및 싱글",
   "explore.newMusicVideos": "새 뮤직비디오",
   "explore.topArtists": "인기 아티스트",
   "explore.trending": "트렌딩",
-
   "sync.connected": "연결됨",
   "sync.syncing": "동기화 중...",
   "sync.syncedJustNow": "방금 동기화됨"

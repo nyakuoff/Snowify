@@ -2,6 +2,7 @@ window.I18n = (function () {
   let _locale = 'en';
   let _translations = {};
   let _fallback = {};
+  let _pluralRules;
   const _listeners = [];
 
   const SUPPORTED = ['en','es','pt','fr','de','ja','ko','zh','it','tr','ru','hi'];
@@ -14,22 +15,29 @@ window.I18n = (function () {
   async function init(locale) {
     _locale = resolveLocale(locale);
     const override = localStorage.getItem('snowify_locale');
-    if (override) _locale = override;
+    if (override) _locale = resolveLocale(override);
+
+    _pluralRules = new Intl.PluralRules(_locale);
 
     const base = '../locales/';
-    const [trans, fb] = await Promise.all([
-      fetch(base + _locale + '.json').then(r => r.json()),
-      _locale !== 'en'
-        ? fetch(base + 'en.json').then(r => r.json())
-        : Promise.resolve({})
-    ]);
-    _translations = trans;
-    _fallback = fb;
+    try {
+      const [trans, fb] = await Promise.all([
+        fetch(base + _locale + '.json').then(r => r.json()),
+        _locale !== 'en'
+          ? fetch(base + 'en.json').then(r => r.json())
+          : Promise.resolve({})
+      ]);
+      _translations = trans;
+      _fallback = fb;
+    } catch {
+      _translations = {};
+      _fallback = {};
+    }
     translatePage();
   }
 
   function t(key, params) {
-    let str = _translations[key] || _fallback[key] || key;
+    let str = _translations[key] ?? _fallback[key] ?? key;
     if (params) {
       for (const [k, v] of Object.entries(params))
         str = str.replaceAll('{{' + k + '}}', v);
@@ -38,12 +46,12 @@ window.I18n = (function () {
   }
 
   function tp(key, count, params) {
-    const rule = new Intl.PluralRules(_locale).select(count);
+    const rule = _pluralRules ? _pluralRules.select(count) : 'other';
     let str = _translations[key + '.' + rule]
-           || _translations[key + '.other']
-           || _fallback[key + '.' + rule]
-           || _fallback[key + '.other']
-           || key;
+           ?? _translations[key + '.other']
+           ?? _fallback[key + '.' + rule]
+           ?? _fallback[key + '.other']
+           ?? key;
     if (params || count !== undefined) {
       const all = { count, ...params };
       for (const [k, v] of Object.entries(all))
@@ -71,8 +79,9 @@ window.I18n = (function () {
   function onChange(fn) { _listeners.push(fn); }
 
   async function changeLanguage(locale) {
-    localStorage.setItem('snowify_locale', locale);
-    await init(locale);
+    const resolved = resolveLocale(locale);
+    localStorage.setItem('snowify_locale', resolved);
+    await init(resolved);
   }
 
   function getLocale() { return _locale; }

@@ -4,7 +4,6 @@
   "nav.search": "搜索",
   "nav.library": "音乐库",
   "nav.settings": "设置",
-
   "welcome.title": "欢迎使用 Snowify",
   "welcome.desc": "登录以在所有设备上同步您的播放列表、喜欢的歌曲和设置。",
   "welcome.signIn": "登录",
@@ -13,7 +12,6 @@
   "welcome.warning": "不使用账户时，您的数据仅存储在本地，丢失后无法恢复。",
   "welcome.enterEmailPassword": "请输入邮箱和密码",
   "welcome.passwordMinLength": "密码长度至少为 6 个字符",
-
   "home.greeting.morning": "早上好",
   "home.greeting.afternoon": "下午好",
   "home.greeting.evening": "晚上好",
@@ -22,7 +20,6 @@
   "home.recentEmptyHint": "从搜索开始吧！",
   "home.newFromArtists": "您关注的艺术家的新作品",
   "home.recommendedSongs": "推荐歌曲",
-
   "search.placeholder": "你想听什么？",
   "search.empty": "搜索歌曲、艺术家、专辑或播放列表",
   "search.floatingText": "搜索",
@@ -39,17 +36,14 @@
   "search.noResults": "未找到结果",
   "search.noResultsFor": "未找到「{{query}}」的结果",
   "search.searchFailed": "搜索失败，请重试。",
-
   "library.title": "你的音乐库",
   "library.emptyTitle": "创建你的第一个播放列表",
   "library.emptyDesc": "很简单——我们会帮助你",
   "library.createPlaylist": "创建播放列表",
-
   "sidebar.playlists": "播放列表",
   "sidebar.likedSongs": "喜欢的歌曲",
   "sidebar.songCount.one": "{{count}} 首歌曲",
   "sidebar.songCount.other": "{{count}} 首歌曲",
-
   "playlist.type": "播放列表",
   "playlist.playAll": "全部播放",
   "playlist.shufflePlay": "随机播放",
@@ -59,14 +53,9 @@
   "playlist.delete": "删除播放列表",
   "playlist.empty": "此播放列表为空",
   "playlist.emptyHint": "找到喜欢的歌曲并添加到这里",
-  "playlist.exportSuccess": "播放列表导出成功",
   "playlist.confirmDelete": "删除「{{name}}」？\n此操作无法撤销。",
-
   "album.type": "专辑",
-  "album.single": "单曲",
-  "album.ep": "EP",
   "album.couldNotLoad": "无法加载专辑曲目。",
-
   "artist.type": "艺术家",
   "artist.follow": "关注",
   "artist.following": "已关注",
@@ -86,11 +75,10 @@
   "artist.notFound": "未找到艺术家",
   "artist.noTracks": "未找到此艺术家的曲目。",
   "artist.noReleases": "未找到发行作品。",
+  "artist.featuredOn": "收录于",
   "artist.couldNotLoad": "无法加载艺术家信息。",
-
   "auth.notSignedIn": "未登录",
   "auth.useEmailSignIn": "使用邮箱登录",
-
   "player.play": "播放",
   "player.pause": "暂停",
   "player.previous": "上一首",
@@ -104,7 +92,6 @@
   "player.volume": "音量",
   "player.repeatAll": "全部循环",
   "player.repeatOne": "单曲循环",
-
   "queue.title": "播放队列",
   "queue.recentlyPlayed": "最近播放",
   "queue.nowPlaying": "正在播放",
@@ -115,14 +102,12 @@
   "queue.nothingPlaying": "当前没有播放内容",
   "queue.noRecentTracks": "没有最近播放的曲目",
   "queue.removeFromQueue": "从队列中移除",
-
   "lyrics.title": "歌词",
   "lyrics.empty": "播放歌曲以查看歌词",
   "lyrics.notFound": "未找到此歌曲的歌词",
   "lyrics.searching": "正在搜索歌词…",
   "lyrics.failed": "歌词加载失败",
   "lyrics.toggleLyrics": "显示/隐藏歌词",
-
   "context.play": "播放",
   "context.playAll": "全部播放",
   "context.playNext": "下一首播放",
@@ -140,7 +125,6 @@
   "context.moveUp": "上移",
   "context.moveDown": "下移",
   "context.goToArtist": "前往艺术家",
-  "context.goToAlbum": "前往专辑",
   "context.remove": "移除",
   "context.rename": "重命名",
   "context.delete": "删除",
@@ -149,7 +133,6 @@
   "context.saveToLibrary": "保存为播放列表",
   "context.removeFromLibrary": "从音乐库中移除",
   "context.shufflePlay": "随机播放",
-
   "settings.title": "设置",
   "settings.account": "账户",
   "settings.accountDesc": "登录以在各设备间同步您的播放列表、喜欢的歌曲和设置。",
@@ -230,10 +213,8 @@
   "settings.language": "语言",
   "settings.languageDesc": "应用显示语言",
   "settings.langAuto": "跟随系统",
-  "settings.langEn": "English",
-  "settings.langEs": "Español",
+  "settings.seconds": "{{value}}秒",
   "settings.customThemeSeparator": "── 自定义 ──",
-
   "update.checking": "正在检查更新...",
   "update.available": "有可用更新：v{{version}}",
   "update.availableDesc": "新版本已准备好下载。",
@@ -244,13 +225,12 @@
   "update.error": "检查更新失败",
   "update.errorNoConnection": "无法连接到更新服务器。请检查您的网络连接。",
   "update.errorNoMetadata": "在最新版本中未找到更新元数据。",
-
   "modal.enterName": "输入名称",
   "modal.cancel": "取消",
   "modal.ok": "确定",
   "modal.createPlaylist": "创建播放列表",
   "modal.renamePlaylist": "重命名播放列表",
-
+  "modal.defaultPlaylistName": "我的播放列表",
   "spotify.title": "导入 Spotify 播放列表",
   "spotify.desc": "使用 {{link}} 将您的 Spotify 播放列表导出为 CSV，然后在此处导入文件。",
   "spotify.selectFiles": "选择 CSV 文件",
@@ -265,7 +245,7 @@
   "spotify.matchingPlaylist": "播放列表 {{current}}/{{total}} — 正在匹配曲目...",
   "spotify.failedToMatch": "匹配失败（{{count}}）",
   "spotify.notFound": "（{{count}} 首未找到）",
-
+  "spotify.selectAtLeastOne": "请至少选择一个播放列表",
   "changelog.title": "新功能",
   "changelog.loading": "正在加载更新日志...",
   "changelog.gotIt": "知道了",
@@ -273,7 +253,6 @@
   "changelog.updatesSince": "自 v{{version}} 以来有 {{count}} 次更新",
   "changelog.released": "发布于 {{date}}",
   "changelog.whatsNewVersion": "v{{version}} 的新功能",
-
   "video.listenOnly": "仅收听",
   "video.minimize": "最小化",
   "video.expand": "展开",
@@ -281,11 +260,9 @@
   "video.loading": "正在加载视频...",
   "video.musicVideo": "音乐视频",
   "video.watch": "观看",
-
   "trackList.title": "标题",
   "trackList.artist": "艺术家",
   "trackList.plays": "播放次数",
-
   "toast.radioStarted": "电台已开始",
   "toast.couldNotStartRadio": "无法启动电台",
   "toast.linkCopied": "链接已复制到剪贴板",
@@ -356,7 +333,6 @@
   "toast.noPlaylistsForMood": "未找到此心情的播放列表",
   "toast.couldNotLoadPlaylist": "无法加载播放列表",
   "toast.couldNotLoadTracks": "无法加载曲目",
-
   "common.clear": "清除",
   "common.close": "关闭",
   "common.minimize": "最小化",
@@ -371,7 +347,6 @@
   "common.password": "密码",
   "common.unknownArtist": "未知艺术家",
   "common.remove": "移除",
-
   "dialog.firstTimeSetup": "首次设置",
   "dialog.installingYtdlp": "正在安装 yt-dlp...",
   "dialog.ytdlpRequired": "yt-dlp 是音频流播放的必要组件。已在您的系统上检测到 Homebrew。\n\n点击「安装」以自动安装。",
@@ -389,15 +364,14 @@
   "dialog.showLogs": "显示日志",
   "dialog.ytdlpInstallFailed": "安装失败（退出码 {{code}}）。请手动尝试：brew install yt-dlp",
   "dialog.ytdlpInstalled": "yt-dlp 安装成功！",
-
   "explore.backToMoods": "← 返回心情与流派",
+  "explore.noData": "暂无数据。",
   "explore.couldNotLoad": "无法加载发现页面数据。",
   "explore.moodsAndGenres": "心情与流派",
   "explore.newAlbums": "新专辑和单曲",
   "explore.newMusicVideos": "新音乐视频",
   "explore.topArtists": "热门艺术家",
   "explore.trending": "流行趋势",
-
   "sync.connected": "已连接",
   "sync.syncing": "同步中...",
   "sync.syncedJustNow": "刚刚同步"

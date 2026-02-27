@@ -9,9 +9,9 @@ app.commandLine.appendSwitch('disable-renderer-backgrounding');
 
 // ─── i18n for main process dialogs ───
 const _mainTranslations = {};
-function loadMainTranslations() {
+function loadMainTranslations(overrideLocale) {
   const supported = ['en','es','pt','fr','de','ja','ko','zh','it','tr','ru','hi'];
-  const lang = app.getLocale().split('-')[0].toLowerCase();
+  const lang = (overrideLocale || app.getLocale()).split('-')[0].toLowerCase();
   const locale = supported.includes(lang) ? lang : 'en';
   const filePath = path.join(__dirname, 'locales', locale + '.json');
   try {
@@ -20,7 +20,11 @@ function loadMainTranslations() {
     _mainTranslations.data = JSON.parse(fs.readFileSync(path.join(__dirname, 'locales', 'en.json'), 'utf-8'));
   }
 }
-function mt(key) { return _mainTranslations.data?.[key] || key; }
+function mt(key, params) {
+  let str = _mainTranslations.data?.[key] ?? key;
+  if (params) for (const [k, v] of Object.entries(params)) str = str.replaceAll('{{' + k + '}}', v);
+  return str;
+}
 
 let mainWindow;
 let ytmusic;
@@ -418,7 +422,7 @@ async function checkMacYtDlp() {
         child.on('close', (code) => {
           clearTimeout(timeout);
           const ok = verifyYtDlp();
-          const msg = ok ? mt('dialog.ytdlpInstalled') : mt('dialog.ytdlpInstallFailed').replace('{{code}}', code);
+          const msg = ok ? mt('dialog.ytdlpInstalled') : mt('dialog.ytdlpInstallFailed', { code });
           try { progressWin.webContents.executeJavaScript(`setDone(${ok}, '${msg.replace(/'/g, "\\'")}')`); } catch (_) {}
           // Keep the window open briefly so user can see the result
           setTimeout(() => {
@@ -2084,6 +2088,10 @@ function initAutoUpdater() {
 
 ipcMain.handle('app:getVersion', () => app.getVersion());
 ipcMain.handle('app:getLocale', () => app.getLocale());
+ipcMain.handle('app:setLocale', (_event, locale) => {
+  loadMainTranslations(locale);
+  updateThumbarButtons(false);
+});
 
 ipcMain.handle('app:getChangelog', async (_event, version) => {
   try {

@@ -4,7 +4,6 @@
   "nav.search": "Cerca",
   "nav.library": "Libreria",
   "nav.settings": "Impostazioni",
-
   "welcome.title": "Benvenuto su Snowify",
   "welcome.desc": "Accedi per sincronizzare le tue playlist, i brani preferiti e le impostazioni su tutti i tuoi dispositivi.",
   "welcome.signIn": "Accedi",
@@ -13,7 +12,6 @@
   "welcome.warning": "Senza un account, i tuoi dati vengono salvati localmente e non possono essere recuperati in caso di perdita.",
   "welcome.enterEmailPassword": "Inserisci email e password",
   "welcome.passwordMinLength": "La password deve contenere almeno 6 caratteri",
-
   "home.greeting.morning": "Buongiorno",
   "home.greeting.afternoon": "Buon pomeriggio",
   "home.greeting.evening": "Buonasera",
@@ -22,7 +20,6 @@
   "home.recentEmptyHint": "Inizia cercando qualcosa!",
   "home.newFromArtists": "Novità dagli artisti che segui",
   "home.recommendedSongs": "Brani consigliati",
-
   "search.placeholder": "Cosa vuoi ascoltare?",
   "search.empty": "Cerca brani, artisti, album o playlist",
   "search.floatingText": "Cerca",
@@ -39,17 +36,14 @@
   "search.noResults": "Nessun risultato trovato",
   "search.noResultsFor": "Nessun risultato trovato per \"{{query}}\"",
   "search.searchFailed": "Ricerca non riuscita. Riprova.",
-
   "library.title": "La tua libreria",
   "library.emptyTitle": "Crea la tua prima playlist",
   "library.emptyDesc": "È facile — ti aiutiamo noi",
   "library.createPlaylist": "Crea playlist",
-
   "sidebar.playlists": "Playlist",
   "sidebar.likedSongs": "Brani preferiti",
   "sidebar.songCount.one": "{{count}} brano",
   "sidebar.songCount.other": "{{count}} brani",
-
   "playlist.type": "PLAYLIST",
   "playlist.playAll": "Riproduci tutto",
   "playlist.shufflePlay": "Riproduzione casuale",
@@ -59,14 +53,9 @@
   "playlist.delete": "Elimina playlist",
   "playlist.empty": "Questa playlist è vuota",
   "playlist.emptyHint": "Trova i brani che ti piacciono e aggiungili qui",
-  "playlist.exportSuccess": "Playlist esportata con successo",
   "playlist.confirmDelete": "Eliminare \"{{name}}\"?\nQuesta azione non può essere annullata.",
-
   "album.type": "ALBUM",
-  "album.single": "SINGLE",
-  "album.ep": "EP",
   "album.couldNotLoad": "Impossibile caricare i brani dell'album.",
-
   "artist.type": "ARTISTA",
   "artist.follow": "Segui",
   "artist.following": "Segui già",
@@ -86,11 +75,10 @@
   "artist.notFound": "Artista non trovato",
   "artist.noTracks": "Nessun brano trovato per questo artista.",
   "artist.noReleases": "Nessuna uscita trovata.",
+  "artist.featuredOn": "Presente in",
   "artist.couldNotLoad": "Impossibile caricare le informazioni dell'artista.",
-
   "auth.notSignedIn": "Non hai effettuato l'accesso",
   "auth.useEmailSignIn": "Accedi con email",
-
   "player.play": "Riproduci",
   "player.pause": "Pausa",
   "player.previous": "Precedente",
@@ -104,7 +92,6 @@
   "player.volume": "Volume",
   "player.repeatAll": "Ripeti tutto",
   "player.repeatOne": "Ripeti brano",
-
   "queue.title": "Coda",
   "queue.recentlyPlayed": "Ascoltati di recente",
   "queue.nowPlaying": "In riproduzione",
@@ -115,14 +102,12 @@
   "queue.nothingPlaying": "Nessuna riproduzione in corso",
   "queue.noRecentTracks": "Nessun brano ascoltato di recente",
   "queue.removeFromQueue": "Rimuovi dalla coda",
-
   "lyrics.title": "Testo",
   "lyrics.empty": "Riproduci un brano per vedere il testo",
   "lyrics.notFound": "Nessun testo trovato per questo brano",
   "lyrics.searching": "Ricerca del testo in corso…",
   "lyrics.failed": "Impossibile caricare il testo",
   "lyrics.toggleLyrics": "Mostra/nascondi testo",
-
   "context.play": "Riproduci",
   "context.playAll": "Riproduci tutto",
   "context.playNext": "Riproduci dopo",
@@ -140,7 +125,6 @@
   "context.moveUp": "Sposta su",
   "context.moveDown": "Sposta giù",
   "context.goToArtist": "Vai all'artista",
-  "context.goToAlbum": "Vai all'album",
   "context.remove": "Rimuovi",
   "context.rename": "Rinomina",
   "context.delete": "Elimina",
@@ -149,7 +133,6 @@
   "context.saveToLibrary": "Salva come playlist",
   "context.removeFromLibrary": "Rimuovi dalla libreria",
   "context.shufflePlay": "Riproduzione casuale",
-
   "settings.title": "Impostazioni",
   "settings.account": "Account",
   "settings.accountDesc": "Accedi per sincronizzare le tue playlist, i brani preferiti e le impostazioni su tutti i dispositivi.",
@@ -230,10 +213,8 @@
   "settings.language": "Lingua",
   "settings.languageDesc": "Lingua di visualizzazione dell'app",
   "settings.langAuto": "Predefinita di sistema",
-  "settings.langEn": "English",
-  "settings.langEs": "Español",
+  "settings.seconds": "{{value}}s",
   "settings.customThemeSeparator": "── Personalizzati ──",
-
   "update.checking": "Verifica aggiornamenti in corso...",
   "update.available": "Aggiornamento disponibile: v{{version}}",
   "update.availableDesc": "Una nuova versione è pronta per il download.",
@@ -244,13 +225,12 @@
   "update.error": "Verifica aggiornamento non riuscita",
   "update.errorNoConnection": "Impossibile raggiungere il server di aggiornamento. Controlla la tua connessione internet.",
   "update.errorNoMetadata": "Nessun metadato di aggiornamento trovato nell'ultima versione.",
-
   "modal.enterName": "Inserisci nome",
   "modal.cancel": "Annulla",
   "modal.ok": "OK",
   "modal.createPlaylist": "Crea playlist",
   "modal.renamePlaylist": "Rinomina playlist",
-
+  "modal.defaultPlaylistName": "La mia Playlist",
   "spotify.title": "Importa playlist da Spotify",
   "spotify.desc": "Esporta le tue playlist Spotify come CSV usando {{link}}, poi importa i file qui.",
   "spotify.selectFiles": "Seleziona file CSV",
@@ -265,7 +245,7 @@
   "spotify.matchingPlaylist": "Playlist {{current}}/{{total}} — Ricerca brani corrispondenti...",
   "spotify.failedToMatch": "Corrispondenza non riuscita ({{count}})",
   "spotify.notFound": "({{count}} non trovati)",
-
+  "spotify.selectAtLeastOne": "Seleziona almeno una playlist",
   "changelog.title": "Novità",
   "changelog.loading": "Caricamento registro modifiche...",
   "changelog.gotIt": "Ho capito",
@@ -273,7 +253,6 @@
   "changelog.updatesSince": "{{count}} aggiornamenti dalla v{{version}}",
   "changelog.released": "Rilasciato il {{date}}",
   "changelog.whatsNewVersion": "Novità nella v{{version}}",
-
   "video.listenOnly": "Solo ascolto",
   "video.minimize": "Riduci",
   "video.expand": "Espandi",
@@ -281,11 +260,9 @@
   "video.loading": "Caricamento video...",
   "video.musicVideo": "Video musicale",
   "video.watch": "Guarda",
-
   "trackList.title": "Titolo",
   "trackList.artist": "Artista",
   "trackList.plays": "Ascolti",
-
   "toast.radioStarted": "Radio avviata",
   "toast.couldNotStartRadio": "Impossibile avviare la radio",
   "toast.linkCopied": "Link copiato negli appunti",
@@ -356,7 +333,6 @@
   "toast.noPlaylistsForMood": "Nessuna playlist trovata per questo stato d'animo",
   "toast.couldNotLoadPlaylist": "Impossibile caricare la playlist",
   "toast.couldNotLoadTracks": "Impossibile caricare i brani",
-
   "common.clear": "Cancella",
   "common.close": "Chiudi",
   "common.minimize": "Riduci a icona",
@@ -371,7 +347,6 @@
   "common.password": "Password",
   "common.unknownArtist": "Artista sconosciuto",
   "common.remove": "Rimuovi",
-
   "dialog.firstTimeSetup": "Configurazione iniziale",
   "dialog.installingYtdlp": "Installazione di yt-dlp...",
   "dialog.ytdlpRequired": "yt-dlp è necessario per lo streaming audio. Homebrew è stato rilevato sul tuo sistema.\n\nClicca \"Installa\" per installarlo automaticamente.",
@@ -389,15 +364,14 @@
   "dialog.showLogs": "Mostra log",
   "dialog.ytdlpInstallFailed": "Installazione non riuscita (codice di uscita {{code}}). Prova manualmente: brew install yt-dlp",
   "dialog.ytdlpInstalled": "yt-dlp installato con successo!",
-
   "explore.backToMoods": "← Torna a Mood e generi",
+  "explore.noData": "Nessun dato disponibile.",
   "explore.couldNotLoad": "Impossibile caricare i dati di Esplora.",
   "explore.moodsAndGenres": "Mood e generi",
   "explore.newAlbums": "Nuovi album e singoli",
   "explore.newMusicVideos": "Nuovi video musicali",
   "explore.topArtists": "Artisti più ascoltati",
   "explore.trending": "Di tendenza",
-
   "sync.connected": "Connesso",
   "sync.syncing": "Sincronizzazione...",
   "sync.syncedJustNow": "Sincronizzato adesso"

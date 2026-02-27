@@ -348,7 +348,7 @@
           <img class="suggestion-thumb suggestion-thumb-round" src="${escapeHtml(item.thumbnail || '')}" alt="" />
           <div class="suggestion-info">
             <div class="suggestion-title">${escapeHtml(item.name)}</div>
-            <div class="suggestion-subtitle">Artist${item.subtitle ? ' \u00b7 ' + escapeHtml(item.subtitle) : ''}</div>
+            <div class="suggestion-subtitle">${I18n.t('search.artist')}${item.subtitle ? ' \u00b7 ' + escapeHtml(item.subtitle) : ''}</div>
           </div>
         </div>`;
       }
@@ -357,7 +357,7 @@
           <img class="suggestion-thumb" src="${escapeHtml(item.thumbnail || '')}" alt="" />
           <div class="suggestion-info">
             <div class="suggestion-title">${escapeHtml(item.name)}</div>
-            <div class="suggestion-subtitle">Album${item.subtitle ? ' \u00b7 ' + escapeHtml(item.subtitle) : ''}</div>
+            <div class="suggestion-subtitle">${I18n.t('search.album')}${item.subtitle ? ' \u00b7 ' + escapeHtml(item.subtitle) : ''}</div>
           </div>
         </div>`;
       }
@@ -366,7 +366,7 @@
           <img class="suggestion-thumb" src="${escapeHtml(item.thumbnail || '')}" alt="" />
           <div class="suggestion-info">
             <div class="suggestion-title">${escapeHtml(item.title)}</div>
-            <div class="suggestion-subtitle">Song \u00b7 ${renderArtistLinks(item)}</div>
+            <div class="suggestion-subtitle">${I18n.t('search.song')} \u00b7 ${renderArtistLinks(item)}</div>
           </div>
         </div>`;
       }
@@ -374,7 +374,7 @@
       return `<div class="search-suggestion-item" data-index="${dataIdx}" data-type="${item.type}" data-text="${escapeHtml(item.text)}">
         <span class="search-suggestion-icon">${item.type === 'history' ? ICON_CLOCK : ICON_SEARCH}</span>
         <span class="search-suggestion-text">${escapeHtml(item.text)}</span>
-        ${item.type === 'history' ? `<button class="search-suggestion-delete" data-query="${escapeHtml(item.text)}" title="Remove">${ICON_TRASH}</button>` : ''}
+        ${item.type === 'history' ? `<button class="search-suggestion-delete" data-query="${escapeHtml(item.text)}" title="${I18n.t('common.remove')}">${ICON_TRASH}</button>` : ''}
       </div>`;
     }).join('');
     searchSuggestions.insertAdjacentHTML('beforeend',
@@ -792,7 +792,7 @@
           </div>
           <div class="track-artist-col">${renderArtistLinks(track)}</div>
           <div class="track-like-col">
-            <button class="track-like-btn${isLiked ? ' liked' : ''}" title="Like">
+            <button class="track-like-btn${isLiked ? ' liked' : ''}" title="${I18n.t('player.like')}">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
               </svg>
@@ -948,26 +948,7 @@
         case 'watch-video':
           openVideoPlayer(track.id, track.title, track.artist);
           break;
-        case 'start-radio': {
-          const upNexts = await window.snowify.getUpNexts(track.id);
-          if (upNexts.length) {
-            const alreadyPlaying = state.isPlaying && state.queue[state.queueIndex]?.id === track.id;
-            if (alreadyPlaying) {
-              const remaining = upNexts.filter(t => t.id !== track.id);
-              state.queue = [track, ...remaining];
-              state.originalQueue = [...state.queue];
-              state.queueIndex = 0;
-              renderQueue();
-              showToast(I18n.t('toast.radioStarted'));
-            } else {
-              playFromList([track, ...upNexts.filter(t => t.id !== track.id)], 0);
-              showToast(I18n.t('toast.radioStarted'));
-            }
-          } else {
-            showToast(I18n.t('toast.couldNotStartRadio'));
-          }
-          break;
-        }
+        case 'start-radio': await startRadio(track); break;
         case 'like': toggleLike(track); break;
         case 'toggle-playlist':
           handleTogglePlaylist(item.dataset.pid, track);
@@ -1069,14 +1050,7 @@
       } else if (action === 'start-radio') {
         const tracks = await loadTracks();
         if (!tracks?.length) { showToast(errorMsg); removeContextMenu(); return; }
-        const seed = tracks[0];
-        const upNexts = await window.snowify.getUpNexts(seed.id);
-        if (upNexts.length) {
-          playFromList([seed, ...upNexts.filter(t => t.id !== seed.id)], 0);
-          showToast(I18n.t('toast.radioStarted'));
-        } else {
-          showToast(I18n.t('toast.couldNotStartRadio'));
-        }
+        await startRadio(tracks[0]);
       } else if (action === 'play' || action === 'shuffle' || action === 'save') {
         const tracks = await loadTracks();
         if (!tracks?.length) { showToast(errorMsg); removeContextMenu(); return; }
@@ -1122,17 +1096,7 @@
       const item = ev.target.closest('.context-menu-item');
       if (!item) return;
       if (item.dataset.action === 'start-radio') {
-        showToast(I18n.t('toast.loadingRadio'));
-        const info = await window.snowify.artistInfo(artistId);
-        const seed = info?.topSongs?.[0];
-        if (!seed) { showToast(I18n.t('toast.couldNotStartRadio')); removeContextMenu(); return; }
-        const upNexts = await window.snowify.getUpNexts(seed.id);
-        if (upNexts.length) {
-          playFromList([seed, ...upNexts.filter(t => t.id !== seed.id)], 0);
-          showToast(I18n.t('toast.radioStarted'));
-        } else {
-          showToast(I18n.t('toast.couldNotStartRadio'));
-        }
+        await startRadio(null, { fromArtistId: artistId });
       }
       removeContextMenu();
     });
@@ -1268,7 +1232,7 @@
     if (!btn) return;
     const playing = isCollectionPlaying(tracks, sourcePlaylistId) && state.isPlaying;
     btn.innerHTML = playing ? PAUSE_SVG : PLAY_SVG;
-    btn.title = playing ? 'Pause' : 'Play all';
+    btn.title = playing ? I18n.t('player.pause') : I18n.t('playlist.playAll');
   }
 
   function playFromList(tracks, index, sourcePlaylistId = null) {
@@ -1813,17 +1777,17 @@
     if (playAllBtn) {
       const playing = state.playingPlaylistId && state.playingPlaylistId === state.currentPlaylistId && state.isPlaying;
       playAllBtn.innerHTML = playing ? PAUSE_SVG : PLAY_SVG;
-      playAllBtn.title = playing ? 'Pause' : 'Play all';
+      playAllBtn.title = playing ? I18n.t('player.pause') : I18n.t('playlist.playAll');
     }
     if (albumPlayBtn) {
       const isActive = state.queue.length > 0 && !state.playingPlaylistId && state.isPlaying;
       albumPlayBtn.innerHTML = isActive ? PAUSE_SVG : PLAY_SVG;
-      albumPlayBtn.title = isActive ? 'Pause' : 'Play all';
+      albumPlayBtn.title = isActive ? I18n.t('player.pause') : I18n.t('playlist.playAll');
     }
     if (artistPlayBtn) {
       const isActive = state.queue.length > 0 && !state.playingPlaylistId && state.isPlaying;
       artistPlayBtn.innerHTML = isActive ? PAUSE_SVG : PLAY_SVG;
-      artistPlayBtn.title = isActive ? 'Pause' : 'Play all';
+      artistPlayBtn.title = isActive ? I18n.t('player.pause') : I18n.t('playlist.playAll');
     }
   }
 
@@ -2071,7 +2035,7 @@
         if (_dragActive) return;
         const pid = item.dataset.playlist;
         if (pid === 'liked') {
-          showPlaylistDetail({ id: 'liked', name: I18n.t('sidebar.likedSongs'), tracks: state.likedSongs }, true);
+          showPlaylistDetail(getLikedSongsPlaylist(), true);
         } else {
           const pl = state.playlists.find(p => p.id === pid);
           if (pl) showPlaylistDetail(pl, false);
@@ -2083,7 +2047,7 @@
         e.preventDefault();
         const pid = item.dataset.playlist;
         if (pid === 'liked') {
-          showSidebarPlaylistMenu(e, { id: 'liked', name: I18n.t('sidebar.likedSongs'), tracks: state.likedSongs }, true);
+          showSidebarPlaylistMenu(e, getLikedSongsPlaylist(), true);
         } else {
           const pl = state.playlists.find(p => p.id === pid);
           if (pl) showSidebarPlaylistMenu(e, pl, false);
@@ -2359,32 +2323,13 @@
         case 'play-next': handlePlayNext(track); break;
         case 'add-queue': handleAddToQueue(track); break;
         case 'like': toggleLike(track); break;
-        case 'start-radio': {
-          const upNexts = await window.snowify.getUpNexts(track.id);
-          if (upNexts.length) {
-            const alreadyPlaying = state.isPlaying && state.queue[state.queueIndex]?.id === track.id;
-            if (alreadyPlaying) {
-              const remaining = upNexts.filter(t => t.id !== track.id);
-              state.queue = [track, ...remaining];
-              state.originalQueue = [...state.queue];
-              state.queueIndex = 0;
-              renderQueue();
-              showToast(I18n.t('toast.radioStarted'));
-            } else {
-              playFromList([track, ...upNexts.filter(t => t.id !== track.id)], 0);
-              showToast(I18n.t('toast.radioStarted'));
-            }
-          } else {
-            showToast(I18n.t('toast.couldNotStartRadio'));
-          }
-          break;
-        }
+        case 'start-radio': await startRadio(track); break;
         case 'remove':
           if (isLiked) {
             state.likedSongs = state.likedSongs.filter(t => t.id !== track.id);
             saveState();
             updateLikedCount();
-            showPlaylistDetail({ id: 'liked', name: I18n.t('sidebar.likedSongs'), tracks: state.likedSongs }, true);
+            showPlaylistDetail(getLikedSongsPlaylist(), true);
             showToast(I18n.t('toast.removedFromLiked'));
           } else {
             playlist.tracks.splice(idx, 1);
@@ -2418,11 +2363,11 @@
   }
 
   $('#btn-create-playlist').addEventListener('click', async () => {
-    const name = await showInputModal(I18n.t('modal.createPlaylist'), 'My Playlist');
+    const name = await showInputModal(I18n.t('modal.createPlaylist'), I18n.t('modal.defaultPlaylistName'));
     if (name) createPlaylist(name);
   });
   $('#btn-lib-create-playlist')?.addEventListener('click', async () => {
-    const name = await showInputModal(I18n.t('modal.createPlaylist'), 'My Playlist');
+    const name = await showInputModal(I18n.t('modal.createPlaylist'), I18n.t('modal.defaultPlaylistName'));
     if (name) createPlaylist(name);
   });
   $('#btn-spotify-import').addEventListener('click', () => openSpotifyImport());
@@ -2430,7 +2375,7 @@
   function renderLibrary() {
     const container = $('#library-content');
     const allPlaylists = [
-      { id: 'liked', name: I18n.t('sidebar.likedSongs'), tracks: state.likedSongs, isLiked: true },
+      { ...getLikedSongsPlaylist(), isLiked: true },
       ...state.playlists.map(p => ({ ...p, isLiked: false }))
     ];
 
@@ -2443,7 +2388,7 @@
           <button class="btn-primary" id="btn-lib-create-playlist-2">${I18n.t('library.createPlaylist')}</button>
         </div>`;
       $('#btn-lib-create-playlist-2')?.addEventListener('click', async () => {
-        const name = await showInputModal(I18n.t('modal.createPlaylist'), 'My Playlist');
+        const name = await showInputModal(I18n.t('modal.createPlaylist'), I18n.t('modal.defaultPlaylistName'));
         if (name) { createPlaylist(name); renderLibrary(); }
       });
       return;
@@ -2465,7 +2410,7 @@
       card.addEventListener('click', () => {
         const pid = card.dataset.playlist;
         if (pid === 'liked') {
-          showPlaylistDetail({ id: 'liked', name: I18n.t('sidebar.likedSongs'), tracks: state.likedSongs }, true);
+          showPlaylistDetail(getLikedSongsPlaylist(), true);
         } else {
           const pl = state.playlists.find(p => p.id === pid);
           if (pl) showPlaylistDetail(pl, false);
@@ -2492,6 +2437,31 @@
       showToast(I18n.t('toast.addedToQueue'));
       renderQueue();
     }
+  }
+
+  async function startRadio(seed, { fromArtistId } = {}) {
+    if (fromArtistId) {
+      showToast(I18n.t('toast.loadingRadio'));
+      const info = await window.snowify.artistInfo(fromArtistId);
+      seed = info?.topSongs?.[0];
+      if (!seed) { showToast(I18n.t('toast.couldNotStartRadio')); return; }
+    }
+    const upNexts = await window.snowify.getUpNexts(seed.id);
+    if (!upNexts.length) { showToast(I18n.t('toast.couldNotStartRadio')); return; }
+    const alreadyPlaying = state.isPlaying && state.queue[state.queueIndex]?.id === seed.id;
+    if (alreadyPlaying) {
+      state.queue = [seed, ...upNexts.filter(t => t.id !== seed.id)];
+      state.originalQueue = [...state.queue];
+      state.queueIndex = 0;
+      renderQueue();
+    } else {
+      playFromList([seed, ...upNexts.filter(t => t.id !== seed.id)], 0);
+    }
+    showToast(I18n.t('toast.radioStarted'));
+  }
+
+  function getLikedSongsPlaylist() {
+    return { id: 'liked', name: I18n.t('sidebar.likedSongs'), tracks: state.likedSongs };
   }
 
   function renderNowPlayingSection(container) {
@@ -3219,7 +3189,7 @@
       html += `</div></div>`;
     }
 
-    content.innerHTML = html || `<div class="empty-state"><p>No explore data available.</p></div>`;
+    content.innerHTML = html || `<div class="empty-state"><p>${I18n.t('explore.noData')}</p></div>`;
 
     // ── Attach listeners ──
     // Country hint link
@@ -3521,7 +3491,7 @@
   }
 
   document.querySelector('[data-playlist="liked"]')?.addEventListener('click', () => {
-    showPlaylistDetail({ id: 'liked', name: I18n.t('sidebar.likedSongs'), tracks: state.likedSongs }, true);
+    showPlaylistDetail(getLikedSongsPlaylist(), true);
   });
 
   async function showAlbumDetail(albumId, albumMeta) {
@@ -3883,7 +3853,7 @@
     }
 
     // Playlists section: merge Featured On + searchPlaylists, deduplicate
-    const featuredOn = (info.featuredOn || []).map(p => ({ ...p, subtitle: 'Featured on' }));
+    const featuredOn = (info.featuredOn || []).map(p => ({ ...p, subtitle: I18n.t('artist.featuredOn') }));
     const searched = (await searchPlaylistsPromise) || [];
 
     const seenPl = new Set();
@@ -4663,26 +4633,7 @@
       const action = item.dataset.action;
       if (action === 'none') return;
       switch (action) {
-        case 'start-radio': {
-          const upNexts = await window.snowify.getUpNexts(track.id);
-          if (upNexts.length) {
-            const alreadyPlaying = state.isPlaying && state.queue[state.queueIndex]?.id === track.id;
-            if (alreadyPlaying) {
-              const remaining = upNexts.filter(t => t.id !== track.id);
-              state.queue = [track, ...remaining];
-              state.originalQueue = [...state.queue];
-              state.queueIndex = 0;
-              renderQueue();
-              showToast(I18n.t('toast.radioStarted'));
-            } else {
-              playFromList([track, ...upNexts.filter(t => t.id !== track.id)], 0);
-              showToast(I18n.t('toast.radioStarted'));
-            }
-          } else {
-            showToast(I18n.t('toast.couldNotStartRadio'));
-          }
-          break;
-        }
+        case 'start-radio': await startRadio(track); break;
         case 'watch-video':
           openVideoPlayer(track.id, track.title, track.artist);
           break;
@@ -5162,16 +5113,7 @@
         case 'toggle-playlist':
           handleTogglePlaylist(item.dataset.pid, track);
           break;
-        case 'start-radio': {
-          const upNexts = await window.snowify.getUpNexts(track.id);
-          if (upNexts.length) {
-            playFromList([track, ...upNexts.filter(t => t.id !== track.id)], 0);
-            showToast(I18n.t('toast.radioStarted'));
-          } else {
-            showToast(I18n.t('toast.couldNotStartRadio'));
-          }
-          break;
-        }
+        case 'start-radio': await startRadio(track); break;
         case 'share':
           navigator.clipboard.writeText(`https://music.youtube.com/watch?v=${v.id}`);
           showToast(I18n.t('toast.linkCopied'));
@@ -5390,7 +5332,7 @@
       if (cff && cfvl) {
         const v = state.crossfade > 0 ? state.crossfade : 5;
         cff.style.width = ((v - 1) / (engine.CROSSFADE_MAX - 1) * 100) + '%';
-        cfvl.textContent = v + 's';
+        cfvl.textContent = I18n.t('settings.seconds', { value: v });
       }
       const nt = $('#setting-normalization'); if (nt) nt.checked = state.normalization;
       const ntr = $('#normalization-target-row'); if (ntr) ntr.classList.toggle('hidden', !state.normalization);
@@ -5421,7 +5363,7 @@
       const avatar = $('#profile-avatar');
       const nameEl = $('#profile-display-name');
       const emailEl = $('#profile-email');
-      nameEl.textContent = user.displayName || 'User';
+      nameEl.textContent = user.displayName || I18n.t('common.user');
       emailEl.textContent = user.email || '';
       // Default avatar: first letter of name on accent background
       if (user.photoURL) {
@@ -5902,7 +5844,7 @@
       _cfValue = Math.max(1, Math.min(engine.CROSSFADE_MAX, val));
       const pct = ((_cfValue - 1) / (engine.CROSSFADE_MAX - 1)) * 100;
       crossfadeFill.style.width = pct + '%';
-      crossfadeValueLabel.textContent = _cfValue + 's';
+      crossfadeValueLabel.textContent = I18n.t('settings.seconds', { value: _cfValue });
     }
 
     function setCrossfadeFromPointer(e) {
@@ -5926,7 +5868,7 @@
 
     setupSliderTooltip(crossfadeSlider, (pct) => {
       const val = Math.round(1 + pct * (engine.CROSSFADE_MAX - 1));
-      return val + 's';
+      return I18n.t('settings.seconds', { value: val });
     });
 
     crossfadeToggle.addEventListener('change', () => {
@@ -6448,8 +6390,10 @@
         localStorage.removeItem('snowify_locale');
         const systemLocale = await window.snowify.getLocale();
         await I18n.init(systemLocale);
+        window.snowify.setLocale(systemLocale);
       } else {
         await I18n.changeLanguage(val);
+        window.snowify.setLocale(val);
       }
     });
 
@@ -6469,6 +6413,7 @@
       initSettings();
     }
     if (view === 'library') renderLibrary();
+    if (view === 'explore') renderExplore();
   });
 
   init();
