@@ -379,8 +379,8 @@
     }).join('');
     searchSuggestions.insertAdjacentHTML('beforeend',
       '<div class="suggestions-hint-bar">' +
-        '<span class="suggestions-hint"><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>' +
-        '<span class="suggestions-hint"><kbd>Enter</kbd> Search</span>' +
+        `<span class="suggestions-hint"><kbd>↑</kbd><kbd>↓</kbd> ${I18n.t('search.hintNavigate')}</span>` +
+        `<span class="suggestions-hint"><kbd>Enter</kbd> ${I18n.t('search.hintSearch')}</span>` +
       '</div>');
     searchSuggestions.classList.remove('hidden');
 
@@ -3764,7 +3764,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
           <div class="album-card-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
-          <div class="album-card-meta">${[a.year, a.type].filter(Boolean).join(' \u00B7 ')}</div>
+          <div class="album-card-meta">${[a.year, a.type === 'Album' ? I18n.t('artist.typeAlbum') : a.type === 'Single' ? I18n.t('artist.typeSingle') : a.type].filter(Boolean).join(' \u00B7 ')}</div>
         </div>
       `).join('');
 
