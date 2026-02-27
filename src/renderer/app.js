@@ -2365,6 +2365,24 @@
   const queuePanel = $('#queue-panel');
   let _queueActiveTab = 'queue';
 
+  // Scroll-to-top buttons
+  const queueUpNext = $('#queue-up-next');
+  const historyList = $('#history-list');
+
+  $('#queue-scroll-top').addEventListener('click', () => {
+    queueUpNext.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+  $('#history-scroll-top').addEventListener('click', () => {
+    historyList.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  queueUpNext.addEventListener('scroll', () => {
+    $('#queue-scroll-top').classList.toggle('visible', queueUpNext.scrollTop > 100);
+  });
+  historyList.addEventListener('scroll', () => {
+    $('#history-scroll-top').classList.toggle('visible', historyList.scrollTop > 100);
+  });
+
   $('#btn-queue').addEventListener('click', () => {
     queuePanel.classList.toggle('hidden');
     queuePanel.classList.toggle('visible');
@@ -2577,7 +2595,7 @@
       }
 
       // Auto-scroll when dragging near edges
-      const rect = queuePanel.getBoundingClientRect();
+      const rect = container.getBoundingClientRect();
       const distTop = e.clientY - rect.top;
       const distBottom = rect.bottom - e.clientY;
 
@@ -2596,7 +2614,7 @@
   function startDragScroll() {
     if (_dragScrollRAF) return;
     const tick = () => {
-      queuePanel.scrollTop += _dragScrollSpeed;
+      $('#queue-up-next').scrollTop += _dragScrollSpeed;
       _dragScrollRAF = requestAnimationFrame(tick);
     };
     _dragScrollRAF = requestAnimationFrame(tick);
