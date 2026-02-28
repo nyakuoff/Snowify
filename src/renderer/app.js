@@ -1180,6 +1180,7 @@
 
   async function playTrack(track) {
     if (state.radioMode) {
+      _unbindRadioBuffering(audio);
       state.radioMode = false;
       state.currentStation = null;
       $('#now-playing-bar').classList.remove('radio-mode');
@@ -6542,8 +6543,28 @@
   // ─── Internet Radio ───
 
   const RADIO_FALLBACK_SVG = '<svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor" style="color:var(--text-subdued)"><path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707m2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708m5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708m2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.313.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM6 8a2 2 0 1 1 2.5 1.937V15.5a.5.5 0 0 1-1 0V9.937A2 2 0 0 1 6 8"/></svg>';
+  const RADIO_FALLBACK_IMG = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="rgba(255,255,255,0.06)"/><stop offset="100%" stop-color="rgba(255,255,255,0.02)"/></linearGradient></defs><rect width="96" height="96" rx="8" fill="#1a1a1a"/><rect width="96" height="96" rx="8" fill="url(#g)"/><g transform="translate(24,24) scale(3)" fill="#6a6a6a"><path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707m2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708m5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708m2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.313.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM6 8a2 2 0 1 1 2.5 1.937V15.5a.5.5 0 0 1-1 0V9.937A2 2 0 0 1 6 8"/></g></svg>');
   let _radioGeo = null;
   let _radioGeneration = 0;
+
+  function _onRadioWaiting() {
+    if (!state.radioMode) return;
+    $('#progress-bar').classList.add('buffering');
+    $('#max-np-progress-bar').classList.add('buffering');
+  }
+  function _onRadioPlaying() {
+    $('#progress-bar').classList.remove('buffering');
+    $('#max-np-progress-bar').classList.remove('buffering');
+  }
+  function _bindRadioBuffering(el) {
+    el.addEventListener('waiting', _onRadioWaiting);
+    el.addEventListener('playing', _onRadioPlaying);
+  }
+  function _unbindRadioBuffering(el) {
+    el.removeEventListener('waiting', _onRadioWaiting);
+    el.removeEventListener('playing', _onRadioPlaying);
+    _onRadioPlaying(); // clear any lingering buffering state
+  }
 
   async function renderRadio() {
     const content = $('#radio-content');
@@ -6796,6 +6817,7 @@
       state.isPlaying = true;
       state.isLoading = false;
       updatePlayButton();
+      _bindRadioBuffering(audio);
       updateRadioDiscordPresence(station);
       saveState();
     } catch (err) {
@@ -6803,6 +6825,7 @@
       if (err?.name === 'AbortError') return;
       console.error('Radio play error:', err);
       showToast('Station unavailable — try another');
+      _unbindRadioBuffering(audio);
       state.radioMode = false;
       $('#now-playing-bar').classList.remove('radio-mode');
       $('#max-np').classList.remove('radio-mode');
@@ -6820,7 +6843,7 @@
     bar.classList.remove('hidden');
     document.querySelector('#app').classList.remove('no-player');
 
-    $('#np-thumbnail').src = station.favicon || 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    $('#np-thumbnail').src = station.favicon || RADIO_FALLBACK_IMG;
     const npTitle = $('#np-title');
     npTitle.textContent = station.name;
     npTitle.classList.remove('clickable');

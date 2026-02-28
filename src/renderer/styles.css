@@ -4805,6 +4805,20 @@ body.audio-playing .eq-bar { animation-play-state: running; }
   height: 4px;
 }
 
+/* ── Radio buffering indicator ── */
+.progress-bar.buffering .progress-fill,
+.max-np-progress-bar.buffering .max-np-progress-fill {
+  width: 100% !important;
+  opacity: 0.4;
+  animation: buffer-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes buffer-shimmer {
+  0%   { opacity: 0.15; }
+  50%  { opacity: 0.4; }
+  100% { opacity: 0.15; }
+}
+
 /* ── LIVE badge on time-total ── */
 .time.live-badge,
 .max-np-time.live-badge {
