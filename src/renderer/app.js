@@ -1957,7 +1957,9 @@
   const npLike = $('#np-like');
   npLike.addEventListener('click', () => {
     if (state.radioMode && state.currentStation) {
-      toggleFavoriteStation(state.currentStation);
+      const wasFav = toggleFavoriteStation(state.currentStation);
+      if (wasFav) spawnHeartParticles(npLike);
+      else spawnBrokenHeart(npLike);
       return;
     }
     const track = state.queue[state.queueIndex];
@@ -4669,11 +4671,19 @@
 
   // Like button in maximized view
   maxNPLike.addEventListener('click', () => {
+    if (state.radioMode && state.currentStation) {
+      const wasFav = toggleFavoriteStation(state.currentStation);
+      if (wasFav) spawnHeartParticles(maxNPLike);
+      else spawnBrokenHeart(maxNPLike);
+      return;
+    }
     const current = state.queue[state.queueIndex];
     if (!current) return;
-    toggleLike(current);
+    const wasLiked = toggleLike(current);
     const isLiked = state.likedSongs.some(t => t.id === current.id);
     maxNPLike.classList.toggle('liked', isLiked);
+    if (wasLiked) spawnHeartParticles(maxNPLike);
+    else spawnBrokenHeart(maxNPLike);
     // Sync with the main np bar
     $('#np-like').classList.toggle('liked', isLiked);
   });
@@ -6578,7 +6588,7 @@
   function buildStationCard(station) {
     const hasFavicon = station.favicon && station.favicon.trim();
     const faviconHtml = hasFavicon
-      ? `<div class="station-cover-wrap"><img class="album-card-cover station-card-cover" src="${escapeHtml(station.favicon)}" alt="" loading="lazy" /><div class="station-cover-fallback station-fallback-icon">${RADIO_FALLBACK_SVG}</div></div>`
+      ? `<div class="station-cover-wrap"><img class="album-card-cover station-card-cover" src="${escapeHtml(station.favicon)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display=''" /><div class="station-cover-fallback station-fallback-icon" style="display:none">${RADIO_FALLBACK_SVG}</div></div>`
       : `<div class="album-card-cover station-fallback-icon">${RADIO_FALLBACK_SVG}</div>`;
     const meta = [station.tags, station.country, station.bitrate ? station.bitrate + ' kbps' : ''].filter(Boolean).join(' · ');
     return `
@@ -6601,7 +6611,7 @@
     const items = stations.map((s, i) => {
       const hasFav = s.favicon && s.favicon.trim();
       const faviconHtml = hasFav
-        ? `<img class="top-song-thumb" src="${escapeHtml(s.favicon)}" alt="" loading="lazy" />`
+        ? `<img class="top-song-thumb" src="${escapeHtml(s.favicon)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display=''" /><div class="top-song-thumb station-trending-fallback" style="display:none">${RADIO_FALLBACK_SVG}</div>`
         : `<div class="top-song-thumb station-trending-fallback">${RADIO_FALLBACK_SVG}</div>`;
       const meta = [s.country, s.bitrate ? s.bitrate + ' kbps' : ''].filter(Boolean).join(' · ');
       return `
@@ -6685,7 +6695,7 @@
         content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
         const stations = await window.snowify.radioByTag(tag);
         _radioStationsCache = stations;
-        let html = `<button class="radio-back-btn" id="radio-back-btn">← Back</button>`;
+        let html = '';
         if (stations.length) {
           html += buildRadioScrollSection(tag, stations);
           html += buildRadioTrendingSection(`All "${tag}" Stations`, stations);
@@ -6694,7 +6704,6 @@
         }
         content.innerHTML = html;
         attachRadioListeners(content);
-        $('#radio-back-btn')?.addEventListener('click', () => renderRadio());
       });
     });
   }
@@ -6851,6 +6860,7 @@
     if (maxLike) maxLike.classList.toggle('liked', isFav);
     saveState();
     if (state.currentView === 'radio') renderRadio();
+    return isFav;
   }
 
   function updateRadioDiscordPresence(station) {
