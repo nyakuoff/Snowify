@@ -4723,20 +4723,10 @@ body.audio-playing .eq-bar { animation-play-state: running; }
   min-width: 0;
 }
 
-/* LIVE badge in now-playing bar */
+/* LIVE badge next to title — replaced by .live-badge on time-total */
 .np-live-badge {
-  flex-shrink: 0;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: rgba(255, 50, 50, 0.2);
-  color: #ff4444;
-  line-height: 1;
-  animation: live-pulse 2s ease-in-out infinite;
+  display: none !important;
 }
-.np-live-badge.hidden { display: none; }
 
 @keyframes live-pulse {
   0%, 100% { opacity: 1; }
@@ -4769,6 +4759,68 @@ body.audio-playing .eq-bar { animation-play-state: running; }
   background: rgba(0, 0, 0, 0.04);
   color: var(--text-primary);
 }
-[data-theme="light"] .np-live-badge {
+
+/* ═══════ Radio Mode ═══════ */
+
+/* ── Bottom bar: hide irrelevant controls ── */
+.radio-mode #btn-shuffle,
+.radio-mode #btn-prev,
+.radio-mode #btn-next,
+.radio-mode #btn-repeat,
+.radio-mode #btn-lyrics,
+.radio-mode #btn-queue {
+  display: none !important;
+}
+
+.radio-mode .progress-handle {
+  display: none !important;
+}
+
+.radio-mode .progress-bar {
+  cursor: default;
+}
+
+.radio-mode .progress-bar:hover {
+  height: 4px;
+}
+
+/* ── Maximized NP: hide irrelevant controls ── */
+.radio-mode #max-np-shuffle,
+.radio-mode #max-np-prev,
+.radio-mode #max-np-next,
+.radio-mode #max-np-repeat,
+.radio-mode #max-np-lyrics-toggle {
+  display: none !important;
+}
+
+.radio-mode .max-np-progress-handle {
+  display: none !important;
+}
+
+.radio-mode .max-np-progress-bar {
+  cursor: default;
+}
+
+.radio-mode .max-np-progress-bar:hover {
+  height: 4px;
+}
+
+/* ── LIVE badge on time-total ── */
+.time.live-badge,
+.max-np-time.live-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 50, 50, 0.2);
+  color: #ff4444;
+  line-height: 1;
+  animation: live-pulse 2s ease-in-out infinite;
+  min-width: auto;
+}
+
+[data-theme="light"] .time.live-badge,
+[data-theme="light"] .max-np-time.live-badge {
   background: rgba(255, 50, 50, 0.12);
 }

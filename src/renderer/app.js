@@ -1182,7 +1182,10 @@
     if (state.radioMode) {
       state.radioMode = false;
       state.currentStation = null;
-      $('#np-live-badge').classList.add('hidden');
+      $('#now-playing-bar').classList.remove('radio-mode');
+      $('#max-np').classList.remove('radio-mode');
+      $('#time-total').classList.remove('live-badge');
+      $('#max-np-time-total').classList.remove('live-badge');
     }
     const gen = ++_playGeneration;
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
@@ -1708,7 +1711,9 @@
       const src = engine.getActiveSource();
       progressFill.style.width = '0%';
       $('#time-current').textContent = formatTime(src.currentTime || 0);
-      $('#time-total').textContent = 'LIVE';
+      const timeTotal = $('#time-total');
+      timeTotal.textContent = 'LIVE';
+      timeTotal.classList.add('live-badge');
       return;
     }
     // During crossfade, show progress of the incoming track (standby)
@@ -4823,6 +4828,7 @@
       maxNPProgressFill.style.width = '0%';
       maxNPTimeCurrent.textContent = formatTime(src.currentTime || 0);
       maxNPTimeTotal.textContent = 'LIVE';
+      maxNPTimeTotal.classList.add('live-badge');
       return;
     }
     const src = engine.getActiveSource();
@@ -6525,7 +6531,7 @@
 
   // ─── Internet Radio ───
 
-  const RADIO_FALLBACK_SVG = '<svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" style="color:var(--text-subdued)"><path d="M3.24 6.15C2.51 6.43 2 7.17 2 8v12a2 2 0 002 2h16a2 2 0 002-2V8c0-.83-.49-1.57-1.24-1.85L12 2 3.24 6.15zM7 20v-6a5 5 0 1110 0v6"/><circle cx="12" cy="14" r="2"/></svg>';
+  const RADIO_FALLBACK_SVG = '<svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor" style="color:var(--text-subdued)"><path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707m2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708m5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708m2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.313.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM6 8a2 2 0 1 1 2.5 1.937V15.5a.5.5 0 0 1-1 0V9.937A2 2 0 0 1 6 8"/></svg>';
   let _radioGeo = null;
   let _radioGeneration = 0;
 
@@ -6746,6 +6752,8 @@
     const gen = ++_radioGeneration;
 
     state.radioMode = true;
+    $('#now-playing-bar').classList.add('radio-mode');
+    $('#max-np').classList.add('radio-mode');
     state.currentStation = station;
     state.isLoading = true;
     state.queue = [];
@@ -6787,6 +6795,10 @@
       console.error('Radio play error:', err);
       showToast('Station unavailable — try another');
       state.radioMode = false;
+      $('#now-playing-bar').classList.remove('radio-mode');
+      $('#max-np').classList.remove('radio-mode');
+      $('#time-total').classList.remove('live-badge');
+      $('#max-np-time-total').classList.remove('live-badge');
       state.currentStation = null;
       state.isPlaying = false;
       state.isLoading = false;
@@ -6805,7 +6817,6 @@
     npTitle.classList.remove('clickable');
     npTitle.onclick = null;
 
-    $('#np-live-badge').classList.remove('hidden');
 
     const npArtist = $('#np-artist');
     const meta = [station.tags, station.country, station.bitrate ? station.bitrate + ' kbps' : ''].filter(Boolean).join(' · ');
