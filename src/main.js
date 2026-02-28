@@ -2203,6 +2203,16 @@ ipcMain.handle('radio:topVote', async (_event, count = 20) => {
   catch (err) { console.error('Radio topVote:', err); return []; }
 });
 
+ipcMain.handle('radio:topClick', async (_event, count = 20) => {
+  try { return await radioFetch(`/json/stations/topclick/${count}`); }
+  catch (err) { console.error('Radio topClick:', err); return []; }
+});
+
+ipcMain.handle('radio:trendingByCountry', async (_event, cc, limit = 20) => {
+  try { return await radioFetch(`/json/stations/bycountrycodeexact/${encodeURIComponent(cc)}?limit=${limit}&order=clickcount&reverse=true&hidebroken=true`); }
+  catch (err) { console.error('Radio trendingByCountry:', err); return []; }
+});
+
 ipcMain.handle('radio:byTag', async (_event, tag, limit = 30) => {
   try { return await radioFetch(`/json/stations/bytagexact/${encodeURIComponent(tag)}?limit=${limit}&order=votes&reverse=true&hidebroken=true`); }
   catch (err) { console.error('Radio byTag:', err); return []; }

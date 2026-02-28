@@ -6573,9 +6573,11 @@
     try {
       if (!_radioGeo) _radioGeo = await window.snowify.radioDetectGeo();
 
-      const [local, trending, tags] = await Promise.all([
-        _radioGeo.countryCode ? window.snowify.radioByCountry(_radioGeo.countryCode) : Promise.resolve([]),
-        window.snowify.radioTopVote(20),
+      const hasGeo = !!_radioGeo.countryCode;
+      const [local, trendingCountry, trendingWorld, tags] = await Promise.all([
+        hasGeo ? window.snowify.radioByCountry(_radioGeo.countryCode) : Promise.resolve([]),
+        hasGeo ? window.snowify.radioTrendingByCountry(_radioGeo.countryCode, 20) : Promise.resolve([]),
+        window.snowify.radioTopClick(20),
         window.snowify.radioTags(),
       ]);
 
@@ -6591,13 +6593,18 @@
         html += buildRadioScrollSection(label, local);
       }
 
-      if (trending.length)
-        html += buildRadioTrendingSection('Trending Worldwide', trending);
+      if (trendingCountry.length) {
+        const countryLabel = _radioGeo.country || 'Your Country';
+        html += buildRadioTrendingSection(`Trending in ${countryLabel}`, trendingCountry);
+      }
+
+      if (trendingWorld.length)
+        html += buildRadioTrendingSection('Trending Worldwide', trendingWorld);
 
       if (tags.length)
         html += buildRadioGenreGrid(tags.slice(0, 30));
 
-      _radioStationsCache = [...state.favoriteStations, ...local, ...trending];
+      _radioStationsCache = [...state.favoriteStations, ...local, ...trendingCountry, ...trendingWorld];
       content.innerHTML = html || '<div class="empty-state"><p>Could not load radio stations.</p></div>';
       attachRadioListeners(content);
     } catch (err) {
@@ -6657,7 +6664,7 @@
       const bg = GENRE_COLORS[i % GENRE_COLORS.length];
       return `<div class="mood-card radio-genre-card" data-tag="${escapeHtml(t.name)}" style="border-left-color:${bg}">${escapeHtml(t.name)} <span style="opacity:0.5;font-size:11px">${t.stationcount}</span></div>`;
     }).join('');
-    return `<div class="explore-section"><h2>Genres</h2><div class="mood-grid">${items}</div></div>`;
+    return `<div class="explore-section"><h2>Browse by Tag</h2><div class="mood-grid">${items}</div></div>`;
   }
 
   function getStationFromData(el, allStations) {

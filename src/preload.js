@@ -78,6 +78,8 @@ contextBridge.exposeInMainWorld('snowify', {
   radioDetectGeo: () => ipcRenderer.invoke('radio:detectGeo'),
   radioByCountry: (cc, limit) => ipcRenderer.invoke('radio:byCountry', cc, limit),
   radioTopVote: (count) => ipcRenderer.invoke('radio:topVote', count),
+  radioTopClick: (count) => ipcRenderer.invoke('radio:topClick', count),
+  radioTrendingByCountry: (cc, limit) => ipcRenderer.invoke('radio:trendingByCountry', cc, limit),
   radioByTag: (tag, limit) => ipcRenderer.invoke('radio:byTag', tag, limit),
   radioSearch: (query, limit) => ipcRenderer.invoke('radio:search', query, limit),
   radioTags: () => ipcRenderer.invoke('radio:tags'),
