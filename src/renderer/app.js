@@ -130,7 +130,6 @@
   }
 
   let _saveStateTimer = null;
-  let _radioSearchTimer = null;
   function saveState() {
     if (_saveStateTimer) return; // already scheduled
     _saveStateTimer = setTimeout(() => {
@@ -239,7 +238,7 @@
     const alreadyActive = state.currentView === name && targetView && targetView.classList.contains('active');
 
     // Clean up radio search timer when leaving radio view
-    if (_radioSearchTimer) { clearTimeout(_radioSearchTimer); _radioSearchTimer = null; }
+    radio.cancelSearch();
 
     state.currentView = name;
     views.forEach(v => v.classList.toggle('active', v.id === `view-${name}`));
@@ -273,7 +272,8 @@
       renderLibrary();
     }
     if (name === 'radio') {
-      renderRadio();
+      radio.resetSearchPill();
+      radio.render();
     }
 
     updateFloatingSearch();
@@ -1179,15 +1179,7 @@
   const MAX_CONSECUTIVE_FAILURES = 5;
 
   async function playTrack(track) {
-    if (state.radioMode) {
-      _unbindRadioBuffering(audio);
-      state.radioMode = false;
-      state.currentStation = null;
-      $('#now-playing-bar').classList.remove('radio-mode');
-      $('#max-np').classList.remove('radio-mode');
-      $('#time-total').classList.remove('live-badge');
-      $('#max-np-time-total').classList.remove('live-badge');
-    }
+    radio.cleanup();
     const gen = ++_playGeneration;
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     normalizer.finalizeMeasurement(audio, true); // track interrupted = partial
@@ -1316,7 +1308,7 @@
   }
 
   function playNext() {
-    if (state.radioMode) return;
+    if (radio.isActive()) return;
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     if (!state.queue.length) return;
 
@@ -1427,7 +1419,7 @@
   }
 
   function playPrev() {
-    if (state.radioMode) return;
+    if (radio.isActive()) return;
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     if (!state.queue.length) return;
     if (audio.currentTime > 3) {
@@ -1498,8 +1490,8 @@
     if (audio.paused) {
       audio.play();
       state.isPlaying = true;
-      if (state.radioMode && state.currentStation) {
-        updateRadioDiscordPresence(state.currentStation);
+      if (radio.isActive()) {
+        radio.updateDiscordPresence(radio.getStation());
       } else {
         const track = state.queue[state.queueIndex];
         if (track) updateDiscordPresence(track);
@@ -1566,12 +1558,8 @@
         }
         break;
       case 'ended-no-preload':
-        if (state.radioMode) {
-          // Radio stream ended unexpectedly (connection drop)
-          showToast('Radio stream ended — try another station');
-          state.isPlaying = false;
-          updatePlayButton();
-          clearDiscordPresence();
+        if (radio.isActive()) {
+          radio.handleStreamEnd();
           break;
         }
         normalizer.finalizeMeasurement(audio, false);
@@ -1585,12 +1573,8 @@
         }
         break;
       case 'error':
-        if (state.radioMode) {
-          showToast('Radio stream lost — try another station');
-          state.isPlaying = false;
-          state.isLoading = false;
-          updatePlayButton();
-          clearDiscordPresence();
+        if (radio.isActive()) {
+          radio.handleStreamError();
           break;
         }
         state.isPlaying = false;
@@ -1622,7 +1606,11 @@
     getStreamUrl: (url, q) => window.snowify.getStreamUrl(url, q),
     onTransition: handleEngineTransition,
     onTimeUpdate: handleEngineTimeUpdate,
-    onStall: () => { showToast('Stream stalled — skipping to next'); playNext(); },
+    onStall: () => {
+      if (radio.isActive()) { radio.handleStall(); return; }
+      showToast('Stream stalled — skipping to next');
+      playNext();
+    },
   });
   audio = engine.getActiveAudio();
 
@@ -1633,6 +1621,29 @@
     normalizer.setTarget(state.normalizationTarget);
     normalizer.initAudioContext(); // async — resolves before first playTrack
   }
+
+  // ─── Initialize radio engine ───
+  const radio = window.RadioEngine({
+    $, escapeHtml,
+    getState: () => state,
+    getEngine: () => engine,
+    getAudio: () => audio,
+    setAudio: (a) => { audio = a; },
+    showToast, updatePlayButton, clearDiscordPresence,
+    renderQueue, saveState, togglePlay,
+    ipc: {
+      detectGeo: window.snowify.radioDetectGeo,
+      byCountry: window.snowify.radioByCountry,
+      trendingByCountry: window.snowify.radioTrendingByCountry,
+      topClick: window.snowify.radioTopClick,
+      tags: window.snowify.radioTags,
+      byTag: window.snowify.radioByTag,
+      search: window.snowify.radioSearch,
+      click: window.snowify.radioClick,
+      updatePresence: window.snowify.updatePresence,
+    }
+  });
+  radio.initSearch();
 
   $('#btn-play-pause').addEventListener('click', togglePlay);
   $('#btn-next').addEventListener('click', playNext);
@@ -1708,13 +1719,11 @@
   const progressFill = $('#progress-fill');
 
   function updateProgress() {
-    if (state.radioMode) {
+    if (radio.isActive()) {
       const src = engine.getActiveSource();
       progressFill.style.width = '0%';
       $('#time-current').textContent = formatTime(src.currentTime || 0);
-      const timeTotal = $('#time-total');
-      timeTotal.textContent = 'LIVE';
-      timeTotal.classList.add('live-badge');
+      $('#time-total').textContent = 'LIVE';
       return;
     }
     // During crossfade, show progress of the incoming track (standby)
@@ -1739,14 +1748,14 @@
   document.addEventListener('mouseup', () => { isDraggingProgress = false; });
 
   setupSliderTooltip(progressBar, (pct) => {
-    if (state.radioMode) return 'LIVE';
+    if (radio.isActive()) return 'LIVE';
     const src = engine.getActiveSource();
     if (!isFinite(src.duration)) return 'LIVE';
     return formatTime(pct * (src.duration || 0));
   });
 
   function seekTo(e) {
-    if (state.radioMode) return;
+    if (radio.isActive()) return;
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     const rect = progressBar.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -1957,8 +1966,8 @@
 
   const npLike = $('#np-like');
   npLike.addEventListener('click', () => {
-    if (state.radioMode && state.currentStation) {
-      const wasFav = toggleFavoriteStation(state.currentStation);
+    if (radio.isActive() && radio.getStation()) {
+      const wasFav = radio.toggleFavorite(radio.getStation());
       if (wasFav) spawnHeartParticles(npLike);
       else spawnBrokenHeart(npLike);
       return;
@@ -2648,18 +2657,13 @@
     const upNext = $('#queue-up-next');
     const clearBtn = $('#btn-clear-queue');
 
-    if (state.radioMode && state.currentStation) {
-      const s = state.currentStation;
-      nowPlaying.innerHTML = `
-        <div class="queue-item active">
-          <img src="${s.favicon ? escapeHtml(s.favicon) : 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'}" alt="" onerror="this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'" />
-          <div class="queue-item-info">
-            <div class="queue-item-title">${escapeHtml(s.name)}</div>
-            <div class="queue-item-artist">Live Radio</div>
-          </div>
-        </div>`;
-      clearBtn.style.display = 'none';
-      upNext.innerHTML = `<p style="color:var(--text-subdued);font-size:13px;">Live Radio — no queue</p>`;
+    if (radio.isActive()) {
+      const c = radio.renderQueueCard();
+      if (c) {
+        nowPlaying.innerHTML = c.nowPlayingHtml;
+        clearBtn.style.display = 'none';
+        upNext.innerHTML = c.upNextHtml;
+      }
       return;
     }
 
@@ -3451,7 +3455,7 @@
         break;
       case 'ArrowRight':
         if (e.ctrlKey) playNext();
-        else if (audio.duration) {
+        else if (audio.duration && isFinite(audio.duration)) {
           if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
           const newTime = Math.min(audio.duration, audio.currentTime + 5);
           const remaining = audio.duration - newTime;
@@ -3462,7 +3466,7 @@
         break;
       case 'ArrowLeft':
         if (e.ctrlKey) playPrev();
-        else if (audio.duration) {
+        else if (audio.duration && isFinite(audio.duration)) {
           if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
           const newTime = Math.max(0, audio.currentTime - 5);
           const remaining = audio.duration - newTime;
@@ -4393,8 +4397,8 @@
 
   function openMaxNP() {
     // Support both regular tracks and radio stations
-    const current = state.radioMode && state.currentStation
-      ? { title: state.currentStation.name, artist: 'Live Radio', thumbnail: state.currentStation.favicon || '', id: 'radio_' + state.currentStation.stationuuid }
+    const current = radio.isActive()
+      ? radio.getMaxNPTrack()
       : state.queue[state.queueIndex];
     if (!current) return;
     _maxNPOpen = true;
@@ -4438,6 +4442,11 @@
     const thumbUrl = track.thumbnail ? track.thumbnail.replace(/=w\d+-h\d+/, '=w800-h800') : '';
     const imgSrc = thumbUrl || track.thumbnail;
     maxNPArt.src = imgSrc;
+    if (radio.isActive()) {
+      maxNPArt.onerror = () => { maxNPArt.src = radio.FALLBACK_IMG; maxNPArt.onerror = null; };
+    } else {
+      maxNPArt.onerror = null;
+    }
 
     // Extract dominant color from cover for lyrics tinting
     extractDominantColor(maxNPArt).then(applyMaxNPLyricsColor);
@@ -4476,7 +4485,9 @@
     maxNPArtist.innerHTML = renderArtistLinks(track);
     bindArtistLinks(maxNPArtist);
 
-    const isLiked = state.likedSongs.some(t => t.id === track.id);
+    const isLiked = radio.isActive()
+      ? radio.isFavorite(radio.getStation())
+      : state.likedSongs.some(t => t.id === track.id);
     maxNPLike.classList.toggle('liked', isLiked);
   }
 
@@ -4672,8 +4683,8 @@
 
   // Like button in maximized view
   maxNPLike.addEventListener('click', () => {
-    if (state.radioMode && state.currentStation) {
-      const wasFav = toggleFavoriteStation(state.currentStation);
+    if (radio.isActive() && radio.getStation()) {
+      const wasFav = radio.toggleFavorite(radio.getStation());
       if (wasFav) spawnHeartParticles(maxNPLike);
       else spawnBrokenHeart(maxNPLike);
       return;
@@ -4817,7 +4828,7 @@
   document.addEventListener('mouseup', () => { _maxNPDragging = false; });
 
   function maxNPSeekTo(e) {
-    if (state.radioMode) return;
+    if (radio.isActive()) return;
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     const rect = maxNPProgressBar.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -4834,12 +4845,11 @@
 
   function updateMaxNPProgress() {
     if (!_maxNPOpen) return;
-    if (state.radioMode) {
+    if (radio.isActive()) {
       const src = engine.getActiveSource();
       maxNPProgressFill.style.width = '0%';
       maxNPTimeCurrent.textContent = formatTime(src.currentTime || 0);
       maxNPTimeTotal.textContent = 'LIVE';
-      maxNPTimeTotal.classList.add('live-badge');
       return;
     }
     const src = engine.getActiveSource();
@@ -6538,400 +6548,6 @@
     // Check initial auth state
     const user = await window.snowify.getUser();
     if (user) updateAccountUI(user);
-  }
-
-  // ─── Internet Radio ───
-
-  const RADIO_FALLBACK_SVG = '<svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor" style="color:var(--text-subdued)"><path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707m2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708m5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708m2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.313.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM6 8a2 2 0 1 1 2.5 1.937V15.5a.5.5 0 0 1-1 0V9.937A2 2 0 0 1 6 8"/></svg>';
-  const RADIO_FALLBACK_IMG = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="rgba(255,255,255,0.06)"/><stop offset="100%" stop-color="rgba(255,255,255,0.02)"/></linearGradient></defs><rect width="96" height="96" rx="8" fill="#1a1a1a"/><rect width="96" height="96" rx="8" fill="url(#g)"/><g transform="translate(24,24) scale(3)" fill="#6a6a6a"><path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707m2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708m5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708m2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.313.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM6 8a2 2 0 1 1 2.5 1.937V15.5a.5.5 0 0 1-1 0V9.937A2 2 0 0 1 6 8"/></g></svg>');
-  let _radioGeo = null;
-  let _radioGeneration = 0;
-
-  function _onRadioWaiting() {
-    if (!state.radioMode) return;
-    $('#progress-bar').classList.add('buffering');
-    $('#max-np-progress-bar').classList.add('buffering');
-  }
-  function _onRadioPlaying() {
-    $('#progress-bar').classList.remove('buffering');
-    $('#max-np-progress-bar').classList.remove('buffering');
-  }
-  function _bindRadioBuffering(el) {
-    el.addEventListener('waiting', _onRadioWaiting);
-    el.addEventListener('playing', _onRadioPlaying);
-  }
-  function _unbindRadioBuffering(el) {
-    el.removeEventListener('waiting', _onRadioWaiting);
-    el.removeEventListener('playing', _onRadioPlaying);
-    _onRadioPlaying(); // clear any lingering buffering state
-  }
-
-  async function renderRadio() {
-    const content = $('#radio-content');
-    content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-
-    try {
-      if (!_radioGeo) _radioGeo = await window.snowify.radioDetectGeo();
-
-      const hasGeo = !!_radioGeo.countryCode;
-      const [local, trendingCountry, trendingWorld, tags] = await Promise.all([
-        hasGeo ? window.snowify.radioByCountry(_radioGeo.countryCode) : Promise.resolve([]),
-        hasGeo ? window.snowify.radioTrendingByCountry(_radioGeo.countryCode, 20) : Promise.resolve([]),
-        window.snowify.radioTopClick(20),
-        window.snowify.radioTags(),
-      ]);
-
-      let html = '';
-
-      if (state.favoriteStations.length)
-        html += buildRadioScrollSection('Your Stations', state.favoriteStations);
-
-      if (local.length) {
-        const label = _radioGeo.city
-          ? `Popular in ${_radioGeo.city}, ${_radioGeo.country}`
-          : (_radioGeo.country ? `Popular in ${_radioGeo.country}` : 'Popular Stations');
-        html += buildRadioScrollSection(label, local);
-      }
-
-      if (trendingCountry.length) {
-        const countryLabel = _radioGeo.country || 'Your Country';
-        html += buildRadioTrendingSection(`Trending in ${countryLabel}`, trendingCountry);
-      }
-
-      if (trendingWorld.length)
-        html += buildRadioTrendingSection('Trending Worldwide', trendingWorld);
-
-      if (tags.length)
-        html += buildRadioGenreGrid(tags.slice(0, 30));
-
-      _radioStationsCache = [...state.favoriteStations, ...local, ...trendingCountry, ...trendingWorld];
-      content.innerHTML = html || '<div class="empty-state"><p>Could not load radio stations.</p></div>';
-      attachRadioListeners(content);
-    } catch (err) {
-      console.error('renderRadio error:', err);
-      content.innerHTML = '<div class="empty-state"><p>Could not load radio stations.</p></div>';
-    }
-  }
-
-  function buildStationCard(station) {
-    const hasFavicon = station.favicon && station.favicon.trim();
-    const faviconHtml = hasFavicon
-      ? `<div class="station-cover-wrap"><img class="album-card-cover station-card-cover" src="${escapeHtml(station.favicon)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display=''" /><div class="station-cover-fallback station-fallback-icon" style="display:none">${RADIO_FALLBACK_SVG}</div></div>`
-      : `<div class="album-card-cover station-fallback-icon">${RADIO_FALLBACK_SVG}</div>`;
-    const meta = [station.tags, station.country, station.bitrate ? station.bitrate + ' kbps' : ''].filter(Boolean).join(' · ');
-    return `
-      <div class="album-card station-card" data-station-uuid="${escapeHtml(station.stationuuid)}">
-        ${faviconHtml}
-        <button class="album-card-play" title="Play">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
-        </button>
-        <div class="album-card-name" title="${escapeHtml(station.name)}">${escapeHtml(station.name)}</div>
-        <div class="album-card-meta">${escapeHtml(meta)}</div>
-      </div>`;
-  }
-
-  function buildRadioScrollSection(title, stations) {
-    const cards = stations.map(s => buildStationCard(s)).join('');
-    return `<div class="explore-section"><h2>${escapeHtml(title)}</h2><div class="scroll-container"><button class="scroll-arrow scroll-arrow-left" data-dir="left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="album-scroll">${cards}</div><button class="scroll-arrow scroll-arrow-right" data-dir="right"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button></div></div>`;
-  }
-
-  function buildRadioTrendingSection(title, stations) {
-    const items = stations.map((s, i) => {
-      const hasFav = s.favicon && s.favicon.trim();
-      const faviconHtml = hasFav
-        ? `<img class="top-song-thumb" src="${escapeHtml(s.favicon)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display=''" /><div class="top-song-thumb station-trending-fallback" style="display:none">${RADIO_FALLBACK_SVG}</div>`
-        : `<div class="top-song-thumb station-trending-fallback">${RADIO_FALLBACK_SVG}</div>`;
-      const meta = [s.country, s.bitrate ? s.bitrate + ' kbps' : ''].filter(Boolean).join(' · ');
-      return `
-        <div class="top-song-item station-trending-item" data-station-uuid="${escapeHtml(s.stationuuid)}">
-          <div class="top-song-rank">${i + 1}</div>
-          <div class="top-song-thumb-wrap">
-            ${faviconHtml}
-            <div class="top-song-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg></div>
-          </div>
-          <div class="top-song-info">
-            <div class="top-song-title">${escapeHtml(s.name)}</div>
-            <div class="top-song-artist">${escapeHtml(meta)}</div>
-          </div>
-        </div>`;
-    }).join('');
-    return `<div class="explore-section"><h2>${escapeHtml(title)}</h2><div class="top-songs-grid">${items}</div></div>`;
-  }
-
-  function buildRadioGenreGrid(tags) {
-    const GENRE_COLORS = ['#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#1abc9c', '#3498db', '#9b59b6', '#e84393', '#00cec9', '#fd79a8', '#6c5ce7', '#00b894'];
-    const items = tags.map((t, i) => {
-      const bg = GENRE_COLORS[i % GENRE_COLORS.length];
-      return `<div class="mood-card radio-genre-card" data-tag="${escapeHtml(t.name)}" style="border-left-color:${bg}">${escapeHtml(t.name)} <span style="opacity:0.5;font-size:11px">${t.stationcount}</span></div>`;
-    }).join('');
-    return `<div class="explore-section"><h2>Browse by Tag</h2><div class="mood-grid">${items}</div></div>`;
-  }
-
-  function getStationFromData(el, allStations) {
-    const uuid = el?.dataset?.stationUuid;
-    if (!uuid) return null;
-    // Check favorites first, then provided list
-    return state.favoriteStations.find(s => s.stationuuid === uuid)
-      || allStations.find(s => s.stationuuid === uuid)
-      || null;
-  }
-
-  let _radioStationsCache = []; // flat cache of all rendered stations for lookup
-
-  function attachRadioListeners(content) {
-    // Scroll arrows
-    content.querySelectorAll('.scroll-container').forEach(container => {
-      const scrollEl = container.querySelector('.album-scroll');
-      if (!scrollEl) return;
-      container.querySelectorAll('.scroll-arrow').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const dir = btn.dataset.dir === 'left' ? -400 : 400;
-          scrollEl.scrollBy({ left: dir, behavior: 'smooth' });
-        });
-      });
-    });
-
-    // Station card clicks
-    content.querySelectorAll('.station-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const uuid = card.dataset.stationUuid;
-        const station = findStationByUuid(uuid);
-        if (station) playRadioStation(station);
-      });
-      card.querySelector('.album-card-play')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const uuid = card.closest('.station-card')?.dataset?.stationUuid;
-        const station = findStationByUuid(uuid);
-        if (station) playRadioStation(station);
-      });
-    });
-
-    // Trending item clicks
-    content.querySelectorAll('.station-trending-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const uuid = item.dataset.stationUuid;
-        const station = findStationByUuid(uuid);
-        if (station) playRadioStation(station);
-      });
-    });
-
-    // Genre card clicks
-    content.querySelectorAll('.radio-genre-card').forEach(card => {
-      card.addEventListener('click', async () => {
-        const tag = card.dataset.tag;
-        if (!tag) return;
-        content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-        const stations = await window.snowify.radioByTag(tag);
-        _radioStationsCache = stations;
-        let html = '';
-        if (stations.length) {
-          html += buildRadioScrollSection(tag, stations);
-          html += buildRadioTrendingSection(`All "${tag}" Stations`, stations);
-        } else {
-          html += `<div class="empty-state"><p>No stations found for "${escapeHtml(tag)}".</p></div>`;
-        }
-        content.innerHTML = html;
-        attachRadioListeners(content);
-      });
-    });
-  }
-
-  function findStationByUuid(uuid) {
-    return state.favoriteStations.find(s => s.stationuuid === uuid)
-      || _radioStationsCache.find(s => s.stationuuid === uuid)
-      || null;
-  }
-
-  // Radio search
-  (function initRadioSearch() {
-    const input = $('#radio-search-input');
-    const clearBtn = $('#radio-search-clear');
-    const label = $('#radio-search-label');
-    const inputWrap = $('#radio-search-input-wrap');
-    if (!input || !clearBtn) return;
-
-    input.addEventListener('input', () => {
-      const q = input.value.trim();
-      clearBtn.classList.toggle('hidden', !q);
-      clearTimeout(_radioSearchTimer);
-      if (!q) {
-        if (state.currentView === 'radio') renderRadio();
-        return;
-      }
-      _radioSearchTimer = setTimeout(async () => {
-        const content = $('#radio-content');
-        content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-        const results = await window.snowify.radioSearch(q);
-        _radioStationsCache = results;
-        if (!results.length) {
-          content.innerHTML = `<div class="empty-state"><p>No stations found for "${escapeHtml(q)}".</p></div>`;
-          return;
-        }
-        let html = buildRadioScrollSection(`Results for "${q}"`, results);
-        html += buildRadioTrendingSection('All Results', results);
-        content.innerHTML = html;
-        attachRadioListeners(content);
-      }, 400);
-    });
-
-    clearBtn.addEventListener('click', () => {
-      input.value = '';
-      clearBtn.classList.add('hidden');
-      inputWrap.classList.add('hidden');
-      label.classList.remove('hidden');
-      if (state.currentView === 'radio') renderRadio();
-    });
-
-    label.addEventListener('click', () => {
-      label.classList.add('hidden');
-      inputWrap.classList.remove('hidden');
-      input.focus();
-    });
-
-    input.addEventListener('blur', () => {
-      if (!input.value.trim()) {
-        inputWrap.classList.add('hidden');
-        label.classList.remove('hidden');
-      }
-    });
-  })();
-
-  async function playRadioStation(station) {
-    const streamUrl = station.url_resolved || station.url;
-    if (!streamUrl) {
-      showToast('No stream URL for this station');
-      return;
-    }
-
-    const gen = ++_radioGeneration;
-
-    state.radioMode = true;
-    $('#now-playing-bar').classList.add('radio-mode');
-    $('#max-np').classList.add('radio-mode');
-    state.currentStation = station;
-    state.isLoading = true;
-    state.queue = [];
-    state.originalQueue = [];
-    state.queueIndex = -1;
-    state.playingPlaylistId = null;
-
-    if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
-    engine.clearPreload();
-
-    showRadioNowPlaying(station);
-    renderQueue();
-    updatePlayButton();
-    window.snowify.radioClick(station.stationuuid).catch(() => {});
-
-    try {
-      showToast(`Tuning in: ${station.name}`);
-      audio = engine.getActiveAudio();
-      audio.src = streamUrl;
-      audio.load();
-      audio.volume = state.volume * VOLUME_SCALE;
-
-      // Race play() against a timeout — radio streams can hang
-      const playPromise = audio.play();
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout')), 15000)
-      );
-      await Promise.race([playPromise, timeoutPromise]);
-
-      if (gen !== _radioGeneration) return; // stale — user clicked another station
-      state.isPlaying = true;
-      state.isLoading = false;
-      updatePlayButton();
-      _bindRadioBuffering(audio);
-      updateRadioDiscordPresence(station);
-      saveState();
-    } catch (err) {
-      if (gen !== _radioGeneration) return; // stale
-      if (err?.name === 'AbortError') return;
-      console.error('Radio play error:', err);
-      showToast('Station unavailable — try another');
-      _unbindRadioBuffering(audio);
-      state.radioMode = false;
-      $('#now-playing-bar').classList.remove('radio-mode');
-      $('#max-np').classList.remove('radio-mode');
-      $('#time-total').classList.remove('live-badge');
-      $('#max-np-time-total').classList.remove('live-badge');
-      state.currentStation = null;
-      state.isPlaying = false;
-      state.isLoading = false;
-      updatePlayButton();
-    }
-  }
-
-  function showRadioNowPlaying(station) {
-    const bar = $('#now-playing-bar');
-    bar.classList.remove('hidden');
-    document.querySelector('#app').classList.remove('no-player');
-
-    $('#np-thumbnail').src = station.favicon || RADIO_FALLBACK_IMG;
-    const npTitle = $('#np-title');
-    npTitle.textContent = station.name;
-    npTitle.classList.remove('clickable');
-    npTitle.onclick = null;
-
-
-    const npArtist = $('#np-artist');
-    const meta = [station.tags, station.country, station.bitrate ? station.bitrate + ' kbps' : ''].filter(Boolean).join(' · ');
-    npArtist.textContent = meta || 'Live Radio';
-    npArtist.classList.remove('clickable');
-    npArtist.onclick = null;
-
-    const isFav = state.favoriteStations.some(s => s.stationuuid === station.stationuuid);
-    $('#np-like').classList.toggle('liked', isFav);
-
-    updateRadioMediaSession(station);
-  }
-
-  function toggleFavoriteStation(station) {
-    const idx = state.favoriteStations.findIndex(s => s.stationuuid === station.stationuuid);
-    if (idx >= 0) {
-      state.favoriteStations.splice(idx, 1);
-      showToast(`Removed: ${station.name}`);
-    } else {
-      state.favoriteStations.push({
-        stationuuid: station.stationuuid, name: station.name,
-        url_resolved: station.url_resolved, favicon: station.favicon || '',
-        tags: station.tags || '', country: station.country || '',
-        countrycode: station.countrycode || '', bitrate: station.bitrate || 0,
-        codec: station.codec || ''
-      });
-      showToast(`Added: ${station.name}`);
-    }
-    const isFav = idx < 0; // was NOT found = just added = is now favorite
-    $('#np-like').classList.toggle('liked', isFav);
-    const maxLike = $('#max-np-like');
-    if (maxLike) maxLike.classList.toggle('liked', isFav);
-    saveState();
-    if (state.currentView === 'radio') renderRadio();
-    return isFav;
-  }
-
-  function updateRadioDiscordPresence(station) {
-    if (!state.discordRpc || !station) return;
-    window.snowify.updatePresence({
-      title: station.name,
-      artist: 'Live Radio',
-      thumbnail: station.favicon || '',
-      startTimestamp: Date.now()
-    });
-  }
-
-  function updateRadioMediaSession(station) {
-    if (!('mediaSession' in navigator)) return;
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: station.name,
-      artist: 'Live Radio',
-      artwork: station.favicon ? [{ src: station.favicon, sizes: '96x96' }] : []
-    });
-    navigator.mediaSession.setActionHandler('play', () => togglePlay());
-    navigator.mediaSession.setActionHandler('pause', () => togglePlay());
-    navigator.mediaSession.setActionHandler('previoustrack', null);
-    navigator.mediaSession.setActionHandler('nexttrack', null);
-    navigator.mediaSession.setActionHandler('seekto', null);
   }
 
   init();
