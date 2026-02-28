@@ -278,8 +278,8 @@ function createWindow() {
       "script-src 'self' 'unsafe-inline'; " +
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
       "font-src 'self' https://fonts.gstatic.com; " +
-      "img-src 'self' https: data: file:; " +
-      "media-src 'self' blob: https:; " +
+      "img-src 'self' https: http: data: file:; " +
+      "media-src 'self' blob: https: http:; " +
       "connect-src 'self' https: http:;"
     ];
 
@@ -2152,4 +2152,73 @@ ipcMain.on('updater:install', () => {
       sendUpdateStatus('error', { message: err?.message || 'Download failed' });
     });
   }
+});
+
+// ─── Internet Radio (radio-browser.info) ───
+
+const RADIO_API_BASE = 'https://de1.api.radio-browser.info';
+
+async function radioFetch(urlPath) {
+  const https = require('https');
+  return new Promise((resolve, reject) => {
+    const req = https.get(`${RADIO_API_BASE}${urlPath}`, {
+      headers: { 'User-Agent': 'Snowify/1.0' }
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => res.statusCode === 200 ? resolve(JSON.parse(data)) : reject(new Error(`${res.statusCode}`)));
+    });
+    req.on('error', reject);
+    req.setTimeout(10000, () => { req.destroy(); reject(new Error('Timeout')); });
+  });
+}
+
+ipcMain.handle('radio:detectGeo', async () => {
+  try {
+    const http = require('http');
+    const body = await new Promise((resolve, reject) => {
+      const req = http.get('http://ip-api.com/json/?fields=country,countryCode,city', (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => res.statusCode === 200 ? resolve(data) : reject());
+      });
+      req.on('error', reject);
+      req.setTimeout(5000, () => { req.destroy(); reject(); });
+    });
+    return JSON.parse(body);
+  } catch (_) {
+    const locale = app.getLocale();
+    const cc = locale.includes('-') ? locale.split('-')[1] : '';
+    return { country: '', countryCode: cc, city: '' };
+  }
+});
+
+ipcMain.handle('radio:byCountry', async (_event, cc, limit = 20) => {
+  try { return await radioFetch(`/json/stations/bycountrycodeexact/${encodeURIComponent(cc)}?limit=${limit}&order=votes&reverse=true&hidebroken=true`); }
+  catch (err) { console.error('Radio byCountry:', err); return []; }
+});
+
+ipcMain.handle('radio:topVote', async (_event, count = 20) => {
+  try { return await radioFetch(`/json/stations/topvote/${count}`); }
+  catch (err) { console.error('Radio topVote:', err); return []; }
+});
+
+ipcMain.handle('radio:byTag', async (_event, tag, limit = 30) => {
+  try { return await radioFetch(`/json/stations/bytagexact/${encodeURIComponent(tag)}?limit=${limit}&order=votes&reverse=true&hidebroken=true`); }
+  catch (err) { console.error('Radio byTag:', err); return []; }
+});
+
+ipcMain.handle('radio:search', async (_event, query, limit = 30) => {
+  try { return await radioFetch(`/json/stations/search?name=${encodeURIComponent(query)}&limit=${limit}&order=votes&reverse=true&hidebroken=true`); }
+  catch (err) { console.error('Radio search:', err); return []; }
+});
+
+ipcMain.handle('radio:tags', async () => {
+  try { return await radioFetch('/json/tags?limit=50&order=stationcount&reverse=true&hidebroken=true'); }
+  catch (err) { console.error('Radio tags:', err); return []; }
+});
+
+ipcMain.handle('radio:click', async (_event, uuid) => {
+  try { return await radioFetch(`/json/url/${encodeURIComponent(uuid)}`); }
+  catch (err) { console.error('Radio click:', err); return { ok: false }; }
 });

@@ -89,7 +89,7 @@ window.DualAudioEngine = function DualAudioEngine(audioA, audioB, opts) {
   }
 
   function checkPreload() {
-    if (!preloadTriggered && audio.duration > 0 && audio.currentTime > 0) {
+    if (!preloadTriggered && audio.duration > 0 && isFinite(audio.duration) && audio.currentTime > 0) {
       triggerPreload();
     }
   }

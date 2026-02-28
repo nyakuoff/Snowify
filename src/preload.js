@@ -74,6 +74,15 @@ contextBridge.exposeInMainWorld('snowify', {
   updatePresence: (data) => ipcRenderer.invoke('discord:updatePresence', data),
   clearPresence: () => ipcRenderer.invoke('discord:clearPresence'),
 
+  // Internet Radio
+  radioDetectGeo: () => ipcRenderer.invoke('radio:detectGeo'),
+  radioByCountry: (cc, limit) => ipcRenderer.invoke('radio:byCountry', cc, limit),
+  radioTopVote: (count) => ipcRenderer.invoke('radio:topVote', count),
+  radioByTag: (tag, limit) => ipcRenderer.invoke('radio:byTag', tag, limit),
+  radioSearch: (query, limit) => ipcRenderer.invoke('radio:search', query, limit),
+  radioTags: () => ipcRenderer.invoke('radio:tags'),
+  radioClick: (uuid) => ipcRenderer.invoke('radio:click', uuid),
+
   // Graceful close
   onBeforeClose: (callback) => ipcRenderer.on('app:before-close', callback),
   closeReady: () => ipcRenderer.send('app:close-ready'),

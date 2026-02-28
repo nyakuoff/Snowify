@@ -4576,3 +4576,199 @@ body.audio-playing .eq-bar { animation-play-state: running; }
   .eq-bar { animation: none !important; }
   .playlist-item.playing .sound-wave { animation: none !important; opacity: 1 !important; }
 }
+
+/* ═══════ Internet Radio ═══════ */
+
+.radio-search-bar {
+  padding: 0 24px 16px;
+}
+.radio-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  max-width: 400px;
+}
+.radio-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-subdued);
+  pointer-events: none;
+}
+#radio-search-input {
+  width: 100%;
+  padding: 10px 36px 10px 40px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+#radio-search-input:focus {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.08);
+}
+#radio-search-input::placeholder {
+  color: var(--text-subdued);
+}
+#radio-search-clear {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--text-subdued);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+#radio-search-clear:hover { color: var(--text-primary); }
+
+/* Station card cover — favicon centered on gradient bg */
+.station-cover-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.station-cover-wrap .station-card-cover {
+  position: relative;
+  z-index: 1;
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  object-fit: contain;
+  background: transparent;
+  image-rendering: auto;
+}
+.station-card .album-card-play {
+  z-index: 2;
+}
+.station-cover-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.station-fallback-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+.station-trending-item .top-song-thumb-wrap {
+  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+  border-radius: 6px;
+}
+.station-trending-item .top-song-thumb {
+  object-fit: contain;
+  padding: 6px;
+  width: 44px;
+  height: 44px;
+}
+.station-trending-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  width: 44px;
+  height: 44px;
+}
+.station-trending-fallback svg {
+  width: 22px;
+  height: 22px;
+}
+
+.radio-back-btn {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  margin: 0 0 16px 0;
+  transition: background 0.2s, color 0.2s;
+}
+.radio-back-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+
+/* Now-playing title line (title + LIVE badge inline) */
+.np-title-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.np-title-line .np-title {
+  min-width: 0;
+}
+
+/* LIVE badge in now-playing bar */
+.np-live-badge {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 50, 50, 0.2);
+  color: #ff4444;
+  line-height: 1;
+  animation: live-pulse 2s ease-in-out infinite;
+}
+.np-live-badge.hidden { display: none; }
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Light theme overrides for radio */
+[data-theme="light"] #radio-search-input {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: var(--text-primary);
+}
+[data-theme="light"] #radio-search-input:focus {
+  border-color: var(--accent);
+  background: rgba(0, 0, 0, 0.02);
+}
+[data-theme="light"] .station-cover-wrap,
+[data-theme="light"] .station-fallback-icon {
+  background: linear-gradient(135deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.02) 100%);
+}
+[data-theme="light"] .station-trending-item .top-song-thumb-wrap,
+[data-theme="light"] .station-trending-fallback {
+  background: rgba(0, 0, 0, 0.04);
+}
+[data-theme="light"] .radio-back-btn {
+  border-color: rgba(0, 0, 0, 0.12);
+  color: var(--text-secondary);
+}
+[data-theme="light"] .radio-back-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-primary);
+}
+[data-theme="light"] .np-live-badge {
+  background: rgba(255, 50, 50, 0.12);
+}
