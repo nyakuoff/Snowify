@@ -4579,36 +4579,86 @@ body.audio-playing .eq-bar { animation-play-state: running; }
 
 /* ═══════ Internet Radio ═══════ */
 
+.radio-header {
+  position: relative;
+}
 .radio-search-bar {
-  padding: 0 24px 16px;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 .radio-search-wrap {
   position: relative;
+  width: 260px;
+  height: 40px;
+  border-radius: 20px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
   display: flex;
   align-items: center;
-  max-width: 400px;
+  justify-content: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  transition: background 0.2s, box-shadow 0.2s;
+  overflow: hidden;
+  cursor: pointer;
 }
+.radio-search-wrap:hover {
+  background: var(--bg-highlight);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+/* ── Label state (idle — looks like floating search) ── */
+.radio-search-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+}
+.radio-search-label svg {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  transition: color 0.2s;
+}
+.radio-search-label span {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: color 0.2s;
+}
+.radio-search-wrap:hover .radio-search-label svg,
+.radio-search-wrap:hover .radio-search-label span {
+  color: var(--text-primary);
+}
+/* ── Input state (active — typing) ── */
+.radio-search-input-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+.radio-search-input-wrap.hidden { display: none; }
 .radio-search-icon {
   position: absolute;
   left: 12px;
-  color: var(--text-subdued);
+  color: var(--text-primary);
   pointer-events: none;
+  flex-shrink: 0;
 }
 #radio-search-input {
   width: 100%;
-  padding: 10px 36px 10px 40px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.05);
+  height: 100%;
+  padding: 0 36px 0 38px;
+  border: none;
+  border-radius: 20px;
+  background: transparent;
   color: var(--text-primary);
   font-size: 14px;
-  font-family: inherit;
+  font-weight: 500;
+  font-family: var(--font);
   outline: none;
-  transition: border-color 0.2s, background 0.2s;
-}
-#radio-search-input:focus {
-  border-color: var(--accent);
-  background: rgba(255, 255, 255, 0.08);
 }
 #radio-search-input::placeholder {
   color: var(--text-subdued);
@@ -4734,15 +4784,6 @@ body.audio-playing .eq-bar { animation-play-state: running; }
 }
 
 /* Light theme overrides for radio */
-[data-theme="light"] #radio-search-input {
-  background: rgba(0, 0, 0, 0.04);
-  border-color: rgba(0, 0, 0, 0.08);
-  color: var(--text-primary);
-}
-[data-theme="light"] #radio-search-input:focus {
-  border-color: var(--accent);
-  background: rgba(0, 0, 0, 0.02);
-}
 [data-theme="light"] .station-cover-wrap,
 [data-theme="light"] .station-fallback-icon {
   background: linear-gradient(135deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.02) 100%);

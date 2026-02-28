@@ -6739,6 +6739,8 @@
   (function initRadioSearch() {
     const input = $('#radio-search-input');
     const clearBtn = $('#radio-search-clear');
+    const label = $('#radio-search-label');
+    const inputWrap = $('#radio-search-input-wrap');
     if (!input || !clearBtn) return;
 
     input.addEventListener('input', () => {
@@ -6768,7 +6770,22 @@
     clearBtn.addEventListener('click', () => {
       input.value = '';
       clearBtn.classList.add('hidden');
+      inputWrap.classList.add('hidden');
+      label.classList.remove('hidden');
       if (state.currentView === 'radio') renderRadio();
+    });
+
+    label.addEventListener('click', () => {
+      label.classList.add('hidden');
+      inputWrap.classList.remove('hidden');
+      input.focus();
+    });
+
+    input.addEventListener('blur', () => {
+      if (!input.value.trim()) {
+        inputWrap.classList.add('hidden');
+        label.classList.remove('hidden');
+      }
     });
   })();
 
