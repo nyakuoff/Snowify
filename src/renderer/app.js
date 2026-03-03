@@ -263,6 +263,11 @@
     if (name === 'library') {
       renderLibrary();
     }
+    if (name === 'friends') {
+      renderFriends();
+    } else {
+      stopFriendsRefresh();
+    }
 
     updateFloatingSearch();
   }
@@ -1425,6 +1430,9 @@
   // ─── Discord RPC helpers ───
 
   function updateDiscordPresence(track) {
+    // Broadcast social activity presence (always, if signed in)
+    updateSocialPresence(track);
+
     if (!state.discordRpc || !track) return;
     const src = engine.getActiveSource();
     const startMs = Date.now() - Math.floor((src.currentTime || 0) * 1000);
@@ -1442,8 +1450,27 @@
   }
 
   function clearDiscordPresence() {
+    clearSocialPresence();
     if (!state.discordRpc) return;
     window.snowify.clearPresence();
+  }
+
+  // ─── Social Activity Presence ───
+
+  function updateSocialPresence(track) {
+    if (!_cloudUser || !track) return;
+    window.snowify.updateSocialPresence({
+      trackTitle: track.title || '',
+      trackArtist: track.artist || '',
+      trackThumbnail: track.thumbnail || '',
+      trackId: track.id || '',
+      isPlaying: true
+    });
+  }
+
+  function clearSocialPresence() {
+    if (!_cloudUser) return;
+    window.snowify.clearSocialPresence();
   }
 
   function togglePlay() {
@@ -5485,7 +5512,11 @@
     } else {
       signedOut.classList.remove('hidden');
       signedIn.classList.add('hidden');
+      // Tear down social listeners on sign-out
+      stopFriendsRefresh();
     }
+    // Refresh friends view if it's active
+    if (state.currentView === 'friends') renderFriends();
   }
 
   function generateDefaultAvatar(name) {
@@ -5556,6 +5587,7 @@
   // Flush any pending saves before the window closes
   window.snowify.onBeforeClose(async () => {
     _flushSaveState(); // flush debounced localStorage write
+    clearSocialPresence(); // clear activity status so friends don't see stale presence
     if (_cloudSaveTimeout) {
       clearTimeout(_cloudSaveTimeout);
       _cloudSaveTimeout = null;
@@ -5792,6 +5824,245 @@
         resetModal();
       };
     };
+  }
+
+  // ─── Friends View ───
+
+  let _friendsList = [];
+  let _friendsPresenceMap = {};
+  let _socialListening = false;
+
+  async function renderFriends() {
+    const noAccount = $('#friends-no-account');
+    const main = $('#friends-main');
+
+    if (!_cloudUser) {
+      noAccount.classList.remove('hidden');
+      main.classList.add('hidden');
+      stopFriendsRefresh();
+      return;
+    }
+    noAccount.classList.add('hidden');
+    main.classList.remove('hidden');
+
+    // Load friend code
+    const codeResult = await window.snowify.getFriendCode();
+    if (codeResult && codeResult.code) {
+      $('#friend-code-value').textContent = codeResult.code;
+    }
+
+    // Start real-time listeners (only once)
+    if (!_socialListening) {
+      _socialListening = true;
+      window.snowify.startSocialListening();
+    }
+  }
+
+  // Real-time callbacks from main process
+  window.snowify.onFriendsUpdated((friends) => {
+    _friendsList = friends || [];
+    renderFriendsListUI();
+  });
+
+  window.snowify.onPresenceUpdated(({ uid, presence }) => {
+    if (presence) _friendsPresenceMap[uid] = presence;
+    else delete _friendsPresenceMap[uid];
+    renderFriendsListUI();
+  });
+
+  function renderFriendsListUI() {
+    const container = $('#friends-list');
+    const emptyState = $('#friends-list-empty');
+    if (!container || state.currentView !== 'friends') return;
+
+    if (_friendsList.length === 0) {
+      emptyState.classList.remove('hidden');
+      container.querySelectorAll('.friend-card, .friends-section-header').forEach(el => el.remove());
+      // Update online tab count
+      const onlineTab = $('[data-friends-tab="online"]');
+      if (onlineTab) onlineTab.textContent = 'Online';
+      return;
+    }
+
+    emptyState.classList.add('hidden');
+
+    // Split into online / offline, sort alphabetically within each group
+    const online = [];
+    const offline = [];
+    _friendsList.forEach(friend => {
+      const presence = _friendsPresenceMap[friend.uid];
+      const isListening = presence && presence.isPlaying && presence.trackTitle;
+      if (isListening) online.push({ friend, presence });
+      else offline.push({ friend, presence });
+    });
+    const sortByName = (a, b) => (a.friend.displayName || '').localeCompare(b.friend.displayName || '');
+    online.sort(sortByName);
+    offline.sort(sortByName);
+
+    // Update online tab count
+    const onlineTab = $('[data-friends-tab="online"]');
+    if (onlineTab) onlineTab.textContent = online.length > 0 ? `Online — ${online.length}` : 'Online';
+
+    // Check active tab filter
+    const activeTab = $('.friends-tab.active')?.dataset.friendsTab || 'all';
+
+    // Build card HTML helper
+    const buildCard = ({ friend, presence }) => {
+      const isListening = presence && presence.isPlaying && presence.trackTitle;
+      const avatarSrc = friend.photoURL || '';
+      const name = escapeHtml(friend.displayName || 'User');
+      const initial = (friend.displayName || 'U').charAt(0).toUpperCase();
+
+      let card = `<div class="friend-card" data-friend-uid="${escapeHtml(friend.uid)}">`;
+      card += `<div class="friend-avatar-wrap">`;
+      if (avatarSrc) {
+        card += `<img class="friend-avatar" src="${escapeHtml(avatarSrc)}" alt="" draggable="false" />`;
+      } else {
+        card += `<div class="friend-avatar friend-avatar-placeholder">${initial}</div>`;
+      }
+      card += `<span class="friend-status-dot ${isListening ? 'online' : 'offline'}"></span>`;
+      card += `</div>`;
+      card += `<div class="friend-info">`;
+      card += `<span class="friend-name">${name}</span>`;
+      if (isListening) {
+        const trackTitle = escapeHtml(presence.trackTitle);
+        const trackArtist = escapeHtml(presence.trackArtist || '');
+        const thumb = presence.trackThumbnail ? escapeHtml(presence.trackThumbnail) : '';
+        card += `<span class="friend-activity">`;
+        if (thumb) {
+          card += `<img class="friend-activity-thumb" src="${thumb}" alt="" draggable="false" />`;
+        } else {
+          card += `<svg class="friend-activity-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>`;
+        }
+        card += `<span class="friend-activity-text">`;
+        card += `<span class="friend-activity-title">${trackTitle}</span>`;
+        if (trackArtist) card += `<span class="friend-activity-separator">by</span> <span class="friend-activity-artist">${trackArtist}</span>`;
+        card += `</span>`;
+        card += `</span>`;
+      } else {
+        card += `<span class="friend-activity-offline">Offline</span>`;
+      }
+      card += `</div>`;
+      card += `<div class="friend-actions">`;
+      card += `<button class="friend-action-btn friend-remove-btn" title="Remove friend" data-uid="${escapeHtml(friend.uid)}">`;
+      card += `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>`;
+      card += `</button>`;
+      card += `</div>`;
+      card += `</div>`;
+      return card;
+    };
+
+    let html = '';
+    if (activeTab === 'online') {
+      html += `<div class="friends-section-header">Listening — ${online.length}</div>`;
+      online.forEach(item => { html += buildCard(item); });
+      if (online.length === 0) {
+        html += `<div class="friends-list-empty"><p>No friends are listening right now.</p></div>`;
+      }
+    } else {
+      if (online.length > 0) {
+        html += `<div class="friends-section-header">Listening — ${online.length}</div>`;
+        online.forEach(item => { html += buildCard(item); });
+      }
+      if (offline.length > 0) {
+        html += `<div class="friends-section-header">Offline — ${offline.length}</div>`;
+        offline.forEach(item => { html += buildCard(item); });
+      }
+    }
+
+    container.querySelectorAll('.friend-card, .friends-section-header, .friends-list-empty').forEach(el => el.remove());
+    container.insertAdjacentHTML('beforeend', html);
+
+    // Attach remove handlers
+    container.querySelectorAll('.friend-remove-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const uid = btn.dataset.uid;
+        const friendName = _friendsList.find(f => f.uid === uid)?.displayName || 'this friend';
+        if (!confirm(`Remove ${friendName} from your friends?`)) return;
+        const result = await window.snowify.removeFriend(uid);
+        if (result?.success) {
+          showToast('Friend removed');
+          // Real-time listener will auto-update the list
+        } else {
+          showToast(result?.error || 'Failed to remove friend');
+        }
+      });
+    });
+  }
+
+  // Copy friend code button
+  $('#btn-copy-friend-code').addEventListener('click', () => {
+    const code = $('#friend-code-value').textContent;
+    if (code && code !== '------') {
+      navigator.clipboard.writeText(code);
+      showToast('Friend code copied!');
+    }
+  });
+
+  // Add friend button
+  $('#btn-add-friend').addEventListener('click', async () => {
+    const input = $('#friend-code-input');
+    const status = $('#friend-add-status');
+    const code = input.value.trim().toUpperCase();
+
+    if (!code || code.length !== 6) {
+      status.textContent = 'Enter a 6-character friend code.';
+      status.className = 'friend-add-status friend-add-error';
+      status.classList.remove('hidden');
+      return;
+    }
+
+    // Check if user is trying to add their own code
+    const ownCode = $('#friend-code-value').textContent;
+    if (code === ownCode) {
+      status.textContent = "That's your own code!";
+      status.className = 'friend-add-status friend-add-error';
+      status.classList.remove('hidden');
+      return;
+    }
+
+    status.textContent = 'Adding...';
+    status.className = 'friend-add-status';
+    status.classList.remove('hidden');
+
+    const result = await window.snowify.addFriend(code);
+    if (result?.success) {
+      status.textContent = `Added ${result.friend?.displayName || 'friend'}!`;
+      status.className = 'friend-add-status friend-add-success';
+      input.value = '';
+      setTimeout(() => status.classList.add('hidden'), 4000);
+    } else {
+      status.textContent = result?.error || 'Failed to add friend.';
+      status.className = 'friend-add-status friend-add-error';
+    }
+  });
+
+  // Allow Enter key in friend code input
+  $('#friend-code-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') $('#btn-add-friend').click();
+  });
+
+  // Auto-uppercase friend code input
+  $('#friend-code-input').addEventListener('input', (e) => {
+    e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  });
+
+  // Friends tab switching
+  $$('.friends-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      $$('.friends-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      renderFriendsListUI();
+    });
+  });
+
+  // Stop real-time listeners when leaving friends view or signing out
+  function stopFriendsRefresh() {
+    if (_socialListening) {
+      _socialListening = false;
+      _friendsPresenceMap = {};
+      window.snowify.stopSocialListening();
+    }
   }
 
   let _settingsInitialized = false;

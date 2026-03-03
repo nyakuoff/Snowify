@@ -74,6 +74,20 @@ contextBridge.exposeInMainWorld('snowify', {
   updatePresence: (data) => ipcRenderer.invoke('discord:updatePresence', data),
   clearPresence: () => ipcRenderer.invoke('discord:clearPresence'),
 
+  // Social / Friends
+  getFriendCode: () => ipcRenderer.invoke('social:getFriendCode'),
+  addFriend: (code) => ipcRenderer.invoke('social:addFriend', code),
+  removeFriend: (uid) => ipcRenderer.invoke('social:removeFriend', uid),
+  getFriends: () => ipcRenderer.invoke('social:getFriends'),
+  updateSocialPresence: (data) => ipcRenderer.invoke('social:updatePresence', data),
+  clearSocialPresence: () => ipcRenderer.invoke('social:clearPresence'),
+  getPresence: (uid) => ipcRenderer.invoke('social:getPresence', uid),
+  getFriendsPresence: (uids) => ipcRenderer.invoke('social:getFriendsPresence', uids),
+  startSocialListening: () => ipcRenderer.invoke('social:startListening'),
+  stopSocialListening: () => ipcRenderer.invoke('social:stopListening'),
+  onFriendsUpdated: (cb) => ipcRenderer.on('social:friendsUpdated', (_e, friends) => cb(friends)),
+  onPresenceUpdated: (cb) => ipcRenderer.on('social:presenceUpdated', (_e, data) => cb(data)),
+
   // Graceful close
   onBeforeClose: (callback) => ipcRenderer.on('app:before-close', callback),
   closeReady: () => ipcRenderer.send('app:close-ready'),

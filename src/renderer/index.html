@@ -72,6 +72,11 @@
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h2v16H4V4zm5 0h2v16H9V4zm5 2h2v14h-2V6zm5-2h2v16h-2V4z"/></svg>
           <span>Library</span>
         </button>
+        <button class="nav-btn" data-view="friends">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+          <span>Friends</span>
+          <span class="badge-experimental">BETA</span>
+        </button>
         <button class="nav-btn" data-view="settings">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96a7.04 7.04 0 00-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84a.48.48 0 00-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87a.48.48 0 00.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 00-.12-.61l-2.03-1.58zM12 15.6A3.6 3.6 0 1115.6 12 3.6 3.6 0 0112 15.6z"/></svg>
           <span>Settings</span>
@@ -250,6 +255,59 @@
           </button>
         </div>
         <div id="album-tracks" class="track-list"></div>
+      </section>
+
+      <!-- ── Friends View ── -->
+      <section class="view" id="view-friends">
+        <div class="friends-content">
+          <div class="view-header">
+            <h1>Friends <span class="badge-experimental">BETA</span></h1>
+          </div>
+
+          <!-- Not signed in state -->
+          <div id="friends-no-account" class="friends-signed-out hidden">
+            <div class="friends-signed-out-inner">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor" opacity="0.15"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+              <h3>Sign in to add friends</h3>
+              <p>Create an account or sign in to use social features.</p>
+            </div>
+          </div>
+
+          <!-- Signed in content -->
+          <div id="friends-main" class="hidden">
+
+            <!-- Top action bar: add friend + your code -->
+            <div class="friends-action-bar">
+              <div class="friends-add-group">
+                <input type="text" id="friend-code-input" class="friends-add-input" placeholder="Enter a friend code" maxlength="6" spellcheck="false" autocomplete="off" />
+                <button class="friends-add-btn" id="btn-add-friend">Add Friend</button>
+              </div>
+              <div class="friends-your-code">
+                <span class="friends-code-label">Your code:</span>
+                <span class="friends-code-value" id="friend-code-value">------</span>
+                <button class="friends-code-copy" id="btn-copy-friend-code" title="Copy code">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                </button>
+              </div>
+            </div>
+            <p class="friend-add-status hidden" id="friend-add-status"></p>
+
+            <!-- Tabs: All / Online -->
+            <div class="friends-tabs">
+              <button class="friends-tab active" data-friends-tab="all">All</button>
+              <button class="friends-tab" data-friends-tab="online">Online</button>
+            </div>
+
+            <!-- Friends list with sections -->
+            <div id="friends-list" class="friends-list">
+              <div class="friends-list-empty" id="friends-list-empty">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" opacity="0.12"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                <h3>No friends yet</h3>
+                <p>Share your friend code or enter someone else's above to get started.</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- ── Settings View ── -->

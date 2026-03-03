@@ -252,6 +252,7 @@ function createWindow() {
   mainWindow.on('close', (e) => {
     if (_closeReady) return;            // already flushed — let it close
     e.preventDefault();
+    teardownSocialListeners();
     mainWindow.webContents.send('app:before-close');
     // Safety timeout: if renderer doesn't respond in 4s, close anyway
     setTimeout(() => {
@@ -707,6 +708,227 @@ ipcMain.handle('cloud:load', async () => {
     console.error('Cloud load error:', err);
     return null;
   }
+});
+
+// ─── Social / Friends ───
+
+// Generate or retrieve the user's friend code (6 chars, uppercase alphanumeric)
+ipcMain.handle('social:getFriendCode', async () => {
+  const user = firebase.auth.currentUser;
+  if (!user) return { error: 'Not signed in' };
+  try {
+    const socialRef = firebase.doc(firebase.db, 'users', user.uid, 'social', 'info');
+    const snap = await firebase.getDoc(socialRef);
+    if (snap.exists() && snap.data().friendCode) {
+      return { code: snap.data().friendCode };
+    }
+    // Generate a new unique code
+    const code = generateFriendCode();
+    await firebase.setDoc(socialRef, { friendCode: code }, { merge: true });
+    // Also create a lookup entry for this code
+    const lookupRef = firebase.doc(firebase.db, 'friendCodes', code);
+    await firebase.setDoc(lookupRef, { uid: user.uid, displayName: user.displayName || '', photoURL: user.photoURL || '' });
+    return { code };
+  } catch (err) {
+    console.error('getFriendCode error:', err);
+    return { error: err.message };
+  }
+});
+
+function generateFriendCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I/O/0/1 to avoid confusion
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+// Add a friend by their code
+ipcMain.handle('social:addFriend', async (_event, code) => {
+  const user = firebase.auth.currentUser;
+  if (!user) return { error: 'Not signed in' };
+  code = (code || '').toUpperCase().trim();
+  if (!code || code.length !== 6) return { error: 'Invalid friend code' };
+  try {
+    // Look up the code
+    const lookupRef = firebase.doc(firebase.db, 'friendCodes', code);
+    const lookupSnap = await firebase.getDoc(lookupRef);
+    if (!lookupSnap.exists()) return { error: 'Friend code not found' };
+    const friendData = lookupSnap.data();
+    if (friendData.uid === user.uid) return { error: "That's your own code!" };
+
+    // Check if already friends
+    const myFriendRef = firebase.doc(firebase.db, 'users', user.uid, 'friends', friendData.uid);
+    const existing = await firebase.getDoc(myFriendRef);
+    if (existing.exists()) return { error: 'Already friends!' };
+
+    // Get friend's profile for display info (may fail if rules don't allow cross-user reads)
+    let fProfile = {};
+    try {
+      const friendProfileRef = firebase.doc(firebase.db, 'users', friendData.uid);
+      const friendProfile = await firebase.getDoc(friendProfileRef);
+      if (friendProfile.exists()) fProfile = friendProfile.data()?.profile || {};
+    } catch (_) { /* fall back to friendCode lookup data */ }
+
+    // Add friend to both users (bidirectional)
+    const myInfo = { displayName: user.displayName || '', photoURL: user.photoURL || '' };
+    const friendInfo = {
+      displayName: fProfile.displayName || friendData.displayName || '',
+      photoURL: fProfile.photoURL || friendData.photoURL || ''
+    };
+
+    await firebase.setDoc(myFriendRef, { ...friendInfo, uid: friendData.uid, addedAt: Date.now() });
+    const theirFriendRef = firebase.doc(firebase.db, 'users', friendData.uid, 'friends', user.uid);
+    await firebase.setDoc(theirFriendRef, { ...myInfo, uid: user.uid, addedAt: Date.now() });
+
+    return { success: true, friend: { ...friendInfo, uid: friendData.uid } };
+  } catch (err) {
+    console.error('addFriend error:', err);
+    return { error: err.message };
+  }
+});
+
+// Remove a friend (bidirectional)
+ipcMain.handle('social:removeFriend', async (_event, friendUid) => {
+  const user = firebase.auth.currentUser;
+  if (!user) return { error: 'Not signed in' };
+  try {
+    await firebase.deleteDoc(firebase.doc(firebase.db, 'users', user.uid, 'friends', friendUid));
+    await firebase.deleteDoc(firebase.doc(firebase.db, 'users', friendUid, 'friends', user.uid));
+    return { success: true };
+  } catch (err) {
+    console.error('removeFriend error:', err);
+    return { error: err.message };
+  }
+});
+
+// Get friends list
+ipcMain.handle('social:getFriends', async () => {
+  const user = firebase.auth.currentUser;
+  if (!user) return [];
+  try {
+    const friendsCol = firebase.collection(firebase.db, 'users', user.uid, 'friends');
+    const snap = await firebase.getDocs(friendsCol);
+    return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+  } catch (err) {
+    console.error('getFriends error:', err);
+    return [];
+  }
+});
+
+// Update activity/presence (what the user is currently listening to)
+ipcMain.handle('social:updatePresence', async (_event, data) => {
+  const user = firebase.auth.currentUser;
+  if (!user) return;
+  try {
+    const presRef = firebase.doc(firebase.db, 'presence', user.uid);
+    await firebase.setDoc(presRef, {
+      ...data,
+      displayName: user.displayName || '',
+      updatedAt: Date.now()
+    });
+  } catch (err) {
+    console.error('updatePresence error:', err);
+  }
+});
+
+// Clear presence (user stopped playing)
+ipcMain.handle('social:clearPresence', async () => {
+  const user = firebase.auth.currentUser;
+  if (!user) return;
+  try {
+    const presRef = firebase.doc(firebase.db, 'presence', user.uid);
+    await firebase.setDoc(presRef, { isPlaying: false, updatedAt: Date.now() });
+  } catch (err) {
+    console.error('clearPresence error:', err);
+  }
+});
+
+// Get a friend's presence
+ipcMain.handle('social:getPresence', async (_event, friendUid) => {
+  try {
+    const presRef = firebase.doc(firebase.db, 'presence', friendUid);
+    const snap = await firebase.getDoc(presRef);
+    if (!snap.exists()) return null;
+    return snap.data();
+  } catch (err) {
+    return null;
+  }
+});
+
+// Get presence for multiple friends at once
+ipcMain.handle('social:getFriendsPresence', async (_event, friendUids) => {
+  if (!Array.isArray(friendUids) || friendUids.length === 0) return {};
+  const result = {};
+  try {
+    // Firestore doesn't support IN queries on doc IDs easily, so fetch individually
+    // (fine for small friend lists)
+    await Promise.all(friendUids.map(async (uid) => {
+      try {
+        const presRef = firebase.doc(firebase.db, 'presence', uid);
+        const snap = await firebase.getDoc(presRef);
+        if (snap.exists()) result[uid] = snap.data();
+      } catch (_) { /* skip */ }
+    }));
+  } catch (err) {
+    console.error('getFriendsPresence error:', err);
+  }
+  return result;
+});
+
+// ─── Real-time social listeners ───
+let _friendsUnsub = null;
+const _presenceUnsubs = new Map();
+
+function teardownSocialListeners() {
+  if (_friendsUnsub) { _friendsUnsub(); _friendsUnsub = null; }
+  for (const unsub of _presenceUnsubs.values()) unsub();
+  _presenceUnsubs.clear();
+}
+
+ipcMain.handle('social:startListening', async () => {
+  const user = firebase.auth.currentUser;
+  if (!user || !mainWindow) return;
+
+  // Tear down any existing listeners first
+  teardownSocialListeners();
+
+  // Listen to friends collection
+  const friendsCol = firebase.collection(firebase.db, 'users', user.uid, 'friends');
+  _friendsUnsub = firebase.onSnapshot(friendsCol, (snap) => {
+    const friends = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('social:friendsUpdated', friends);
+    }
+
+    // Sync presence listeners: add new, remove stale
+    const currentUids = new Set(friends.map(f => f.uid));
+
+    // Remove listeners for friends no longer in the list
+    for (const [uid, unsub] of _presenceUnsubs) {
+      if (!currentUids.has(uid)) { unsub(); _presenceUnsubs.delete(uid); }
+    }
+
+    // Add listeners for new friends
+    for (const uid of currentUids) {
+      if (_presenceUnsubs.has(uid)) continue;
+      const presRef = firebase.doc(firebase.db, 'presence', uid);
+      const unsub = firebase.onSnapshot(presRef, (docSnap) => {
+        const data = docSnap.exists() ? docSnap.data() : null;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('social:presenceUpdated', { uid, presence: data });
+        }
+      }, (err) => {
+        console.error(`Presence listener error for ${uid}:`, err.message);
+      });
+      _presenceUnsubs.set(uid, unsub);
+    }
+  }, (err) => {
+    console.error('Friends listener error:', err.message);
+  });
+});
+
+ipcMain.handle('social:stopListening', async () => {
+  teardownSocialListeners();
 });
 
 ipcMain.on('thumbar:updateState', (_event, isPlaying) => {
