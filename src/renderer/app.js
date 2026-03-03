@@ -5580,6 +5580,182 @@
     if (state.currentView === 'friends') renderFriends();
   }
 
+  // ─── Image Crop Modal ───
+
+  /**
+   * Opens a crop modal for the given image data URL.
+   * @param {string} dataUrl   - The source image as a data URL
+   * @param {object} opts
+   *   @param {string}  opts.title       - Modal title
+   *   @param {boolean} opts.circle      - Use circular crop mask (for avatars)
+   *   @param {number}  opts.aspectRatio - Width/height ratio to enforce
+   *   @param {number}  opts.outputWidth - Final canvas width
+   *   @param {number}  opts.outputHeight - Final canvas height
+   *   @param {number}  [opts.quality=0.85] - JPEG quality
+   * @returns {Promise<string|null>} Cropped data URL, or null if cancelled
+   */
+  function openCropModal({ dataUrl, title, circle, aspectRatio, outputWidth, outputHeight, quality = 0.85 }) {
+    return new Promise((resolve) => {
+      const modal = $('#image-crop-modal');
+      const titleEl = $('#crop-modal-title');
+      const sourceImg = $('#crop-source-img');
+      const selection = $('#crop-selection');
+      const container = $('#crop-container');
+      const applyBtn = $('#crop-modal-apply');
+      const cancelBtn = $('#crop-modal-cancel');
+      const cancelX = $('#crop-modal-cancel-x');
+      const backdrop = modal.querySelector('.crop-modal-backdrop');
+
+      titleEl.textContent = title || 'Crop Image';
+      if (circle) selection.classList.add('circle');
+      else selection.classList.remove('circle');
+
+      // State
+      let imgW = 0, imgH = 0;
+      let sx = 0, sy = 0, sw = 0, sh = 0; // selection rect (px in displayed coords)
+      let dragging = null; // 'move' | handle name | null
+      let dragStart = { x: 0, y: 0, sx: 0, sy: 0, sw: 0, sh: 0 };
+      const MIN_SIZE = 32;
+
+      function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+      function updateSelectionEl() {
+        selection.style.left = sx + 'px';
+        selection.style.top = sy + 'px';
+        selection.style.width = sw + 'px';
+        selection.style.height = sh + 'px';
+      }
+
+      function initSelection() {
+        imgW = sourceImg.clientWidth;
+        imgH = sourceImg.clientHeight;
+        // Start with the largest centered crop that fits the aspect ratio
+        let w, h;
+        if (imgW / imgH > aspectRatio) {
+          h = imgH * 0.85;
+          w = h * aspectRatio;
+        } else {
+          w = imgW * 0.85;
+          h = w / aspectRatio;
+        }
+        sw = Math.round(w);
+        sh = Math.round(h);
+        sx = Math.round((imgW - sw) / 2);
+        sy = Math.round((imgH - sh) / 2);
+        updateSelectionEl();
+      }
+
+      sourceImg.onload = () => {
+        modal.classList.remove('hidden');
+        // Wait a frame for layout
+        requestAnimationFrame(initSelection);
+      };
+      sourceImg.src = dataUrl;
+
+      // Drag handling
+      function onPointerDown(e) {
+        if (e.button !== 0) return;
+        const target = e.target;
+        if (target.classList.contains('crop-handle')) {
+          dragging = target.dataset.handle;
+        } else if (target === selection || selection.contains(target)) {
+          dragging = 'move';
+        } else {
+          return;
+        }
+        dragStart = { x: e.clientX, y: e.clientY, sx, sy, sw, sh };
+        e.preventDefault();
+      }
+
+      function onPointerMove(e) {
+        if (!dragging) return;
+        const dx = e.clientX - dragStart.x;
+        const dy = e.clientY - dragStart.y;
+
+        if (dragging === 'move') {
+          sx = clamp(dragStart.sx + dx, 0, imgW - sw);
+          sy = clamp(dragStart.sy + dy, 0, imgH - sh);
+        } else {
+          // Resize from corner handles while maintaining aspect ratio
+          let newW = dragStart.sw;
+          let newH = dragStart.sh;
+          let newX = dragStart.sx;
+          let newY = dragStart.sy;
+
+          if (dragging === 'se') {
+            newW = clamp(dragStart.sw + dx, MIN_SIZE, imgW - dragStart.sx);
+            newH = newW / aspectRatio;
+            if (newY + newH > imgH) { newH = imgH - newY; newW = newH * aspectRatio; }
+          } else if (dragging === 'sw') {
+            newW = clamp(dragStart.sw - dx, MIN_SIZE, dragStart.sx + dragStart.sw);
+            newH = newW / aspectRatio;
+            newX = dragStart.sx + dragStart.sw - newW;
+            if (newY + newH > imgH) { newH = imgH - newY; newW = newH * aspectRatio; newX = dragStart.sx + dragStart.sw - newW; }
+          } else if (dragging === 'ne') {
+            newW = clamp(dragStart.sw + dx, MIN_SIZE, imgW - dragStart.sx);
+            newH = newW / aspectRatio;
+            newY = dragStart.sy + dragStart.sh - newH;
+            if (newY < 0) { newY = 0; newH = dragStart.sy + dragStart.sh; newW = newH * aspectRatio; }
+          } else if (dragging === 'nw') {
+            newW = clamp(dragStart.sw - dx, MIN_SIZE, dragStart.sx + dragStart.sw);
+            newH = newW / aspectRatio;
+            newX = dragStart.sx + dragStart.sw - newW;
+            newY = dragStart.sy + dragStart.sh - newH;
+            if (newY < 0) { newY = 0; newH = dragStart.sy + dragStart.sh; newW = newH * aspectRatio; newX = dragStart.sx + dragStart.sw - newW; }
+          }
+
+          sx = Math.max(0, Math.round(newX));
+          sy = Math.max(0, Math.round(newY));
+          sw = Math.round(newW);
+          sh = Math.round(newH);
+        }
+        updateSelectionEl();
+      }
+
+      function onPointerUp() { dragging = null; }
+
+      function cleanup() {
+        document.removeEventListener('pointerdown', onPointerDown);
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', onPointerUp);
+        modal.classList.add('hidden');
+        sourceImg.src = '';
+      }
+
+      function cancel() { cleanup(); resolve(null); }
+
+      function apply() {
+        // Map displayed selection back to original image coordinates
+        const natW = sourceImg.naturalWidth;
+        const natH = sourceImg.naturalHeight;
+        const scaleX = natW / imgW;
+        const scaleY = natH / imgH;
+        const cropX = Math.round(sx * scaleX);
+        const cropY = Math.round(sy * scaleY);
+        const cropW = Math.round(sw * scaleX);
+        const cropH = Math.round(sh * scaleY);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = outputWidth;
+        canvas.height = outputHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(sourceImg, cropX, cropY, cropW, cropH, 0, 0, outputWidth, outputHeight);
+        const result = canvas.toDataURL('image/jpeg', quality);
+        cleanup();
+        resolve(result);
+      }
+
+      document.addEventListener('pointerdown', onPointerDown);
+      document.addEventListener('pointermove', onPointerMove);
+      document.addEventListener('pointerup', onPointerUp);
+
+      applyBtn.onclick = apply;
+      cancelBtn.onclick = cancel;
+      cancelX.onclick = cancel;
+      backdrop.onclick = cancel;
+    });
+  }
+
   function generateDefaultAvatar(name) {
     const letter = name.charAt(0).toUpperCase();
     const canvas = document.createElement('canvas');
@@ -6441,6 +6617,8 @@
     if (!data || !data.fromUid || !data.fromName) return;
     // Don't show if already in a listen-along session
     if (_listenAlong) return;
+    // Don't show if there's already a pending request
+    if (_listenAlongPendingRequest) return;
 
     _listenAlongPendingRequest = { fromUid: data.fromUid, fromName: data.fromName };
     const notification = $('#listen-along-notification');
@@ -6471,6 +6649,12 @@
     notification.classList.add('hidden');
 
     if (!_listenAlongPendingRequest) return;
+    // Block accepting if we entered a session while the notification was up
+    if (accepted && _listenAlong) {
+      _listenAlongPendingRequest = null;
+      showToast('Already in a listen along session');
+      return;
+    }
     const { fromUid, fromName } = _listenAlongPendingRequest;
     _listenAlongPendingRequest = null;
 
@@ -6656,6 +6840,11 @@
   $('#profile-listen-along').addEventListener('click', async () => {
     const uid = $('#profile-listen-along').dataset.friendUid;
     if (!uid) return;
+    // Block if already in a listen-along session
+    if (_listenAlong) {
+      showToast('Already in a listen along session');
+      return;
+    }
     const btn = $('#profile-listen-along');
     btn.disabled = true;
     btn.textContent = I18n.t('friends.requesting');
@@ -6778,11 +6967,22 @@
     btnChangeBanner.addEventListener('click', async () => {
       const result = await window.snowify.pickImage();
       if (!result) return;
+      if (/\.gif$/i.test(result)) { showToast('GIFs are not supported'); return; }
       const dataUri = await window.snowify.readImage(result);
       if (!dataUri) return;
-      const res = await window.snowify.updateProfileExtras({ banner: dataUri });
+      const cropped = await openCropModal({
+        dataUrl: dataUri,
+        title: 'Crop Banner',
+        circle: false,
+        aspectRatio: 3,
+        outputWidth: 960,
+        outputHeight: 320,
+        quality: 0.85
+      });
+      if (!cropped) return;
+      const res = await window.snowify.updateProfileExtras({ banner: cropped });
       if (res?.success) {
-        bannerPreview.innerHTML = `<img src="${escapeHtml(dataUri)}" alt="" draggable="false" />`;
+        bannerPreview.innerHTML = `<img src="${escapeHtml(cropped)}" alt="" draggable="false" />`;
         btnRemoveBanner.style.display = '';
         showToast(I18n.t('toast.bannerUpdated'));
       } else {
@@ -7431,36 +7631,27 @@
     $('#btn-change-avatar').addEventListener('click', async () => {
       const filePath = await window.snowify.pickImage();
       if (!filePath) return;
+      if (/\.gif$/i.test(filePath)) { showToast('GIFs are not supported'); return; }
       try {
         const dataUrl = await window.snowify.readImage(filePath);
         if (!dataUrl) { showToast(I18n.t('toast.failedLoadImage')); return; }
-        // Resize to 128×128 to keep the data URL small for Firebase
-        const img = new Image();
-        img.onerror = () => showToast(I18n.t('toast.failedLoadImage'));
-        img.onload = async () => {
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = 128;
-            canvas.height = 128;
-            const ctx = canvas.getContext('2d');
-            const size = Math.min(img.width, img.height);
-            const sx = (img.width - size) / 2;
-            const sy = (img.height - size) / 2;
-            ctx.drawImage(img, sx, sy, size, size, 0, 0, 128, 128);
-            // Use lower quality to stay under Firebase photoURL size limit
-            const resized = canvas.toDataURL('image/jpeg', 0.5);
-            const updateResult = await window.snowify.updateProfile({ photoURL: resized });
-            if (updateResult?.error) {
-              showToast(I18n.t('toast.failedUpdateAvatarMsg', { error: updateResult.error }));
-            } else {
-              $('#profile-avatar').src = resized;
-              showToast(I18n.t('toast.avatarUpdated'));
-            }
-          } catch (err) {
-            showToast(I18n.t('toast.failedUpdateAvatar'));
-          }
-        };
-        img.src = dataUrl;
+        const cropped = await openCropModal({
+          dataUrl,
+          title: 'Crop Profile Picture',
+          circle: true,
+          aspectRatio: 1,
+          outputWidth: 256,
+          outputHeight: 256,
+          quality: 0.85
+        });
+        if (!cropped) return;
+        const updateResult = await window.snowify.updateProfile({ photoURL: cropped });
+        if (updateResult?.error) {
+          showToast(I18n.t('toast.failedUpdateAvatarMsg', { error: updateResult.error }));
+        } else {
+          $('#profile-avatar').src = cropped;
+          showToast(I18n.t('toast.avatarUpdated'));
+        }
       } catch (_) {
         showToast(I18n.t('toast.failedLoadImage'));
       }

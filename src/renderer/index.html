@@ -374,6 +374,7 @@
                       <button class="btn-setting-action" id="btn-change-banner" data-i18n="settings.changeBanner">Change Banner</button>
                       <button class="btn-setting-action" id="btn-remove-banner" style="display:none;" data-i18n="settings.removeBanner">Remove</button>
                     </div>
+                    <span class="setting-desc" style="margin-top:4px;">Recommended: 960×320. Max 800KB after crop.</span>
                   </div>
                   <div class="profile-bio-section">
                     <textarea class="profile-bio-input" id="profile-bio-input" placeholder="Write a short bio..." data-i18n-placeholder="settings.bioPlaceholder" maxlength="200" rows="3" spellcheck="false"></textarea>
@@ -1113,6 +1114,35 @@
 
   <!-- ═══════ Notification Toast ═══════ -->
   <div id="toast" class="toast hidden"></div>
+
+  <!-- ═══════ Image Crop Modal ═══════ -->
+  <div id="image-crop-modal" class="crop-modal hidden">
+    <div class="crop-modal-backdrop"></div>
+    <div class="crop-modal-dialog">
+      <div class="crop-modal-header">
+        <h3 id="crop-modal-title">Crop Image</h3>
+        <button class="crop-modal-close" id="crop-modal-cancel-x" title="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="crop-modal-body">
+        <div class="crop-container" id="crop-container">
+          <img id="crop-source-img" draggable="false" />
+          <div class="crop-overlay" id="crop-overlay"></div>
+          <div class="crop-selection" id="crop-selection">
+            <div class="crop-handle crop-handle-nw" data-handle="nw"></div>
+            <div class="crop-handle crop-handle-ne" data-handle="ne"></div>
+            <div class="crop-handle crop-handle-sw" data-handle="sw"></div>
+            <div class="crop-handle crop-handle-se" data-handle="se"></div>
+          </div>
+        </div>
+      </div>
+      <div class="crop-modal-footer">
+        <button class="btn-setting-action" id="crop-modal-cancel">Cancel</button>
+        <button class="btn-setting-action crop-modal-apply" id="crop-modal-apply">Apply</button>
+      </div>
+    </div>
+  </div>
 
   <audio id="audio-player" preload="auto" crossorigin="anonymous"></audio>
   <audio id="audio-player-b" preload="auto" crossorigin="anonymous"></audio>

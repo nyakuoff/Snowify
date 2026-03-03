@@ -698,8 +698,9 @@ ipcMain.handle('profile:update', async (_event, { displayName, photoURL }) => {
 
 ipcMain.handle('profile:readImage', async (_event, filePath) => {
   try {
-    const buffer = fs.readFileSync(filePath);
     const ext = path.extname(filePath).toLowerCase();
+    if (ext === '.gif') return null; // GIFs are not supported for profile images
+    const buffer = fs.readFileSync(filePath);
     const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
     return `data:${mime};base64,${buffer.toString('base64')}`;
   } catch (_) {
@@ -782,7 +783,12 @@ ipcMain.handle('social:requestListenAlong', async (_event, targetUid) => {
   const user = firebase.auth.currentUser;
   if (!user) return { error: 'Not signed in' };
   try {
+    // Block if already in a listen-along session
     const myPresRef = firebase.doc(firebase.db, 'presence', user.uid);
+    const mySnap = await firebase.getDoc(myPresRef);
+    if (mySnap.exists() && mySnap.data().listenAlong) {
+      return { error: 'Already in a listen along session' };
+    }
     await firebase.updateDoc(myPresRef, {
       listenAlongRequest: {
         toUid: targetUid,
@@ -803,6 +809,11 @@ ipcMain.handle('social:respondListenAlong', async (_event, fromUid, accepted) =>
   try {
     const myPresRef = firebase.doc(firebase.db, 'presence', user.uid);
     if (accepted) {
+      // Block if already in a listen-along session
+      const mySnap = await firebase.getDoc(myPresRef);
+      if (mySnap.exists() && mySnap.data().listenAlong) {
+        return { error: 'Already in a listen along session', accepted: false };
+      }
       // I become guest — the requester (inviter) is the host whose music plays
       await firebase.updateDoc(myPresRef, {
         listenAlong: { peerUid: fromUid, role: 'guest' }
@@ -1130,11 +1141,14 @@ ipcMain.handle('social:startListening', async () => {
         // Detect friend accepted my request (they set listenAlong.peerUid === myUid, role: 'guest')
         // → I (the inviter) become the host, and clear my outgoing request
         if (data?.listenAlong?.peerUid === user.uid && data.listenAlong.role === 'guest') {
-          // Auto-set myself as host on my own presence
+          // Only auto-set if not already in a session (prevents 3-way conflicts)
           const myRef = firebase.doc(firebase.db, 'presence', user.uid);
-          firebase.updateDoc(myRef, {
-            listenAlong: { peerUid: uid, role: 'host' },
-            listenAlongRequest: null
+          firebase.getDoc(myRef).then(mySnap => {
+            if (mySnap.exists() && mySnap.data().listenAlong) return; // already in a session
+            firebase.updateDoc(myRef, {
+              listenAlong: { peerUid: uid, role: 'host' },
+              listenAlongRequest: null
+            });
           }).catch(err => console.error('Auto-set host error:', err));
         }
 
@@ -2425,7 +2439,7 @@ function getCoversDir() {
 ipcMain.handle('playlist:pickImage', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Choose playlist cover image',
-    filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'] }],
+    filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp'] }],
     properties: ['openFile']
   });
   if (result.canceled || !result.filePaths.length) return null;
