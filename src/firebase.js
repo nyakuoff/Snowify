@@ -4,7 +4,7 @@
 
 const { initializeApp } = require('firebase/app');
 const { getAuth, signInWithCredential, GoogleAuthProvider, signOut, onAuthStateChanged, updateProfile } = require('firebase/auth');
-const { getFirestore, doc, getDoc, setDoc } = require('firebase/firestore');
+const { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs, onSnapshot, serverTimestamp } = require('firebase/firestore');
 
 const firebaseConfig = {
     apiKey: "AIzaSyCNuw8kqgbULTLjC890BzKWvnmdvFCX0og",
@@ -18,4 +18,4 @@ const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
-module.exports = { auth, db, doc, getDoc, setDoc, signInWithCredential, GoogleAuthProvider, signOut, onAuthStateChanged, updateProfile };
+module.exports = { auth, db, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs, onSnapshot, serverTimestamp, signInWithCredential, GoogleAuthProvider, signOut, onAuthStateChanged, updateProfile };
