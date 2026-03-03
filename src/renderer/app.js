@@ -6503,9 +6503,6 @@
         const hostName = hostFriend?.displayName || I18n.t('friends.friendFallback');
         bannerText.textContent = I18n.t('listenAlong.listeningWith', { name: hostName });
         endBtn.textContent = I18n.t('listenAlong.leave');
-        const hostName = hostFriend?.displayName || 'Friend';
-        bannerText.textContent = `Listening along with ${hostName}`;
-        endBtn.textContent = 'Leave';
 
         // Initial sync: immediately play the host's current track
         if (!prevLa) {
