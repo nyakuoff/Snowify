@@ -65,7 +65,8 @@
     radioMode: false,
     currentStation: null,
     favoriteStations: [],
-    showListeningActivity: true
+    showListeningActivity: true,
+    showRadio: true
   };
 
   // ─── Save button SVGs ───
@@ -163,7 +164,8 @@
       normalization: state.normalization,
       normalizationTarget: state.normalizationTarget,
       favoriteStations: state.favoriteStations,
-      showListeningActivity: state.showListeningActivity
+      showListeningActivity: state.showListeningActivity,
+      showRadio: state.showRadio
     }));
     localStorage.setItem('snowify_lastSave', String(Date.now()));
     cloudSaveDebounced();
@@ -217,6 +219,7 @@
         state.normalization = saved.normalization ?? false;
         state.normalizationTarget = saved.normalizationTarget ?? -14;
         state.favoriteStations = saved.favoriteStations || [];
+        state.showRadio = saved.showRadio ?? true;
       }
       // Restore queue (local-only, separate from cloud sync)
       const savedQueue = JSON.parse(localStorage.getItem('snowify_queue'));
@@ -5592,7 +5595,8 @@
         crossfade: state.crossfade,
         normalization: state.normalization,
         normalizationTarget: state.normalizationTarget,
-        favoriteStations: state.favoriteStations
+        favoriteStations: state.favoriteStations,
+        showRadio: state.showRadio
       };
       const result = await window.snowify.cloudSave(data);
       if (result?.error) console.error('Cloud save failed:', result.error);
@@ -5631,6 +5635,7 @@
       state.normalization = cloud.normalization ?? state.normalization;
       state.normalizationTarget = cloud.normalizationTarget ?? state.normalizationTarget;
       state.favoriteStations = cloud.favoriteStations || state.favoriteStations;
+      state.showRadio = cloud.showRadio ?? state.showRadio;
       // Pause cloud save so saveState() doesn't push old data back up
       _cloudSyncPaused = true;
       saveState();
@@ -5668,6 +5673,8 @@
       const ntr = $('#normalization-target-row'); if (ntr) ntr.classList.toggle('hidden', !state.normalization);
       const nts = $('#setting-normalization-target'); if (nts) nts.value = String(state.normalizationTarget);
       if (typeof normalizer !== 'undefined') { normalizer.setEnabled(state.normalization); normalizer.setTarget(state.normalizationTarget); }
+      const sr = $('#setting-show-radio'); if (sr) sr.checked = state.showRadio;
+      const rnb = document.querySelector('.nav-btn[data-view="radio"]'); if (rnb) rnb.style.display = state.showRadio ? '' : 'none';
       document.documentElement.classList.toggle('no-animations', !state.animations);
       document.documentElement.classList.toggle('no-effects', !state.effects);
       engine.applyVolume(state.volume);
@@ -5796,7 +5803,8 @@
       normalization: state.normalization,
       normalizationTarget: state.normalizationTarget,
       favoriteStations: state.favoriteStations,
-      showListeningActivity: state.showListeningActivity
+      showListeningActivity: state.showListeningActivity,
+      showRadio: state.showRadio
     };
     const result = await window.snowify.cloudSave(data);
     if (result?.error) console.error('Cloud save failed:', result.error);
@@ -6877,6 +6885,18 @@
     if (state.country) window.snowify.setCountry(state.country);
     document.documentElement.classList.toggle('no-animations', !state.animations);
     document.documentElement.classList.toggle('no-effects', !state.effects);
+
+    // ── Radio Stations toggle ──
+    const showRadioToggle = $('#setting-show-radio');
+    showRadioToggle.checked = state.showRadio;
+    const radioNavBtn = document.querySelector('.nav-btn[data-view="radio"]');
+    if (radioNavBtn) radioNavBtn.style.display = state.showRadio ? '' : 'none';
+    showRadioToggle.addEventListener('change', () => {
+      state.showRadio = showRadioToggle.checked;
+      if (radioNavBtn) radioNavBtn.style.display = state.showRadio ? '' : 'none';
+      if (!state.showRadio && state.currentView === 'radio') switchView('home');
+      saveState();
+    });
 
     // ── Listening Activity toggle ──
     const listeningActivityToggle = $('#setting-listening-activity');
