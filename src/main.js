@@ -803,9 +803,9 @@ ipcMain.handle('social:respondListenAlong', async (_event, fromUid, accepted) =>
   try {
     const myPresRef = firebase.doc(firebase.db, 'presence', user.uid);
     if (accepted) {
-      // I become host — the requester listens to MY music
+      // I become guest — the requester (inviter) is the host whose music plays
       await firebase.updateDoc(myPresRef, {
-        listenAlong: { peerUid: fromUid, role: 'host' }
+        listenAlong: { peerUid: fromUid, role: 'guest' }
       });
     }
     // Whether accepted or denied, nothing else to do —
@@ -1077,6 +1077,13 @@ ipcMain.handle('social:startListening', async () => {
 
   // Listen to own presence doc for listen-along state changes
   const myPresRef = firebase.doc(firebase.db, 'presence', user.uid);
+
+  // Clear any stale listenAlong state from a previous session/crash
+  await firebase.updateDoc(myPresRef, {
+    listenAlong: null,
+    listenAlongRequest: null
+  }).catch(() => {});
+
   _ownPresenceUnsub = firebase.onSnapshot(myPresRef, (docSnap) => {
     if (!docSnap.exists() || !mainWindow || mainWindow.isDestroyed()) return;
     const data = docSnap.data();
@@ -1120,28 +1127,15 @@ ipcMain.handle('social:startListening', async () => {
           });
         }
 
-        // Detect friend accepted my request (they set listenAlong.peerUid === myUid, role: 'host')
-        // → I should become the guest, and clear my outgoing request
-        if (data?.listenAlong?.peerUid === user.uid && data.listenAlong.role === 'host') {
-          // Auto-set myself as guest on my own presence
+        // Detect friend accepted my request (they set listenAlong.peerUid === myUid, role: 'guest')
+        // → I (the inviter) become the host, and clear my outgoing request
+        if (data?.listenAlong?.peerUid === user.uid && data.listenAlong.role === 'guest') {
+          // Auto-set myself as host on my own presence
           const myRef = firebase.doc(firebase.db, 'presence', user.uid);
           firebase.updateDoc(myRef, {
-            listenAlong: { peerUid: uid, role: 'guest' },
+            listenAlong: { peerUid: uid, role: 'host' },
             listenAlongRequest: null
-          }).catch(err => console.error('Auto-set guest error:', err));
-        }
-
-        // Detect friend ended their listen-along session (they cleared listenAlong)
-        // → If I was in a session with them, clear mine too
-        if (!data?.listenAlong || data.listenAlong.peerUid !== user.uid) {
-          // Check if I currently have a listenAlong pointing to this friend
-          const myRef = firebase.doc(firebase.db, 'presence', user.uid);
-          firebase.getDoc(myRef).then(mySnap => {
-            const myData = mySnap.exists() ? mySnap.data() : null;
-            if (myData?.listenAlong?.peerUid === uid) {
-              firebase.updateDoc(myRef, { listenAlong: null }).catch(() => {});
-            }
-          }).catch(() => {});
+          }).catch(err => console.error('Auto-set host error:', err));
         }
 
         // Forward presence to renderer

@@ -5563,6 +5563,13 @@
       updateSyncStatus(I18n.t('sync.connected'));
       // Load profile extras (banner & bio) into settings
       loadProfileExtras();
+      // Start social listeners immediately on sign-in so presence &
+      // listen-along notifications work without needing to visit the Friends tab
+      if (!_socialListening) {
+        _socialListening = true;
+        window.snowify.startSocialListening();
+        setOnlinePresence();
+      }
     } else {
       signedOut.classList.remove('hidden');
       signedIn.classList.add('hidden');
@@ -5644,6 +5651,7 @@
     _flushSaveState(); // flush debounced localStorage write
     // Fully clear presence on close — go offline and wipe track info
     if (_cloudUser) {
+      if (_listenAlong) window.snowify.endListenAlong();
       window.snowify.clearSocialPresence();
     }
     if (_cloudSaveTimeout) {
@@ -5895,6 +5903,7 @@
   let _listenAlongPendingRequest = null; // { fromUid, fromName } or null
   let _listenAlongSavedCrossfade = null; // saved crossfade value to restore after session
   let _listenAlongSyncing = false; // true while guest sync is changing playback
+  let _listenAlongStartedAt = 0; // timestamp when session was established
 
   function isListenAlongGuest() {
     return _listenAlong && _listenAlong.role === 'guest' && !_listenAlongSyncing;
@@ -5919,11 +5928,10 @@
       $('#friend-code-value').textContent = codeResult.code;
     }
 
-    // Start real-time listeners (only once)
+    // Ensure social listeners are running (may already be started at sign-in)
     if (!_socialListening) {
       _socialListening = true;
       window.snowify.startSocialListening();
-      // Set online presence so friends see us as active
       setOnlinePresence();
     }
 
@@ -6485,6 +6493,7 @@
     if (la) {
       // Entering a listen-along session — disable crossfade for both sides
       if (!prevLa) {
+        _listenAlongStartedAt = Date.now();
         _listenAlongSavedCrossfade = state.crossfade;
         state.crossfade = 0;
       }
@@ -6494,6 +6503,17 @@
         const hostName = hostFriend?.displayName || I18n.t('friends.friendFallback');
         bannerText.textContent = I18n.t('listenAlong.listeningWith', { name: hostName });
         endBtn.textContent = I18n.t('listenAlong.leave');
+        const hostName = hostFriend?.displayName || 'Friend';
+        bannerText.textContent = `Listening along with ${hostName}`;
+        endBtn.textContent = 'Leave';
+
+        // Initial sync: immediately play the host's current track
+        if (!prevLa) {
+          const hostPresence = _friendsPresenceMap[la.peerUid];
+          if (hostPresence && hostPresence.trackId) {
+            syncGuestPlayback(hostPresence);
+          }
+        }
       } else {
         const guestFriend = _friendsList.find(f => f.uid === la.peerUid);
         const guestName = guestFriend?.displayName || I18n.t('friends.friendFallback');
@@ -6532,19 +6552,40 @@
   });
 
   // Guest sync: follow the host's playback (track, play/pause, seek)
+  // Also detect when peer ends the session
   window.snowify.onPresenceUpdated((data) => {
-    if (!_listenAlong || _listenAlong.role !== 'guest') return;
+    if (!_listenAlong) return;
+
+    // ── Detect peer ended their session ──
+    // Skip this check during the first 10s — the peer may not have set their
+    // listenAlong field yet (Firestore round-trip delay).
+    if (data.uid === _listenAlong.peerUid && Date.now() - _listenAlongStartedAt > 10000) {
+      const peerPresence = data.presence;
+      if (!peerPresence?.listenAlong || peerPresence.listenAlong.peerUid !== _cloudUser?.uid) {
+        // Peer no longer has listenAlong pointing to us — session ended on their side
+        window.snowify.endListenAlong();
+        return;
+      }
+    }
+
+    if (_listenAlong.role !== 'guest') return;
     if (data.uid !== _listenAlong.peerUid) return;
 
     const presence = data.presence;
     if (!presence || !presence.trackId) return;
 
+    syncGuestPlayback(presence);
+  });
+
+  // Perform actual sync of guest playback to host presence
+  function syncGuestPlayback(presence) {
     const currentTrack = state.queue[state.queueIndex];
     const sameTrack = currentTrack && currentTrack.id === presence.trackId;
 
     // ── Track change ──
     if (!sameTrack) {
-      if (!presence.isPlaying) return; // don't load a paused track we haven't seen
+      // On initial sync (no current track), load even if paused; otherwise skip paused tracks
+      if (!presence.isPlaying && currentTrack) return;
       const track = {
         id: presence.trackId,
         title: presence.trackTitle || '',
@@ -6598,7 +6639,7 @@
         audio.currentTime = Math.min(hostPos, audio.duration - 0.5);
       }
     }
-  });
+  }
 
   // Calculate where the host should be right now
   function calcHostPosition(presence) {
