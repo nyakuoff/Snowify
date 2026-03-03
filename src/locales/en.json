@@ -473,5 +473,22 @@
   "toast.radioStreamLost": "Radio stream lost — try another station",
   "toast.radioStreamStalled": "Radio stream stalled — try another station",
   "radio.liveRadio": "Live Radio",
-  "radio.noQueue": "Live Radio — no queue"
+  "radio.noQueue": "Live Radio — no queue",
+  "settings.developer": "Developer",
+  "settings.devMode": "Developer Mode",
+  "settings.devModeDesc": "Show version manager and debug logs",
+  "settings.versionManager": "Version Manager",
+  "settings.versionManagerDesc": "Download and install any previous release from GitHub.",
+  "settings.currentVersion": "Current",
+  "settings.download": "Download",
+  "settings.viewRelease": "View Release",
+  "settings.noReleases": "No releases found.",
+  "settings.releasesError": "Failed to load releases.",
+  "settings.showOlderVersions": "Show {{count}} older versions",
+  "settings.debugLogs": "Debug Logs",
+  "settings.debugLogsDesc": "Application logs for troubleshooting. Share these when reporting bugs.",
+  "settings.copyLogs": "Copy Logs",
+  "settings.logsCopied": "Logs copied to clipboard",
+  "settings.logsCleared": "Logs cleared",
+  "settings.noLogs": "No logs yet."
 }

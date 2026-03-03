@@ -3049,6 +3049,139 @@ body.audio-playing .track-row.playing .track-eq { display: flex; justify-content
   color: var(--text-subdued);
 }
 
+/* ─── Developer Section ─── */
+.dev-section-label {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  margin: 14px 0 6px;
+}
+#dev-mode-content {
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+/* ─── Version Manager ─── */
+.version-manager-list {
+  max-height: 400px;
+  overflow-y: auto;
+  border-radius: 8px;
+  background: var(--bg-main);
+  border: 1px solid var(--border-subtle);
+}
+.version-manager-loading,
+.version-manager-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-subdued);
+  font-size: 13px;
+}
+.version-manager-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  gap: 12px;
+}
+.version-manager-item:last-child { border-bottom: none; }
+.version-manager-item.version-current {
+  background: var(--accent-dim);
+}
+.version-manager-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.version-manager-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.version-manager-meta {
+  font-size: 12px;
+  color: var(--text-subdued);
+}
+.version-tag {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+.version-tag-current {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-version-download {
+  flex-shrink: 0;
+  font-size: 12px;
+  padding: 5px 12px;
+}
+.version-manager-show-more {
+  width: 100%;
+  padding: 10px;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.version-manager-show-more:hover {
+  background: var(--accent-dim);
+}
+
+/* ─── Debug Logs ─── */
+.debug-logs-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.debug-logs-container {
+  max-height: 350px;
+  overflow-y: auto;
+  background: #0d0d0d;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  padding: 12px;
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+[data-theme="light"] .debug-logs-container {
+  background: #f4f4f5;
+}
+.debug-logs-output {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: #ccc;
+}
+[data-theme="light"] .debug-logs-output {
+  color: #333;
+}
+.log-line { display: block; }
+.log-line.log-error { color: #ff6b6b; }
+.log-line.log-warn { color: #fbbf24; }
+.log-line.log-log { color: #a8b4c4; }
+[data-theme="light"] .log-line.log-error { color: #dc2626; }
+[data-theme="light"] .log-line.log-warn { color: #d97706; }
+[data-theme="light"] .log-line.log-log { color: #555; }
+.log-empty {
+  color: var(--text-subdued);
+  font-style: italic;
+}
+
 /* ═══════ Library Grid ═══════ */
 .library-grid {
   display: grid;
@@ -5632,3 +5765,124 @@ body.audio-playing .eq-bar { animation-play-state: running; }
 /* i18n language-switch fade */
 body { transition: opacity 0.15s ease; }
 body.i18n-switching { opacity: 0; }
+
+/* ═══════ Image Crop Modal ═══════ */
+.crop-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.crop-modal.hidden { display: none; }
+.crop-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+}
+.crop-modal-dialog {
+  position: relative;
+  background: var(--bg-surface);
+  border-radius: 12px;
+  width: 540px;
+  max-width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.crop-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 0;
+}
+.crop-modal-header h3 {
+  margin: 0;
+  font-size: 1.1em;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.crop-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  transition: color var(--transition), background var(--transition);
+}
+.crop-modal-close:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+.crop-modal-body {
+  padding: 16px 20px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.crop-container {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  user-select: none;
+  max-width: 100%;
+  max-height: 420px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+.crop-container img {
+  display: block;
+  max-width: 500px;
+  max-height: 400px;
+  width: auto;
+  height: auto;
+  pointer-events: none;
+}
+.crop-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Drawn via box-shadow to create darkened edges around the selection */
+}
+.crop-selection {
+  position: absolute;
+  border: 2px solid #fff;
+  cursor: move;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+  transition: border-radius 0s;
+}
+.crop-selection.circle {
+  border-radius: 50%;
+}
+.crop-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border-radius: 50%;
+  z-index: 2;
+}
+.crop-handle-nw { top: -6px; left: -6px; cursor: nw-resize; }
+.crop-handle-ne { top: -6px; right: -6px; cursor: ne-resize; }
+.crop-handle-sw { bottom: -6px; left: -6px; cursor: sw-resize; }
+.crop-handle-se { bottom: -6px; right: -6px; cursor: se-resize; }
+/* Circle crop still allows resize via corner handles */
+.crop-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 0 20px 16px;
+}
+.crop-modal-apply {
+  background: var(--accent) !important;
+  color: #fff !important;
+}
+.crop-modal-apply:hover {
+  background: var(--accent-hover) !important;
+}

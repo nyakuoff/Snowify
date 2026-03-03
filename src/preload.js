@@ -127,4 +127,8 @@ contextBridge.exposeInMainWorld('snowify', {
   onUpdateStatus: (callback) => {
     ipcRenderer.on('updater:status', (_event, data) => callback(data));
   },
+
+  // Debug logs
+  getLogs: () => ipcRenderer.invoke('app:getLogs'),
+  appendLog: (entry) => ipcRenderer.invoke('app:appendLog', entry),
 });

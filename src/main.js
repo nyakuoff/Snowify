@@ -28,6 +28,28 @@ function mt(key, params) {
 
 let mainWindow;
 let ytmusic;
+
+// ─── Log Capture ───
+const _logBuffer = [];
+const _LOG_MAX = 500;
+
+function _captureLog(level, args) {
+  const ts = new Date().toISOString().slice(11, 23); // HH:mm:ss.SSS
+  const msg = args.map(a => {
+    if (typeof a === 'string') return a;
+    try { return JSON.stringify(a); } catch { return String(a); }
+  }).join(' ');
+  _logBuffer.push({ ts, level, msg });
+  if (_logBuffer.length > _LOG_MAX) _logBuffer.shift();
+}
+
+const _origLog = console.log.bind(console);
+const _origWarn = console.warn.bind(console);
+const _origError = console.error.bind(console);
+
+console.log = (...args) => { _captureLog('log', args); _origLog(...args); };
+console.warn = (...args) => { _captureLog('warn', args); _origWarn(...args); };
+console.error = (...args) => { _captureLog('error', args); _origError(...args); };
 let _currentCountry = '';
 
 // ─── Stream URL Cache ───
@@ -698,8 +720,9 @@ ipcMain.handle('profile:update', async (_event, { displayName, photoURL }) => {
 
 ipcMain.handle('profile:readImage', async (_event, filePath) => {
   try {
-    const buffer = fs.readFileSync(filePath);
     const ext = path.extname(filePath).toLowerCase();
+    if (ext === '.gif') return null; // GIFs are not supported for profile images
+    const buffer = fs.readFileSync(filePath);
     const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
     return `data:${mime};base64,${buffer.toString('base64')}`;
   } catch (_) {
@@ -782,7 +805,12 @@ ipcMain.handle('social:requestListenAlong', async (_event, targetUid) => {
   const user = firebase.auth.currentUser;
   if (!user) return { error: 'Not signed in' };
   try {
+    // Block if already in a listen-along session
     const myPresRef = firebase.doc(firebase.db, 'presence', user.uid);
+    const mySnap = await firebase.getDoc(myPresRef);
+    if (mySnap.exists() && mySnap.data().listenAlong) {
+      return { error: 'Already in a listen along session' };
+    }
     await firebase.updateDoc(myPresRef, {
       listenAlongRequest: {
         toUid: targetUid,
@@ -803,6 +831,11 @@ ipcMain.handle('social:respondListenAlong', async (_event, fromUid, accepted) =>
   try {
     const myPresRef = firebase.doc(firebase.db, 'presence', user.uid);
     if (accepted) {
+      // Block if already in a listen-along session
+      const mySnap = await firebase.getDoc(myPresRef);
+      if (mySnap.exists() && mySnap.data().listenAlong) {
+        return { error: 'Already in a listen along session', accepted: false };
+      }
       // I become guest — the requester (inviter) is the host whose music plays
       await firebase.updateDoc(myPresRef, {
         listenAlong: { peerUid: fromUid, role: 'guest' }
@@ -1130,11 +1163,14 @@ ipcMain.handle('social:startListening', async () => {
         // Detect friend accepted my request (they set listenAlong.peerUid === myUid, role: 'guest')
         // → I (the inviter) become the host, and clear my outgoing request
         if (data?.listenAlong?.peerUid === user.uid && data.listenAlong.role === 'guest') {
-          // Auto-set myself as host on my own presence
+          // Only auto-set if not already in a session (prevents 3-way conflicts)
           const myRef = firebase.doc(firebase.db, 'presence', user.uid);
-          firebase.updateDoc(myRef, {
-            listenAlong: { peerUid: uid, role: 'host' },
-            listenAlongRequest: null
+          firebase.getDoc(myRef).then(mySnap => {
+            if (mySnap.exists() && mySnap.data().listenAlong) return; // already in a session
+            firebase.updateDoc(myRef, {
+              listenAlong: { peerUid: uid, role: 'host' },
+              listenAlongRequest: null
+            });
           }).catch(err => console.error('Auto-set host error:', err));
         }
 
@@ -2207,7 +2243,6 @@ function scoreMatch(song, targetTitle, targetArtist) {
 
   // Artist similarity (0–1) — check both the primary artist and all listed artists
   let artistScore = tokenSimilarity(targetArtist, sArtist);
-  // Also check if any artist in the song's artists array matches better
   if (song.artists && Array.isArray(song.artists)) {
     for (const a of song.artists) {
       const s = tokenSimilarity(targetArtist, a?.name || '');
@@ -2229,39 +2264,75 @@ function scoreMatch(song, targetTitle, targetArtist) {
   const normAlbum = normalizeStr(song.album?.name || '');
   for (const tag of UNWANTED_TAGS) {
     if (normAlbum.includes(tag) && !normTarget.includes(tag)) {
-      penalty += 0.15;
+      penalty += 0.2;
     }
   }
 
   // Penalize if the result title has extra parenthetical/bracketed content the query doesn't
-  // e.g. "Someone To You (Pilton Remix)" when searching for "Someone To You"
   const resultExtra = normResult.replace(normTarget, '').trim();
   if (resultExtra.length > 0 && normTarget.length > 0) {
-    // The result has tokens not in the target — penalize proportionally
     const extraTokens = resultExtra.split(' ').filter(Boolean);
     const targetTokens = normTarget.split(' ').filter(Boolean);
-    penalty += 0.1 * (extraTokens.length / Math.max(targetTokens.length, 1));
+    penalty += 0.15 * (extraTokens.length / Math.max(targetTokens.length, 1));
   }
 
   // Bonus for exact title match (normalized)
   if (normResult === normTarget) {
-    penalty -= 0.15;
+    penalty -= 0.2;
   }
 
-  // Strong penalty if artist has zero overlap — likely a cover/wrong version
+  // Heavy penalty if artist has zero overlap — almost certainly a cover/wrong version
   if (artistScore === 0 && normalizeStr(targetArtist).length > 0) {
-    penalty += 0.4;
+    penalty += 0.8;
+  } else if (artistScore < 0.3 && normalizeStr(targetArtist).length > 0) {
+    // Partial penalty for weak artist match
+    penalty += 0.3;
   }
 
-  // Composite: title matters most, artist second, with heavier artist weight
-  return (titleScore * 0.5) + (artistScore * 0.5) - penalty;
+  // Bonus for strong artist match — reward the correct artist heavily
+  if (artistScore >= 0.8) {
+    penalty -= 0.25;
+  }
+
+  // Composite: weight artist more heavily than title (artist is the stronger signal
+  // for differentiating covers/instrumentals from the original)
+  return (titleScore * 0.4) + (artistScore * 0.6) - penalty;
 }
 
 ipcMain.handle('spotify:matchTrack', async (_event, title, artist) => {
   try {
+    // Search with combined query
     const query = `${title} ${artist}`;
     const songs = await ytmusic.searchSongs(query);
-    const candidates = songs.filter(s => s.videoId);
+    let candidates = songs.filter(s => s.videoId);
+
+    // If no good artist match in first results, try a more targeted search
+    if (candidates.length > 0) {
+      const topArtistScore = Math.max(...candidates.slice(0, 5).map(s => {
+        let best = tokenSimilarity(artist, s.artist?.name || '');
+        if (s.artists && Array.isArray(s.artists)) {
+          for (const a of s.artists) {
+            const sc = tokenSimilarity(artist, a?.name || '');
+            if (sc > best) best = sc;
+          }
+        }
+        return best;
+      }));
+
+      // If the top 5 results have poor artist match, do a second search with artist first
+      if (topArtistScore < 0.5) {
+        try {
+          const fallback = await ytmusic.searchSongs(`${artist} ${title}`);
+          const extra = fallback.filter(s => s.videoId);
+          // Merge without duplicates
+          const seenIds = new Set(candidates.map(c => c.videoId));
+          for (const s of extra) {
+            if (!seenIds.has(s.videoId)) { candidates.push(s); seenIds.add(s.videoId); }
+          }
+        } catch (_) { /* ignore fallback failure */ }
+      }
+    }
+
     if (!candidates.length) return null;
 
     let bestSong = candidates[0];
@@ -2425,7 +2496,7 @@ function getCoversDir() {
 ipcMain.handle('playlist:pickImage', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Choose playlist cover image',
-    filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'] }],
+    filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp'] }],
     properties: ['openFile']
   });
   if (result.canceled || !result.filePaths.length) return null;
@@ -2512,6 +2583,12 @@ function initAutoUpdater() {
 
 ipcMain.handle('app:getVersion', () => app.getVersion());
 ipcMain.handle('app:getLocale', () => app.getLocale());
+
+// ─── Debug Logs ───
+ipcMain.handle('app:getLogs', () => [..._logBuffer]);
+ipcMain.handle('app:appendLog', (_event, entry) => {
+  _captureLog(entry.level || 'log', [entry.msg || '']);
+});
 ipcMain.handle('app:setLocale', (_event, locale) => {
   loadMainTranslations(locale);
   updateThumbarButtons(false);
@@ -2570,7 +2647,12 @@ ipcMain.handle('app:getRecentReleases', async () => {
       name: r.name || r.tag_name || '',
       body: r.body || '',
       date: r.published_at || r.created_at || '',
-      url: r.html_url || ''
+      url: r.html_url || '',
+      assets: (r.assets || []).map(a => ({
+        name: a.name,
+        size: a.size,
+        url: a.browser_download_url
+      }))
     }));
   } catch (err) {
     console.error('Failed to fetch releases:', err);
