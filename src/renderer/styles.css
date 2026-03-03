@@ -5325,3 +5325,7 @@ body.audio-playing .eq-bar { animation-play-state: running; }
 }
 .listen-along-profile-btn:hover { opacity: 0.85; }
 .listen-along-profile-btn.hidden { display: none; }
+
+/* i18n language-switch fade */
+body { transition: opacity 0.15s ease; }
+body.i18n-switching { opacity: 0; }
