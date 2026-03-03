@@ -1281,6 +1281,7 @@
   }
 
   function playFromList(tracks, index, sourcePlaylistId = null) {
+    if (isListenAlongGuest()) { showToast('Playback is synced with host'); return; }
     state.playingPlaylistId = sourcePlaylistId;
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     engine.clearPreload();
@@ -1304,6 +1305,7 @@
   }
 
   function playNext() {
+    if (isListenAlongGuest()) { showToast('Playback is synced with host'); return; }
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     if (!state.queue.length) return;
 
@@ -1414,6 +1416,7 @@
   }
 
   function playPrev() {
+    if (isListenAlongGuest()) { showToast('Playback is synced with host'); return; }
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     if (!state.queue.length) return;
     if (audio.currentTime > 3) {
@@ -1461,20 +1464,29 @@
 
   function updateSocialPresence(track) {
     if (!_cloudUser || !track || !state.showListeningActivity) return;
+    const src = engine.getActiveSource();
     window.snowify.updateSocialPresence({
       trackTitle: track.title || '',
       trackArtist: track.artist || '',
       trackThumbnail: track.thumbnail || '',
       trackId: track.id || '',
       isPlaying: true,
-      isOnline: true
+      isOnline: true,
+      trackPosition: src ? src.currentTime || 0 : 0,
+      trackTimestamp: Date.now()
     });
   }
 
   function clearSocialPresence() {
     if (!_cloudUser) return;
-    // Keep track info visible (paused state) — only mark not playing
-    window.snowify.updateSocialPresence({ isPlaying: false, isOnline: true });
+    // Keep track info visible (paused state) — only mark not playing, send position
+    const src = engine.getActiveSource();
+    window.snowify.updateSocialPresence({
+      isPlaying: false,
+      isOnline: true,
+      trackPosition: src ? src.currentTime || 0 : 0,
+      trackTimestamp: Date.now()
+    });
   }
 
   // Set online presence when app is active (even if not playing)
@@ -1526,6 +1538,7 @@
 
   function togglePlay() {
     if (state.isLoading) return;
+    if (isListenAlongGuest()) { showToast('Playback is synced with host'); return; }
 
     // ─── Crossfade pause/resume handling ───
     if (engine.isInProgress()) {
@@ -1780,6 +1793,7 @@
   });
 
   function seekTo(e) {
+    if (isListenAlongGuest()) { showToast('Playback is synced with host'); return; }
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     const rect = progressBar.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -5932,8 +5946,14 @@
   let _socialListening = false;
 
   // ─── Listen Along State ───
-  let _listenAlong = null; // { hostUid, role } or null
+  let _listenAlong = null; // { peerUid, role } or null
   let _listenAlongPendingRequest = null; // { fromUid, fromName } or null
+  let _listenAlongSavedCrossfade = null; // saved crossfade value to restore after session
+  let _listenAlongSyncing = false; // true while guest sync is changing playback
+
+  function isListenAlongGuest() {
+    return _listenAlong && _listenAlong.role === 'guest' && !_listenAlongSyncing;
+  }
 
   async function renderFriends() {
     const noAccount = $('#friends-no-account');
@@ -6518,7 +6538,12 @@
     const endBtn = $('#listen-along-end');
 
     if (la) {
-      // We're in a listen-along session
+      // Entering a listen-along session — disable crossfade for both sides
+      if (!prevLa) {
+        _listenAlongSavedCrossfade = state.crossfade;
+        state.crossfade = 0;
+      }
+
       if (la.role === 'guest') {
         const hostFriend = _friendsList.find(f => f.uid === la.peerUid);
         const hostName = hostFriend?.displayName || 'Friend';
@@ -6532,12 +6557,16 @@
       }
       banner.classList.remove('hidden');
 
-      // Update the profile button state if viewing that friend's profile
       updateProfileListenAlongButton();
     } else {
       banner.classList.add('hidden');
 
-      // If we just left a session, show toast
+      // Restore crossfade on session end
+      if (prevLa && _listenAlongSavedCrossfade !== null) {
+        state.crossfade = _listenAlongSavedCrossfade;
+        _listenAlongSavedCrossfade = null;
+      }
+
       if (prevLa) {
         showToast('Listen along session ended');
       }
@@ -6547,34 +6576,98 @@
 
   // End / Leave listen-along session
   $('#listen-along-end').addEventListener('click', async () => {
+    // Restore crossfade before clearing state
+    if (_listenAlongSavedCrossfade !== null) {
+      state.crossfade = _listenAlongSavedCrossfade;
+      _listenAlongSavedCrossfade = null;
+    }
     await window.snowify.endListenAlong();
     _listenAlong = null;
     $('#listen-along-banner').classList.add('hidden');
   });
 
-  // Guest sync: when a friend's presence updates and we're a guest,
-  // follow the host's track changes
+  // Guest sync: follow the host's playback (track, play/pause, seek)
   window.snowify.onPresenceUpdated((data) => {
     if (!_listenAlong || _listenAlong.role !== 'guest') return;
     if (data.uid !== _listenAlong.peerUid) return;
 
     const presence = data.presence;
-    if (!presence || !presence.isPlaying || !presence.trackId) return;
+    if (!presence || !presence.trackId) return;
 
-    // Only change track if it's different from what we're playing
     const currentTrack = state.queue[state.queueIndex];
-    if (currentTrack && currentTrack.id === presence.trackId) return;
+    const sameTrack = currentTrack && currentTrack.id === presence.trackId;
 
-    // Play the host's track
-    const track = {
-      id: presence.trackId,
-      title: presence.trackTitle || '',
-      artist: presence.trackArtist || '',
-      thumbnail: presence.trackThumbnail || '',
-      url: `https://music.youtube.com/watch?v=${presence.trackId}`,
-    };
-    playFromList([track], 0);
+    // ── Track change ──
+    if (!sameTrack) {
+      if (!presence.isPlaying) return; // don't load a paused track we haven't seen
+      const track = {
+        id: presence.trackId,
+        title: presence.trackTitle || '',
+        artist: presence.trackArtist || '',
+        thumbnail: presence.trackThumbnail || '',
+        url: `https://music.youtube.com/watch?v=${presence.trackId}`,
+      };
+      _listenAlongSyncing = true;
+      playFromList([track], 0);
+      _listenAlongSyncing = false;
+      // After loading, sync to host's position
+      const hostPos = calcHostPosition(presence);
+      if (hostPos > 2) {
+        const waitForPlay = () => {
+          if (!state.isLoading && audio.duration) {
+            audio.currentTime = Math.min(hostPos, audio.duration - 0.5);
+          } else {
+            setTimeout(waitForPlay, 200);
+          }
+        };
+        setTimeout(waitForPlay, 300);
+      }
+      return;
+    }
+
+    // ── Play / Pause sync ──
+    if (presence.isPlaying && !state.isPlaying) {
+      // Host resumed — resume and sync position
+      const hostPos = calcHostPosition(presence);
+      if (audio.duration && Math.abs(audio.currentTime - hostPos) > 3) {
+        audio.currentTime = Math.min(hostPos, audio.duration - 0.5);
+      }
+      audio.play();
+      state.isPlaying = true;
+      updatePlayButton();
+      const track = state.queue[state.queueIndex];
+      if (track) updateDiscordPresence(track);
+    } else if (!presence.isPlaying && state.isPlaying) {
+      // Host paused
+      audio.pause();
+      state.isPlaying = false;
+      updatePlayButton();
+      clearDiscordPresence();
+    }
+
+    // ── Seek sync (same track, same play state) ──
+    if (sameTrack && presence.trackTimestamp && audio.duration) {
+      const hostPos = calcHostPosition(presence);
+      const drift = Math.abs(audio.currentTime - hostPos);
+      if (drift > 3) {
+        audio.currentTime = Math.min(hostPos, audio.duration - 0.5);
+      }
+    }
   });
+
+  // Calculate where the host should be right now
+  function calcHostPosition(presence) {
+    const pos = presence.trackPosition || 0;
+    const ts = presence.trackTimestamp || 0;
+    if (!ts) return pos;
+    if (presence.isPlaying) {
+      // Playing — extrapolate position based on elapsed time
+      const elapsed = (Date.now() - ts) / 1000;
+      return pos + elapsed;
+    }
+    // Paused — position is frozen
+    return pos;
+  }
 
   // "Listen Along" button on friend profile
   $('#profile-listen-along').addEventListener('click', async () => {
