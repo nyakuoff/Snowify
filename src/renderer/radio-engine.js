@@ -77,7 +77,7 @@ window.RadioEngine = function RadioEngine(opts) {
     return `
       <div class="album-card station-card" data-station-uuid="${escapeHtml(station.stationuuid)}">
         ${faviconHtml}
-        <button class="album-card-play" title="Play">
+        <button class="album-card-play" title="${I18n.t('player.play')}">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
         <div class="album-card-name" title="${escapeHtml(station.name)}">${escapeHtml(station.name)}</div>
@@ -120,7 +120,7 @@ window.RadioEngine = function RadioEngine(opts) {
       const bg = GENRE_COLORS[i % GENRE_COLORS.length];
       return `<div class="mood-card radio-genre-card" data-tag="${escapeHtml(t.name)}" style="border-left-color:${bg}">${escapeHtml(t.name)} <span style="opacity:0.5;font-size:11px">${t.stationcount}</span></div>`;
     }).join('');
-    return `<div class="explore-section"><h2>Browse by Tag</h2><div class="mood-grid">${items}</div></div>`;
+    return `<div class="explore-section"><h2>${I18n.t('radio.browseByTag')}</h2><div class="mood-grid">${items}</div></div>`;
   }
 
   // ─── Station lookup ───
@@ -180,9 +180,9 @@ window.RadioEngine = function RadioEngine(opts) {
         let html = '';
         if (stations.length) {
           html += _buildScrollSection(tag, stations);
-          html += _buildTrendingSection(`All "${tag}" Stations`, stations);
+          html += _buildTrendingSection(I18n.t('radio.allTagStations', { tag }), stations);
         } else {
-          html += `<div class="empty-state"><p>No stations found for "${escapeHtml(tag)}".</p></div>`;
+          html += `<div class="empty-state"><p>${I18n.t('radio.noStationsFor', { query: escapeHtml(tag) })}</p></div>`;
         }
         content.innerHTML = html;
         _attachListeners(content);
@@ -210,32 +210,32 @@ window.RadioEngine = function RadioEngine(opts) {
       let html = '';
 
       if (state.favoriteStations.length)
-        html += _buildScrollSection('Your Stations', state.favoriteStations);
+        html += _buildScrollSection(I18n.t('radio.yourStations'), state.favoriteStations);
 
       if (local.length) {
         const label = _geo.city
-          ? `Popular in ${_geo.city}, ${_geo.country}`
-          : (_geo.country ? `Popular in ${_geo.country}` : 'Popular Stations');
+          ? I18n.t('radio.popularInCity', { city: _geo.city, country: _geo.country })
+          : (_geo.country ? I18n.t('radio.popularInCountry', { country: _geo.country }) : I18n.t('radio.popularStations'));
         html += _buildScrollSection(label, local);
       }
 
       if (trendingCountry.length) {
-        const countryLabel = _geo.country || 'Your Country';
-        html += _buildTrendingSection(`Trending in ${countryLabel}`, trendingCountry);
+        const countryLabel = _geo.country || I18n.t('radio.yourCountry');
+        html += _buildTrendingSection(I18n.t('radio.trendingIn', { country: countryLabel }), trendingCountry);
       }
 
       if (trendingWorld.length)
-        html += _buildTrendingSection('Trending Worldwide', trendingWorld);
+        html += _buildTrendingSection(I18n.t('radio.trendingWorldwide'), trendingWorld);
 
       if (tags.length)
         html += _buildGenreGrid(tags.slice(0, 30));
 
       _stationsCache = [...state.favoriteStations, ...local, ...trendingCountry, ...trendingWorld];
-      content.innerHTML = html || '<div class="empty-state"><p>Could not load radio stations.</p></div>';
+      content.innerHTML = html || `<div class="empty-state"><p>${I18n.t('radio.couldNotLoad')}</p></div>`;
       _attachListeners(content);
     } catch (err) {
       console.error('renderRadio error:', err);
-      content.innerHTML = '<div class="empty-state"><p>Could not load radio stations.</p></div>';
+      content.innerHTML = `<div class="empty-state"><p>${I18n.t('radio.couldNotLoad')}</p></div>`;
     }
   }
 
@@ -261,11 +261,11 @@ window.RadioEngine = function RadioEngine(opts) {
         const results = await ipc.search(q);
         _stationsCache = results;
         if (!results.length) {
-          content.innerHTML = `<div class="empty-state"><p>No stations found for "${escapeHtml(q)}".</p></div>`;
+          content.innerHTML = `<div class="empty-state"><p>${I18n.t('radio.noStationsFor', { query: escapeHtml(q) })}</p></div>`;
           return;
         }
-        let html = _buildScrollSection(`Results for "${q}"`, results);
-        html += _buildTrendingSection('All Results', results);
+        let html = _buildScrollSection(I18n.t('radio.resultsFor', { query: q }), results);
+        html += _buildTrendingSection(I18n.t('radio.allResults'), results);
         content.innerHTML = html;
         _attachListeners(content);
       }, 400);
@@ -312,7 +312,7 @@ window.RadioEngine = function RadioEngine(opts) {
   async function play(station) {
     const streamUrl = station.url_resolved || station.url;
     if (!streamUrl) {
-      showToast('No stream URL for this station');
+      showToast(I18n.t('toast.radioNoStreamUrl'));
       return;
     }
 
@@ -348,7 +348,7 @@ window.RadioEngine = function RadioEngine(opts) {
     ipc.click(station.stationuuid).catch(() => {});
 
     try {
-      showToast(`Tuning in: ${station.name}`);
+      showToast(I18n.t('toast.radioTuningIn', { name: station.name }));
       audio = engine.getActiveAudio();
       setAudio(audio);
       audio.src = streamUrl;
@@ -375,7 +375,7 @@ window.RadioEngine = function RadioEngine(opts) {
       if (gen !== _generation) return;
       if (err?.name === 'AbortError') return;
       console.error('Radio play error:', err);
-      showToast('Station unavailable — try another');
+      showToast(I18n.t('toast.radioUnavailable'));
       cleanup();
       state.isPlaying = false;
       state.isLoading = false;
@@ -402,7 +402,7 @@ window.RadioEngine = function RadioEngine(opts) {
 
     const npArtist = $('#np-artist');
     const meta = [station.tags, station.country, station.bitrate ? station.bitrate + ' kbps' : ''].filter(Boolean).join(' · ');
-    npArtist.textContent = meta || 'Live Radio';
+    npArtist.textContent = meta || I18n.t('radio.liveRadio');
     npArtist.classList.remove('clickable');
     npArtist.onclick = null;
 
@@ -418,7 +418,7 @@ window.RadioEngine = function RadioEngine(opts) {
     const idx = state.favoriteStations.findIndex(s => s.stationuuid === station.stationuuid);
     if (idx >= 0) {
       state.favoriteStations.splice(idx, 1);
-      showToast(`Removed: ${station.name}`);
+      showToast(I18n.t('toast.radioStationRemoved', { name: station.name }));
     } else {
       state.favoriteStations.push({
         stationuuid: station.stationuuid, name: station.name,
@@ -427,7 +427,7 @@ window.RadioEngine = function RadioEngine(opts) {
         countrycode: station.countrycode || '', bitrate: station.bitrate || 0,
         codec: station.codec || ''
       });
-      showToast(`Added: ${station.name}`);
+      showToast(I18n.t('toast.radioStationAdded', { name: station.name }));
     }
     const isFav = idx < 0; // was NOT found = just added = is now favorite
     $('#np-like').classList.toggle('liked', isFav);
@@ -448,7 +448,7 @@ window.RadioEngine = function RadioEngine(opts) {
     if (!getState().discordRpc || !station) return;
     ipc.updatePresence({
       title: station.name,
-      artist: 'Live Radio',
+      artist: I18n.t('radio.liveRadio'),
       thumbnail: station.favicon || '',
       startTimestamp: Date.now()
     });
@@ -458,7 +458,7 @@ window.RadioEngine = function RadioEngine(opts) {
     if (!('mediaSession' in navigator)) return;
     navigator.mediaSession.metadata = new MediaMetadata({
       title: station.name,
-      artist: 'Live Radio',
+      artist: I18n.t('radio.liveRadio'),
       artwork: station.favicon ? [{ src: station.favicon, sizes: '96x96' }] : []
     });
     navigator.mediaSession.setActionHandler('play', () => togglePlay());
@@ -478,7 +478,7 @@ window.RadioEngine = function RadioEngine(opts) {
   }
 
   function handleStreamEnd() {
-    showToast('Radio stream ended — try another station');
+    showToast(I18n.t('toast.radioStreamEnded'));
     cleanup();
     getState().isPlaying = false;
     updatePlayButton();
@@ -487,7 +487,7 @@ window.RadioEngine = function RadioEngine(opts) {
   }
 
   function handleStreamError() {
-    showToast('Radio stream lost — try another station');
+    showToast(I18n.t('toast.radioStreamLost'));
     cleanup();
     const state = getState();
     state.isPlaying = false;
@@ -498,7 +498,7 @@ window.RadioEngine = function RadioEngine(opts) {
   }
 
   function handleStall() {
-    showToast('Radio stream stalled — try another station');
+    showToast(I18n.t('toast.radioStreamStalled'));
   }
 
   function renderQueueCard() {
@@ -510,10 +510,10 @@ window.RadioEngine = function RadioEngine(opts) {
           <img src="${s.favicon ? escapeHtml(s.favicon) : 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'}" alt="" onerror="this.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'" />
           <div class="queue-item-info">
             <div class="queue-item-title">${escapeHtml(s.name)}</div>
-            <div class="queue-item-artist">Live Radio</div>
+            <div class="queue-item-artist">${I18n.t('radio.liveRadio')}</div>
           </div>
         </div>`;
-    const upNextHtml = `<p style="color:var(--text-subdued);font-size:13px;">Live Radio — no queue</p>`;
+    const upNextHtml = `<p style="color:var(--text-subdued);font-size:13px;">${I18n.t('radio.noQueue')}</p>`;
     return { nowPlayingHtml, upNextHtml };
   }
 
@@ -522,7 +522,7 @@ window.RadioEngine = function RadioEngine(opts) {
     if (!state.currentStation) return null;
     return {
       title: state.currentStation.name,
-      artist: 'Live Radio',
+      artist: I18n.t('radio.liveRadio'),
       thumbnail: state.currentStation.favicon || '',
       id: 'radio_' + state.currentStation.stationuuid
     };
