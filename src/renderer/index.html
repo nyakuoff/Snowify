@@ -74,8 +74,8 @@
         </button>
         <button class="nav-btn" data-view="friends">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-          <span>Friends</span>
-          <span class="badge-experimental">BETA</span>
+          <span data-i18n="nav.friends">Friends</span>
+          <span class="badge-experimental" data-i18n="common.beta">BETA</span>
         </button>
         <button class="nav-btn" data-view="settings">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96a7.04 7.04 0 00-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84a.48.48 0 00-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87a.48.48 0 00.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 00-.12-.61l-2.03-1.58zM12 15.6A3.6 3.6 0 1115.6 12 3.6 3.6 0 0112 15.6z"/></svg>
@@ -221,7 +221,7 @@
           <button class="icon-btn playlist-action-btn" id="btn-cover-playlist" data-i18n-title="playlist.changeCover" title="Change cover">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
           </button>
-          <button class="icon-btn playlist-action-btn" id="btn-toggle-public" title="Make public">
+          <button class="icon-btn playlist-action-btn" id="btn-toggle-public" title="Make public" data-i18n-title="playlist.makePublic">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
           </button>
           <button class="icon-btn playlist-action-btn" id="btn-rename-playlist" data-i18n-title="playlist.rename" title="Rename playlist">
@@ -264,15 +264,15 @@
       <section class="view" id="view-friends">
         <div class="friends-content">
           <div class="view-header">
-            <h1>Friends <span class="badge-experimental">BETA</span></h1>
+            <h1><span data-i18n="nav.friends">Friends</span> <span class="badge-experimental" data-i18n="common.beta">BETA</span></h1>
           </div>
 
           <!-- Not signed in state -->
           <div id="friends-no-account" class="friends-signed-out hidden">
             <div class="friends-signed-out-inner">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor" opacity="0.15"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-              <h3>Sign in to add friends</h3>
-              <p>Create an account or sign in to use social features.</p>
+              <h3 data-i18n="friends.signInTitle">Sign in to add friends</h3>
+              <p data-i18n="friends.signInDesc">Create an account or sign in to use social features.</p>
             </div>
           </div>
 
@@ -282,13 +282,13 @@
             <!-- Top action bar: add friend + your code -->
             <div class="friends-action-bar">
               <div class="friends-add-group">
-                <input type="text" id="friend-code-input" class="friends-add-input" placeholder="Enter a friend code" maxlength="6" spellcheck="false" autocomplete="off" />
-                <button class="friends-add-btn" id="btn-add-friend">Add Friend</button>
+                <input type="text" id="friend-code-input" class="friends-add-input" placeholder="Enter a friend code" data-i18n-placeholder="friends.codePlaceholder" maxlength="6" spellcheck="false" autocomplete="off" />
+                <button class="friends-add-btn" id="btn-add-friend" data-i18n="friends.addFriend">Add Friend</button>
               </div>
               <div class="friends-your-code">
-                <span class="friends-code-label">Your code:</span>
+                <span class="friends-code-label" data-i18n="friends.yourCode">Your code:</span>
                 <span class="friends-code-value" id="friend-code-value">------</span>
-                <button class="friends-code-copy" id="btn-copy-friend-code" title="Copy code">
+                <button class="friends-code-copy" id="btn-copy-friend-code" title="Copy code" data-i18n-title="friends.copyCode">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                 </button>
               </div>
@@ -297,16 +297,16 @@
 
             <!-- Tabs: All / Online -->
             <div class="friends-tabs">
-              <button class="friends-tab active" data-friends-tab="all">All</button>
-              <button class="friends-tab" data-friends-tab="online">Online</button>
+              <button class="friends-tab active" data-friends-tab="all" data-i18n="friends.tabAll">All</button>
+              <button class="friends-tab" data-friends-tab="online" data-i18n="friends.tabOnline">Online</button>
             </div>
 
             <!-- Friends list with sections -->
             <div id="friends-list" class="friends-list">
               <div class="friends-list-empty" id="friends-list-empty">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" opacity="0.12"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                <h3>No friends yet</h3>
-                <p>Share your friend code or enter someone else's above to get started.</p>
+                <h3 data-i18n="friends.emptyTitle">No friends yet</h3>
+                <p data-i18n="friends.emptyDesc">Share your friend code or enter someone else's above to get started.</p>
               </div>
             </div>
           </div>
@@ -365,21 +365,21 @@
 
                 <!-- Profile: Banner & Bio -->
                 <div class="profile-extras" style="margin-top: 20px;">
-                  <h4 class="profile-extras-title">Profile</h4>
+                  <h4 class="profile-extras-title" data-i18n="settings.profile">Profile</h4>
                   <div class="profile-banner-section">
                     <div class="profile-banner-preview" id="profile-banner-preview">
-                      <span class="profile-banner-placeholder">No banner</span>
+                      <span class="profile-banner-placeholder" data-i18n="settings.noBanner">No banner</span>
                     </div>
                     <div class="profile-banner-actions">
-                      <button class="btn-setting-action" id="btn-change-banner">Change Banner</button>
-                      <button class="btn-setting-action" id="btn-remove-banner" style="display:none;">Remove</button>
+                      <button class="btn-setting-action" id="btn-change-banner" data-i18n="settings.changeBanner">Change Banner</button>
+                      <button class="btn-setting-action" id="btn-remove-banner" style="display:none;" data-i18n="settings.removeBanner">Remove</button>
                     </div>
                   </div>
                   <div class="profile-bio-section">
-                    <textarea class="profile-bio-input" id="profile-bio-input" placeholder="Write a short bio..." maxlength="200" rows="3" spellcheck="false"></textarea>
+                    <textarea class="profile-bio-input" id="profile-bio-input" placeholder="Write a short bio..." data-i18n-placeholder="settings.bioPlaceholder" maxlength="200" rows="3" spellcheck="false"></textarea>
                     <div class="profile-bio-footer">
                       <span class="profile-bio-count" id="profile-bio-count">0/200</span>
-                      <button class="btn-setting-action" id="btn-save-bio">Save Bio</button>
+                      <button class="btn-setting-action" id="btn-save-bio" data-i18n="settings.saveBio">Save Bio</button>
                     </div>
                   </div>
                 </div>
@@ -387,8 +387,8 @@
                 <!-- Listening Activity Toggle -->
                 <div class="setting-row" style="margin-top: 16px;">
                   <div class="setting-info">
-                    <span class="setting-label">Listening Activity</span>
-                    <span class="setting-desc">Let friends see what you're currently playing</span>
+                    <span class="setting-label" data-i18n="settings.listeningActivity">Listening Activity</span>
+                    <span class="setting-desc" data-i18n="settings.listeningActivityDesc">Let friends see what you're currently playing</span>
                   </div>
                   <label class="toggle-switch">
                     <input type="checkbox" id="setting-listening-activity" />
@@ -760,25 +760,25 @@
         <div class="artist-header">
           <img class="artist-avatar" id="profile-avatar-img" src="" alt="" />
           <div class="artist-header-info">
-            <span class="artist-verified" id="profile-label">FRIEND</span>
+            <span class="artist-verified" id="profile-label" data-i18n="friends.profileLabel">FRIEND</span>
             <h1 class="artist-name" id="profile-name">User</h1>
-            <span class="artist-followers" id="profile-status">Offline</span>
+            <span class="artist-followers" id="profile-status" data-i18n="friends.statusOffline">Offline</span>
             <button class="listen-along-profile-btn hidden" id="profile-listen-along">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
-              Request to Listen
+              <span data-i18n="friends.requestToListen">Request to Listen</span>
             </button>
           </div>
         </div>
         <div class="artist-section" id="profile-bio-section" style="display:none;">
-          <h2>About</h2>
+          <h2 data-i18n="friends.profileAbout">About</h2>
           <p class="artist-description" id="profile-bio-text"></p>
         </div>
         <div class="artist-section" id="profile-listening-section" style="display:none;">
-          <h2>Currently Listening</h2>
+          <h2 data-i18n="friends.currentlyListening">Currently Listening</h2>
           <div id="profile-listening" class="track-list"></div>
         </div>
         <div class="artist-section" id="profile-playlists-section" style="display:none;">
-          <h2>Public Playlists</h2>
+          <h2 data-i18n="friends.publicPlaylists">Public Playlists</h2>
           <div id="profile-playlists" class="profile-playlists-grid"></div>
         </div>
       </section>
@@ -1095,11 +1095,11 @@
       <svg class="listen-along-notification-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
       <div class="listen-along-notification-text">
         <span class="listen-along-notification-title" id="listen-along-req-name">Friend</span>
-        <span class="listen-along-notification-desc">wants to listen along with you</span>
+        <span class="listen-along-notification-desc" data-i18n="listenAlong.requestDesc">wants to listen along with you</span>
       </div>
       <div class="listen-along-notification-actions">
-        <button class="listen-along-btn listen-along-accept" id="listen-along-accept">Accept</button>
-        <button class="listen-along-btn listen-along-deny" id="listen-along-deny">Deny</button>
+        <button class="listen-along-btn listen-along-accept" id="listen-along-accept" data-i18n="listenAlong.accept">Accept</button>
+        <button class="listen-along-btn listen-along-deny" id="listen-along-deny" data-i18n="listenAlong.deny">Deny</button>
       </div>
     </div>
   </div>
@@ -1108,7 +1108,7 @@
   <div id="listen-along-banner" class="listen-along-banner hidden">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
     <span id="listen-along-banner-text">Listening along with Friend</span>
-    <button class="listen-along-banner-end" id="listen-along-end">Leave</button>
+    <button class="listen-along-banner-end" id="listen-along-end" data-i18n="listenAlong.leave">Leave</button>
   </div>
 
   <!-- ═══════ Notification Toast ═══════ -->

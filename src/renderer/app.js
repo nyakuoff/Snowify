@@ -1245,7 +1245,7 @@
   }
 
   function playFromList(tracks, index, sourcePlaylistId = null) {
-    if (isListenAlongGuest()) { showToast('Playback is synced with host'); return; }
+    if (isListenAlongGuest()) { showToast(I18n.t('toast.playbackSyncedWithHost')); return; }
     state.playingPlaylistId = sourcePlaylistId;
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     engine.clearPreload();
@@ -1269,7 +1269,7 @@
   }
 
   function playNext() {
-    if (isListenAlongGuest()) { showToast('Playback is synced with host'); return; }
+    if (isListenAlongGuest()) { showToast(I18n.t('toast.playbackSyncedWithHost')); return; }
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     if (!state.queue.length) return;
 
@@ -1380,7 +1380,7 @@
   }
 
   function playPrev() {
-    if (isListenAlongGuest()) { showToast('Playback is synced with host'); return; }
+    if (isListenAlongGuest()) { showToast(I18n.t('toast.playbackSyncedWithHost')); return; }
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     if (!state.queue.length) return;
     if (audio.currentTime > 3) {
@@ -1502,7 +1502,7 @@
 
   function togglePlay() {
     if (state.isLoading) return;
-    if (isListenAlongGuest()) { showToast('Playback is synced with host'); return; }
+    if (isListenAlongGuest()) { showToast(I18n.t('toast.playbackSyncedWithHost')); return; }
 
     // ─── Crossfade pause/resume handling ───
     if (engine.isInProgress()) {
@@ -1757,7 +1757,7 @@
   });
 
   function seekTo(e) {
-    if (isListenAlongGuest()) { showToast('Playback is synced with host'); return; }
+    if (isListenAlongGuest()) { showToast(I18n.t('toast.playbackSyncedWithHost')); return; }
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     const rect = progressBar.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -2333,7 +2333,7 @@
     // Init public toggle state
     if (!isLiked && _cloudUser) {
       publicBtn.classList.toggle('btn-toggle-public-active', !!playlist.isPublic);
-      publicBtn.title = playlist.isPublic ? 'Make private' : 'Make public';
+      publicBtn.title = playlist.isPublic ? I18n.t('playlist.makePrivate') : I18n.t('playlist.makePublic');
     }
 
     if (playlist.tracks.length) {
@@ -2403,9 +2403,9 @@
       if (isLiked) return;
       playlist.isPublic = !playlist.isPublic;
       publicBtn.classList.toggle('btn-toggle-public-active', playlist.isPublic);
-      publicBtn.title = playlist.isPublic ? 'Make private' : 'Make public';
+      publicBtn.title = playlist.isPublic ? I18n.t('playlist.makePrivate') : I18n.t('playlist.makePublic');
       saveState();
-      showToast(playlist.isPublic ? 'Playlist is now public' : 'Playlist is now private');
+      showToast(playlist.isPublic ? I18n.t('toast.playlistNowPublic') : I18n.t('toast.playlistNowPrivate'));
       await syncPublicPlaylists();
     };
 
@@ -5960,7 +5960,7 @@
       container.querySelectorAll('.friend-card, .friends-section-header').forEach(el => el.remove());
       // Update online tab count
       const onlineTab = $('[data-friends-tab="online"]');
-      if (onlineTab) onlineTab.textContent = 'Online';
+      if (onlineTab) onlineTab.textContent = I18n.t('friends.tabOnline');
       return;
     }
 
@@ -5981,7 +5981,7 @@
 
     // Update online tab count
     const onlineTab = $('[data-friends-tab="online"]');
-    if (onlineTab) onlineTab.textContent = online.length > 0 ? `Online — ${online.length}` : 'Online';
+    if (onlineTab) onlineTab.textContent = online.length > 0 ? I18n.t('friends.tabOnlineCount', { count: online.length }) : I18n.t('friends.tabOnline');
 
     // Check active tab filter
     const activeTab = $('.friends-tab.active')?.dataset.friendsTab || 'all';
@@ -6012,22 +6012,22 @@
         card += `<svg class="friend-activity-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>`;
         card += `<span class="friend-activity-text">`;
         card += `<span class="friend-activity-title">${trackTitle}</span>`;
-        if (trackArtist) card += `<span class="friend-activity-separator">by</span> <span class="friend-activity-artist">${trackArtist}</span>`;
+        if (trackArtist) card += `<span class="friend-activity-separator">${I18n.t('friends.activityBy')}</span> <span class="friend-activity-artist">${trackArtist}</span>`;
         card += `</span>`;
         card += `</span>`;
       } else if (isOnline) {
-        card += `<span class="friend-activity-offline">Online</span>`;
+        card += `<span class="friend-activity-offline">${I18n.t('friends.statusOnline')}</span>`;
       } else {
-        card += `<span class="friend-activity-offline">Offline</span>`;
+        card += `<span class="friend-activity-offline">${I18n.t('friends.statusOffline')}</span>`;
       }
       card += `</div>`;
       card += `<div class="friend-actions">`;
       if (isOnline && !_listenAlong) {
-        card += `<button class="friend-action-btn friend-listen-along-btn" title="Request to listen along" data-uid="${escapeHtml(friend.uid)}" data-name="${name}">`;
+        card += `<button class="friend-action-btn friend-listen-along-btn" title="${I18n.t('friends.requestListenAlong')}" data-uid="${escapeHtml(friend.uid)}" data-name="${name}">`;
         card += `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0118 0v6"/><path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/></svg>`;
         card += `</button>`;
       }
-      card += `<button class="friend-action-btn friend-remove-btn" title="Remove friend" data-uid="${escapeHtml(friend.uid)}">`;
+      card += `<button class="friend-action-btn friend-remove-btn" title="${I18n.t('friends.removeFriend')}" data-uid="${escapeHtml(friend.uid)}">`;
       card += `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>`;
       card += `</button>`;
       card += `</div>`;
@@ -6037,18 +6037,18 @@
 
     let html = '';
     if (activeTab === 'online') {
-      html += `<div class="friends-section-header">Online — ${online.length}</div>`;
+      html += `<div class="friends-section-header">${I18n.t('friends.sectionOnline', { count: online.length })}</div>`;
       online.forEach(item => { html += buildCard(item); });
       if (online.length === 0) {
-        html += `<div class="friends-list-empty"><p>No friends are online right now.</p></div>`;
+        html += `<div class="friends-list-empty"><p>${I18n.t('friends.noOnline')}</p></div>`;
       }
     } else {
       if (online.length > 0) {
-        html += `<div class="friends-section-header">Online — ${online.length}</div>`;
+        html += `<div class="friends-section-header">${I18n.t('friends.sectionOnline', { count: online.length })}</div>`;
         online.forEach(item => { html += buildCard(item); });
       }
       if (offline.length > 0) {
-        html += `<div class="friends-section-header">Offline — ${offline.length}</div>`;
+        html += `<div class="friends-section-header">${I18n.t('friends.sectionOffline', { count: offline.length })}</div>`;
         offline.forEach(item => { html += buildCard(item); });
       }
     }
@@ -6062,13 +6062,13 @@
         e.stopPropagation();
         const uid = btn.dataset.uid;
         const friendName = _friendsList.find(f => f.uid === uid)?.displayName || 'this friend';
-        if (!confirm(`Remove ${friendName} from your friends?`)) return;
+        if (!confirm(I18n.t('friends.confirmRemove', { name: friendName }))) return;
         const result = await window.snowify.removeFriend(uid);
         if (result?.success) {
-          showToast('Friend removed');
+          showToast(I18n.t('toast.friendRemoved'));
           // Real-time listener will auto-update the list
         } else {
-          showToast(result?.error || 'Failed to remove friend');
+          showToast(result?.error || I18n.t('toast.failedRemoveFriend'));
         }
       });
     });
@@ -6082,9 +6082,9 @@
         btn.disabled = true;
         const result = await window.snowify.requestListenAlong(uid);
         if (result?.success) {
-          showToast(`Listen along request sent to ${name}`);
+          showToast(I18n.t('toast.listenAlongRequestSent', { name }));
         } else {
-          showToast(result?.error || 'Failed to send request');
+          showToast(result?.error || I18n.t('toast.failedSendRequest'));
         }
         btn.disabled = false;
       });
@@ -6114,7 +6114,7 @@
 
     // Update status text
     const statusEl = $('#profile-status');
-    statusEl.textContent = isListening ? 'Listening now' : isOnline ? 'Online' : 'Offline';
+    statusEl.textContent = isListening ? I18n.t('friends.statusListening') : isOnline ? I18n.t('friends.statusOnline') : I18n.t('friends.statusOffline');
     statusEl.className = `artist-followers ${isListening ? 'listening' : isOnline ? 'online' : ''}`;
 
     // Update listen along button visibility
@@ -6179,9 +6179,9 @@
     avatarEl.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     avatarEl.classList.remove('loaded');
     avatarEl.classList.add('shimmer');
-    labelEl.textContent = 'FRIEND';
-    nameEl.textContent = friend?.displayName || 'User';
-    statusEl.textContent = isListening ? 'Listening now' : isOnline ? 'Online' : 'Offline';
+    labelEl.textContent = I18n.t('friends.profileLabel');
+    nameEl.textContent = friend?.displayName || I18n.t('common.user');
+    statusEl.textContent = isListening ? I18n.t('friends.statusListening') : isOnline ? I18n.t('friends.statusOnline') : I18n.t('friends.statusOffline');
     statusEl.className = `artist-followers ${isListening ? 'listening' : isOnline ? 'online' : ''}`;
     bioSection.style.display = 'none';
 
@@ -6189,7 +6189,7 @@
     const listenAlongBtn = $('#profile-listen-along');
     listenAlongBtn.dataset.friendUid = uid;
     listenAlongBtn.disabled = false;
-    listenAlongBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg> Request to Listen`;
+    listenAlongBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg> ${I18n.t('friends.requestToListen')}`;
     if (isOnline && !_listenAlong) {
       listenAlongBtn.classList.remove('hidden');
     } else {
@@ -6277,7 +6277,7 @@
     if (publicPlaylists && publicPlaylists.length > 0) {
       playlistsSection.style.display = '';
       playlistsContainer.innerHTML = publicPlaylists.map((pl, idx) => {
-        const name = escapeHtml(pl.name || 'Untitled');
+        const name = escapeHtml(pl.name || I18n.t('friends.untitledPlaylist'));
         const count = pl.trackCount || 0;
         let coverHtml;
         if (pl.coverImage) {
@@ -6296,7 +6296,7 @@
           <div class="album-card" data-playlist-idx="${escapeHtml(String(idx))}">
             ${coverHtml}
             <div class="album-card-name" title="${name}">${name}</div>
-            <div class="album-card-meta">${count} song${count !== 1 ? 's' : ''}</div>
+            <div class="album-card-meta">${I18n.tp('sidebar.songCount', count)}</div>
           </div>`;
       }).join('');
 
@@ -6320,9 +6320,9 @@
     const heroCover = $('#playlist-hero-cover');
     const tracksContainer = $('#playlist-tracks');
 
-    heroName.textContent = pl.name || 'Untitled';
+    heroName.textContent = pl.name || I18n.t('friends.untitledPlaylist');
     const count = pl.trackCount || pl.tracks.length;
-    heroCount.innerHTML = `${count} song${count !== 1 ? 's' : ''} · <span class="friend-playlist-owner" style="cursor:pointer;color:var(--accent);">${escapeHtml(friend.displayName || 'Friend')}</span>`;
+    heroCount.innerHTML = `${I18n.tp('sidebar.songCount', count)} · <span class="friend-playlist-owner" style="cursor:pointer;color:var(--accent);">${escapeHtml(friend.displayName || I18n.t('friends.friendFallback'))}</span>`;
     const ownerLink = heroCount.querySelector('.friend-playlist-owner');
     if (ownerLink && friend.uid) {
       ownerLink.addEventListener('click', () => showFriendProfile(friend.uid));
@@ -6365,7 +6365,7 @@
     const code = $('#friend-code-value').textContent;
     if (code && code !== '------') {
       navigator.clipboard.writeText(code);
-      showToast('Friend code copied!');
+      showToast(I18n.t('toast.friendCodeCopied'));
     }
   });
 
@@ -6376,7 +6376,7 @@
     const code = input.value.trim().toUpperCase();
 
     if (!code || code.length !== 6) {
-      status.textContent = 'Enter a 6-character friend code.';
+      status.textContent = I18n.t('friends.codeValidation');
       status.className = 'friend-add-status friend-add-error';
       status.classList.remove('hidden');
       return;
@@ -6385,24 +6385,24 @@
     // Check if user is trying to add their own code
     const ownCode = $('#friend-code-value').textContent;
     if (code === ownCode) {
-      status.textContent = "That's your own code!";
+      status.textContent = I18n.t('friends.codeOwnError');
       status.className = 'friend-add-status friend-add-error';
       status.classList.remove('hidden');
       return;
     }
 
-    status.textContent = 'Adding...';
+    status.textContent = I18n.t('friends.adding');
     status.className = 'friend-add-status';
     status.classList.remove('hidden');
 
     const result = await window.snowify.addFriend(code);
     if (result?.success) {
-      status.textContent = `Added ${result.friend?.displayName || 'friend'}!`;
+      status.textContent = I18n.t('friends.added', { name: result.friend?.displayName || I18n.t('friends.friendFallback') });
       status.className = 'friend-add-status friend-add-success';
       input.value = '';
       setTimeout(() => status.classList.add('hidden'), 4000);
     } else {
-      status.textContent = result?.error || 'Failed to add friend.';
+      status.textContent = result?.error || I18n.t('friends.failedAdd');
       status.className = 'friend-add-status friend-add-error';
     }
   });
@@ -6468,7 +6468,7 @@
 
     const result = await window.snowify.respondListenAlong(fromUid, accepted);
     if (accepted && result?.success) {
-      showToast(`Listening along with ${fromName}`);
+      showToast(I18n.t('toast.listeningAlongWith', { name: fromName }));
     }
   }
 
@@ -6491,14 +6491,14 @@
 
       if (la.role === 'guest') {
         const hostFriend = _friendsList.find(f => f.uid === la.peerUid);
-        const hostName = hostFriend?.displayName || 'Friend';
-        bannerText.textContent = `Listening along with ${hostName}`;
-        endBtn.textContent = 'Leave';
+        const hostName = hostFriend?.displayName || I18n.t('friends.friendFallback');
+        bannerText.textContent = I18n.t('listenAlong.listeningWith', { name: hostName });
+        endBtn.textContent = I18n.t('listenAlong.leave');
       } else {
         const guestFriend = _friendsList.find(f => f.uid === la.peerUid);
-        const guestName = guestFriend?.displayName || 'Friend';
-        bannerText.textContent = `${guestName} is listening along`;
-        endBtn.textContent = 'End';
+        const guestName = guestFriend?.displayName || I18n.t('friends.friendFallback');
+        bannerText.textContent = I18n.t('listenAlong.guestListening', { name: guestName });
+        endBtn.textContent = I18n.t('listenAlong.end');
       }
       banner.classList.remove('hidden');
 
@@ -6513,7 +6513,7 @@
       }
 
       if (prevLa) {
-        showToast('Listen along session ended');
+        showToast(I18n.t('toast.listenAlongEnded'));
       }
       updateProfileListenAlongButton();
     }
@@ -6620,19 +6620,19 @@
     if (!uid) return;
     const btn = $('#profile-listen-along');
     btn.disabled = true;
-    btn.textContent = 'Requesting...';
+    btn.textContent = I18n.t('friends.requesting');
     const result = await window.snowify.requestListenAlong(uid);
     if (result?.success) {
-      showToast('Request sent!');
-      btn.textContent = 'Request Sent';
+      showToast(I18n.t('toast.requestSent'));
+      btn.textContent = I18n.t('friends.requestSent');
       setTimeout(() => {
         btn.disabled = false;
-        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg> Request to Listen`;
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg> ${I18n.t('friends.requestToListen')}`;
       }, 5000);
     } else {
-      showToast(result?.error || 'Failed to send request');
+      showToast(result?.error || I18n.t('toast.failedSendRequest'));
       btn.disabled = false;
-      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg> Request to Listen`;
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg> ${I18n.t('friends.requestToListen')}`;
     }
   });
 
@@ -6746,18 +6746,18 @@
       if (res?.success) {
         bannerPreview.innerHTML = `<img src="${escapeHtml(dataUri)}" alt="" draggable="false" />`;
         btnRemoveBanner.style.display = '';
-        showToast('Banner updated');
+        showToast(I18n.t('toast.bannerUpdated'));
       } else {
-        showToast(res?.error || 'Failed to update banner');
+        showToast(res?.error || I18n.t('toast.failedUpdateBanner'));
       }
     });
 
     btnRemoveBanner.addEventListener('click', async () => {
       const res = await window.snowify.updateProfileExtras({ banner: '' });
       if (res?.success) {
-        bannerPreview.innerHTML = '<span class="profile-banner-placeholder">No banner</span>';
+        bannerPreview.innerHTML = `<span class="profile-banner-placeholder">${I18n.t('settings.noBanner')}</span>`;
         btnRemoveBanner.style.display = 'none';
-        showToast('Banner removed');
+        showToast(I18n.t('toast.bannerRemoved'));
       }
     });
 
@@ -6765,9 +6765,9 @@
       const bio = bioInput.value.trim().slice(0, 200);
       const res = await window.snowify.updateProfileExtras({ bio });
       if (res?.success) {
-        showToast('Bio saved');
+        showToast(I18n.t('toast.bioSaved'));
       } else {
-        showToast(res?.error || 'Failed to save bio');
+        showToast(res?.error || I18n.t('toast.failedSaveBio'));
       }
     });
 
