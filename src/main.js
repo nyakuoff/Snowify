@@ -2686,6 +2686,11 @@ ipcMain.on('updater:install', () => {
   }
 });
 
+ipcMain.handle('app:restart', () => {
+  app.relaunch();
+  app.quit();
+});
+
 // ─── Plugin System ───
 
 const PLUGIN_REGISTRY_URL = 'https://raw.githubusercontent.com/nyakuoff/Snowify/main/plugins/registry.json';

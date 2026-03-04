@@ -3584,16 +3584,23 @@
   }
 
   let toastTimeout = null;
-  function showToast(message) {
+  function showToast(message, action) {
     const toast = $('#toast');
     toast.textContent = message;
+    if (action) {
+      const link = document.createElement('span');
+      link.className = 'toast-action';
+      link.textContent = action.label;
+      link.addEventListener('click', action.onClick);
+      toast.append(' ', link);
+    }
     toast.classList.remove('hidden');
     clearTimeout(toastTimeout);
     requestAnimationFrame(() => toast.classList.add('show'));
     toastTimeout = setTimeout(() => {
       toast.classList.remove('show');
       setTimeout(() => toast.classList.add('hidden'), 300);
-    }, 2500);
+    }, action ? 5000 : 2500);
   }
 
   function escapeHtml(str) {
@@ -7842,28 +7849,33 @@
   }
   function savePluginState(ps) { localStorage.setItem('snowify_plugins', JSON.stringify(ps)); }
 
+  async function loadPlugin(id) {
+    if (document.querySelector(`script[data-plugin-id="${id}"], style[data-plugin-id="${id}"]`)) return;
+    try {
+      const files = await window.snowify.getPluginFiles(id);
+      if (!files) return;
+      if (files.css) {
+        const style = document.createElement('style');
+        style.dataset.pluginId = id;
+        style.textContent = files.css;
+        document.head.appendChild(style);
+      }
+      if (files.js) {
+        const script = document.createElement('script');
+        script.dataset.pluginId = id;
+        script.textContent = files.js;
+        document.head.appendChild(script);
+      }
+    } catch (err) {
+      console.error(`Failed to load plugin "${id}":`, err);
+    }
+  }
+
   async function loadEnabledPlugins() {
     const ps = getPluginState();
     for (const [id, info] of Object.entries(ps)) {
       if (!info.enabled) continue;
-      try {
-        const files = await window.snowify.getPluginFiles(id);
-        if (!files) continue;
-        if (files.css) {
-          const style = document.createElement('style');
-          style.dataset.pluginId = id;
-          style.textContent = files.css;
-          document.head.appendChild(style);
-        }
-        if (files.js) {
-          const script = document.createElement('script');
-          script.dataset.pluginId = id;
-          script.textContent = files.js;
-          document.head.appendChild(script);
-        }
-      } catch (err) {
-        console.error(`Failed to load plugin "${id}":`, err);
-      }
+      await loadPlugin(id);
     }
   }
 
@@ -7912,13 +7924,21 @@
       }).join('');
 
       installedList.querySelectorAll('[data-action="toggle"]').forEach(cb => {
-        cb.addEventListener('change', () => {
+        cb.addEventListener('change', async () => {
           const id = cb.closest('[data-plugin-id]').dataset.pluginId;
           const ps = getPluginState();
           if (!ps[id]) ps[id] = {};
           ps[id].enabled = cb.checked;
           savePluginState(ps);
-          showToast(I18n.t(cb.checked ? 'plugins.enabledRestart' : 'plugins.disabledRestart'));
+          if (cb.checked) {
+            await loadPlugin(id);
+            showToast(I18n.t('plugins.enabledOk'));
+          } else {
+            showToast(I18n.t('plugins.disabledRestart'), {
+              label: I18n.t('plugins.restart'),
+              onClick: () => window.snowify.restartApp()
+            });
+          }
         });
       });
 
@@ -7936,7 +7956,10 @@
           document.querySelectorAll(`[data-plugin-id="${id}"]`).forEach(el => {
             if (el.tagName === 'STYLE' || el.tagName === 'SCRIPT') el.remove();
           });
-          showToast(I18n.t('plugins.uninstalled'));
+          showToast(I18n.t('plugins.uninstalledRestart'), {
+            label: I18n.t('plugins.restart'),
+            onClick: () => window.snowify.restartApp()
+          });
           renderPlugins();
         });
       });
@@ -7994,10 +8017,20 @@
         const ps = getPluginState();
         ps[id] = { enabled: true, installedVersion: entry.version || '1.0.0' };
         savePluginState(ps);
-        showToast(I18n.t('plugins.installedRestart'));
+        await loadPlugin(id);
+        showToast(I18n.t('plugins.installedOk'));
         renderPlugins();
       });
     });
+
+    // Make footer link open externally
+    const footerLink = document.querySelector('.plugins-footer a[href]');
+    if (footerLink) {
+      footerLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.snowify.openExternal(footerLink.href);
+      });
+    }
   }
 
   I18n.onChange(() => {

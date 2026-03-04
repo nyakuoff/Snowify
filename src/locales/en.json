@@ -477,9 +477,14 @@
   "plugins.disabledRestart": "Plugin disabled — restart to apply",
   "plugins.installedRestart": "Plugin installed — restart to apply",
   "plugins.noPlugins": "No plugins available yet. Check back later!",
-  "plugins.submitHint": "Want to add your plugin? Open a PR on GitHub.",
+  "plugins.submitHint": "Want to add your plugin?",
+  "plugins.submitLink": "Open a PR on GitHub",
   "plugins.errorInstall": "Failed to install plugin",
   "plugins.errorUninstall": "Failed to uninstall plugin",
   "plugins.official": "Official",
-  "plugins.community": "Community"
+  "plugins.community": "Community",
+  "plugins.installedOk": "Plugin installed",
+  "plugins.enabledOk": "Plugin enabled",
+  "plugins.uninstalledRestart": "Plugin uninstalled",
+  "plugins.restart": "Restart"
 }

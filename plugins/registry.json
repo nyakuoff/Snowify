@@ -12,6 +12,18 @@
       "path": "test-plugin",
       "branch": "main",
       "official": true
+    },
+    {
+      "id": "internet-radio",
+      "name": "Internet Radio",
+      "description": "Browse and listen to thousands of internet radio stations worldwide.",
+      "author": "ssantss",
+      "version": "1.0.0",
+      "icon": "📻",
+      "repo": "ssantss/Snowify-Plugins",
+      "path": "internet-radio",
+      "branch": "feature/internet-radio",
+      "official": true
     }
   ]
 }
