@@ -2847,7 +2847,12 @@ ipcMain.handle('plugins:uninstall', async (_event, pluginId) => {
 // Read a plugin's files for injection into the renderer
 ipcMain.handle('plugins:getFiles', (_event, pluginId) => {
   try {
-    const dir = path.join(getPluginsDir(), pluginId);
+    // In dev mode, prefer local plugin source for live development
+    let dir = path.join(getPluginsDir(), pluginId);
+    if (_isDev) {
+      const localDir = path.join(__dirname, '..', 'plugins', pluginId);
+      if (fs.existsSync(path.join(localDir, 'snowify-plugin.json'))) dir = localDir;
+    }
     const manifestPath = path.join(dir, 'snowify-plugin.json');
     if (!fs.existsSync(manifestPath)) return null;
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
