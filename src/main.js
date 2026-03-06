@@ -320,8 +320,8 @@ function createWindow() {
       "script-src 'self' 'unsafe-inline'; " +
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
       "font-src 'self' https://fonts.gstatic.com; " +
-      "img-src 'self' https: data: file:; " +
-      "media-src 'self' blob: https:; " +
+      "img-src 'self' https: http: data: file:; " +
+      "media-src 'self' blob: https: http:; " +
       "connect-src 'self' https: http:;"
     ];
 
@@ -1224,6 +1224,7 @@ ipcMain.handle('discord:updatePresence', async (_event, data) => {
       details: data.title || 'Unknown',
       state: data.artist || 'Unknown Artist',
       largeImageKey: data.thumbnail || 'logo',
+      largeImageText: data.title || 'Snowify',
       smallImageKey: 'logo',
       smallImageText: 'Snowify',
       startTimestamp: data.startTimestamp ? new Date(data.startTimestamp) : undefined,
@@ -2686,6 +2687,11 @@ ipcMain.on('updater:install', () => {
   }
 });
 
+ipcMain.handle('app:restart', () => {
+  app.relaunch();
+  app.quit();
+});
+
 // ─── Plugin System ───
 
 const PLUGIN_REGISTRY_URL = 'https://raw.githubusercontent.com/nyakuoff/Snowify/main/plugins/registry.json';
@@ -2842,7 +2848,12 @@ ipcMain.handle('plugins:uninstall', async (_event, pluginId) => {
 // Read a plugin's files for injection into the renderer
 ipcMain.handle('plugins:getFiles', (_event, pluginId) => {
   try {
-    const dir = path.join(getPluginsDir(), pluginId);
+    // In dev mode, prefer local plugin source for live development
+    let dir = path.join(getPluginsDir(), pluginId);
+    if (_isDev) {
+      const localDir = path.join(__dirname, '..', 'plugins', pluginId);
+      if (fs.existsSync(path.join(localDir, 'snowify-plugin.json'))) dir = localDir;
+    }
     const manifestPath = path.join(dir, 'snowify-plugin.json');
     if (!fs.existsSync(manifestPath)) return null;
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));

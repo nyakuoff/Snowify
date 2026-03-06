@@ -1767,6 +1767,17 @@ body.audio-playing .track-row.playing .track-eq { display: flex; justify-content
 .toast.show {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+.toast-action {
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  margin-left: 4px;
+  font-weight: 600;
+}
+.toast-action:hover {
+  opacity: 0.8;
 }
 
 /* ═══════ Loading spinner ═══════ */
@@ -5799,5 +5810,15 @@ body.i18n-switching { opacity: 0; }
 .plugins-footer p {
   font-size: 13px;
   color: var(--text-subdued);
+}
+.plugins-footer a {
+  color: var(--text-subdued);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--transition);
+}
+.plugins-footer a:hover {
+  color: var(--accent);
+  text-decoration: underline;
 }
 [data-theme="light"] .plugins-footer { border-top-color: rgba(0, 0, 0, 0.06); }

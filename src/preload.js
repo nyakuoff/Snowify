@@ -127,4 +127,5 @@ contextBridge.exposeInMainWorld('snowify', {
   installPlugin: (entry) => ipcRenderer.invoke('plugins:install', entry),
   uninstallPlugin: (id) => ipcRenderer.invoke('plugins:uninstall', id),
   getPluginFiles: (id) => ipcRenderer.invoke('plugins:getFiles', id),
+  restartApp: () => ipcRenderer.invoke('app:restart'),
 });
