@@ -585,6 +585,20 @@
                 <option value="-23">-23 LUFS (EBU R128)</option>
               </select>
             </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label"><span data-i18n="settings.prefetchCache">Prefetch cache</span> <span class="experimental-tag" data-i18n="settings.experimental">EXPERIMENTAL</span></span>
+                <span class="setting-desc" data-i18n="settings.prefetchCacheDesc">Pre-download upcoming tracks for uninterrupted playback</span>
+              </div>
+              <select class="setting-select" id="setting-prefetch-count">
+                <option value="0" data-i18n="settings.prefetchOff">Off</option>
+                <option value="1" data-i18n="settings.prefetch1Track">1 track</option>
+                <option value="3" data-i18n="settings.prefetch3Tracks">3 tracks</option>
+                <option value="5" data-i18n="settings.prefetch5Tracks">5 tracks</option>
+                <option value="10" data-i18n="settings.prefetch10Tracks">10 tracks</option>
+                <option value="-1" data-i18n="settings.prefetchEntireQueue">Entire queue</option>
+              </select>
+            </div>
           </div>
           <div class="settings-group">
             <h3 data-i18n="settings.video">Video</h3>
@@ -940,7 +954,7 @@
       </div>
       <div class="queue-section queue-upnext-section">
         <div class="queue-section-header">
-          <h4 data-i18n="queue.upNext">Up Next</h4>
+<h4><span data-i18n="queue.upNext">Up Next</span> <span class="queue-cached-count" id="queue-cached-count"></span></h4>
           <button class="queue-clear-btn" id="btn-clear-queue" data-i18n="queue.clear">Clear</button>
         </div>
         <div id="queue-up-next"></div>
@@ -1220,6 +1234,7 @@
   <script src="i18n.js"></script>
   <script src="crossfade-engine.js"></script>
   <script src="loudness-normalizer.js"></script>
+  <script src="prefetch-cache.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

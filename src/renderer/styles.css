@@ -1677,6 +1677,20 @@ body.audio-playing .track-row.playing .track-eq { display: flex; justify-content
   border-radius: 6px;
   object-fit: cover;
 }
+.queue-cached-count {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  vertical-align: middle;
+  margin-left: 6px;
+}
+.queue-cached-count:empty {
+  display: none;
+}
 .queue-item-info {
   flex: 1;
   overflow: hidden;

@@ -77,6 +77,20 @@ function setCachedUrl(key, value) {
   }
 }
 
+// ─── Audio Prefetch Cache ───
+const AUDIO_CACHE_DIR = path.join(os.tmpdir(), 'snowify-audio-cache');
+let _activeDownloadProc = null;
+
+function ensureCacheDir() {
+  if (!fs.existsSync(AUDIO_CACHE_DIR)) fs.mkdirSync(AUDIO_CACHE_DIR, { recursive: true });
+  return AUDIO_CACHE_DIR;
+}
+
+function cleanupCacheDir() {
+  try { if (fs.existsSync(AUDIO_CACHE_DIR)) fs.rmSync(AUDIO_CACHE_DIR, { recursive: true, force: true }); }
+  catch (e) { console.warn('Cache cleanup:', e.message); }
+}
+
 // ─── Discord RPC ───
 
 const { Client } = require('@xhayper/discord-rpc');
@@ -321,7 +335,7 @@ function createWindow() {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
       "font-src 'self' https://fonts.gstatic.com; " +
       "img-src 'self' https: http: data: file:; " +
-      "media-src 'self' blob: https: http:; " +
+      "media-src 'self' blob: https: http: file:; " +
       "connect-src 'self' https: http:;"
     ];
 
@@ -519,6 +533,7 @@ app.whenReady().then(async () => {
   initAutoUpdater();
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('before-quit', () => { cleanupCacheDir(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
 // ─── Firebase Auth & Cloud Sync ───
@@ -1971,6 +1986,64 @@ ipcMain.handle('yt:getStreamUrl', async (_event, videoUrl, quality) => {
       resolve(url);
     });
   });
+});
+
+// ─── Audio Prefetch Cache handlers ───
+
+ipcMain.handle('yt:downloadAudio', async (_event, videoUrl, quality, videoId) => {
+  const cacheDir = ensureCacheDir();
+  // Check if already downloaded
+  const existing = fs.readdirSync(cacheDir).find(f => f.startsWith(videoId + '.'));
+  if (existing) return { path: path.join(cacheDir, existing) };
+
+  const fmt = quality === 'worstaudio' ? 'worstaudio/worstaudio*/worst' : 'bestaudio/bestaudio*/best';
+  return new Promise((resolve, reject) => {
+    const proc = execFile(getYtDlpPath(), [
+      '-f', fmt,
+      '-o', path.join(cacheDir, videoId + '.%(ext)s'),
+      '--no-part',
+      '--no-warnings',
+      '--no-playlist',
+      '--no-check-certificates',
+      videoUrl
+    ], { timeout: 120000 }, (err, _stdout, stderr) => {
+      if (_activeDownloadProc === proc) _activeDownloadProc = null;
+      if (err) {
+        // Clean up partial file left by --no-part after SIGTERM
+        if (err.killed || err.signal === 'SIGTERM') {
+          const partial = fs.readdirSync(cacheDir).find(f => f.startsWith(videoId + '.'));
+          if (partial) try { fs.unlinkSync(path.join(cacheDir, partial)); } catch (_) {}
+          return reject('cancelled');
+        }
+        return reject(stderr?.trim() || err.message);
+      }
+      const downloaded = fs.readdirSync(cacheDir).find(f => f.startsWith(videoId + '.'));
+      if (!downloaded) return reject('Download completed but file not found');
+      resolve({ path: path.join(cacheDir, downloaded) });
+    });
+    _activeDownloadProc = proc;
+  });
+});
+
+ipcMain.handle('cache:deleteFile', async (_event, filePath) => {
+  // Safety: only allow deleting inside cache dir
+  const resolved = path.resolve(filePath);
+  if (!resolved.startsWith(AUDIO_CACHE_DIR + path.sep)) return { error: 'Invalid path' };
+  try { fs.unlinkSync(resolved); } catch (_) {}
+  return { ok: true };
+});
+
+ipcMain.handle('cache:clear', async () => {
+  cleanupCacheDir();
+  return { ok: true };
+});
+
+ipcMain.handle('cache:cancelDownload', async () => {
+  if (_activeDownloadProc) {
+    _activeDownloadProc.kill('SIGTERM');
+    _activeDownloadProc = null;
+  }
+  return { ok: true };
 });
 
 ipcMain.handle('yt:getVideoStreamUrl', async (_event, videoId, quality, premuxed) => {
