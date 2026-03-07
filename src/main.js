@@ -334,8 +334,8 @@ function createWindow() {
       "script-src 'self' 'unsafe-inline'; " +
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
       "font-src 'self' https://fonts.gstatic.com; " +
-      "img-src 'self' https: data: file:; " +
-      "media-src 'self' blob: https: file:; " +
+      "img-src 'self' https: http: data: file:; " +
+      "media-src 'self' blob: https: http: file:; " +
       "connect-src 'self' https: http:;"
     ];
 
@@ -1239,6 +1239,7 @@ ipcMain.handle('discord:updatePresence', async (_event, data) => {
       details: data.title || 'Unknown',
       state: data.artist || 'Unknown Artist',
       largeImageKey: data.thumbnail || 'logo',
+      largeImageText: data.title || 'Snowify',
       smallImageKey: 'logo',
       smallImageText: 'Snowify',
       startTimestamp: data.startTimestamp ? new Date(data.startTimestamp) : undefined,
@@ -2756,5 +2757,192 @@ ipcMain.on('updater:install', () => {
       console.error('Update download error:', err);
       sendUpdateStatus('error', { message: err?.message || 'Download failed' });
     });
+  }
+});
+
+ipcMain.handle('app:restart', () => {
+  app.relaunch();
+  app.quit();
+});
+
+// ─── Plugin System ───
+
+const PLUGIN_REGISTRY_URL = 'https://raw.githubusercontent.com/nyakuoff/Snowify/main/plugins/registry.json';
+
+function getPluginsDir() {
+  const dir = path.join(app.getPath('userData'), 'plugins');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function getInstalledPlugins() {
+  const dir = getPluginsDir();
+  const plugins = [];
+  try {
+    for (const name of fs.readdirSync(dir)) {
+      const pluginDir = path.join(dir, name);
+      if (!fs.statSync(pluginDir).isDirectory()) continue;
+      const manifestPath = path.join(pluginDir, 'snowify-plugin.json');
+      if (fs.existsSync(manifestPath)) {
+        try {
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+          plugins.push(manifest);
+        } catch { /* skip broken manifests */ }
+      }
+    }
+  } catch { /* empty plugins dir */ }
+  return plugins;
+}
+
+function httpsGet(url) {
+  const https = require('https');
+  return new Promise((resolve, reject) => {
+    const doRequest = (u, redirects = 0) => {
+      if (redirects > 5) return reject(new Error('Too many redirects'));
+      const req = https.get(u, {
+        headers: { 'User-Agent': 'Snowify', 'Accept': 'application/vnd.github+json' }
+      }, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          return doRequest(res.headers.location, redirects + 1);
+        }
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          if (res.statusCode === 200) resolve(data);
+          else reject(new Error(`HTTP ${res.statusCode}`));
+        });
+      });
+      req.on('error', reject);
+      req.setTimeout(15000, () => { req.destroy(); reject(new Error('Timeout')); });
+    };
+    doRequest(url);
+  });
+}
+
+// Fetch curated registry (local file in dev, GitHub in production)
+ipcMain.handle('plugins:getRegistry', async () => {
+  // In dev mode, read the local registry file so we can test without pushing
+  if (_isDev) {
+    try {
+      const localPath = path.join(__dirname, '..', 'plugins', 'registry.json');
+      const body = fs.readFileSync(localPath, 'utf-8');
+      return JSON.parse(body);
+    } catch (err) {
+      console.error('Failed to read local plugin registry:', err);
+      return { version: 1, plugins: [] };
+    }
+  }
+  try {
+    const body = await httpsGet(PLUGIN_REGISTRY_URL);
+    return JSON.parse(body);
+  } catch (err) {
+    console.error('Failed to fetch plugin registry:', err);
+    return { version: 1, plugins: [] };
+  }
+});
+
+// List locally installed plugins
+ipcMain.handle('plugins:getInstalled', () => getInstalledPlugins());
+
+// Install a plugin by downloading files from its GitHub repo (or copying locally in dev)
+// Supports optional `path` field for monorepo subdirectories (e.g. "internet-radio")
+ipcMain.handle('plugins:install', async (_event, registryEntry) => {
+  try {
+    const { repo, id } = registryEntry;
+    const branch = registryEntry.branch || 'main';
+    const subPath = registryEntry.path || ''; // e.g. "internet-radio" in a monorepo
+
+    // In dev mode, check for a local copy first (plugins/{id}/ in the workspace)
+    const localSrc = path.join(__dirname, '..', 'plugins', id);
+    const useLocal = _isDev && fs.existsSync(path.join(localSrc, 'snowify-plugin.json'));
+
+    // Build remote base URL accounting for subPath
+    const rawBase = `https://raw.githubusercontent.com/${repo}/${branch}${subPath ? '/' + subPath : ''}`;
+
+    let manifestRaw, manifest;
+    if (useLocal) {
+      manifestRaw = fs.readFileSync(path.join(localSrc, 'snowify-plugin.json'), 'utf-8');
+    } else {
+      manifestRaw = await httpsGet(`${rawBase}/snowify-plugin.json`);
+    }
+    manifest = JSON.parse(manifestRaw);
+
+    // Prepare plugin directory in userData
+    const pluginDir = path.join(getPluginsDir(), manifest.id || id);
+    if (fs.existsSync(pluginDir)) fs.rmSync(pluginDir, { recursive: true });
+    fs.mkdirSync(pluginDir, { recursive: true });
+
+    // Save manifest
+    fs.writeFileSync(path.join(pluginDir, 'snowify-plugin.json'), manifestRaw, 'utf-8');
+
+    // Copy/download renderer script
+    if (manifest.renderer) {
+      if (useLocal) {
+        fs.copyFileSync(path.join(localSrc, manifest.renderer), path.join(pluginDir, manifest.renderer));
+      } else {
+        const js = await httpsGet(`${rawBase}/${manifest.renderer}`);
+        fs.writeFileSync(path.join(pluginDir, manifest.renderer), js, 'utf-8');
+      }
+    }
+
+    // Copy/download styles
+    if (manifest.styles) {
+      try {
+        if (useLocal) {
+          fs.copyFileSync(path.join(localSrc, manifest.styles), path.join(pluginDir, manifest.styles));
+        } else {
+          const css = await httpsGet(`${rawBase}/${manifest.styles}`);
+          fs.writeFileSync(path.join(pluginDir, manifest.styles), css, 'utf-8');
+        }
+      } catch { /* styles are optional, don't fail */ }
+    }
+
+    console.log(`Plugin installed: ${manifest.id} v${manifest.version}`);
+    return { success: true, plugin: manifest };
+  } catch (err) {
+    console.error('Plugin install error:', err);
+    return { error: err.message || 'Install failed' };
+  }
+});
+
+// Uninstall a plugin
+ipcMain.handle('plugins:uninstall', async (_event, pluginId) => {
+  try {
+    const dir = path.join(getPluginsDir(), pluginId);
+    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true });
+    console.log(`Plugin uninstalled: ${pluginId}`);
+    return { success: true };
+  } catch (err) {
+    console.error('Plugin uninstall error:', err);
+    return { error: err.message };
+  }
+});
+
+// Read a plugin's files for injection into the renderer
+ipcMain.handle('plugins:getFiles', (_event, pluginId) => {
+  try {
+    // In dev mode, prefer local plugin source for live development
+    let dir = path.join(getPluginsDir(), pluginId);
+    if (_isDev) {
+      const localDir = path.join(__dirname, '..', 'plugins', pluginId);
+      if (fs.existsSync(path.join(localDir, 'snowify-plugin.json'))) dir = localDir;
+    }
+    const manifestPath = path.join(dir, 'snowify-plugin.json');
+    if (!fs.existsSync(manifestPath)) return null;
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+
+    const result = { manifest };
+    if (manifest.renderer) {
+      const jsPath = path.join(dir, manifest.renderer);
+      if (fs.existsSync(jsPath)) result.js = fs.readFileSync(jsPath, 'utf-8');
+    }
+    if (manifest.styles) {
+      const cssPath = path.join(dir, manifest.styles);
+      if (fs.existsSync(cssPath)) result.css = fs.readFileSync(cssPath, 'utf-8');
+    }
+    return result;
+  } catch (err) {
+    console.error('Get plugin files error:', err);
+    return null;
   }
 });

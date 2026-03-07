@@ -124,4 +124,12 @@ contextBridge.exposeInMainWorld('snowify', {
   // Debug logs
   getLogs: () => ipcRenderer.invoke('app:getLogs'),
   appendLog: (entry) => ipcRenderer.invoke('app:appendLog', entry),
+
+  // Plugins
+  getPluginRegistry: () => ipcRenderer.invoke('plugins:getRegistry'),
+  getInstalledPlugins: () => ipcRenderer.invoke('plugins:getInstalled'),
+  installPlugin: (entry) => ipcRenderer.invoke('plugins:install', entry),
+  uninstallPlugin: (id) => ipcRenderer.invoke('plugins:uninstall', id),
+  getPluginFiles: (id) => ipcRenderer.invoke('plugins:getFiles', id),
+  restartApp: () => ipcRenderer.invoke('app:restart'),
 });

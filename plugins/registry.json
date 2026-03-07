@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "plugins": [
+    {
+      "id": "test-plugin",
+      "name": "Hello World",
+      "description": "A simple test plugin that shows a greeting toast on startup.",
+      "author": "Snowify Team",
+      "version": "1.0.0",
+      "icon": "👋",
+      "repo": "nyakuoff/Snowify-Plugins",
+      "path": "test-plugin",
+      "branch": "main",
+      "official": true
+    },
+    {
+      "id": "internet-radio",
+      "name": "Internet Radio",
+      "description": "Browse and listen to thousands of internet radio stations worldwide.",
+      "author": "Snowify Team",
+      "version": "1.0.0",
+      "icon": "📻",
+      "repo": "nyakuoff/Snowify-Plugins",
+      "path": "internet-radio",
+      "branch": "main",
+      "official": true
+    }
+  ]
+}

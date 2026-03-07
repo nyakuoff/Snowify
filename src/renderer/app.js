@@ -63,7 +63,8 @@
     normalization: false,
     normalizationTarget: -14,
     prefetchCount: 0,
-    showListeningActivity: true
+    showListeningActivity: true,
+    showPlugins: true
   };
 
   // ─── Save button SVGs ───
@@ -161,7 +162,8 @@
       normalization: state.normalization,
       normalizationTarget: state.normalizationTarget,
       prefetchCount: state.prefetchCount,
-      showListeningActivity: state.showListeningActivity
+      showListeningActivity: state.showListeningActivity,
+      showPlugins: state.showPlugins
     }));
     localStorage.setItem('snowify_lastSave', String(Date.now()));
     cloudSaveDebounced();
@@ -215,6 +217,7 @@
         state.normalization = saved.normalization ?? false;
         state.normalizationTarget = saved.normalizationTarget ?? -14;
         state.prefetchCount = saved.prefetchCount ?? 0;
+        state.showPlugins = saved.showPlugins ?? true;
       }
       // Restore queue (local-only, separate from cloud sync)
       const savedQueue = JSON.parse(localStorage.getItem('snowify_queue'));
@@ -272,6 +275,9 @@
       renderFriends();
     } else {
       stopFriendsRefresh();
+    }
+    if (name === 'plugins') {
+      renderPlugins();
     }
 
     updateFloatingSearch();
@@ -1415,6 +1421,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     updateSocialPresence(track);
 
     if (!state.discordRpc || !track) return;
+
+    // If a radio plugin is active, let it manage its own Discord presence
+    if (document.body.classList.contains('radio-plugin-active')) return;
+
     const src = engine.getActiveSource();
     const startMs = Date.now() - Math.floor((src.currentTime || 0) * 1000);
     const durationMs = track.durationMs || (src.duration ? Math.round(src.duration * 1000) : 0);
@@ -1433,6 +1443,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   function clearDiscordPresence() {
     clearSocialPresence();
     if (!state.discordRpc) return;
+    if (document.body.classList.contains('radio-plugin-active')) return;
     window.snowify.clearPresence();
   }
 
@@ -3643,16 +3654,23 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   }
 
   let toastTimeout = null;
-  function showToast(message) {
+  function showToast(message, action) {
     const toast = $('#toast');
     toast.textContent = message;
+    if (action) {
+      const link = document.createElement('span');
+      link.className = 'toast-action';
+      link.textContent = action.label;
+      link.addEventListener('click', action.onClick);
+      toast.append(' ', link);
+    }
     toast.classList.remove('hidden');
     clearTimeout(toastTimeout);
     requestAnimationFrame(() => toast.classList.add('show'));
     toastTimeout = setTimeout(() => {
       toast.classList.remove('show');
       setTimeout(() => toast.classList.add('hidden'), 300);
-    }, 2500);
+    }, action ? 5000 : 2500);
   }
 
   function escapeHtml(str) {
@@ -5405,6 +5423,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     renderPlaylists();
     renderHome();
     initSettings();
+    loadEnabledPlugins();
     // Restore queue display (but don't auto-play)
     const restoredTrack = state.queue[state.queueIndex];
     if (restoredTrack) {
@@ -5498,7 +5517,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         crossfade: state.crossfade,
         normalization: state.normalization,
         normalizationTarget: state.normalizationTarget,
-        prefetchCount: state.prefetchCount
+        prefetchCount: state.prefetchCount,
+        showPlugins: state.showPlugins
       };
       const result = await window.snowify.cloudSave(data);
       if (result?.error) console.error('Cloud save failed:', result.error);
@@ -5537,6 +5557,11 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       state.normalization = cloud.normalization ?? state.normalization;
       state.normalizationTarget = cloud.normalizationTarget ?? state.normalizationTarget;
       state.prefetchCount = cloud.prefetchCount ?? state.prefetchCount;
+      state.showPlugins = cloud.showPlugins ?? state.showPlugins;
+      const spt = $('#setting-show-plugins');
+      if (spt) spt.checked = state.showPlugins;
+      const pluginsNavBtnCloud = document.querySelector('.nav-btn[data-view="plugins"]');
+      if (pluginsNavBtnCloud) pluginsNavBtnCloud.style.display = state.showPlugins ? '' : 'none';
       // Pause cloud save so saveState() doesn't push old data back up
       _cloudSyncPaused = true;
       saveState();
@@ -5893,7 +5918,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       normalization: state.normalization,
       normalizationTarget: state.normalizationTarget,
       prefetchCount: state.prefetchCount,
-      showListeningActivity: state.showListeningActivity
+      showListeningActivity: state.showListeningActivity,
+      showPlugins: state.showPlugins
     };
     const result = await window.snowify.cloudSave(data);
     if (result?.error) console.error('Cloud save failed:', result.error);
@@ -7029,6 +7055,24 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       onListeningActivityToggled();
     });
 
+    // ── Plugins toggle ──
+    const showPluginsToggle = $('#setting-show-plugins');
+    const pluginsNavBtn = document.querySelector('.nav-btn[data-view="plugins"]');
+    showPluginsToggle.checked = state.showPlugins;
+    if (pluginsNavBtn) pluginsNavBtn.style.display = state.showPlugins ? '' : 'none';
+    showPluginsToggle.addEventListener('change', () => {
+      state.showPlugins = showPluginsToggle.checked;
+      if (pluginsNavBtn) pluginsNavBtn.style.display = state.showPlugins ? '' : 'none';
+      if (!state.showPlugins) {
+        const ps = getPluginState();
+        Object.keys(ps).forEach(id => { ps[id].enabled = false; });
+        savePluginState(ps);
+        document.querySelectorAll('[data-plugin-id]').forEach(el => el.remove());
+        if (state.currentView === 'plugins') switchView('home');
+      }
+      saveState();
+    });
+
     // ── Profile Extras (banner & bio) ──
     const bannerPreview = $('#profile-banner-preview');
     const btnChangeBanner = $('#btn-change-banner');
@@ -7926,6 +7970,198 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     // Check initial auth state
     const user = await window.snowify.getUser();
     if (user) updateAccountUI(user);
+  }
+
+  // ─── Plugin System ───
+
+  function getPluginState() {
+    try { return JSON.parse(localStorage.getItem('snowify_plugins') || '{}'); } catch { return {}; }
+  }
+  function savePluginState(ps) { localStorage.setItem('snowify_plugins', JSON.stringify(ps)); }
+
+  async function loadPlugin(id) {
+    if (document.querySelector(`script[data-plugin-id="${id}"], style[data-plugin-id="${id}"]`)) return;
+    try {
+      const files = await window.snowify.getPluginFiles(id);
+      if (!files) return;
+      if (files.css) {
+        const style = document.createElement('style');
+        style.dataset.pluginId = id;
+        style.textContent = files.css;
+        document.head.appendChild(style);
+      }
+      if (files.js) {
+        const script = document.createElement('script');
+        script.dataset.pluginId = id;
+        script.textContent = files.js;
+        document.head.appendChild(script);
+      }
+    } catch (err) {
+      console.error(`Failed to load plugin "${id}":`, err);
+    }
+  }
+
+  async function loadEnabledPlugins() {
+    if (!state.showPlugins) return;
+    const ps = getPluginState();
+    for (const [id, info] of Object.entries(ps)) {
+      if (!info.enabled) continue;
+      await loadPlugin(id);
+    }
+  }
+
+  async function renderPlugins() {
+    const grid = $('#plugins-available-grid');
+    const installedSection = $('#plugins-installed-section');
+    const installedList = $('#plugins-installed-list');
+    const ps = getPluginState();
+
+    // Fetch registry once for both sections
+    let registry = { plugins: [] };
+    try { registry = await window.snowify.getPluginRegistry(); } catch {}
+    const registryMap = {};
+    (registry.plugins || []).forEach(rp => { registryMap[rp.id] = rp; });
+
+    // ── Installed plugins ──
+    let installed = [];
+    try { installed = await window.snowify.getInstalledPlugins(); } catch {}
+
+    if (installed.length > 0) {
+      installedSection.style.display = '';
+
+      installedList.innerHTML = installed.map(p => {
+        const enabled = ps[p.id]?.enabled ?? false;
+        const regEntry = registryMap[p.id];
+        const isOfficial = regEntry?.official || p.official;
+        const tagClass = isOfficial ? 'plugin-tag-official' : 'plugin-tag-community';
+        const tagLabel = isOfficial ? I18n.t('plugins.official') : I18n.t('plugins.community');
+        return `
+          <div class="plugin-installed-item" data-plugin-id="${escapeHtml(p.id)}">
+            <div class="plugin-installed-icon">${p.icon || '🧩'}</div>
+            <div class="plugin-installed-info">
+              <span class="plugin-installed-name">${escapeHtml(p.name)} <span class="plugin-tag ${tagClass}">${tagLabel}</span></span>
+              <span class="plugin-installed-meta">${escapeHtml(p.author || '')}${p.version ? ' · v' + escapeHtml(p.version) : ''}</span>
+            </div>
+            <div class="plugin-installed-actions">
+              <label class="toggle-switch" title="${enabled ? I18n.t('plugins.disable') : I18n.t('plugins.enable')}">
+                <input type="checkbox" data-action="toggle" ${enabled ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+              <button class="plugin-uninstall-btn" data-action="uninstall" title="${I18n.t('plugins.uninstall')}">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+              </button>
+            </div>
+          </div>`;
+      }).join('');
+
+      installedList.querySelectorAll('[data-action="toggle"]').forEach(cb => {
+        cb.addEventListener('change', async () => {
+          const id = cb.closest('[data-plugin-id]').dataset.pluginId;
+          const ps = getPluginState();
+          if (!ps[id]) ps[id] = {};
+          ps[id].enabled = cb.checked;
+          savePluginState(ps);
+          if (cb.checked) {
+            await loadPlugin(id);
+            showToast(I18n.t('plugins.enabledOk'));
+          } else {
+            showToast(I18n.t('plugins.disabledRestart'), {
+              label: I18n.t('plugins.restart'),
+              onClick: () => window.snowify.restartApp()
+            });
+          }
+        });
+      });
+
+      installedList.querySelectorAll('[data-action="uninstall"]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const item = btn.closest('[data-plugin-id]');
+          const id = item.dataset.pluginId;
+          const result = await window.snowify.uninstallPlugin(id);
+          if (result?.error) { showToast(I18n.t('plugins.errorUninstall')); return; }
+          const ps = getPluginState();
+          delete ps[id];
+          savePluginState(ps);
+          // Remove any injected CSS/JS
+          document.querySelectorAll(`[data-plugin-id="${id}"]`).forEach(el => {
+            if (el.tagName === 'STYLE' || el.tagName === 'SCRIPT') el.remove();
+          });
+          showToast(I18n.t('plugins.uninstalledRestart'), {
+            label: I18n.t('plugins.restart'),
+            onClick: () => window.snowify.restartApp()
+          });
+          renderPlugins();
+        });
+      });
+    } else {
+      installedSection.style.display = 'none';
+    }
+
+    // ── Available plugins from registry ──
+    const installedIds = new Set(installed.map(p => p.id));
+    const available = registry.plugins || [];
+
+    if (available.length === 0) {
+      grid.innerHTML = `<div class="plugins-empty">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" opacity="0.12"><path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z"/></svg>
+        <p>${I18n.t('plugins.noPlugins')}</p>
+      </div>`;
+      return;
+    }
+
+    grid.innerHTML = available.map(p => {
+      const isInstalled = installedIds.has(p.id);
+      const tagClass = p.official ? 'plugin-tag-official' : 'plugin-tag-community';
+      const tagLabel = p.official ? I18n.t('plugins.official') : I18n.t('plugins.community');
+      return `
+        <div class="plugin-card" data-plugin-id="${escapeHtml(p.id)}">
+          <div class="plugin-card-header">
+            <div class="plugin-card-icon">${p.icon || '🧩'}</div>
+            <span class="plugin-tag ${tagClass}">${tagLabel}</span>
+          </div>
+          <div class="plugin-card-name">${escapeHtml(p.name)}</div>
+          <div class="plugin-card-desc">${escapeHtml(p.description || '')}</div>
+          <div class="plugin-card-meta">${escapeHtml(p.author || '')}${p.version ? ' · v' + escapeHtml(p.version) : ''}</div>
+          <button class="plugin-card-btn ${isInstalled ? 'installed' : ''}" ${isInstalled ? 'disabled' : ''} data-action="install">
+            ${isInstalled ? I18n.t('plugins.installed') : I18n.t('plugins.install')}
+          </button>
+        </div>`;
+    }).join('');
+
+    grid.querySelectorAll('[data-action="install"]:not([disabled])').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const card = btn.closest('[data-plugin-id]');
+        const id = card.dataset.pluginId;
+        const entry = available.find(p => p.id === id);
+        if (!entry) return;
+        btn.disabled = true;
+        btn.textContent = I18n.t('plugins.installing');
+        const result = await window.snowify.installPlugin(entry);
+        if (result?.error) {
+          btn.disabled = false;
+          btn.textContent = I18n.t('plugins.install');
+          showToast(I18n.t('plugins.errorInstall'));
+          return;
+        }
+        // Auto-enable on install
+        const ps = getPluginState();
+        ps[id] = { enabled: true, installedVersion: entry.version || '1.0.0' };
+        savePluginState(ps);
+        await loadPlugin(id);
+        showToast(I18n.t('plugins.installedOk'));
+        renderPlugins();
+      });
+    });
+
+    // Make footer link open externally
+    const footerLink = document.querySelector('.plugins-footer a[href]');
+    if (footerLink) {
+      footerLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.snowify.openExternal(footerLink.href);
+      });
+    }
   }
 
   I18n.onChange(() => {

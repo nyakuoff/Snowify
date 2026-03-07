@@ -8,6 +8,7 @@ A desktop music player built with Electron that streams audio from YouTube Music
 </p>
 <p align="center">
 <a href="https://discord.gg/JHDZraE5TD"><img src="https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord" /></a>
+<a href="https://github.com/nyakuoff/Snowify-Android"><img src="https://img.shields.io/badge/Android-Get%20the%20App-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" /></a>
 </p>
 
 > [!WARNING]
@@ -86,22 +87,7 @@ npm start
 
 ## Roadmap
 
-- [x] Song recommendations
-- [x] Smart queue — auto-fills with similar songs when not playing an album/playlist and the queue runs out
-- [x] Lyrics page with synced lyrics (Spotify-like)
-- [x] Drag and drop songs into playlists
-- [x] Discord RPC
-- [x] Follow Artist feature
-- [ ] Upcoming Releases from followed artists
-- [x] Recent Releases from followed artists
-- [x] Watch Music Videos in-app
-- [x] Spotify playlists migration support
-- [x] "Fans might also like" section in artists page
-- [x] Monthly audience stat per artist
-- [x] Cloud sync
-- [x] User accounts
-- [x] Multi-source lyrics (Musixmatch, LrcLib, Netease)
-- [x] Watch Live Performances in-app
+- [x] Outdated
 
 ## Legal
 
