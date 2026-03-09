@@ -132,4 +132,9 @@ contextBridge.exposeInMainWorld('snowify', {
   uninstallPlugin: (id) => ipcRenderer.invoke('plugins:uninstall', id),
   getPluginFiles: (id) => ipcRenderer.invoke('plugins:getFiles', id),
   restartApp: () => ipcRenderer.invoke('app:restart'),
+
+  // Marketplace themes
+  getInstalledMarketplaceThemes: () => ipcRenderer.invoke('themes:getInstalled'),
+  installMarketplaceTheme: (entry) => ipcRenderer.invoke('themes:install', entry),
+  uninstallMarketplaceTheme: (id) => ipcRenderer.invoke('themes:uninstallMarketplace', id),
 });

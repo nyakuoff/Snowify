@@ -2767,7 +2767,7 @@ ipcMain.handle('app:restart', () => {
 
 // ─── Plugin System ───
 
-const PLUGIN_REGISTRY_URL = 'https://raw.githubusercontent.com/nyakuoff/Snowify/main/plugins/registry.json';
+const MARKETPLACE_REGISTRY_URL = 'https://raw.githubusercontent.com/nyakuoff/Snowify/main/plugins/registry.json';
 
 function getPluginsDir() {
   const dir = path.join(app.getPath('userData'), 'plugins');
@@ -2829,15 +2829,15 @@ ipcMain.handle('plugins:getRegistry', async () => {
       return JSON.parse(body);
     } catch (err) {
       console.error('Failed to read local plugin registry:', err);
-      return { version: 1, plugins: [] };
+      return { version: 1, plugins: [], themes: [] };
     }
   }
   try {
-    const body = await httpsGet(PLUGIN_REGISTRY_URL);
+    const body = await httpsGet(MARKETPLACE_REGISTRY_URL);
     return JSON.parse(body);
   } catch (err) {
     console.error('Failed to fetch plugin registry:', err);
-    return { version: 1, plugins: [] };
+    return { version: 1, plugins: [], themes: [] };
   }
 });
 
@@ -2914,6 +2914,82 @@ ipcMain.handle('plugins:uninstall', async (_event, pluginId) => {
     return { success: true };
   } catch (err) {
     console.error('Plugin uninstall error:', err);
+    return { error: err.message };
+  }
+});
+
+// ── Marketplace themes ──
+
+function getMarketplaceThemeMeta() {
+  const metaPath = path.join(getThemesDir(), '_marketplace.json');
+  try { return JSON.parse(fs.readFileSync(metaPath, 'utf-8')); } catch { return {}; }
+}
+
+function saveMarketplaceThemeMeta(meta) {
+  const metaPath = path.join(getThemesDir(), '_marketplace.json');
+  fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8');
+}
+
+ipcMain.handle('themes:getInstalled', () => {
+  return getMarketplaceThemeMeta();
+});
+
+ipcMain.handle('themes:install', async (_event, registryEntry) => {
+  try {
+    const { repo, id } = registryEntry;
+    const branch = registryEntry.branch || 'main';
+    const subPath = registryEntry.path || '';
+    const file = registryEntry.file || 'theme.css';
+
+    const localSrc = path.join(__dirname, '..', 'plugins', 'themes', id);
+    const useLocal = _isDev && fs.existsSync(path.join(localSrc, file));
+
+    const rawBase = `https://raw.githubusercontent.com/${repo}/${branch}${subPath ? '/' + subPath : ''}`;
+
+    let css;
+    if (useLocal) {
+      css = fs.readFileSync(path.join(localSrc, file), 'utf-8');
+    } else {
+      css = await httpsGet(`${rawBase}/${file}`);
+    }
+
+    const dir = getThemesDir();
+    const filename = `marketplace-${id}.css`;
+    fs.writeFileSync(path.join(dir, filename), css, 'utf-8');
+
+    // Track this as a marketplace-installed theme
+    const meta = getMarketplaceThemeMeta();
+    meta[id] = {
+      name: registryEntry.name,
+      version: registryEntry.version || '1.0.0',
+      author: registryEntry.author || '',
+      filename,
+      official: registryEntry.official || false
+    };
+    saveMarketplaceThemeMeta(meta);
+
+    console.log(`Marketplace theme installed: ${id} v${registryEntry.version || '1.0.0'}`);
+    return { success: true, themeId: `custom:${filename}` };
+  } catch (err) {
+    console.error('Theme install error:', err);
+    return { error: err.message || 'Install failed' };
+  }
+});
+
+ipcMain.handle('themes:uninstallMarketplace', async (_event, themeId) => {
+  try {
+    const meta = getMarketplaceThemeMeta();
+    const entry = meta[themeId];
+    if (entry) {
+      const filePath = path.join(getThemesDir(), entry.filename);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      delete meta[themeId];
+      saveMarketplaceThemeMeta(meta);
+    }
+    console.log(`Marketplace theme uninstalled: ${themeId}`);
+    return { success: true };
+  } catch (err) {
+    console.error('Theme uninstall error:', err);
     return { error: err.message };
   }
 });

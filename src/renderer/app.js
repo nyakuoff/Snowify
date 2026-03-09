@@ -104,6 +104,15 @@
     return false;
   }
 
+  function applyTheme(theme) {
+    if (theme === 'dark' || isCustomTheme(theme)) {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+    return loadAndApplyThemeFile(theme);
+  }
+
   async function populateCustomThemes(selectEl, currentValue) {
     // Remove old custom options
     selectEl.querySelectorAll('option[data-custom]').forEach(o => o.remove());
@@ -278,6 +287,10 @@
     }
     if (name === 'plugins') {
       renderPlugins();
+    }
+    if (name === 'settings') {
+      const ts = $('#theme-select');
+      if (ts) populateCustomThemes(ts, state.theme);
     }
 
     updateFloatingSearch();
@@ -7133,14 +7146,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     });
 
     // Apply theme
-    function applyTheme(theme) {
-      if (theme === 'dark' || isCustomTheme(theme)) {
-        document.documentElement.removeAttribute('data-theme');
-      } else {
-        document.documentElement.setAttribute('data-theme', theme);
-      }
-      loadAndApplyThemeFile(theme);
-    }
     applyTheme(state.theme);
 
     // Theme dropdown
@@ -8016,8 +8021,21 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const installedList = $('#plugins-installed-list');
     const ps = getPluginState();
 
-    // Fetch registry once for both sections
-    let registry = { plugins: [] };
+    // ── Marketplace tabs ──
+    const tabs = $$('.marketplace-tab');
+    const tabContents = $$('.marketplace-tab-content');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        const target = tab.dataset.tab === 'themes' ? '#marketplace-themes' : '#marketplace-plugins';
+        $(target)?.classList.add('active');
+      });
+    });
+
+    // Fetch registry once for all sections
+    let registry = { plugins: [], themes: [] };
     try { registry = await window.snowify.getPluginRegistry(); } catch {}
     const registryMap = {};
     (registry.plugins || []).forEach(rp => { registryMap[rp.id] = rp; });
@@ -8083,7 +8101,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
           const ps = getPluginState();
           delete ps[id];
           savePluginState(ps);
-          // Remove any injected CSS/JS
           document.querySelectorAll(`[data-plugin-id="${id}"]`).forEach(el => {
             if (el.tagName === 'STYLE' || el.tagName === 'SCRIPT') el.remove();
           });
@@ -8107,61 +8124,187 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" opacity="0.12"><path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z"/></svg>
         <p>${I18n.t('plugins.noPlugins')}</p>
       </div>`;
+    } else {
+      grid.innerHTML = available.map(p => {
+        const isInstalled = installedIds.has(p.id);
+        const tagClass = p.official ? 'plugin-tag-official' : 'plugin-tag-community';
+        const tagLabel = p.official ? I18n.t('plugins.official') : I18n.t('plugins.community');
+        return `
+          <div class="plugin-card" data-plugin-id="${escapeHtml(p.id)}">
+            <div class="plugin-card-header">
+              <div class="plugin-card-icon">${p.icon || '🧩'}</div>
+              <span class="plugin-tag ${tagClass}">${tagLabel}</span>
+            </div>
+            <div class="plugin-card-name">${escapeHtml(p.name)}</div>
+            <div class="plugin-card-desc">${escapeHtml(p.description || '')}</div>
+            <div class="plugin-card-meta">${escapeHtml(p.author || '')}${p.version ? ' · v' + escapeHtml(p.version) : ''}</div>
+            <button class="plugin-card-btn ${isInstalled ? 'installed' : ''}" ${isInstalled ? 'disabled' : ''} data-action="install">
+              ${isInstalled ? I18n.t('plugins.installed') : I18n.t('plugins.install')}
+            </button>
+          </div>`;
+      }).join('');
+
+      grid.querySelectorAll('[data-action="install"]:not([disabled])').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const card = btn.closest('[data-plugin-id]');
+          const id = card.dataset.pluginId;
+          const entry = available.find(p => p.id === id);
+          if (!entry) return;
+          btn.disabled = true;
+          btn.textContent = I18n.t('plugins.installing');
+          const result = await window.snowify.installPlugin(entry);
+          if (result?.error) {
+            btn.disabled = false;
+            btn.textContent = I18n.t('plugins.install');
+            showToast(I18n.t('plugins.errorInstall'));
+            return;
+          }
+          const ps = getPluginState();
+          ps[id] = { enabled: true, installedVersion: entry.version || '1.0.0' };
+          savePluginState(ps);
+          await loadPlugin(id);
+          showToast(I18n.t('plugins.installedOk'));
+          renderPlugins();
+        });
+      });
+    }
+
+    // ── Themes tab ──
+    await renderMarketplaceThemes(registry);
+
+    // Make footer links open externally
+    document.querySelectorAll('.plugins-footer a[href]').forEach(footerLink => {
+      footerLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.snowify.openExternal(footerLink.href);
+      });
+    });
+  }
+
+  async function renderMarketplaceThemes(registry) {
+    const themesGrid = $('#themes-available-grid');
+    const themesInstalledSection = $('#themes-installed-section');
+    const themesInstalledList = $('#themes-installed-list');
+
+    const availableThemes = registry.themes || [];
+
+    // Get installed marketplace themes
+    let installedMeta = {};
+    try { installedMeta = await window.snowify.getInstalledMarketplaceThemes(); } catch {}
+    const installedThemeIds = new Set(Object.keys(installedMeta));
+
+    // ── Installed marketplace themes ──
+    if (installedThemeIds.size > 0) {
+      themesInstalledSection.style.display = '';
+
+      themesInstalledList.innerHTML = Object.entries(installedMeta).map(([id, t]) => {
+        const regEntry = availableThemes.find(th => th.id === id);
+        const isOfficial = regEntry?.official || t.official;
+        const tagClass = isOfficial ? 'plugin-tag-official' : 'plugin-tag-community';
+        const tagLabel = isOfficial ? I18n.t('plugins.official') : I18n.t('plugins.community');
+        const isActive = state.theme === 'custom:' + t.filename;
+        return `
+          <div class="plugin-installed-item" data-theme-id="${escapeHtml(id)}">
+            <div class="plugin-installed-icon">🎨</div>
+            <div class="plugin-installed-info">
+              <span class="plugin-installed-name">${escapeHtml(t.name)} <span class="plugin-tag ${tagClass}">${tagLabel}</span></span>
+              <span class="plugin-installed-meta">${escapeHtml(t.author || '')}${t.version ? ' · v' + escapeHtml(t.version) : ''}</span>
+            </div>
+            <div class="plugin-installed-actions">
+              ${isActive ? `<span class="theme-active-badge">${I18n.t('plugins.themeActive')}</span>` : ''}
+              <button class="plugin-uninstall-btn" data-action="uninstall-theme" title="${I18n.t('plugins.uninstall')}">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+              </button>
+            </div>
+          </div>`;
+      }).join('');
+
+      themesInstalledList.querySelectorAll('[data-action="uninstall-theme"]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const item = btn.closest('[data-theme-id]');
+          const id = item.dataset.themeId;
+          const entry = installedMeta[id];
+          // If this theme is active, switch to dark
+          if (entry && state.theme === 'custom:' + entry.filename) {
+            state.theme = 'dark';
+            applyTheme('dark');
+            saveState();
+            const themeSelect = $('#theme-select');
+            if (themeSelect) {
+              populateCustomThemes(themeSelect, 'dark');
+              themeSelect.value = 'dark';
+            }
+          }
+          const result = await window.snowify.uninstallMarketplaceTheme(id);
+          if (result?.error) { showToast(I18n.t('plugins.errorUninstall')); return; }
+          showToast(I18n.t('plugins.themeUninstalled'));
+          await renderMarketplaceThemes(registry);
+        });
+      });
+    } else {
+      themesInstalledSection.style.display = 'none';
+    }
+
+    // ── Available themes from registry ──
+    if (availableThemes.length === 0) {
+      themesGrid.innerHTML = `<div class="plugins-empty">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" opacity="0.12"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-1 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+        <p>${I18n.t('plugins.noThemes')}</p>
+      </div>`;
       return;
     }
 
-    grid.innerHTML = available.map(p => {
-      const isInstalled = installedIds.has(p.id);
-      const tagClass = p.official ? 'plugin-tag-official' : 'plugin-tag-community';
-      const tagLabel = p.official ? I18n.t('plugins.official') : I18n.t('plugins.community');
+    themesGrid.innerHTML = availableThemes.map(t => {
+      const isInstalled = installedThemeIds.has(t.id);
+      const tagClass = t.official ? 'plugin-tag-official' : 'plugin-tag-community';
+      const tagLabel = t.official ? I18n.t('plugins.official') : I18n.t('plugins.community');
+      const previewColors = (t.preview || []).slice(0, 5);
+      const bgColor = previewColors[0] || '#1a1a2e';
       return `
-        <div class="plugin-card" data-plugin-id="${escapeHtml(p.id)}">
-          <div class="plugin-card-header">
-            <div class="plugin-card-icon">${p.icon || '🧩'}</div>
-            <span class="plugin-tag ${tagClass}">${tagLabel}</span>
+        <div class="theme-card" data-theme-id="${escapeHtml(t.id)}">
+          <div class="theme-card-preview" style="background:${escapeHtml(bgColor)}">
+            ${previewColors.slice(1).map(c => `<div class="theme-preview-dot" style="background:${escapeHtml(c)}"></div>`).join('')}
           </div>
-          <div class="plugin-card-name">${escapeHtml(p.name)}</div>
-          <div class="plugin-card-desc">${escapeHtml(p.description || '')}</div>
-          <div class="plugin-card-meta">${escapeHtml(p.author || '')}${p.version ? ' · v' + escapeHtml(p.version) : ''}</div>
-          <button class="plugin-card-btn ${isInstalled ? 'installed' : ''}" ${isInstalled ? 'disabled' : ''} data-action="install">
-            ${isInstalled ? I18n.t('plugins.installed') : I18n.t('plugins.install')}
-          </button>
+          <div class="theme-card-body">
+            <div class="theme-card-header">
+              <div class="theme-card-name">${escapeHtml(t.name)}</div>
+              <span class="plugin-tag ${tagClass}">${tagLabel}</span>
+            </div>
+            <div class="theme-card-desc">${escapeHtml(t.description || '')}</div>
+            <div class="theme-card-meta">${escapeHtml(t.author || '')}${t.version ? ' · v' + escapeHtml(t.version) : ''}</div>
+            <button class="theme-card-btn ${isInstalled ? 'installed' : ''}" ${isInstalled ? 'disabled' : ''} data-action="install-theme">
+              ${isInstalled ? I18n.t('plugins.installed') : I18n.t('plugins.install')}
+            </button>
+          </div>
         </div>`;
     }).join('');
 
-    grid.querySelectorAll('[data-action="install"]:not([disabled])').forEach(btn => {
+    themesGrid.querySelectorAll('[data-action="install-theme"]:not([disabled])').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const card = btn.closest('[data-plugin-id]');
-        const id = card.dataset.pluginId;
-        const entry = available.find(p => p.id === id);
+        const card = btn.closest('[data-theme-id]');
+        const id = card.dataset.themeId;
+        const entry = availableThemes.find(t => t.id === id);
         if (!entry) return;
         btn.disabled = true;
         btn.textContent = I18n.t('plugins.installing');
-        const result = await window.snowify.installPlugin(entry);
+        const result = await window.snowify.installMarketplaceTheme(entry);
         if (result?.error) {
           btn.disabled = false;
           btn.textContent = I18n.t('plugins.install');
           showToast(I18n.t('plugins.errorInstall'));
           return;
         }
-        // Auto-enable on install
-        const ps = getPluginState();
-        ps[id] = { enabled: true, installedVersion: entry.version || '1.0.0' };
-        savePluginState(ps);
-        await loadPlugin(id);
-        showToast(I18n.t('plugins.installedOk'));
-        renderPlugins();
+        // Auto-apply the installed theme
+        state.theme = result.themeId;
+        await applyTheme(state.theme);
+        saveState();
+        const themeSelect = $('#theme-select');
+        if (themeSelect) await populateCustomThemes(themeSelect, state.theme);
+        showToast(I18n.t('plugins.themeInstalled'));
+        await renderMarketplaceThemes(registry);
       });
     });
-
-    // Make footer link open externally
-    const footerLink = document.querySelector('.plugins-footer a[href]');
-    if (footerLink) {
-      footerLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        window.snowify.openExternal(footerLink.href);
-      });
-    }
   }
 
   I18n.onChange(() => {

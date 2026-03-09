@@ -25,5 +25,46 @@
       "branch": "main",
       "official": true
     }
+  ],
+  "themes": [
+    {
+      "id": "nord",
+      "name": "Nord",
+      "description": "An arctic, north-bluish color palette. Clean and minimal with a cool, icy aesthetic.",
+      "author": "Snowify",
+      "version": "1.0.0",
+      "file": "theme.css",
+      "preview": ["#2e3440", "#88c0d0", "#eceff4", "#d8dee9"],
+      "repo": "nyakuoff/Snowify-Themes",
+      "path": "nord",
+      "branch": "main",
+      "official": true
+    },
+    {
+      "id": "tokyo-night",
+      "name": "Tokyo Night",
+      "description": "A dark theme inspired by the neon lights of Tokyo at night. Deep blues and soft purples.",
+      "author": "Snowify",
+      "version": "1.0.0",
+      "file": "theme.css",
+      "preview": ["#1a1b2e", "#7aa2f7", "#c0caf5", "#a9b1d6"],
+      "repo": "nyakuoff/Snowify-Themes",
+      "path": "tokyo-night",
+      "branch": "main",
+      "official": true
+    },
+    {
+      "id": "catppuccin-mocha",
+      "name": "Catppuccin Mocha",
+      "description": "Soothing pastel tones for the high-spirited. Warm purples and soft lavenders.",
+      "author": "Snowify",
+      "version": "1.0.0",
+      "file": "theme.css",
+      "preview": ["#1e1e2e", "#cba6f7", "#cdd6f4", "#a6adc8"],
+      "repo": "nyakuoff/Snowify-Themes",
+      "path": "catppuccin-mocha",
+      "branch": "main",
+      "official": true
+    }
   ]
 }
