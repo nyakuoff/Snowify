@@ -5694,19 +5694,35 @@ body.i18n-switching { opacity: 0; }
   font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.4;
-  flex: 1;
-  margin-bottom: 12px;
+  margin-bottom: 4px;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.plugin-card-desc.expanded {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+.plugin-card-readmore {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 500;
+}
+.plugin-card-readmore:hover { opacity: 0.8; }
 .plugin-card-meta {
   font-size: 12px;
   color: var(--text-subdued);
   margin-bottom: 14px;
 }
 .plugin-card-btn {
+  margin-top: auto;
   padding: 8px 16px;
   border: none;
   border-radius: var(--radius);
@@ -5923,12 +5939,28 @@ body.i18n-switching { opacity: 0; }
   font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.4;
-  margin-bottom: 12px;
+  margin-bottom: 4px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.theme-card-desc.expanded {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+.theme-card-readmore {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 500;
+}
+.theme-card-readmore:hover { opacity: 0.8; }
 .theme-card-meta {
   font-size: 12px;
   color: var(--text-subdued);
@@ -5967,3 +5999,24 @@ body.i18n-switching { opacity: 0; }
   color: var(--accent);
   white-space: nowrap;
 }
+
+/* ── Marketplace search ── */
+.marketplace-search-row {
+  margin-bottom: 20px;
+}
+.marketplace-search {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  transition: border-color var(--transition);
+  box-sizing: border-box;
+}
+.marketplace-search::placeholder { color: var(--text-subdued); }
+.marketplace-search:focus { border-color: var(--accent-border); }
+[data-theme="light"] .marketplace-search { border-color: rgba(0,0,0,0.1); background: var(--bg-card); }
+[data-theme="light"] .marketplace-search:focus { border-color: var(--accent); }

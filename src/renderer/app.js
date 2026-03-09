@@ -1908,6 +1908,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   function showNowPlaying(track) {
     const bar = $('#now-playing-bar');
     bar.classList.remove('hidden');
+    bar.dataset.trackId = track.id || '';
+    bar.dataset.trackUrl = track.url || '';
+    bar.dataset.trackTitle = track.title || '';
+    bar.dataset.trackArtist = track.artist || '';
     document.querySelector('#app').classList.remove('no-player');
 
     $('#np-thumbnail').src = track.thumbnail;
@@ -8119,13 +8123,23 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const installedIds = new Set(installed.map(p => p.id));
     const available = registry.plugins || [];
 
-    if (available.length === 0) {
-      grid.innerHTML = `<div class="plugins-empty">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" opacity="0.12"><path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z"/></svg>
-        <p>${I18n.t('plugins.noPlugins')}</p>
-      </div>`;
-    } else {
-      grid.innerHTML = available.map(p => {
+    const pluginSearchInput = $('#marketplace-search-plugins');
+    function renderPluginGrid(query) {
+      const q = (query || '').trim().toLowerCase();
+      const filtered = q ? available.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        (p.description || '').toLowerCase().includes(q) ||
+        (p.author || '').toLowerCase().includes(q)
+      ) : available;
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div class="plugins-empty">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" opacity="0.12"><path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z"/></svg>
+          <p>${q ? 'No plugins match your search.' : I18n.t('plugins.noPlugins')}</p>
+        </div>`;
+        return;
+      }
+      grid.innerHTML = filtered.map(p => {
         const isInstalled = installedIds.has(p.id);
         const tagClass = p.official ? 'plugin-tag-official' : 'plugin-tag-community';
         const tagLabel = p.official ? I18n.t('plugins.official') : I18n.t('plugins.community');
@@ -8137,12 +8151,30 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
             </div>
             <div class="plugin-card-name">${escapeHtml(p.name)}</div>
             <div class="plugin-card-desc">${escapeHtml(p.description || '')}</div>
+            <button class="plugin-card-readmore" data-action="readmore" style="display:none">Read more</button>
             <div class="plugin-card-meta">${escapeHtml(p.author || '')}${p.version ? ' · v' + escapeHtml(p.version) : ''}</div>
             <button class="plugin-card-btn ${isInstalled ? 'installed' : ''}" ${isInstalled ? 'disabled' : ''} data-action="install">
               ${isInstalled ? I18n.t('plugins.installed') : I18n.t('plugins.install')}
             </button>
           </div>`;
       }).join('');
+
+      // Show 'read more' only when text is actually clamped (check after layout)
+      requestAnimationFrame(() => {
+        grid.querySelectorAll('.plugin-card-desc').forEach(desc => {
+          const btn = desc.nextElementSibling;
+          if (btn && btn.dataset.action === 'readmore') {
+            btn.style.display = desc.scrollHeight > desc.clientHeight + 2 ? '' : 'none';
+          }
+        });
+      });
+      grid.querySelectorAll('[data-action="readmore"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const desc = btn.previousElementSibling;
+          const expanded = desc.classList.toggle('expanded');
+          btn.textContent = expanded ? 'Show less' : 'Read more';
+        });
+      });
 
       grid.querySelectorAll('[data-action="install"]:not([disabled])').forEach(btn => {
         btn.addEventListener('click', async () => {
@@ -8167,6 +8199,15 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
           renderPlugins();
         });
       });
+    } // end renderPluginGrid
+
+    renderPluginGrid(pluginSearchInput ? pluginSearchInput.value : '');
+    if (pluginSearchInput) {
+      if (pluginSearchInput._searchHandler) {
+        pluginSearchInput.removeEventListener('input', pluginSearchInput._searchHandler);
+      }
+      pluginSearchInput._searchHandler = () => renderPluginGrid(pluginSearchInput.value);
+      pluginSearchInput.addEventListener('input', pluginSearchInput._searchHandler);
     }
 
     // ── Themes tab ──
@@ -8247,64 +8288,100 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     }
 
     // ── Available themes from registry ──
-    if (availableThemes.length === 0) {
-      themesGrid.innerHTML = `<div class="plugins-empty">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" opacity="0.12"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-1 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
-        <p>${I18n.t('plugins.noThemes')}</p>
-      </div>`;
-      return;
+    const themeSearchInput = $('#marketplace-search-themes');
+    function renderThemeGrid(query) {
+      const q = (query || '').trim().toLowerCase();
+      const filtered = q ? availableThemes.filter(t =>
+        t.name.toLowerCase().includes(q) ||
+        (t.description || '').toLowerCase().includes(q) ||
+        (t.author || '').toLowerCase().includes(q)
+      ) : availableThemes;
+
+      if (filtered.length === 0) {
+        themesGrid.innerHTML = `<div class="plugins-empty">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" opacity="0.12"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-1 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+          <p>${q ? 'No themes match your search.' : I18n.t('plugins.noThemes')}</p>
+        </div>`;
+        return;
+      }
+
+      themesGrid.innerHTML = filtered.map(t => {
+        const isInstalled = installedThemeIds.has(t.id);
+        const tagClass = t.official ? 'plugin-tag-official' : 'plugin-tag-community';
+        const tagLabel = t.official ? I18n.t('plugins.official') : I18n.t('plugins.community');
+        const previewColors = (t.preview || []).slice(0, 5);
+        const bgColor = previewColors[0] || '#1a1a2e';
+        return `
+          <div class="theme-card" data-theme-id="${escapeHtml(t.id)}">
+            <div class="theme-card-preview" style="background:${escapeHtml(bgColor)}">
+              ${previewColors.slice(1).map(c => `<div class="theme-preview-dot" style="background:${escapeHtml(c)}"></div>`).join('')}
+            </div>
+            <div class="theme-card-body">
+              <div class="theme-card-header">
+                <div class="theme-card-name">${escapeHtml(t.name)}</div>
+                <span class="plugin-tag ${tagClass}">${tagLabel}</span>
+              </div>
+              <div class="theme-card-desc">${escapeHtml(t.description || '')}</div>
+              <button class="theme-card-readmore" data-action="readmore" style="display:none">Read more</button>
+              <div class="theme-card-meta">${escapeHtml(t.author || '')}${t.version ? ' · v' + escapeHtml(t.version) : ''}</div>
+              <button class="theme-card-btn ${isInstalled ? 'installed' : ''}" ${isInstalled ? 'disabled' : ''} data-action="install-theme">
+                ${isInstalled ? I18n.t('plugins.installed') : I18n.t('plugins.install')}
+              </button>
+            </div>
+          </div>`;
+      }).join('');
+
+      // Show 'read more' only when text is actually clamped (check after layout)
+      requestAnimationFrame(() => {
+        themesGrid.querySelectorAll('.theme-card-desc').forEach(desc => {
+          const btn = desc.nextElementSibling;
+          if (btn && btn.dataset.action === 'readmore') {
+            btn.style.display = desc.scrollHeight > desc.clientHeight + 2 ? '' : 'none';
+          }
+        });
+      });
+      themesGrid.querySelectorAll('[data-action="readmore"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const desc = btn.previousElementSibling;
+          const expanded = desc.classList.toggle('expanded');
+          btn.textContent = expanded ? 'Show less' : 'Read more';
+        });
+      });
+
+      themesGrid.querySelectorAll('[data-action="install-theme"]:not([disabled])').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const card = btn.closest('[data-theme-id]');
+          const id = card.dataset.themeId;
+          const entry = availableThemes.find(t => t.id === id);
+          if (!entry) return;
+          btn.disabled = true;
+          btn.textContent = I18n.t('plugins.installing');
+          const result = await window.snowify.installMarketplaceTheme(entry);
+          if (result?.error) {
+            btn.disabled = false;
+            btn.textContent = I18n.t('plugins.install');
+            showToast(I18n.t('plugins.errorInstall'));
+            return;
+          }
+          state.theme = result.themeId;
+          await applyTheme(state.theme);
+          saveState();
+          const themeSelect = $('#theme-select');
+          if (themeSelect) await populateCustomThemes(themeSelect, state.theme);
+          showToast(I18n.t('plugins.themeInstalled'));
+          await renderMarketplaceThemes(registry);
+        });
+      });
     }
 
-    themesGrid.innerHTML = availableThemes.map(t => {
-      const isInstalled = installedThemeIds.has(t.id);
-      const tagClass = t.official ? 'plugin-tag-official' : 'plugin-tag-community';
-      const tagLabel = t.official ? I18n.t('plugins.official') : I18n.t('plugins.community');
-      const previewColors = (t.preview || []).slice(0, 5);
-      const bgColor = previewColors[0] || '#1a1a2e';
-      return `
-        <div class="theme-card" data-theme-id="${escapeHtml(t.id)}">
-          <div class="theme-card-preview" style="background:${escapeHtml(bgColor)}">
-            ${previewColors.slice(1).map(c => `<div class="theme-preview-dot" style="background:${escapeHtml(c)}"></div>`).join('')}
-          </div>
-          <div class="theme-card-body">
-            <div class="theme-card-header">
-              <div class="theme-card-name">${escapeHtml(t.name)}</div>
-              <span class="plugin-tag ${tagClass}">${tagLabel}</span>
-            </div>
-            <div class="theme-card-desc">${escapeHtml(t.description || '')}</div>
-            <div class="theme-card-meta">${escapeHtml(t.author || '')}${t.version ? ' · v' + escapeHtml(t.version) : ''}</div>
-            <button class="theme-card-btn ${isInstalled ? 'installed' : ''}" ${isInstalled ? 'disabled' : ''} data-action="install-theme">
-              ${isInstalled ? I18n.t('plugins.installed') : I18n.t('plugins.install')}
-            </button>
-          </div>
-        </div>`;
-    }).join('');
-
-    themesGrid.querySelectorAll('[data-action="install-theme"]:not([disabled])').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const card = btn.closest('[data-theme-id]');
-        const id = card.dataset.themeId;
-        const entry = availableThemes.find(t => t.id === id);
-        if (!entry) return;
-        btn.disabled = true;
-        btn.textContent = I18n.t('plugins.installing');
-        const result = await window.snowify.installMarketplaceTheme(entry);
-        if (result?.error) {
-          btn.disabled = false;
-          btn.textContent = I18n.t('plugins.install');
-          showToast(I18n.t('plugins.errorInstall'));
-          return;
-        }
-        // Auto-apply the installed theme
-        state.theme = result.themeId;
-        await applyTheme(state.theme);
-        saveState();
-        const themeSelect = $('#theme-select');
-        if (themeSelect) await populateCustomThemes(themeSelect, state.theme);
-        showToast(I18n.t('plugins.themeInstalled'));
-        await renderMarketplaceThemes(registry);
-      });
-    });
+    renderThemeGrid(themeSearchInput ? themeSearchInput.value : '');
+    if (themeSearchInput) {
+      if (themeSearchInput._searchHandler) {
+        themeSearchInput.removeEventListener('input', themeSearchInput._searchHandler);
+      }
+      themeSearchInput._searchHandler = () => renderThemeGrid(themeSearchInput.value);
+      themeSearchInput.addEventListener('input', themeSearchInput._searchHandler);
+    }
   }
 
   I18n.onChange(() => {

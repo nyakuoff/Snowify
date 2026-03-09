@@ -24,6 +24,30 @@
       "path": "internet-radio",
       "branch": "main",
       "official": true
+    },
+    {
+      "id": "desktop-notifications",
+      "name": "Desktop Notifications",
+      "description": "Shows a system notification whenever a new track starts playing, with the track title, artist, and album art.",
+      "author": "Snowify Team",
+      "version": "1.0.0",
+      "icon": "🔔",
+      "repo": "nyakuoff/Snowify-Plugins",
+      "path": "desktop-notifications",
+      "branch": "main",
+      "official": true
+    },
+    {
+      "id": "song-downloader",
+      "name": "Song Downloader",
+      "description": "Adds a download button to the player bar. Click it to save the currently playing song as an MP3 to any folder on your device.",
+      "author": "Snowify Team",
+      "version": "1.0.0",
+      "icon": "📥",
+      "repo": "nyakuoff/Snowify-Plugins",
+      "path": "song-downloader",
+      "branch": "main",
+      "official": true
     }
   ],
   "themes": [

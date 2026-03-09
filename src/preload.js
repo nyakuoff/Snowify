@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('snowify', {
   searchSuggestions: (query) => ipcRenderer.invoke('yt:searchSuggestions', query),
   getStreamUrl: (videoUrl, quality) => ipcRenderer.invoke('yt:getStreamUrl', videoUrl, quality),
   downloadAudio: (videoUrl, quality, videoId) => ipcRenderer.invoke('yt:downloadAudio', videoUrl, quality, videoId),
+  saveSong: (videoUrl, title, artist) => ipcRenderer.invoke('song:saveTo', videoUrl, title, artist),
   deleteCachedAudio: (filePath) => ipcRenderer.invoke('cache:deleteFile', filePath),
   clearAudioCache: () => ipcRenderer.invoke('cache:clear'),
   cancelDownload: () => ipcRenderer.invoke('cache:cancelDownload'),

@@ -2046,6 +2046,31 @@ ipcMain.handle('cache:cancelDownload', async () => {
   return { ok: true };
 });
 
+ipcMain.handle('song:saveTo', async (_event, videoUrl, title, artist) => {
+  const safeName = `${title || 'track'}${artist ? ' - ' + artist : ''}`.replace(/[/\\?%*:|"<>]/g, '_');
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save song',
+    defaultPath: safeName + '.mp3',
+    filters: [{ name: 'MP3 Audio', extensions: ['mp3'] }],
+  });
+  if (result.canceled || !result.filePath) return { canceled: true };
+
+  return new Promise((resolve) => {
+    const proc = execFile(getYtDlpPath(), [
+      '-x', '--audio-format', 'mp3', '--audio-quality', '0',
+      '--no-part', '--no-warnings', '--no-playlist', '--no-check-certificates',
+      '-o', result.filePath,
+      videoUrl,
+    ], { timeout: 300000 }, (err, _stdout, stderr) => {
+      if (err) return resolve({ error: stderr?.trim() || err.message });
+      resolve({ success: true, filePath: result.filePath });
+    });
+    // Don't track as _activeDownloadProc — this is a user-save, not a prefetch
+    void proc;
+  });
+});
+
+
 ipcMain.handle('yt:getVideoStreamUrl', async (_event, videoId, quality, premuxed) => {
   const height = parseInt(quality) || 720;
   const fmt = premuxed
