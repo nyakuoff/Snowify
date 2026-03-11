@@ -985,7 +985,7 @@
           handleTogglePlaylist(item.dataset.pid, track);
           break;
         case 'share':
-          navigator.clipboard.writeText(track.url || `https://music.youtube.com/watch?v=${track.id}`);
+          navigator.clipboard.writeText(`https://snowify.cc/track/${track.id}`);
           showToast(I18n.t('toast.linkCopied'));
           break;
       }
@@ -1117,6 +1117,7 @@
     menu.style.top = e.clientY + 'px';
     menu.innerHTML = `
       <div class="context-menu-item" data-action="start-radio">${I18n.t('context.startRadio')}</div>
+      <div class="context-menu-item" data-action="share">${I18n.t('context.copyLink')}</div>
     `;
     document.body.appendChild(menu);
     const rect = menu.getBoundingClientRect();
@@ -1128,6 +1129,9 @@
       if (!item) return;
       if (item.dataset.action === 'start-radio') {
         await startRadio(null, { fromArtistId: artistId });
+      } else if (item.dataset.action === 'share') {
+        navigator.clipboard.writeText(`https://snowify.cc/artist/${artistId}`);
+        showToast(I18n.t('toast.linkCopied'));
       }
       removeContextMenu();
     });
@@ -1144,7 +1148,7 @@
       fallbackName: I18n.t('album.type'),
       playLabel: I18n.t('context.playAll'),
       errorMsg: I18n.t('toast.failedLoadAlbum'),
-      copyLink: `https://music.youtube.com/browse/${albumId}`
+      copyLink: `https://snowify.cc/album/${albumId}`
     });
   }
 
@@ -1445,7 +1449,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       title: track.title,
       artist: track.artist,
       thumbnail: track.thumbnail || '',
-      startTimestamp: startMs
+      startTimestamp: startMs,
+      videoId: track.id || ''
     };
     if (durationMs) {
       data.endTimestamp = startMs + durationMs;
@@ -2584,7 +2589,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
           showPlaylistDetail(playlist, false);
           break;
         case 'share':
-          navigator.clipboard.writeText(track.url || `https://music.youtube.com/watch?v=${track.id}`);
+          navigator.clipboard.writeText(`https://snowify.cc/track/${track.id}`);
           showToast(I18n.t('toast.linkCopied'));
           break;
       }
@@ -4907,7 +4912,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
           openArtistPage(track.artistId);
           break;
         case 'share':
-          navigator.clipboard.writeText(track.url || `https://music.youtube.com/watch?v=${track.id}`);
+          navigator.clipboard.writeText(`https://snowify.cc/track/${track.id}`);
           showToast(I18n.t('toast.linkCopied'));
           break;
       }
@@ -5384,7 +5389,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
           break;
         case 'start-radio': await startRadio(track); break;
         case 'share':
-          navigator.clipboard.writeText(`https://music.youtube.com/watch?v=${v.id}`);
+          navigator.clipboard.writeText(`https://snowify.cc/track/${v.id}`);
           showToast(I18n.t('toast.linkCopied'));
           break;
       }
@@ -5967,6 +5972,26 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const result = await window.snowify.cloudSave(data);
     if (result?.error) console.error('Cloud save failed:', result.error);
     else updateSyncStatus(I18n.t('sync.syncedJustNow'));
+  }
+
+  // ─── Deep link handler ───
+  if (window.snowify.onDeepLink) {
+    window.snowify.onDeepLink(async ({ type, id }) => {
+      if (type === 'track') {
+        const track = await window.snowify.getTrackInfo(id).catch(() => null);
+        if (track) {
+          state.queue = [track];
+          state.queueIndex = 0;
+          playTrack(track);
+        } else {
+          showToast('Could not load track');
+        }
+      } else if (type === 'album') {
+        showAlbumDetail(id, null);
+      } else if (type === 'artist') {
+        openArtistPage(id);
+      }
+    });
   }
 
   // Flush any pending saves before the window closes

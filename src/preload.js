@@ -135,6 +135,12 @@ contextBridge.exposeInMainWorld('snowify', {
   getPluginFiles: (id) => ipcRenderer.invoke('plugins:getFiles', id),
   restartApp: () => ipcRenderer.invoke('app:restart'),
 
+  // Deep links
+  onDeepLink: (cb) => ipcRenderer.on('app:deepLink', (_e, data) => cb(data)),
+
+  // Track info (for deep links)
+  getTrackInfo: (videoId) => ipcRenderer.invoke('yt:getTrackInfo', videoId),
+
   // Marketplace themes
   getInstalledMarketplaceThemes: () => ipcRenderer.invoke('themes:getInstalled'),
   installMarketplaceTheme: (entry) => ipcRenderer.invoke('themes:install', entry),

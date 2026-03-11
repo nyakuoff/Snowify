@@ -39,12 +39,19 @@
     "appId": "com.nyaku.snowify",
     "productName": "Snowify",
     "icon": "assets/logo.png",
+    "protocols": [
+      {
+        "name": "Snowify",
+        "schemes": ["snowify"]
+      }
+    ],
     "linux": {
       "target": [
         "AppImage"
       ],
       "category": "Audio",
       "icon": "assets/logo.png",
+      "mimeTypes": ["x-scheme-handler/snowify"],
       "extraResources": [
         {
           "from": "bin/linux",

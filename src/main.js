@@ -7,6 +7,29 @@ const { autoUpdater } = require('electron-updater');
 
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 
+// ─── Single-instance lock + deep link handling ───
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    // Focus the existing window
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+    // Parse deep link from argv (Windows/Linux pass it as a CLI argument)
+    const deepUrl = argv.find(a => a.startsWith('snowify://'));
+    if (deepUrl) handleDeepLink(deepUrl);
+  });
+}
+
+// macOS: deep link arrives via 'open-url' event
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  handleDeepLink(url);
+});
+
 // ─── i18n for main process dialogs ───
 const _mainTranslations = {};
 function loadMainTranslations(overrideLocale) {
@@ -522,7 +545,30 @@ async function checkMacYtDlp() {
   }
 }
 
+// ─── Deep link handler ────────────────────────────────────────────────────────
+function handleDeepLink(url) {
+  if (!mainWindow) return;
+  try {
+    // Parse snowify://type/id — URL constructor gives hostname=type, pathname=/id
+    // Also handle snowify:type/id or snowify://type/id/ edge cases
+    const cleaned = url.replace(/^snowify:\/?\/?/, ''); // strip scheme
+    const [type, ...rest] = cleaned.split('/').filter(Boolean);
+    const id = rest.join('/'); // in case ID contains slashes (shouldn't, but safe)
+    if (!id || !['track', 'album', 'artist'].includes(type)) return;
+    console.log(`Deep link: ${type}/${id}`);
+    mainWindow.webContents.send('app:deepLink', { type, id });
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  } catch (_) {}
+}
+
 app.whenReady().then(async () => {
+  // Register snowify:// protocol — in dev mode, pass electron binary + project path
+  if (app.isPackaged) {
+    app.setAsDefaultProtocolClient('snowify');
+  } else {
+    app.setAsDefaultProtocolClient('snowify', process.execPath, [path.resolve(process.argv[1] || '.')]);
+  }
   loadMainTranslations();
   await initYTMusic();
   createWindow();
@@ -531,6 +577,12 @@ app.whenReady().then(async () => {
   autoSignIn();
   // Auto-updater
   initAutoUpdater();
+  // Handle deep link from cold start (Linux/Windows pass it as argv)
+  const coldLink = process.argv.find(a => a.startsWith('snowify://'));
+  if (coldLink) {
+    // Window may not be ready yet — wait for dom-ready before dispatching
+    mainWindow.webContents.once('did-finish-load', () => handleDeepLink(coldLink));
+  }
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('before-quit', () => { cleanupCacheDir(); });
@@ -1255,6 +1307,10 @@ ipcMain.handle('discord:updatePresence', async (_event, data) => {
       smallImageText: 'Snowify',
       startTimestamp: data.startTimestamp ? new Date(data.startTimestamp) : undefined,
       endTimestamp: data.endTimestamp ? new Date(data.endTimestamp) : undefined,
+      buttons: [
+        { label: 'Get Snowify', url: 'https://snowify.cc' },
+        ...(data.videoId ? [{ label: 'Listen on YT Music', url: `https://music.youtube.com/watch?v=${data.videoId}` }] : [])
+      ],
       instance: false
     });
   } catch (_) {}
@@ -2108,6 +2164,16 @@ ipcMain.handle('yt:getVideoStreamUrl', async (_event, videoId, quality, premuxed
       resolve(result);
     });
   });
+});
+
+ipcMain.handle('yt:getTrackInfo', async (_event, videoId) => {
+  try {
+    const song = await ytmusic.getSong(videoId);
+    return mapSongToTrack(song);
+  } catch (err) {
+    console.error('getTrackInfo error:', err);
+    return null;
+  }
 });
 
 ipcMain.handle('yt:getUpNexts', async (_event, videoId) => {
