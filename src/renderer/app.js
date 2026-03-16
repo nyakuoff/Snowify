@@ -1453,7 +1453,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const data = {
       title: track.title,
       artist: track.artist,
-      thumbnail: track.thumbnail || '',
+      thumbnail: track.isLocal ? '' : (track.thumbnail || ''),
       startTimestamp: startMs,
       videoId: track.isLocal ? '' : (track.id || '')
     };
@@ -2901,7 +2901,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const draggable = showRemove ? ' draggable="true"' : '';
     return `
       <div class="queue-item ${isActive ? 'active' : ''}" data-track-id="${track.id}"${indexAttr}${draggable}>
-        <img src="${escapeHtml(track.thumbnail)}" alt="" />
+        <img src="${escapeHtml(track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : ''))}" alt="" />
         <div class="queue-item-info">
           <div class="queue-item-title">${escapeHtml(track.title)}</div>
           <div class="queue-item-artist">${renderArtistLinks(track)}</div>
@@ -4903,6 +4903,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     if (!track) return;
     removeContextMenu();
     const isLiked = state.likedSongs.some(t => t.id === track.id);
+    const isLocal = !!track.isLocal;
     const menu = document.createElement('div');
     menu.className = 'context-menu';
     menu.style.left = e.clientX + 'px';
@@ -4911,13 +4912,12 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const playlistSection = buildPlaylistSectionHtml();
 
     menu.innerHTML = `
-      <div class="context-menu-item" data-action="start-radio">${I18n.t('context.startRadio')}</div>
-      <div class="context-menu-item" data-action="watch-video">${I18n.t('context.watchVideo')}</div>
+      ${isLocal ? '' : `<div class="context-menu-item" data-action="start-radio">${I18n.t('context.startRadio')}</div>`}
+      ${isLocal ? '' : `<div class="context-menu-item" data-action="watch-video">${I18n.t('context.watchVideo')}</div>`}
       <div class="context-menu-item" data-action="like">${isLiked ? I18n.t('context.unlike') : I18n.t('context.like')}</div>
       ${playlistSection}
       ${track.artistId ? `<div class="context-menu-divider"></div><div class="context-menu-item" data-action="go-to-artist">${I18n.t('context.goToArtist')}</div>` : ''}
-      <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="share">${I18n.t('context.copyLink')}</div>
+      ${isLocal ? '' : `<div class="context-menu-divider"></div><div class="context-menu-item" data-action="share">${I18n.t('context.copyLink')}</div>`}
     `;
 
     positionContextMenu(menu);
@@ -5577,7 +5577,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       const data = {
         playlists: state.playlists.map(p => ({ ...p, tracks: stripLocal(p.tracks) })),
         likedSongs: stripLocal(state.likedSongs),
-        recentTracks: state.recentTracks,
+        recentTracks: stripLocal(state.recentTracks),
         followedArtists: state.followedArtists,
         volume: state.volume,
         shuffle: state.shuffle,
@@ -6004,7 +6004,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const data = {
       playlists: state.playlists.map(p => ({ ...p, tracks: stripLocal(p.tracks) })),
       likedSongs: stripLocal(state.likedSongs),
-      recentTracks: state.recentTracks,
+      recentTracks: stripLocal(state.recentTracks),
       followedArtists: state.followedArtists,
       volume: state.volume,
       shuffle: state.shuffle,
