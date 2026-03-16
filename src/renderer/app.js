@@ -6537,8 +6537,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
     // Update status text
     const statusEl = $('#profile-status');
-    statusEl.textContent = isListening ? I18n.t('friends.statusListening') : isOnline ? I18n.t('friends.statusOnline') : I18n.t('friends.statusOffline');
-    statusEl.className = `artist-followers ${isListening ? 'listening' : isOnline ? 'online' : ''}`;
+    statusEl.textContent = '';
+    statusEl.className = 'artist-followers';
+    statusEl.style.display = 'none';
 
     // Update listen along button visibility
     updateProfileListenAlongButton();
@@ -6604,8 +6605,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     avatarEl.classList.add('shimmer');
     labelEl.textContent = I18n.t('friends.profileLabel');
     nameEl.textContent = friend?.displayName || I18n.t('common.user');
-    statusEl.textContent = isListening ? I18n.t('friends.statusListening') : isOnline ? I18n.t('friends.statusOnline') : I18n.t('friends.statusOffline');
-    statusEl.className = `artist-followers ${isListening ? 'listening' : isOnline ? 'online' : ''}`;
+    statusEl.textContent = '';
+    statusEl.className = 'artist-followers';
+    statusEl.style.display = 'none';
     bioSection.style.display = 'none';
 
     // Listen Along button (show if friend is online and we're not in a session)
