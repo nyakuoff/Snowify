@@ -5,3 +5,6 @@ bin/
 *.log
 copilot-instructions.md
 plugins/*/
+build-dir/
+builddir/
+repo/

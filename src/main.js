@@ -2978,18 +2978,17 @@ function httpsGet(url) {
   });
 }
 
-// Fetch curated registry (local file in dev, GitHub in production)
+// Fetch curated registry (local file in dev, GitHub in production/Flatpak)
 ipcMain.handle('plugins:getRegistry', async () => {
-  // In dev mode, read the local registry file so we can test without pushing
+  // In dev mode, try the local registry file so we can test without pushing
   if (_isDev) {
     try {
       const localPath = path.join(__dirname, '..', 'plugins', 'registry.json');
-      const body = fs.readFileSync(localPath, 'utf-8');
-      return JSON.parse(body);
-    } catch (err) {
-      console.error('Failed to read local plugin registry:', err);
-      return { version: 1, plugins: [], themes: [] };
-    }
+      if (fs.existsSync(localPath)) {
+        const body = fs.readFileSync(localPath, 'utf-8');
+        return JSON.parse(body);
+      }
+    } catch { /* fall through to remote fetch */ }
   }
   try {
     const body = await httpsGet(MARKETPLACE_REGISTRY_URL);
