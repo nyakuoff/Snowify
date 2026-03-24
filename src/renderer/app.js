@@ -58,7 +58,8 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
         normalizationTarget: state.normalizationTarget,
         prefetchCount: state.prefetchCount,
         showListeningActivity: state.showListeningActivity,
-        showPlugins: state.showPlugins
+        showPlugins: state.showPlugins,
+        minimizeToTray: state.minimizeToTray
       }));
       localStorage.setItem('snowify_lastSave', String(Date.now()));
     } catch (e) {
@@ -119,6 +120,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
         state.normalizationTarget = saved.normalizationTarget ?? -14;
         state.prefetchCount = saved.prefetchCount ?? 0;
         state.showPlugins = saved.showPlugins ?? true;
+        state.minimizeToTray = saved.minimizeToTray ?? false;
       }
       // Restore queue (local-only, separate from cloud sync)
       const savedQueue = JSON.parse(localStorage.getItem('snowify_queue'));
@@ -5181,6 +5183,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     updateGreeting();
     setVolume(state.volume);
     if (state.discordRpc) window.snowify.connectDiscord();
+    if (state.minimizeToTray) window.snowify.setMinimizeToTray(true);
     btnShuffle.classList.toggle('active', state.shuffle);
     btnRepeat.classList.toggle('active', state.repeat !== 'off');
     updateRepeatButton();
@@ -5731,6 +5734,16 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       }
       saveState();
     });
+
+    const minimizeToTrayToggle = $('#setting-minimize-to-tray');
+    if (minimizeToTrayToggle) {
+      minimizeToTrayToggle.checked = state.minimizeToTray;
+      minimizeToTrayToggle.addEventListener('change', () => {
+        state.minimizeToTray = minimizeToTrayToggle.checked;
+        window.snowify.setMinimizeToTray(state.minimizeToTray);
+        saveState();
+      });
+    }
 
     // Apply theme
     applyTheme(state.theme);

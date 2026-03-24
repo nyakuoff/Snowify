@@ -154,6 +154,8 @@
   "settings.country": "Country",
   "settings.countryDesc": "Localizes Explore recommendations",
   "settings.countryNotSet": "Not set",
+  "settings.minimizeToTray": "Minimize to tray",
+  "settings.minimizeToTrayDesc": "Closing the app minimizes it to the system tray instead of quitting",
   "settings.playback": "Playback",
   "settings.autoplay": "Autoplay",
   "settings.autoplayDesc": "Continue playing similar songs when queue ends",

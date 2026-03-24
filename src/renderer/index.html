@@ -519,6 +519,19 @@
             </div>
             <div class="setting-row">
               <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.minimizeToTray">Minimize to tray</span>
+                <span class="setting-desc" data-i18n="settings.minimizeToTrayDesc">Closing the app minimizes it to the system tray instead of quitting</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-minimize-to-tray" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+          <div class="settings-group">
+            <h3 data-i18n="settings.data">Data</h3>
+            <div class="setting-row">
+              <div class="setting-info">
                 <span class="setting-label" data-i18n="settings.country">Country</span>
                 <span class="setting-desc" data-i18n="settings.countryDesc">Localizes Explore recommendations</span>
               </div>
@@ -577,9 +590,6 @@
                 <option value="VN">Vietnam</option>
               </select>
             </div>
-          </div>
-          <div class="settings-group">
-            <h3 data-i18n="settings.data">Data</h3>
             <div class="setting-row">
               <div class="setting-info">
                 <span class="setting-label" data-i18n="settings.clearHistory">Clear play history</span>

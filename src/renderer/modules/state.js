@@ -34,7 +34,8 @@ const state = {
   normalizationTarget: -14,
   prefetchCount: 0,
   showListeningActivity: true,
-  showPlugins: true
+  showPlugins: true,
+  minimizeToTray: false
 };
 
 export default state;

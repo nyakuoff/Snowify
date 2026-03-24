@@ -5,6 +5,8 @@ const ctx = {
   ytmusic: null,
   ytmusicReady: false,
   currentCountry: '',
+  minimizeToTray: false,
+  tray: null,
 };
 
 module.exports = ctx;

@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('snowify', {
   minimize: () => ipcRenderer.send('window:minimize'),
   maximize: () => ipcRenderer.send('window:maximize'),
   close: () => ipcRenderer.send('window:close'),
+  setMinimizeToTray: (enabled) => ipcRenderer.send('window:setMinimizeToTray', enabled),
 
   // YouTube Music
   search: (query, musicOnly) => ipcRenderer.invoke('yt:search', query, musicOnly),

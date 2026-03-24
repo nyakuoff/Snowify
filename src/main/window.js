@@ -1,4 +1,4 @@
-const { BrowserWindow, session, nativeImage, ipcMain: _ipcMain } = require('electron');
+const { BrowserWindow, session, nativeImage, Tray, Menu, app, ipcMain: _ipcMain } = require('electron');
 const path = require('path');
 const { mt } = require('./i18n');
 const { updateThumbarButtons } = require('./thumbbar');
@@ -36,8 +36,38 @@ function createWindow(ctx) {
 
   // Intercept close to flush pending saves before quitting
   let _closeReady = false;
+  let _forceQuit = false;
+
+  function setupTray() {
+    if (ctx.tray) return;
+    const icon = nativeImage.createFromPath(path.join(__dirname, '..', '..', 'assets', 'logo.png')).resize({ width: 16, height: 16 });
+    ctx.tray = new Tray(icon);
+    ctx.tray.setToolTip('Snowify');
+    ctx.tray.setContextMenu(Menu.buildFromTemplate([
+      { label: 'Open Snowify', click: () => { ctx.mainWindow?.show(); ctx.mainWindow?.focus(); } },
+      { type: 'separator' },
+      { label: 'Quit Snowify', click: () => { _forceQuit = true; ctx.mainWindow?.close(); } }
+    ]));
+    ctx.tray.on('click', () => { ctx.mainWindow?.show(); ctx.mainWindow?.focus(); });
+  }
+
+  function destroyTray() {
+    if (ctx.tray) { ctx.tray.destroy(); ctx.tray = null; }
+  }
+
+  _ipcMain.on('window:setMinimizeToTray', (_e, enabled) => {
+    ctx.minimizeToTray = !!enabled;
+    if (enabled) setupTray();
+    else destroyTray();
+  });
+
   ctx.mainWindow.on('close', (e) => {
     if (_closeReady) return;
+    if (ctx.minimizeToTray && !_forceQuit) {
+      e.preventDefault();
+      ctx.mainWindow.hide();
+      return;
+    }
     e.preventDefault();
     ctx.mainWindow.webContents.send('app:before-close');
     setTimeout(() => { _closeReady = true; ctx.mainWindow?.close(); }, 2000);
