@@ -243,6 +243,35 @@
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+/* Ambient/pulse effects added in ui-overhaul */
+.no-effects #np-thumbnail {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
+  animation: none !important;
+}
+.no-effects .play-btn {
+  animation: none !important;
+  box-shadow: 0 2px 12px rgba(255, 255, 255, 0.15) !important;
+}
+.no-effects #now-playing-bar {
+  background: var(--bg-surface) !important;
+  box-shadow: none !important;
+}
+.no-effects .album-card:hover {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+.no-effects .track-row:hover {
+  box-shadow: none !important;
+}
+.no-effects .track-row.playing {
+  box-shadow: none !important;
+}
+.no-effects .nav-btn.active::before {
+  box-shadow: none !important;
+}
+.no-effects .progress-fill {
+  background: var(--accent) !important;
+}
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -3823,13 +3852,13 @@ body.audio-playing .play-btn {
 }
 
 .lyrics-line {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 700;
-  line-height: 1.7;
-  padding: 8px 16px;
+  line-height: 1.65;
+  padding: 10px 16px;
   color: var(--text-primary);
   opacity: 0.2;
-  transition: opacity 0.4s ease, transform 0.4s ease, text-shadow 0.4s ease;
+  transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), font-size 0.45s ease, text-shadow 0.45s ease;
   cursor: pointer;
   border-radius: 8px;
   user-select: text;
@@ -3841,12 +3870,13 @@ body.audio-playing .play-btn {
 }
 .lyrics-line.active {
   opacity: 1 !important;
-  transform: scale(1.04);
+  font-size: 30px;
+  transform: scale(1.0);
   color: var(--accent);
   text-shadow:
-    0 0 20px var(--accent-glow),
-    0 0 40px var(--accent-glow),
-    0 0 60px rgba(170, 85, 230, 0.1);
+    0 0 24px var(--accent-glow),
+    0 0 48px var(--accent-glow),
+    0 0 72px rgba(170, 85, 230, 0.12);
 }
 
 /* Plain lyrics */
@@ -4204,13 +4234,13 @@ body.audio-playing .play-btn {
 }
 
 .max-np-lyrics .lyrics-line {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
-  line-height: 1.7;
-  padding: 6px 12px;
+  line-height: 1.65;
+  padding: 8px 12px;
   color: #fff;
   opacity: 0.2;
-  transition: opacity 0.4s ease, transform 0.4s ease, text-shadow 0.4s ease;
+  transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), font-size 0.45s ease, text-shadow 0.45s ease;
   cursor: pointer;
   border-radius: 8px;
   user-select: text;
@@ -4222,12 +4252,13 @@ body.audio-playing .play-btn {
 }
 .max-np-lyrics .lyrics-line.active {
   opacity: 1 !important;
-  transform: scale(1.04);
+  font-size: 26px;
+  transform: scale(1.0);
   color: var(--lyrics-color, var(--accent));
   text-shadow:
-    0 0 20px var(--lyrics-glow, var(--accent-glow)),
-    0 0 40px var(--lyrics-glow, var(--accent-glow)),
-    0 0 60px rgba(170, 85, 230, 0.1);
+    0 0 24px var(--lyrics-glow, var(--accent-glow)),
+    0 0 48px var(--lyrics-glow, var(--accent-glow)),
+    0 0 72px rgba(170, 85, 230, 0.12);
 }
 
 .max-np-lyrics .lyrics-content.plain .lyrics-line {

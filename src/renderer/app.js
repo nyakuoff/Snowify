@@ -4192,18 +4192,25 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         el.style.opacity = '0.35';
       } else if (dist === 0) {
         el.style.opacity = '1';
-      } else if (dist <= 2) {
-        el.style.opacity = '0.45';
+      } else if (dist === 1) {
+        el.style.opacity = '0.5';
+      } else if (dist === 2) {
+        el.style.opacity = '0.3';
       } else {
-        el.style.opacity = '0.2';
+        el.style.opacity = '0.15';
       }
     });
 
-    // Auto-scroll active line to center
+    // Scroll container so active line is vertically centered
     if (activeIdx >= 0) {
       const activeLine = allLines[activeIdx];
-      if (activeLine) {
-        activeLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const container = lyricsBody;
+      if (activeLine && container) {
+        const lineTop = activeLine.offsetTop;
+        const lineHeight = activeLine.offsetHeight;
+        const containerHeight = container.clientHeight;
+        const targetScrollTop = lineTop - (containerHeight / 2) + (lineHeight / 2);
+        container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
       }
     }
   }
@@ -4567,17 +4574,25 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         el.style.opacity = '0.35';
       } else if (dist === 0) {
         el.style.opacity = '1';
-      } else if (dist <= 2) {
-        el.style.opacity = '0.45';
+      } else if (dist === 1) {
+        el.style.opacity = '0.5';
+      } else if (dist === 2) {
+        el.style.opacity = '0.3';
       } else {
-        el.style.opacity = '0.2';
+        el.style.opacity = '0.15';
       }
     });
 
+    // Scroll container so active line is vertically centered
     if (activeIdx >= 0) {
       const activeLine = allLines[activeIdx];
-      if (activeLine) {
-        activeLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const container = maxNPLyrics;
+      if (activeLine && container) {
+        const lineTop = activeLine.offsetTop;
+        const lineHeight = activeLine.offsetHeight;
+        const containerHeight = container.clientHeight;
+        const targetScrollTop = lineTop - (containerHeight / 2) + (lineHeight / 2);
+        container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
       }
     }
   }
