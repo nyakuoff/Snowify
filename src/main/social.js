@@ -53,10 +53,17 @@ function register(ipcMain, ctx) {
     if (!user) return { error: 'Not signed in' };
     try {
       const myPresRef = firebase.doc(firebase.db, 'presence', user.uid);
+      const fromPresRef = firebase.doc(firebase.db, 'presence', fromUid);
       if (accepted) {
         const mySnap = await firebase.getDoc(myPresRef);
         if (mySnap.exists() && mySnap.data().listenAlong) return { error: 'Already in a listen along session', accepted: false };
-        await firebase.updateDoc(myPresRef, { listenAlong: { peerUid: fromUid, role: 'guest' } });
+        // Accepter becomes host/controller; requester follows as guest.
+        await Promise.all([
+          firebase.updateDoc(myPresRef, { listenAlong: { peerUid: fromUid, role: 'host' }, listenAlongRequest: null }),
+          firebase.updateDoc(fromPresRef, { listenAlong: { peerUid: user.uid, role: 'guest' }, listenAlongRequest: null })
+        ]);
+      } else {
+        await firebase.updateDoc(fromPresRef, { listenAlongRequest: null }).catch(() => {});
       }
       return { success: true, accepted };
     } catch (err) { return { error: err.message }; }
@@ -203,14 +210,6 @@ function register(ipcMain, ctx) {
 
           if (data?.listenAlongRequest?.toUid === user.uid) {
             ctx.mainWindow.webContents.send('social:listenAlongRequest', { fromUid: uid, fromName: data.displayName || data.listenAlongRequest.fromName || 'Friend', timestamp: data.listenAlongRequest.timestamp });
-          }
-
-          if (data?.listenAlong?.peerUid === user.uid && data.listenAlong.role === 'guest') {
-            const myRef = firebase.doc(firebase.db, 'presence', user.uid);
-            firebase.getDoc(myRef).then(mySnap => {
-              if (mySnap.exists() && mySnap.data().listenAlong) return;
-              firebase.updateDoc(myRef, { listenAlong: { peerUid: uid, role: 'host' }, listenAlongRequest: null });
-            }).catch(err => console.error('Auto-set host error:', err));
           }
 
           ctx.mainWindow.webContents.send('social:presenceUpdated', { uid, presence: data });
