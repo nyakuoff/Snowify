@@ -1730,6 +1730,16 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     document.querySelector('#app').classList.remove('no-player');
 
     $('#np-thumbnail').src = track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : '');
+    // Extract dominant color from album art and push as ambient CSS variable
+    const _ambientSrc = track.thumbnail;
+    if (_ambientSrc) {
+      extractDominantColor({ src: _ambientSrc }).then(color => {
+        const rgb = color ? `${color.r}, ${color.g}, ${color.b}` : '170, 85, 230';
+        document.documentElement.style.setProperty('--ambient-rgb', rgb);
+      });
+    } else {
+      document.documentElement.style.setProperty('--ambient-rgb', '170, 85, 230');
+    }
     const npTitle = $('#np-title');
     npTitle.textContent = track.title;
     if (track.albumId) {

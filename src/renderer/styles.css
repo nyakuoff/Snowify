@@ -29,6 +29,8 @@
   --glass-border: 1px solid rgba(255, 255, 255, 0.07);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
   --glass-blur: blur(24px);
+  /* Dynamic ambient color from current track art — updated by JS */
+  --ambient-rgb: 170, 85, 230;
 }
 
 /* ═══════ Themes ═══════ */
@@ -1378,14 +1380,17 @@ body.audio-playing .track-row.playing .track-eq { display: flex; justify-content
   position: fixed;
   bottom: 0; left: 0; right: 0;
   height: var(--now-playing-height);
-  background: var(--bg-surface);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: linear-gradient(90deg, rgba(var(--ambient-rgb), 0.10) 0%, transparent 38%), var(--bg-surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: none;
+  box-shadow: 0 -1px 0 rgba(var(--ambient-rgb), 0.22), 0 -18px 36px rgba(var(--ambient-rgb), 0.06);
   display: grid;
   grid-template-columns: 1fr 2fr 1fr;
   align-items: center;
   padding: 0 16px;
   z-index: 100;
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), background 0.9s ease, box-shadow 0.9s ease;
 }
 #now-playing-bar.hidden {
   transform: translateY(100%);
@@ -1400,18 +1405,18 @@ body.audio-playing .track-row.playing .track-eq { display: flex; justify-content
   overflow: hidden;
 }
 #np-thumbnail {
-  width: 56px;
-  height: 56px;
+  width: 60px;
+  height: 60px;
   border-radius: var(--radius);
   object-fit: cover;
   object-position: center;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  transition: transform var(--transition);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 22px rgba(var(--ambient-rgb), 0.30);
+  transition: transform var(--transition), box-shadow 0.9s ease;
   display: block;
   cursor: pointer;
 }
 #np-thumbnail:hover {
-  transform: scale(1.05);
+  transform: scale(1.07);
 }
 .np-text {
   overflow: hidden;
