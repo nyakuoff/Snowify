@@ -5705,6 +5705,24 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   async function initSettings() {
     if (_settingsInitialized) return;
     _settingsInitialized = true;
+
+    // ── Settings tabs ──
+    const settingsTabs = document.querySelector('.settings-tabs');
+    if (settingsTabs) {
+      const activateSettingsTab = (tabId) => {
+        document.querySelectorAll('.settings-tab-btn').forEach(b =>
+          b.classList.toggle('active', b.dataset.settingsTab === tabId));
+        document.querySelectorAll('.settings-tab-pane').forEach(p =>
+          p.classList.toggle('active', p.dataset.tab === tabId));
+        sessionStorage.setItem('settings-tab', tabId);
+      };
+      settingsTabs.addEventListener('click', e => {
+        const btn = e.target.closest('.settings-tab-btn');
+        if (btn) activateSettingsTab(btn.dataset.settingsTab);
+      });
+      activateSettingsTab(sessionStorage.getItem('settings-tab') || 'playback');
+    }
+
     const autoplayToggle = $('#setting-autoplay');
     const qualitySelect = $('#setting-quality');
     const videoQualitySelect = $('#setting-video-quality');

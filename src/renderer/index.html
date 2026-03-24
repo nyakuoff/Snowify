@@ -326,23 +326,17 @@
           <div class="view-header">
             <h1 data-i18n="settings.title">Settings</h1>
           </div>
-          <div class="settings-group">
-            <h3 data-i18n="settings.localData">Local Data</h3>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label">Export library</span>
-                <span class="setting-desc">Save your playlists, liked songs, and settings to a file</span>
-              </div>
-              <button class="btn-setting-action" id="btn-export-data">Export</button>
-            </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label">Import library</span>
-                <span class="setting-desc">Restore from a previously exported file</span>
-              </div>
-              <button class="btn-setting-action" id="btn-import-data">Import</button>
-            </div>
+
+          <!-- Tab bar -->
+          <div class="settings-tabs">
+            <button class="settings-tab-btn" data-settings-tab="playback" data-i18n="settings.tabPlayback">Playback</button>
+            <button class="settings-tab-btn" data-settings-tab="appearance" data-i18n="settings.tabAppearance">Appearance</button>
+            <button class="settings-tab-btn" data-settings-tab="data" data-i18n="settings.tabData">Data &amp; Library</button>
+            <button class="settings-tab-btn" data-settings-tab="about" data-i18n="settings.tabAbout">About</button>
           </div>
+
+          <!-- ── Playback tab ── -->
+          <div class="settings-tab-pane" data-tab="playback">
 
           <div class="settings-group">
             <h3 data-i18n="settings.playback">Playback</h3>
@@ -458,6 +452,12 @@
               </label>
             </div>
           </div>
+
+          </div><!-- /.settings-tab-pane[playback] -->
+
+          <!-- ── Appearance tab ── -->
+          <div class="settings-tab-pane" data-tab="appearance">
+
           <div class="settings-group">
             <h3 data-i18n="settings.appearance">Appearance</h3>
             <div class="setting-row">
@@ -500,7 +500,7 @@
             <div class="setting-row">
               <div class="setting-info">
                 <span class="setting-label" data-i18n="settings.effects">Visual effects</span>
-                <span class="setting-desc" data-i18n="settings.effectsDesc">Glow, blur and shadow effects (disable for better performance)</span>
+                <span class="setting-desc" data-i18n="settings.effectsDesc">Glow, blur and shadow effects</span>
               </div>
               <label class="toggle-switch">
                 <input type="checkbox" id="setting-effects" checked />
@@ -528,6 +528,29 @@
               </label>
             </div>
           </div>
+          </div><!-- /.settings-tab-pane[appearance] -->
+
+          <!-- ── Data & Library tab ── -->
+          <div class="settings-tab-pane" data-tab="data">
+
+          <div class="settings-group">
+            <h3 data-i18n="settings.localData">Local Data</h3>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label">Export library</span>
+                <span class="setting-desc">Save your playlists, liked songs, and settings to a file</span>
+              </div>
+              <button class="btn-setting-action" id="btn-export-data">Export</button>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label">Import library</span>
+                <span class="setting-desc">Restore from a previously exported file</span>
+              </div>
+              <button class="btn-setting-action" id="btn-import-data">Import</button>
+            </div>
+          </div>
+
           <div class="settings-group">
             <h3 data-i18n="settings.data">Data</h3>
             <div class="setting-row">
@@ -613,6 +636,11 @@
             </div>
           </div>
 
+          </div><!-- /.settings-tab-pane[data] -->
+
+          <!-- ── About tab ── -->
+          <div class="settings-tab-pane" data-tab="about">
+
           <div class="settings-group">
             <h3 data-i18n="settings.about">About</h3>
             <div class="setting-row">
@@ -678,6 +706,8 @@
               </div>
             </div>
           </div>
+
+          </div><!-- /.settings-tab-pane[about] -->
 
         </div>
       </section>

@@ -2695,9 +2695,55 @@ body.audio-playing .play-btn {
 
 /* ═══════ Settings Page ═══════ */
 .settings-content {
-  max-width: 640px;
+  max-width: 680px;
   margin: 0 auto;
   padding-bottom: 40px;
+}
+
+/* ── Settings tabs ── */
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 28px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.settings-tab-btn {
+  flex: 1;
+  padding: 9px 14px;
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-lg) - 4px);
+  color: var(--text-subdued);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+  white-space: nowrap;
+}
+.settings-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+.settings-tab-btn.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(170, 85, 230, 0.35);
+}
+.settings-tab-pane {
+  display: none;
+}
+.settings-tab-pane.active {
+  display: block;
+}
+[data-theme="light"] .settings-tabs {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.07);
+}
+[data-theme="light"] .settings-tab-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
 .settings-group {
   margin-bottom: 32px;
@@ -3870,7 +3916,8 @@ body.audio-playing .play-btn {
 }
 .lyrics-line.active {
   opacity: 1 !important;
-  font-size: 30px;
+  font-size: 35px;
+  font-weight: 800;
   transform: scale(1.0);
   color: var(--accent);
   text-shadow:
@@ -4252,7 +4299,8 @@ body.audio-playing .play-btn {
 }
 .max-np-lyrics .lyrics-line.active {
   opacity: 1 !important;
-  font-size: 26px;
+  font-size: 30px;
+  font-weight: 800;
   transform: scale(1.0);
   color: var(--lyrics-color, var(--accent));
   text-shadow:
