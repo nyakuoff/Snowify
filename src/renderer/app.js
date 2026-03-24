@@ -33,41 +33,49 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
   }
   function _flushSaveState() {
     if (_saveStateTimer) { clearTimeout(_saveStateTimer); _saveStateTimer = null; }
-    localStorage.setItem('snowify_state', JSON.stringify({
-      playlists: state.playlists,
-      likedSongs: state.likedSongs,
-      recentTracks: state.recentTracks,
-      followedArtists: state.followedArtists,
-      volume: state.volume,
-      shuffle: state.shuffle,
-      repeat: state.repeat,
-      musicOnly: state.musicOnly,
-      autoplay: state.autoplay,
-      audioQuality: state.audioQuality,
-      videoQuality: state.videoQuality,
-      videoPremuxed: state.videoPremuxed,
-      animations: state.animations,
-      effects: state.effects,
-      theme: state.theme,
-      discordRpc: state.discordRpc,
-      country: state.country,
-      searchHistory: state.searchHistory,
-      crossfade: state.crossfade,
-      normalization: state.normalization,
-      normalizationTarget: state.normalizationTarget,
-      prefetchCount: state.prefetchCount,
-      showListeningActivity: state.showListeningActivity,
-      showPlugins: state.showPlugins
-    }));
-    localStorage.setItem('snowify_lastSave', String(Date.now()));
+    try {
+      localStorage.setItem('snowify_state', JSON.stringify({
+        playlists: state.playlists,
+        likedSongs: state.likedSongs,
+        recentTracks: state.recentTracks,
+        followedArtists: state.followedArtists,
+        volume: state.volume,
+        shuffle: state.shuffle,
+        repeat: state.repeat,
+        musicOnly: state.musicOnly,
+        autoplay: state.autoplay,
+        audioQuality: state.audioQuality,
+        videoQuality: state.videoQuality,
+        videoPremuxed: state.videoPremuxed,
+        animations: state.animations,
+        effects: state.effects,
+        theme: state.theme,
+        discordRpc: state.discordRpc,
+        country: state.country,
+        searchHistory: state.searchHistory,
+        crossfade: state.crossfade,
+        normalization: state.normalization,
+        normalizationTarget: state.normalizationTarget,
+        prefetchCount: state.prefetchCount,
+        showListeningActivity: state.showListeningActivity,
+        showPlugins: state.showPlugins
+      }));
+      localStorage.setItem('snowify_lastSave', String(Date.now()));
+    } catch (e) {
+      console.error('State save failed (storage quota exceeded):', e);
+    }
     cloudSaveDebounced();
     // Queue persistence (local-only, not synced to cloud)
-    localStorage.setItem('snowify_queue', JSON.stringify({
-      queue: state.queue,
-      originalQueue: state.originalQueue,
-      queueIndex: state.queueIndex,
-      playingPlaylistId: state.playingPlaylistId
-    }));
+    try {
+      localStorage.setItem('snowify_queue', JSON.stringify({
+        queue: state.queue,
+        originalQueue: state.originalQueue,
+        queueIndex: state.queueIndex,
+        playingPlaylistId: state.playingPlaylistId
+      }));
+    } catch (e) {
+      console.error('Queue save failed (storage quota exceeded):', e);
+    }
   }
 
   function loadState() {
@@ -167,9 +175,8 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
     }
     if (name === 'friends') {
       renderFriends();
-    } else {
-      stopFriendsRefresh();
     }
+    // Social listeners remain active while signed in; only stopped on sign-out
     if (name === 'plugins') {
       renderPlugins();
     }
@@ -2304,12 +2311,29 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const coverBtn = $('#btn-cover-playlist');
     const exportBtn = $('#btn-export-playlist');
     const importBtn = $('#btn-import-local');
+    const folderBtn = $('#btn-import-folder');
     const publicBtn = $('#btn-toggle-public');
     renameBtn.style.display = isLiked ? 'none' : '';
     deleteBtn.style.display = isLiked ? 'none' : '';
     coverBtn.style.display = isLiked ? 'none' : '';
     importBtn.style.display = isLiked ? 'none' : '';
+    // Show folder-scan button only for folder-linked playlists
+    folderBtn.style.display = (!isLiked && playlist.folderPath) ? '' : 'none';
     publicBtn.style.display = (isLiked || !_cloudUser) ? 'none' : '';
+
+    // Auto-scan linked folder for new tracks on open
+    if (!isLiked && playlist.folderPath) {
+      window.snowify.scanAudioFolder(playlist.folderPath).then(scanned => {
+        const existing = new Set(playlist.tracks.map(t => t.id));
+        const newTracks = scanned.filter(t => !existing.has(t.id));
+        if (newTracks.length) {
+          playlist.tracks.push(...newTracks);
+          saveState();
+          renderPlaylists();
+          showPlaylistDetail(playlist, false);
+        }
+      }).catch(() => {});
+    }
 
     // Init public toggle state
     if (!isLiked && _cloudUser) {
@@ -2398,12 +2422,18 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
     importBtn.onclick = async () => {
       if (isLiked) return;
-      const tracks = await window.snowify.pickAudioFiles();
-      if (!tracks || !tracks.length) return;
+      const picked = await window.snowify.pickAudioFiles();
+      if (!picked || !picked.length) return;
       let added = 0;
-      for (const t of tracks) {
-        if (!playlist.tracks.some(pt => pt.id === t.id)) {
-          playlist.tracks.push(t);
+      for (const t of picked) {
+        let track = t;
+        // If this playlist is linked to a folder, copy the file there first
+        if (playlist.folderPath) {
+          const copied = await window.snowify.copyToPlaylistFolder(t.localPath, playlist.folderPath);
+          if (copied) track = copied;
+        }
+        if (!playlist.tracks.some(pt => pt.id === track.id)) {
+          playlist.tracks.push(track);
           added++;
         }
       }
@@ -2411,10 +2441,26 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         saveState();
         renderPlaylists();
         showPlaylistDetail(playlist, false);
-        showToast(`Added ${added} local file${added > 1 ? 's' : ''}`);
+        showToast(playlist.folderPath
+          ? I18n.t('toast.fileCopiedToFolder')
+          : `Added ${added} local file${added > 1 ? 's' : ''}`);
       } else {
         showToast('Files already in playlist');
       }
+    };
+
+    folderBtn.onclick = async () => {
+      if (!playlist.folderPath) return;
+      const scanned = await window.snowify.scanAudioFolder(playlist.folderPath).catch(() => []);
+      if (!scanned.length) return showToast(I18n.t('toast.folderNotFound'));
+      const existing = new Set(playlist.tracks.map(t => t.id));
+      const newTracks = scanned.filter(t => !existing.has(t.id));
+      if (!newTracks.length) return showToast(I18n.t('toast.folderNoNewTracks'));
+      playlist.tracks.push(...newTracks);
+      saveState();
+      renderPlaylists();
+      showPlaylistDetail(playlist, false);
+      showToast(I18n.t('toast.folderRefreshed', { count: newTracks.length }));
     };
 
     deleteBtn.onclick = () => {
@@ -2521,6 +2567,21 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   $('#btn-lib-create-playlist')?.addEventListener('click', async () => {
     const name = await showInputModal(I18n.t('modal.createPlaylist'), I18n.t('modal.defaultPlaylistName'));
     if (name) createPlaylist(name);
+  });
+  $('#btn-import-folder-playlist')?.addEventListener('click', async () => {
+    const result = await window.snowify.pickAudioFolder();
+    if (!result) return;
+    const { folderPath, name, tracks } = result;
+    if (!tracks.length) return showToast('No audio files found in that folder');
+    const id = 'pl_' + Date.now();
+    const playlist = { id, name, tracks, folderPath };
+    state.playlists.push(playlist);
+    saveState();
+    renderPlaylists();
+    renderLibrary();
+    showToast(I18n.t('toast.folderImported', { count: tracks.length }));
+    showPlaylistDetail(playlist, false);
+    switchView('playlist');
   });
   $('#btn-spotify-import').addEventListener('click', () => openSpotifyImport());
 
@@ -6546,6 +6607,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     if (publicBtn) publicBtn.style.display = 'none';
     const importBtn = $('#btn-import-local');
     if (importBtn) importBtn.style.display = 'none';
+    const folderBtn = $('#btn-import-folder');
+    if (folderBtn) folderBtn.style.display = 'none';
 
     // Render tracks
     state.currentPlaylistId = null; // Not a local playlist
@@ -6791,10 +6854,11 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         const waitForPlay = () => {
           if (!state.isLoading && audio.duration) {
             audio.currentTime = Math.min(hostPos, audio.duration - 0.5);
-          } else {
+          } else if (++_waitRetries < 50) { // max 10 s
             setTimeout(waitForPlay, 200);
           }
         };
+        let _waitRetries = 0;
         setTimeout(waitForPlay, 300);
       }
       return;
@@ -6807,7 +6871,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       if (audio.duration && Math.abs(audio.currentTime - hostPos) > 3) {
         audio.currentTime = Math.min(hostPos, audio.duration - 0.5);
       }
-      audio.play();
+      audio.play().catch(err => {
+        if (err.name !== 'AbortError') console.warn('Guest sync play failed:', err);
+      });
       state.isPlaying = true;
       updatePlayButton();
       const track = state.queue[state.queueIndex];

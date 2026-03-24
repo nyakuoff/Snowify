@@ -107,6 +107,15 @@ function register(ipcMain, ctx) {
 
   ipcMain.handle('auth:signOut', async () => {
     try {
+      // Clear presence before signing out while currentUser is still valid
+      const user = firebase.auth.currentUser;
+      if (user) {
+        await firebase.setDoc(
+          firebase.doc(firebase.db, 'presence', user.uid),
+          { isPlaying: false, isOnline: false, updatedAt: Date.now() },
+          { merge: true }
+        ).catch(() => {});
+      }
       await firebase.signOut(firebase.auth);
       ctx.currentUser = null;
       clearCredentials();

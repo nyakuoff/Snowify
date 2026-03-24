@@ -141,6 +141,9 @@ contextBridge.exposeInMainWorld('snowify', {
 
   // Local audio
   pickAudioFiles: () => ipcRenderer.invoke('local:pickAudioFiles'),
+  pickAudioFolder: () => ipcRenderer.invoke('local:pickFolder'),
+  scanAudioFolder: (folderPath) => ipcRenderer.invoke('local:scanFolder', folderPath),
+  copyToPlaylistFolder: (filePath, folderPath) => ipcRenderer.invoke('local:copyToPlaylistFolder', filePath, folderPath),
 
   // Track info (for deep links)
   getTrackInfo: (videoId) => ipcRenderer.invoke('yt:getTrackInfo', videoId),

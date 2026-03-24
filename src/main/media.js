@@ -238,7 +238,7 @@ function register(ipcMain, ctx) {
     } catch (err) { console.error('Delete cover image error:', err); return false; }
   });
 
-  // Local audio
+  // Local audio — pick individual files
   ipcMain.handle('local:pickAudioFiles', async () => {
     const result = await dialog.showOpenDialog(ctx.mainWindow, {
       title: 'Import local audio files',
@@ -248,25 +248,83 @@ function register(ipcMain, ctx) {
     if (result.canceled || !result.filePaths.length) return [];
     const tracks = [];
     for (const filePath of result.filePaths) {
-      try {
-        const metadata = await mm.parseFile(filePath, { duration: true });
-        const common = metadata.common || {};
-        const title = common.title || path.basename(filePath, path.extname(filePath));
-        const artist = common.artist || 'Unknown Artist';
-        const album = common.album || '';
-        const durationMs = metadata.format?.duration ? Math.round(metadata.format.duration * 1000) : 0;
-        let thumbnail = '';
-        const pic = common.picture?.[0];
-        if (pic) thumbnail = `data:${pic.format || 'image/jpeg'};base64,${pic.data.toString('base64')}`;
-        tracks.push({
-          id: 'local_' + Buffer.from(filePath).toString('base64url'),
-          title, artist, album, thumbnail, durationMs,
-          isLocal: true, localPath: filePath,
-        });
-      } catch (err) { console.error('Failed to parse audio file:', filePath, err.message); }
+      const t = await parseLocalFile(filePath);
+      if (t) tracks.push(t);
     }
     return tracks;
   });
+  // Local audio — import a folder as a playlist
+  ipcMain.handle('local:pickFolder', async () => {
+    const result = await dialog.showOpenDialog(ctx.mainWindow, {
+      title: 'Select audio folder',
+      properties: ['openDirectory'],
+    });
+    if (result.canceled || !result.filePaths.length) return null;
+    const folderPath = result.filePaths[0];
+    const tracks = await scanAudioFolder(folderPath);
+    return { folderPath, name: path.basename(folderPath), tracks };
+  });
+
+  // Re-scan a folder to pick up new files added since last import
+  ipcMain.handle('local:scanFolder', async (_event, folderPath) => {
+    if (!folderPath || !fs.existsSync(folderPath)) return [];
+    return await scanAudioFolder(folderPath);
+  });
+
+  // Copy a file into a playlist's linked folder, then return its track data
+  ipcMain.handle('local:copyToPlaylistFolder', async (_event, filePath, folderPath) => {
+    if (!fs.existsSync(folderPath)) return null;
+    const ext = path.extname(filePath);
+    const base = path.basename(filePath);
+    let destPath = path.join(folderPath, base);
+    if (fs.existsSync(destPath)) {
+      const name = path.basename(filePath, ext);
+      destPath = path.join(folderPath, `${name}_${Date.now()}${ext}`);
+    }
+    fs.copyFileSync(filePath, destPath);
+    return await parseLocalFile(destPath);
+  });
+}
+
+const AUDIO_EXTS = new Set(['mp3','flac','ogg','wav','aac','m4a','opus','wma','aiff']);
+
+async function scanAudioFolder(folderPath) {
+  const filePaths = [];
+  async function walk(dir) {
+    let entries;
+    try { entries = await fs.promises.readdir(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) await walk(full);
+      else if (AUDIO_EXTS.has(path.extname(e.name).toLowerCase().slice(1))) filePaths.push(full);
+    }
+  }
+  await walk(folderPath);
+  const tracks = [];
+  for (const fp of filePaths) {
+    const t = await parseLocalFile(fp);
+    if (t) tracks.push(t);
+  }
+  return tracks;
+}
+
+async function parseLocalFile(filePath) {
+  try {
+    const metadata = await mm.parseFile(filePath, { duration: true });
+    const common = metadata.common || {};
+    const title = common.title || path.basename(filePath, path.extname(filePath));
+    const artist = common.artist || 'Unknown Artist';
+    const album = common.album || '';
+    const durationMs = metadata.format?.duration ? Math.round(metadata.format.duration * 1000) : 0;
+    let thumbnail = '';
+    const pic = common.picture?.[0];
+    if (pic) thumbnail = `data:${pic.format || 'image/jpeg'};base64,${pic.data.toString('base64')}`;
+    return {
+      id: 'local_' + Buffer.from(filePath).toString('base64url'),
+      title, artist, album, thumbnail, durationMs,
+      isLocal: true, localPath: filePath,
+    };
+  } catch { return null; }
 }
 
 module.exports = { register };

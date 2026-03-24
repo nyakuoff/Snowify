@@ -26,10 +26,16 @@ export function removeCustomThemeCss() {
 
 export async function loadAndApplyThemeFile(themeValue) {
   if (!isCustomTheme(themeValue)) { removeCustomThemeCss(); return false; }
-  const css = await window.snowify.loadTheme(customThemeId(themeValue));
-  if (css) { applyCustomThemeCss(css); return true; }
-  removeCustomThemeCss();
-  return false;
+  try {
+    const css = await window.snowify.loadTheme(customThemeId(themeValue));
+    if (css) { applyCustomThemeCss(css); return true; }
+    removeCustomThemeCss();
+    return false;
+  } catch (err) {
+    console.error('Failed to load custom theme:', err);
+    removeCustomThemeCss();
+    return false;
+  }
 }
 
 export function applyTheme(theme) {
