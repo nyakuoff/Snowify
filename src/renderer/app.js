@@ -1759,6 +1759,15 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const isLiked = state.likedSongs.some(t => t.id === track.id);
     $('#np-like').classList.toggle('liked', isLiked);
 
+    // Update sidebar mini-player
+    const sidebarNP = $('#sidebar-np');
+    if (sidebarNP) {
+      $('#sidebar-np-art').src = track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : '');
+      $('#sidebar-np-title').textContent = track.title || '—';
+      $('#sidebar-np-artist').textContent = track.artist || '—';
+      sidebarNP.classList.remove('hidden');
+    }
+
     updateMediaSession(track);
     onTrackChanged(track);
   }
@@ -5199,6 +5208,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     updateRepeatButton();
     renderPlaylists();
     renderHome();
+    // Wire sidebar mini-player to open fullscreen player on click
+    const _sidebarNP = $('#sidebar-np');
+    if (_sidebarNP) _sidebarNP.addEventListener('click', () => $('#np-thumbnail')?.click());
     initSettings().catch(err => {
       console.error('[initSettings crashed]', err);
       showToast('Settings error: ' + err.message);
