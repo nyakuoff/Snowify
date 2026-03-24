@@ -2455,10 +2455,10 @@ body.audio-playing .track-row.playing .track-eq { display: flex; justify-content
 }
 .album-card-play {
   position: absolute;
-  bottom: 86px;
-  right: 22px;
-  width: 40px;
-  height: 40px;
+  bottom: 80px;
+  right: 18px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   border: none;
   background: var(--accent);
@@ -2468,8 +2468,8 @@ body.audio-playing .track-row.playing .track-eq { display: flex; justify-content
   justify-content: center;
   cursor: pointer;
   opacity: 0;
-  transform: translateY(8px) scale(0.85);
-  transition: opacity 0.25s, transform var(--transition-bounce);
+  transform: translateY(6px) scale(0.85);
+  transition: opacity 0.22s, transform var(--transition-bounce), background var(--transition);
   box-shadow: 0 4px 16px var(--accent-glow);
 }
 .album-card:hover .album-card-play {
