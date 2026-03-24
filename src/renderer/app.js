@@ -288,6 +288,9 @@
     if (name === 'plugins') {
       renderPlugins();
     }
+    if (name === 'donate') {
+      // Donation page - just needs to be visible
+    }
     if (name === 'settings') {
       const ts = $('#theme-select');
       if (ts) populateCustomThemes(ts, state.theme);
@@ -5482,6 +5485,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     } else {
       document.querySelector('#app').classList.add('no-player');
     }
+    // Show donation modal once per version
+    showDonationModalIfNeeded();
   }
 
   function showWelcomeScreen() {
@@ -5558,6 +5563,46 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       overlay.classList.remove('fade-out');
     }, { once: true });
     finishInit();
+  }
+
+  // ─── Donation Modal ───
+
+  function showDonationModalIfNeeded() {
+    const versionKey = 'snowify_donation_shown_v2';
+    if (localStorage.getItem(versionKey)) return;
+    localStorage.setItem(versionKey, '1');
+    // Small delay so the app finishes loading first
+    setTimeout(showDonationModal, 2000);
+  }
+
+  const BMC_URL = 'https://buymeacoffee.com/nyaku';
+
+  function openBMC() {
+    window.snowify?.openExternal(BMC_URL);
+  }
+
+  function showDonationModal() {
+    const modal = $('#donation-modal');
+    modal.classList.remove('hidden');
+
+    $('#btn-donation-close').onclick = () => closeDonationModal();
+    $('#btn-donate-once').onclick = () => {
+      closeDonationModal();
+      openBMC();
+    };
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeDonationModal();
+    }, { once: true });
+  }
+
+  function closeDonationModal() {
+    $('#donation-modal').classList.add('hidden');
+  }
+
+  // Support floating button → open donation modal
+  if ($('#btn-support-floating')) {
+    $('#btn-support-floating').onclick = showDonationModal;
   }
 
   // ─── Cloud Sync ───

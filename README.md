@@ -93,6 +93,15 @@ npm start
 
 This app is for **personal and educational use only**. It streams content from publicly available sources. I am not responsible for how anyone chooses to use it.
 
+## Supporting Snowify
+
+Snowify is growing super fast, and so are the costs to keep it running. If you love using Snowify and want to help it keep thriving, please consider supporting the project:
+
+- **[💝 Donate](https://snowify.cc/donate)** — All donations will be used to maintain Snowify
+- **[⭐ Star this repo](https://github.com/nyakuoff/Snowify)** — It really helps!
+
+Every contribution keeps Snowify ad-free and fully open source. Thank you for being part of the community!
+
 ## Contributing
 
 If you find bugs, have ideas, or want to clean something up, feel free to open an issue or a PR. All skill levels welcome.

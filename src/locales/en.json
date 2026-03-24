@@ -509,5 +509,12 @@
   "plugins.themeUninstalled": "Theme uninstalled",
   "plugins.themeApplied": "Theme applied",
   "plugins.themeActive": "Active",
-  "plugins.themeApply": "Apply"
+  "plugins.themeApply": "Apply",
+  "donation.title": "Snowify Needs Your Help",
+  "donation.subtitle": "Server costs are rising - and we need your support",
+  "donation.message": "Snowify is free and ad-free, and we want to keep it that way. But our running costs are growing every month, and without community support, the future of Snowify is genuinely at risk. If this app means something to you, now is the time to help.",
+  "donation.donate": "Donate and Support",
+  "donation.footer": "Every contribution helps keep Snowify alive for everyone.",
+  "donation.supportTitle": "Help support Snowify",
+  "donation.supportBtn": "Support Us"
 }

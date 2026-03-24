@@ -52,6 +52,22 @@
     </div>
   </div>
 
+  <!-- ═══════ Donation Modal ═══════ -->
+  <div id="donation-modal" class="donation-modal hidden">
+    <div class="donation-modal-content">
+      <button class="donation-modal-close" id="btn-donation-close" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+      <h1 class="donation-modal-title" data-i18n="donation.title">Snowify Needs Your Help</h1>
+      <p class="donation-modal-subtitle" data-i18n="donation.subtitle">Server costs are rising - and we need your support</p>
+      <p class="donation-modal-message" data-i18n="donation.message">Snowify is free and ad-free, and we want to keep it that way. But our running costs are growing every month, and without community support, the future of Snowify is genuinely at risk. If this app means something to you, now is the time to help.</p>
+      <div class="donation-modal-buttons">
+        <button class="donation-btn-donate" id="btn-donate-once" data-i18n="donation.donate">Donate and Support</button>
+      </div>
+      <p class="donation-modal-footer" data-i18n="donation.footer">Every contribution helps keep Snowify alive for everyone!</p>
+    </div>
+  </div>
+
   <!-- ═══════ Main Layout ═══════ -->
   <div id="app">
     <!-- Sidebar -->
@@ -113,6 +129,12 @@
         </div>
       </div>
     </aside>
+
+    <!-- Support Button (subtle, bottom-right) -->
+    <button id="btn-support-floating" class="support-floating-btn" title="Help support Snowify" data-i18n-title="donation.supportTitle">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+      <span class="support-btn-text" data-i18n="donation.supportBtn">Support</span>
+    </button>
 
     <!-- Main Content -->
     <main id="main-content">
@@ -913,6 +935,123 @@
         <div class="artist-section" id="profile-playlists-section" style="display:none;">
           <h2 data-i18n="friends.publicPlaylists">Public Playlists</h2>
           <div id="profile-playlists" class="profile-playlists-grid"></div>
+        </div>
+      </section>
+
+      <!-- ═══════ Donation View ═══════ -->
+      <section class="view" id="view-donate">
+        <div class="view-header">
+          <h1>Support Snowify</h1>
+        </div>
+        <div class="donate-content">
+          <div class="donate-section">
+            <h2 data-i18n="donation.title">Help Us Keep Growing</h2>
+            <p class="donate-description" data-i18n="donation.message">Snowify is and always will be free. But with your support, we can keep adding amazing features, maintain fast servers, and keep the app completely ad-free.</p>
+          </div>
+
+          <div class="donate-section">
+            <h2 data-i18n="donation.whyDonate">Why Your Support Matters</h2>
+            <div class="donate-benefits">
+              <div class="benefit-card">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2v20M2 12h20"/></svg>
+                <h3 data-i18n="donation.benefit1">Complete Ad-Free</h3>
+                <p>No ads. No interruptions. Pure music.</p>
+              </div>
+              <div class="benefit-card">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+                <h3 data-i18n="donation.benefit2">Continuous Updates</h3>
+                <p>Regular features and improvements.</p>
+              </div>
+              <div class="benefit-card">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <h3 data-i18n="donation.benefit3">Premium Support</h3>
+                <p>Priority support from our team.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="donate-section">
+            <h2 data-i18n="donation.donationOptions">Donation Options</h2>
+            <div class="donation-tiers">
+              <div class="donation-tier">
+                <div class="tier-amount">$5</div>
+                <p class="tier-desc" data-i18n="donation.tier1Desc">Coffee Fund</p>
+                <p class="tier-message">Keeps our developers caffeinated!</p>
+                <button class="btn-donate-tier" onclick="openDonationLink('5')">Donate $5</button>
+              </div>
+              <div class="donation-tier highlight">
+                <div class="tier-badge">Popular</div>
+                <div class="tier-amount">$10</div>
+                <p class="tier-desc" data-i18n="donation.tier2Desc">Monthly Supporter</p>
+                <p class="tier-message">Amazing ongoing support!</p>
+                <button class="btn-donate-tier" onclick="openDonationLink('10')">Donate $10</button>
+              </div>
+              <div class="donation-tier">
+                <div class="tier-amount">$25</div>
+                <p class="tier-desc" data-i18n="donation.tier3Desc">Top Supporter</p>
+                <p class="tier-message">You're our champion!</p>
+                <button class="btn-donate-tier" onclick="openDonationLink('25')">Donate $25</button>
+              </div>
+            </div>
+            <div class="custom-donation">
+              <label for="custom-amount" data-i18n="donation.customAmount">Custom Amount</label>
+              <div class="custom-input-group">
+                <span class="currency">$</span>
+                <input type="number" id="custom-amount" min="1" max="9999" placeholder="Enter amount" />
+                <button class="btn-donate-custom" onclick="donateCustomAmount()">Donate</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="donate-section">
+            <h2 data-i18n="donation.otherWays">Other Ways to Help</h2>
+            <div class="other-help">
+              <div class="help-item">
+                <h3>Share the App</h3>
+                <p>Tell your friends about Snowify. Word of mouth helps us grow!</p>
+                <button class="btn-action" onclick="navigator.share({title: 'Snowify', text: 'Check out this amazing music player!'})">Share</button>
+              </div>
+              <div class="help-item">
+                <h3>Leave a Review</h3>
+                <p>Your positive reviews inspire us to keep improving.</p>
+                <button class="btn-action" onclick="openExternal('https://github.com/cc.snowify/snowify')">Leave Feedback</button>
+              </div>
+              <div class="help-item">
+                <h3>Subscribe on GitHub</h3>
+                <p>Star our project and stay updated with the latest releases.</p>
+                <button class="btn-action" onclick="openExternal('https://github.com/cc.snowify/snowify')">Visit GitHub</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="donate-section">
+            <h2 data-i18n="donation.faq">Frequently Asked Questions</h2>
+            <div class="faq-list">
+              <details class="faq-item">
+                <summary data-i18n="donation.faqQ1">Is Snowify always free?</summary>
+                <p>Yes! Snowify will always be free to use. Donations simply help us cover our server costs and add new features faster.</p>
+              </details>
+              <details class="faq-item">
+                <summary data-i18n="donation.faqQ2">What happens to my donation?</summary>
+                <p>Your donation goes directly to server costs, development tools, and improving the app. We're transparent about how we use funds.</p>
+              </details>
+              <details class="faq-item">
+                <summary data-i18n="donation.faqQ3">Can I get a refund?</summary>
+                <p>Yes! If you'd like a refund within 30 days, please contact us at support@snowify.app</p>
+              </details>
+              <details class="faq-item">
+                <summary data-i18n="donation.faqQ4">Do donations provide exclusive features?</summary>
+                <p>No. All features are available to everyone. Donations are purely to support development, not for premium features.</p>
+              </details>
+            </div>
+          </div>
+
+          <div class="donate-footer">
+            <p data-i18n="donation.thankYou">Thank you for supporting Snowify! 🎵</p>
+          </div>
         </div>
       </section>
     </main>
