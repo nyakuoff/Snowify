@@ -51,6 +51,7 @@ function mt(key, params) {
 
 let mainWindow;
 let ytmusic;
+let ytmusicReady = false;
 
 // ─── Log Capture ───
 const _logBuffer = [];
@@ -210,8 +211,45 @@ function updateThumbarButtons(isPlaying) {
 
 async function initYTMusic() {
   const YTMusic = (await import('ytmusic-api')).default;
-  ytmusic = new YTMusic();
+  if (!ytmusic) ytmusic = new YTMusic();
+
+  // Inject system proxy into ytmusic's axios client so it works when
+  // the OS/VPN proxy is set (e.g. users in countries where YouTube is blocked).
+  // ytmusic-api uses Node's axios directly and won't pick up the system proxy on its own.
+  try {
+    const proxyStr = await session.defaultSession.resolveProxy('https://music.youtube.com/');
+    if (proxyStr && proxyStr !== 'DIRECT') {
+      const firstProxy = proxyStr.split(';')[0].trim(); // take first proxy if multiple
+      const [type, hostPort] = firstProxy.split(/\s+/, 2);
+      if (hostPort) {
+        let agent;
+        if (type === 'SOCKS5' || type === 'SOCKS4') {
+          const { SocksProxyAgent } = require('socks-proxy-agent');
+          agent = new SocksProxyAgent(`${type.toLowerCase()}://${hostPort}`);
+        } else {
+          // PROXY or HTTPS
+          const { HttpsProxyAgent } = require('https-proxy-agent');
+          agent = new HttpsProxyAgent(`http://${hostPort}`);
+        }
+        ytmusic.client.defaults.httpsAgent = agent;
+        ytmusic.client.defaults.httpAgent = agent;
+        console.log(`[YTMusic] Using system proxy: ${firstProxy}`);
+      }
+    }
+  } catch (proxyErr) {
+    console.warn('[YTMusic] Could not resolve system proxy:', proxyErr.message);
+  }
+
   await ytmusic.initialize();
+  ytmusicReady = true;
+}
+
+// Ensures ytmusic is initialized before use — retries if startup init failed
+// (e.g. VPN wasn't connected yet when the app launched).
+async function ensureYTMusic() {
+  if (ytmusicReady && ytmusic?.config?.INNERTUBE_API_KEY) return;
+  ytmusicReady = false; // reset so proxy is re-resolved on retry
+  await initYTMusic();
 }
 
 function formatDuration(seconds) {
@@ -580,7 +618,13 @@ app.whenReady().then(async () => {
     app.setAsDefaultProtocolClient('snowify', process.execPath, [path.resolve(process.argv[1] || '.')]);
   }
   loadMainTranslations();
-  await initYTMusic();
+  try {
+    await initYTMusic();
+  } catch (err) {
+    // Don't block the window from opening — app is still usable for local library.
+    // ytmusicReady stays false; ensureYTMusic() will retry on first search/browse call.
+    console.error('[YTMusic] Initialization failed (YouTube may be blocked or VPN not connected):', err.message);
+  }
   createWindow();
   await checkMacYtDlp();
   // Restore saved session after window is ready
@@ -1335,6 +1379,7 @@ ipcMain.handle('discord:clearPresence', async () => {
 
 ipcMain.handle('yt:search', async (_event, query, musicOnly) => {
   try {
+    await ensureYTMusic();
     if (musicOnly) {
       const rawParams = 'EgWKAQIIAWoOEAMQBBAJEAoQBRAREBU%3D';
       const [songs, rawData] = await Promise.all([
@@ -1426,6 +1471,7 @@ ipcMain.handle('yt:search', async (_event, query, musicOnly) => {
 
 ipcMain.handle('yt:searchSuggestions', async (_event, query) => {
   try {
+    await ensureYTMusic();
     const rawData = await ytmusic.constructRequest('music/get_search_suggestions', { input: query });
     const sections = rawData?.contents ?? [];
     const textSuggestions = [];
@@ -1508,6 +1554,7 @@ ipcMain.handle('yt:searchSuggestions', async (_event, query) => {
 
 ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
   try {
+    await ensureYTMusic();
     const artist = await ytmusic.getArtist(artistId);
 
     // Fetch raw browse data to extract fields the library parser misses
@@ -1653,6 +1700,7 @@ ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
 
 ipcMain.handle('yt:searchPlaylists', async (_event, query) => {
   try {
+    await ensureYTMusic();
     const playlists = await ytmusic.searchPlaylists(query);
     return (playlists || []).map(p => ({
       playlistId: p.playlistId,
@@ -1668,6 +1716,7 @@ ipcMain.handle('yt:searchPlaylists', async (_event, query) => {
 
 ipcMain.handle('yt:getPlaylistVideos', async (_event, playlistId) => {
   try {
+    await ensureYTMusic();
     const videos = await ytmusic.getPlaylistVideos(playlistId);
     return (videos || []).filter(v => v.videoId).map(v => ({
       id: v.videoId,
@@ -1690,6 +1739,7 @@ ipcMain.handle('yt:getPlaylistVideos', async (_event, playlistId) => {
 
 ipcMain.handle('yt:albumTracks', async (_event, albumId) => {
   try {
+    await ensureYTMusic();
     const [album, rawData] = await Promise.all([
       ytmusic.getAlbum(albumId),
       ytmusic.constructRequest('browse', { browseId: albumId }).catch(() => null)
@@ -1745,6 +1795,7 @@ ipcMain.handle('yt:albumTracks', async (_event, albumId) => {
 
 ipcMain.handle('yt:searchArtists', async (_event, query) => {
   try {
+    await ensureYTMusic();
     // Use raw API to get subscriber/listener info alongside artist data
     const rawData = await ytmusic.constructRequest('search', {
       query,
@@ -1786,6 +1837,7 @@ ipcMain.handle('yt:searchArtists', async (_event, query) => {
 
 ipcMain.handle('yt:searchAlbums', async (_event, query) => {
   try {
+    await ensureYTMusic();
     const albums = await ytmusic.searchAlbums(query);
     return albums.map(a => ({
       albumId: a.albumId,
@@ -1803,6 +1855,7 @@ ipcMain.handle('yt:searchAlbums', async (_event, query) => {
 
 ipcMain.handle('yt:searchVideos', async (_event, query) => {
   try {
+    await ensureYTMusic();
     const videos = await ytmusic.searchVideos(query);
     return videos.map(v => ({
       id: v.videoId,
@@ -1825,6 +1878,7 @@ ipcMain.handle('yt:searchVideos', async (_event, query) => {
 
 ipcMain.handle('yt:setCountry', async (_event, countryCode) => {
   try {
+    await ensureYTMusic();
     if (!ytmusic?.config) return false;
     const code = countryCode || '';
     if (code) {
@@ -1849,6 +1903,7 @@ ipcMain.handle('yt:setCountry', async (_event, countryCode) => {
 
 ipcMain.handle('yt:explore', async () => {
   try {
+    await ensureYTMusic();
     const rawData = await ytmusic.constructRequest('browse', { browseId: 'FEmusic_explore' });
     const sections = rawData?.contents?.singleColumnBrowseResultsRenderer
       ?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents || [];
@@ -1923,6 +1978,7 @@ ipcMain.handle('yt:explore', async () => {
 
 ipcMain.handle('yt:charts', async () => {
   try {
+    await ensureYTMusic();
     const rawData = await ytmusic.constructRequest('browse', { browseId: 'FEmusic_charts' });
     let sections = rawData?.contents?.singleColumnBrowseResultsRenderer
       ?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents || [];
@@ -2015,6 +2071,7 @@ ipcMain.handle('yt:charts', async () => {
 
 ipcMain.handle('yt:browseMood', async (_event, browseId, params) => {
   try {
+    await ensureYTMusic();
     const rawData = await ytmusic.constructRequest('browse', { browseId, params });
     const grid = rawData?.contents?.singleColumnBrowseResultsRenderer
       ?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents || [];
@@ -2178,6 +2235,7 @@ ipcMain.handle('yt:getVideoStreamUrl', async (_event, videoId, quality, premuxed
 
 ipcMain.handle('yt:getTrackInfo', async (_event, videoId) => {
   try {
+    await ensureYTMusic();
     const song = await ytmusic.getSong(videoId);
     return mapSongToTrack(song);
   } catch (err) {
@@ -2188,6 +2246,7 @@ ipcMain.handle('yt:getTrackInfo', async (_event, videoId) => {
 
 ipcMain.handle('yt:getUpNexts', async (_event, videoId) => {
   try {
+    await ensureYTMusic();
     const rawData = await ytmusic.constructRequest('next', {
       videoId,
       playlistId: `RDAMVM${videoId}`,
