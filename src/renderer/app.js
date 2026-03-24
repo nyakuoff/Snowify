@@ -1364,10 +1364,24 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
   // ─── Social Activity Presence ───
 
+  let _lastSocialPresenceKey = '';
+
+  function pushSocialPresence(data) {
+    if (!_cloudUser || !state.showListeningActivity) return;
+    const comparable = {
+      ...data,
+      trackPosition: typeof data.trackPosition === 'number' ? Math.round(data.trackPosition) : data.trackPosition,
+    };
+    const key = JSON.stringify(comparable);
+    if (key === _lastSocialPresenceKey) return;
+    _lastSocialPresenceKey = key;
+    window.snowify.updateSocialPresence({ ...data, trackTimestamp: Date.now() });
+  }
+
   function updateSocialPresence(track) {
     if (!_cloudUser || !track || !state.showListeningActivity) return;
     const src = engine.getActiveSource();
-    window.snowify.updateSocialPresence({
+    pushSocialPresence({
       trackTitle: track.title || '',
       trackArtist: track.artist || '',
       trackThumbnail: track.isLocal ? '' : (track.thumbnail || ''),
@@ -1375,7 +1389,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       isPlaying: true,
       isOnline: true,
       trackPosition: src ? src.currentTime || 0 : 0,
-      trackTimestamp: Date.now()
     });
   }
 
@@ -1383,11 +1396,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     if (!_cloudUser) return;
     // Keep track info visible (paused state) — only mark not playing, send position
     const src = engine.getActiveSource();
-    window.snowify.updateSocialPresence({
+    pushSocialPresence({
       isPlaying: false,
       isOnline: true,
       trackPosition: src ? src.currentTime || 0 : 0,
-      trackTimestamp: Date.now()
     });
   }
 
@@ -1395,7 +1407,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   function setOnlinePresence() {
     if (!_cloudUser || !state.showListeningActivity) return;
     // Only set online — don't overwrite isPlaying if already playing
-    window.snowify.updateSocialPresence({ isOnline: true });
+    pushSocialPresence({ isOnline: true });
   }
 
   function onListeningActivityToggled() {
@@ -1435,7 +1447,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
           };
         })
     );
+      const payloadKey = JSON.stringify(publicPlaylists);
+      if (payloadKey === _lastPublicPlaylistsPayload) return;
     await window.snowify.savePublicPlaylists(publicPlaylists);
+      _lastPublicPlaylistsPayload = payloadKey;
   }
 
   function togglePlay() {
@@ -2069,6 +2084,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     if (savedPath) {
       playlist.coverImage = savedPath;
       saveState();
+      if (playlist.isPublic) await syncPublicPlaylists();
       renderPlaylists();
       renderLibrary();
       showToast(I18n.t('toast.coverUpdated'));
@@ -2086,6 +2102,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       await window.snowify.deleteImage(playlist.coverImage);
       delete playlist.coverImage;
       saveState();
+      if (playlist.isPublic) await syncPublicPlaylists();
       renderPlaylists();
       renderLibrary();
       showToast(I18n.t('toast.coverRemoved'));
@@ -2197,6 +2214,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
     const manageHtml = isLiked ? '' : `
       <div class="context-menu-divider"></div>
+      <div class="context-menu-item" data-action="import-files">${I18n.t('playlist.importLocalFiles')}</div>
+      ${playlist.folderPath ? `<div class="context-menu-item" data-action="update-files">${I18n.t('playlist.updateFiles')}</div>` : ''}
+      ${_cloudUser ? `<div class="context-menu-item" data-action="toggle-public">${playlist.isPublic ? I18n.t('playlist.makePrivate') : I18n.t('playlist.makePublic')}</div>` : ''}
+      <div class="context-menu-divider"></div>
       <div class="context-menu-item" data-action="change-cover">${I18n.t('context.changeCover')}</div>
       ${playlist.coverImage ? `<div class="context-menu-item" data-action="remove-cover">${I18n.t('context.removeCover')}</div>` : ''}
       <div class="context-menu-item" data-action="rename">${I18n.t('context.rename')}</div>
@@ -2235,16 +2256,21 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
           break;
         case 'rename': {
           removeContextMenu();
-          const newName = await showInputModal(I18n.t('modal.renamePlaylist'), playlist.name);
-          if (newName && newName !== playlist.name) {
-            playlist.name = newName;
-            saveState();
-            renderPlaylists();
-            renderLibrary();
-            showToast(I18n.t('toast.renamedTo', { name: playlist.name }));
-          }
+          await renameUserPlaylist(playlist);
           return;
         }
+        case 'import-files':
+          removeContextMenu();
+          await importFilesIntoPlaylist(playlist);
+          return;
+        case 'update-files':
+          removeContextMenu();
+          await refreshFolderPlaylist(playlist);
+          return;
+        case 'toggle-public':
+          removeContextMenu();
+          await toggleUserPlaylistPublic(playlist);
+          return;
         case 'change-cover': {
           removeContextMenu();
           await changePlaylistCover(playlist);
@@ -2257,9 +2283,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         }
         case 'export-csv': {
           removeContextMenu();
-          if (!playlist.tracks.length) { showToast(I18n.t('toast.playlistEmpty')); return; }
-          const ok = await window.snowify.exportPlaylistCsv(playlist.name, playlist.tracks);
-          if (ok) showToast(I18n.t('toast.playlistExported'));
+          await exportUserPlaylist(playlist);
           return;
         }
         case 'delete':
@@ -2283,6 +2307,92 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     }, 10);
   }
 
+  function refreshPlaylistUi(playlist) {
+    renderPlaylists();
+    renderLibrary();
+    if (state.currentView === 'playlist' && state.currentPlaylistId === playlist.id) {
+      showPlaylistDetail(playlist, false);
+    }
+  }
+
+  async function renameUserPlaylist(playlist) {
+    const newName = await showInputModal(I18n.t('modal.renamePlaylist'), playlist.name);
+    if (!newName || newName === playlist.name) return false;
+    playlist.name = newName;
+    saveState();
+    if (playlist.isPublic) await syncPublicPlaylists();
+    refreshPlaylistUi(playlist);
+    showToast(I18n.t('toast.renamedTo', { name: playlist.name }));
+    return true;
+  }
+
+  async function exportUserPlaylist(playlist) {
+    if (!playlist.tracks.length) {
+      showToast(I18n.t('toast.playlistEmpty'));
+      return false;
+    }
+    const ok = await window.snowify.exportPlaylistCsv(playlist.name, playlist.tracks);
+    if (ok) showToast(I18n.t('toast.playlistExported'));
+    return ok;
+  }
+
+  async function toggleUserPlaylistPublic(playlist) {
+    if (!_cloudUser) return false;
+    playlist.isPublic = !playlist.isPublic;
+    saveState();
+    showToast(playlist.isPublic ? I18n.t('toast.playlistNowPublic') : I18n.t('toast.playlistNowPrivate'));
+    await syncPublicPlaylists();
+    refreshPlaylistUi(playlist);
+    return true;
+  }
+
+  async function importFilesIntoPlaylist(playlist) {
+    const picked = await window.snowify.pickAudioFiles();
+    if (!picked || !picked.length) return 0;
+    let added = 0;
+    for (const t of picked) {
+      let track = t;
+      if (playlist.folderPath) {
+        const copied = await window.snowify.copyToPlaylistFolder(t.localPath, playlist.folderPath);
+        if (copied) track = copied;
+      }
+      if (!playlist.tracks.some(pt => pt.id === track.id)) {
+        playlist.tracks.push(track);
+        added++;
+      }
+    }
+    if (!added) {
+      showToast('Files already in playlist');
+      return 0;
+    }
+    saveState();
+    refreshPlaylistUi(playlist);
+    showToast(playlist.folderPath
+      ? I18n.t('toast.fileCopiedToFolder')
+      : `Added ${added} local file${added > 1 ? 's' : ''}`);
+    return added;
+  }
+
+  async function refreshFolderPlaylist(playlist, { silent = false } = {}) {
+    if (!playlist.folderPath) return 0;
+    const scanned = await window.snowify.scanAudioFolder(playlist.folderPath).catch(() => null);
+    if (!scanned) {
+      if (!silent) showToast(I18n.t('toast.folderNotFound'));
+      return 0;
+    }
+    const existing = new Set(playlist.tracks.map(t => t.id));
+    const newTracks = scanned.filter(t => !existing.has(t.id));
+    if (!newTracks.length) {
+      if (!silent) showToast(I18n.t('toast.folderNoNewTracks'));
+      return 0;
+    }
+    playlist.tracks.push(...newTracks);
+    saveState();
+    refreshPlaylistUi(playlist);
+    if (!silent) showToast(I18n.t('toast.folderRefreshed', { count: newTracks.length }));
+    return newTracks.length;
+  }
+
   function showPlaylistDetail(playlist, isLiked) {
     state.currentPlaylistId = playlist.id;
     switchView('playlist');
@@ -2290,6 +2400,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const heroName = $('#playlist-hero-name');
     const heroCount = $('#playlist-hero-count');
     const heroCover = $('#playlist-hero-cover');
+    const heroHeader = $('#view-playlist .playlist-header');
     const tracksContainer = $('#playlist-tracks');
 
     heroName.textContent = playlist.name;
@@ -2304,41 +2415,29 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       heroCover.innerHTML = coverContent;
       heroCover.style.background = hasCover ? '' : 'linear-gradient(135deg, #450af5, #8e2de2)';
     }
+    heroCover.classList.toggle('playlist-cover-editable', !isLiked);
+    heroCover.title = isLiked ? '' : I18n.t('playlist.changeCover');
+    heroCover.onclick = isLiked ? null : async () => {
+      await changePlaylistCover(playlist);
+    };
+    if (heroHeader) {
+      heroHeader.oncontextmenu = isLiked ? null : (e) => {
+        e.preventDefault();
+        showSidebarPlaylistMenu(e, playlist, false);
+      };
+    }
 
-    // Hide rename/delete/cover/public/import for Liked Songs
-    const renameBtn = $('#btn-rename-playlist');
+    // Keep only essential page actions on playlist detail
     const deleteBtn = $('#btn-delete-playlist');
-    const coverBtn = $('#btn-cover-playlist');
-    const exportBtn = $('#btn-export-playlist');
-    const importBtn = $('#btn-import-local');
     const folderBtn = $('#btn-import-folder');
-    const publicBtn = $('#btn-toggle-public');
-    renameBtn.style.display = isLiked ? 'none' : '';
     deleteBtn.style.display = isLiked ? 'none' : '';
-    coverBtn.style.display = isLiked ? 'none' : '';
-    importBtn.style.display = isLiked ? 'none' : '';
-    // Show folder-scan button only for folder-linked playlists
+    folderBtn.textContent = I18n.t('playlist.updateFiles');
+    folderBtn.title = I18n.t('playlist.updateFiles');
     folderBtn.style.display = (!isLiked && playlist.folderPath) ? '' : 'none';
-    publicBtn.style.display = (isLiked || !_cloudUser) ? 'none' : '';
 
     // Auto-scan linked folder for new tracks on open
     if (!isLiked && playlist.folderPath) {
-      window.snowify.scanAudioFolder(playlist.folderPath).then(scanned => {
-        const existing = new Set(playlist.tracks.map(t => t.id));
-        const newTracks = scanned.filter(t => !existing.has(t.id));
-        if (newTracks.length) {
-          playlist.tracks.push(...newTracks);
-          saveState();
-          renderPlaylists();
-          showPlaylistDetail(playlist, false);
-        }
-      }).catch(() => {});
-    }
-
-    // Init public toggle state
-    if (!isLiked && _cloudUser) {
-      publicBtn.classList.toggle('btn-toggle-public-active', !!playlist.isPublic);
-      publicBtn.title = playlist.isPublic ? I18n.t('playlist.makePrivate') : I18n.t('playlist.makePublic');
+      refreshFolderPlaylist(playlist, { silent: true });
     }
 
     if (playlist.tracks.length) {
@@ -2385,82 +2484,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       }
     };
 
-    renameBtn.onclick = async () => {
-      if (isLiked) return;
-      const newName = await showInputModal(I18n.t('modal.renamePlaylist'), playlist.name);
-      if (newName && newName !== playlist.name) {
-        playlist.name = newName;
-        saveState();
-        if (playlist.isPublic) syncPublicPlaylists();
-        heroName.textContent = playlist.name;
-        renderPlaylists();
-        renderLibrary();
-        showToast(I18n.t('toast.renamedTo', { name: playlist.name }));
-      }
-    };
-
-    coverBtn.onclick = async () => {
-      if (isLiked) return;
-      await changePlaylistCover(playlist);
-    };
-
-    publicBtn.onclick = async () => {
-      if (isLiked) return;
-      playlist.isPublic = !playlist.isPublic;
-      publicBtn.classList.toggle('btn-toggle-public-active', playlist.isPublic);
-      publicBtn.title = playlist.isPublic ? I18n.t('playlist.makePrivate') : I18n.t('playlist.makePublic');
-      saveState();
-      showToast(playlist.isPublic ? I18n.t('toast.playlistNowPublic') : I18n.t('toast.playlistNowPrivate'));
-      await syncPublicPlaylists();
-    };
-
-    exportBtn.onclick = async () => {
-      if (!playlist.tracks.length) return showToast(I18n.t('toast.playlistEmpty'));
-      const ok = await window.snowify.exportPlaylistCsv(playlist.name, playlist.tracks);
-      if (ok) showToast(I18n.t('toast.playlistExported'));
-    };
-
-    importBtn.onclick = async () => {
-      if (isLiked) return;
-      const picked = await window.snowify.pickAudioFiles();
-      if (!picked || !picked.length) return;
-      let added = 0;
-      for (const t of picked) {
-        let track = t;
-        // If this playlist is linked to a folder, copy the file there first
-        if (playlist.folderPath) {
-          const copied = await window.snowify.copyToPlaylistFolder(t.localPath, playlist.folderPath);
-          if (copied) track = copied;
-        }
-        if (!playlist.tracks.some(pt => pt.id === track.id)) {
-          playlist.tracks.push(track);
-          added++;
-        }
-      }
-      if (added) {
-        saveState();
-        renderPlaylists();
-        showPlaylistDetail(playlist, false);
-        showToast(playlist.folderPath
-          ? I18n.t('toast.fileCopiedToFolder')
-          : `Added ${added} local file${added > 1 ? 's' : ''}`);
-      } else {
-        showToast('Files already in playlist');
-      }
-    };
-
     folderBtn.onclick = async () => {
-      if (!playlist.folderPath) return;
-      const scanned = await window.snowify.scanAudioFolder(playlist.folderPath).catch(() => []);
-      if (!scanned.length) return showToast(I18n.t('toast.folderNotFound'));
-      const existing = new Set(playlist.tracks.map(t => t.id));
-      const newTracks = scanned.filter(t => !existing.has(t.id));
-      if (!newTracks.length) return showToast(I18n.t('toast.folderNoNewTracks'));
-      playlist.tracks.push(...newTracks);
-      saveState();
-      renderPlaylists();
-      showPlaylistDetail(playlist, false);
-      showToast(I18n.t('toast.folderRefreshed', { count: newTracks.length }));
+      await refreshFolderPlaylist(playlist);
     };
 
     deleteBtn.onclick = () => {
@@ -5393,6 +5418,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   const RESET_COOLDOWN_MS = 60000;
   let _cloudUser = null;
   let _cloudSyncPaused = false;
+  let _lastCloudSavePayload = '';
+  let _lastPublicPlaylistsPayload = '';
 
   function cloudSaveDebounced() {
     if (!_cloudUser || _cloudSyncPaused) return;
@@ -5422,11 +5449,17 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         normalization: state.normalization,
         normalizationTarget: state.normalizationTarget,
         prefetchCount: state.prefetchCount,
+        showListeningActivity: state.showListeningActivity,
         showPlugins: state.showPlugins
       };
+      const payloadKey = JSON.stringify(data);
+      if (payloadKey === _lastCloudSavePayload) return;
       const result = await window.snowify.cloudSave(data);
       if (result?.error) console.error('Cloud save failed:', result.error);
-      else updateSyncStatus(I18n.t('sync.syncedJustNow'));
+      else {
+        _lastCloudSavePayload = payloadKey;
+        updateSyncStatus(I18n.t('sync.syncedJustNow'));
+      }
     }, 3000);
   }
 
@@ -5576,6 +5609,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
   function updateAccountUI(user) {
     _cloudUser = user;
+    _lastCloudSavePayload = '';
+    _lastPublicPlaylistsPayload = '';
+    _lastSocialPresenceKey = '';
     const signedOut = $('#account-signed-out');
     const signedIn = $('#account-signed-in');
     if (user) {
@@ -5852,9 +5888,17 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       showListeningActivity: state.showListeningActivity,
       showPlugins: state.showPlugins
     };
+    const payloadKey = JSON.stringify(data);
+    if (payloadKey === _lastCloudSavePayload) {
+      updateSyncStatus(I18n.t('sync.syncedJustNow'));
+      return;
+    }
     const result = await window.snowify.cloudSave(data);
     if (result?.error) console.error('Cloud save failed:', result.error);
-    else updateSyncStatus(I18n.t('sync.syncedJustNow'));
+    else {
+      _lastCloudSavePayload = payloadKey;
+      updateSyncStatus(I18n.t('sync.syncedJustNow'));
+    }
   }
 
   // ─── Deep link handler ───
@@ -6569,6 +6613,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const heroName = $('#playlist-hero-name');
     const heroCount = $('#playlist-hero-count');
     const heroCover = $('#playlist-hero-cover');
+    const heroHeader = $('#view-playlist .playlist-header');
     const tracksContainer = $('#playlist-tracks');
 
     heroName.textContent = pl.name || I18n.t('friends.untitledPlaylist');
@@ -6593,20 +6638,14 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       heroCover.innerHTML = `<svg width="64" height="64" viewBox="0 0 24 24" fill="#535353"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>`;
       heroCover.style.background = 'linear-gradient(135deg, #450af5, #8e2de2)';
     }
+    heroCover.classList.remove('playlist-cover-editable');
+    heroCover.onclick = null;
+    heroCover.title = '';
+    if (heroHeader) heroHeader.oncontextmenu = null;
 
     // Hide edit buttons (this is a read-only friend playlist)
-    const renameBtn = $('#btn-rename-playlist');
     const deleteBtn = $('#btn-delete-playlist');
-    const coverBtn = $('#btn-cover-playlist');
-    const exportBtn = $('#btn-export-playlist');
-    const publicBtn = $('#btn-toggle-public');
-    if (renameBtn) renameBtn.style.display = 'none';
     if (deleteBtn) deleteBtn.style.display = 'none';
-    if (coverBtn) coverBtn.style.display = 'none';
-    if (exportBtn) exportBtn.style.display = 'none';
-    if (publicBtn) publicBtn.style.display = 'none';
-    const importBtn = $('#btn-import-local');
-    if (importBtn) importBtn.style.display = 'none';
     const folderBtn = $('#btn-import-folder');
     if (folderBtn) folderBtn.style.display = 'none';
 

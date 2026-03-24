@@ -52,6 +52,7 @@
   "playlist.shufflePlay": "Shuffle play",
   "playlist.exportCsv": "Export as CSV",
   "playlist.importLocalFiles": "Import local audio files",
+  "playlist.updateFiles": "Update Files",
   "playlist.linkFolder": "Re-scan linked folder for new tracks",
   "playlist.changeCover": "Change cover",
   "playlist.rename": "Rename playlist",

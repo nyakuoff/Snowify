@@ -1271,6 +1271,9 @@ body.audio-playing .track-row.playing .track-eq { display: flex; justify-content
   transform: scale(1.02);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
 }
+.playlist-hero-cover.playlist-cover-editable {
+  cursor: pointer;
+}
 .playlist-hero-cover img {
   width: 100%;
   height: 100%;
@@ -1317,6 +1320,9 @@ body.audio-playing .track-row.playing .track-eq { display: flex; justify-content
   align-items: center;
   gap: 16px;
   padding: 16px 0;
+}
+.playlist-files-btn {
+  margin-left: auto;
 }
 .play-all-btn {
   width: 52px;
