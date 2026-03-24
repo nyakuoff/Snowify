@@ -5936,8 +5936,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     _flushSaveState(); // flush debounced localStorage write
     // Fully clear presence on close — go offline and wipe track info
     if (_cloudUser) {
-      if (_listenAlong) window.snowify.endListenAlong();
-      window.snowify.clearSocialPresence();
+      const pending = [];
+      if (_listenAlong) pending.push(window.snowify.endListenAlong());
+      pending.push(window.snowify.clearSocialPresence());
+      await Promise.allSettled(pending);
     }
     if (_cloudSaveTimeout) {
       clearTimeout(_cloudSaveTimeout);

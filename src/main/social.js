@@ -53,17 +53,22 @@ function register(ipcMain, ctx) {
     if (!user) return { error: 'Not signed in' };
     try {
       const myPresRef = firebase.doc(firebase.db, 'presence', user.uid);
-      const fromPresRef = firebase.doc(firebase.db, 'presence', fromUid);
       if (accepted) {
         const mySnap = await firebase.getDoc(myPresRef);
         if (mySnap.exists() && mySnap.data().listenAlong) return { error: 'Already in a listen along session', accepted: false };
-        // Accepter becomes host/controller; requester follows as guest.
-        await Promise.all([
-          firebase.updateDoc(myPresRef, { listenAlong: { peerUid: fromUid, role: 'host' }, listenAlongRequest: null }),
-          firebase.updateDoc(fromPresRef, { listenAlong: { peerUid: user.uid, role: 'guest' }, listenAlongRequest: null })
-        ]);
+        // Accepter becomes host/controller. Requester will auto-join as guest
+        // when they observe this acceptance signal from the accepter's presence.
+        await firebase.updateDoc(myPresRef, {
+          listenAlong: { peerUid: fromUid, role: 'host' },
+          listenAlongRequest: null,
+          listenAlongAccepted: { toUid: fromUid, accepted: true, timestamp: Date.now() }
+        });
       } else {
-        await firebase.updateDoc(fromPresRef, { listenAlongRequest: null }).catch(() => {});
+        // Deny is communicated via accepter's own presence document.
+        await firebase.updateDoc(myPresRef, {
+          listenAlongRequest: null,
+          listenAlongAccepted: { toUid: fromUid, accepted: false, timestamp: Date.now() }
+        }).catch(() => {});
       }
       return { success: true, accepted };
     } catch (err) { return { error: err.message }; }
@@ -184,7 +189,7 @@ function register(ipcMain, ctx) {
 
     teardownSocialListeners();
     const myPresRef = firebase.doc(firebase.db, 'presence', user.uid);
-    await firebase.updateDoc(myPresRef, { listenAlong: null, listenAlongRequest: null }).catch(() => {});
+    await firebase.updateDoc(myPresRef, { listenAlong: null, listenAlongRequest: null, listenAlongAccepted: null }).catch(() => {});
 
     _ownPresenceUnsub = firebase.onSnapshot(myPresRef, (docSnap) => {
       if (!docSnap.exists() || !ctx.mainWindow || ctx.mainWindow.isDestroyed()) return;
@@ -210,6 +215,19 @@ function register(ipcMain, ctx) {
 
           if (data?.listenAlongRequest?.toUid === user.uid) {
             ctx.mainWindow.webContents.send('social:listenAlongRequest', { fromUid: uid, fromName: data.displayName || data.listenAlongRequest.fromName || 'Friend', timestamp: data.listenAlongRequest.timestamp });
+          }
+
+          // Requester-side auto-join: friend accepted our request, so we become guest.
+          if (data?.listenAlongAccepted?.toUid === user.uid && data.listenAlongAccepted.accepted === true) {
+            firebase.getDoc(myPresRef).then(mySnap => {
+              const mine = mySnap.exists() ? mySnap.data() : null;
+              if (!mine?.listenAlongRequest || mine.listenAlongRequest.toUid !== uid) return;
+              if (mine.listenAlong) return;
+              firebase.updateDoc(myPresRef, {
+                listenAlong: { peerUid: uid, role: 'guest' },
+                listenAlongRequest: null
+              }).catch(err => console.error('Auto-join guest error:', err));
+            }).catch(err => console.error('Auto-join guest read error:', err));
           }
 
           ctx.mainWindow.webContents.send('social:presenceUpdated', { uid, presence: data });
