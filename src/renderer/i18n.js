@@ -5,7 +5,7 @@ window.I18n = (function () {
   let _pluralRules;
   const _listeners = [];
 
-  const SUPPORTED = ['en','es','pt','fr','de','ja','ko','zh','it','tr','ru','hi'];
+  const SUPPORTED = ['en','es','pt','fr','de','ja','ko','zh','it','tr','ru','uk','hi'];
 
   function resolveLocale(locale) {
     const lang = locale.split('-')[0].toLowerCase();

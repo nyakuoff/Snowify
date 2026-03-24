@@ -122,7 +122,7 @@ Snowify supports multiple languages through JSON translation files in `src/local
 
 4. **Open a PR** — Submit your translation file along with the registration changes.
 
-**Currently supported:** English, Spanish, Portuguese, French, German, Japanese, Korean, Chinese, Italian, Turkish, Russian, Hindi.
+**Currently supported:** English, Spanish, Portuguese, French, German, Japanese, Korean, Chinese, Italian, Turkish, Russian, Ukrainian, Hindi.
 
 > [!NOTE]
 > **AI Disclaimer**: Parts of this project were assisted or written by AI. If that's something you're not comfortable with, no hard feelings, I understand and I don't force anyone to use it. The code may have flaws. If you spot something that could be better, contributions are very welcome. I'm still learning and would appreciate the help.
