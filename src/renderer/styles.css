@@ -668,13 +668,23 @@ html, body {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 32px;
+  font-size: 34px;
   font-weight: 800;
-  letter-spacing: -0.5px;
-  background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+  letter-spacing: -0.8px;
+  background: linear-gradient(135deg, var(--text-primary) 55%, var(--text-secondary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+/* Greeting gets a dynamic ambient tint */
+#greeting-text {
+  font-size: 42px;
+  letter-spacing: -1.2px;
+  background: linear-gradient(135deg, var(--text-primary) 45%, rgba(var(--ambient-rgb), 0.9) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  transition: background 0.9s ease;
 }
 
 /* ═══════ Quick Picks (Home Grid) ═══════ */
@@ -749,9 +759,13 @@ html, body {
   margin-bottom: 40px;
 }
 .section h2 {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   margin-bottom: 16px;
+  letter-spacing: -0.2px;
+  padding-left: 12px;
+  border-left: 3px solid var(--accent);
+  line-height: 1.25;
 }
 
 .card-row {
