@@ -514,5 +514,12 @@
   "plugins.themeUninstalled": "Тема удалена",
   "plugins.themeApplied": "Тема применена",
   "plugins.themeActive": "Активна",
-  "plugins.themeApply": "Применить"
+  "plugins.themeApply": "Применить",
+  "donation.title": "Snowify нуждается в вашей поддержке",
+  "donation.subtitle": "Расходы на сервера растут - и нам нужна ваша поддержка",
+  "donation.message": "Snowify бесплатен и не содержит рекламы, и мы хотим, чтобы так и оставалось. Но наши текущие расходы растут с каждым месяцем, и без поддержки сообщества будущее Snowify действительно под угрозой. Если это приложение что-то значит для вас, сейчас самое время помочь.",
+  "donation.donate": "Пожертвовать и поддержать",
+  "donation.footer": "Каждый вклад помогает поддерживать Snowify для всех.",
+  "donation.supportTitle": "Помогите поддержать Snowify",
+  "donation.supportBtn": "Поддержите нас"
 }
