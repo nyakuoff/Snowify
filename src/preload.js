@@ -50,21 +50,9 @@ contextBridge.exposeInMainWorld('snowify', {
   // Playlist export
   exportPlaylistCsv: (name, tracks) => ipcRenderer.invoke('playlist:exportCsv', name, tracks),
 
-  // Account & Cloud Sync
-  signInWithEmail: (email, password) => ipcRenderer.invoke('auth:signInWithEmail', email, password),
-  signUpWithEmail: (email, password) => ipcRenderer.invoke('auth:signUpWithEmail', email, password),
-  sendPasswordReset: (email) => ipcRenderer.invoke('auth:sendPasswordReset', email),
-  authSignOut: () => ipcRenderer.invoke('auth:signOut'),
-  getUser: () => ipcRenderer.invoke('auth:getUser'),
-  updateProfile: (data) => ipcRenderer.invoke('profile:update', data),
-  updateProfileExtras: (data) => ipcRenderer.invoke('profile:updateExtras', data),
-  getProfile: (uid) => ipcRenderer.invoke('profile:get', uid),
-  readImage: (filePath) => ipcRenderer.invoke('profile:readImage', filePath),
-  cloudSave: (data) => ipcRenderer.invoke('cloud:save', data),
-  cloudLoad: () => ipcRenderer.invoke('cloud:load'),
-  onAuthStateChanged: (callback) => {
-    ipcRenderer.on('auth:stateChanged', (_event, user) => callback(user));
-  },
+  // Library export/import
+  exportLibrary: (jsonStr) => ipcRenderer.invoke('library:export', jsonStr),
+  importLibrary: () => ipcRenderer.invoke('library:import'),
 
   // Spotify import (CSV)
   spotifyPickCsv: () => ipcRenderer.invoke('spotify:pickCsv'),
@@ -81,29 +69,6 @@ contextBridge.exposeInMainWorld('snowify', {
   disconnectDiscord: () => ipcRenderer.invoke('discord:disconnect'),
   updatePresence: (data) => ipcRenderer.invoke('discord:updatePresence', data),
   clearPresence: () => ipcRenderer.invoke('discord:clearPresence'),
-
-  // Social / Friends
-  getFriendCode: () => ipcRenderer.invoke('social:getFriendCode'),
-  addFriend: (code) => ipcRenderer.invoke('social:addFriend', code),
-  removeFriend: (uid) => ipcRenderer.invoke('social:removeFriend', uid),
-  getFriends: () => ipcRenderer.invoke('social:getFriends'),
-  updateSocialPresence: (data) => ipcRenderer.invoke('social:updatePresence', data),
-  clearSocialPresence: () => ipcRenderer.invoke('social:clearPresence'),
-  getPresence: (uid) => ipcRenderer.invoke('social:getPresence', uid),
-  getFriendsPresence: (uids) => ipcRenderer.invoke('social:getFriendsPresence', uids),
-  startSocialListening: () => ipcRenderer.invoke('social:startListening'),
-  stopSocialListening: () => ipcRenderer.invoke('social:stopListening'),
-  onFriendsUpdated: (cb) => ipcRenderer.on('social:friendsUpdated', (_e, friends) => cb(friends)),
-  onPresenceUpdated: (cb) => ipcRenderer.on('social:presenceUpdated', (_e, data) => cb(data)),
-  savePublicPlaylists: (playlists) => ipcRenderer.invoke('social:savePublicPlaylists', playlists),
-  getPublicPlaylists: (uid) => ipcRenderer.invoke('social:getPublicPlaylists', uid),
-
-  // Listen Along
-  requestListenAlong: (targetUid) => ipcRenderer.invoke('social:requestListenAlong', targetUid),
-  respondListenAlong: (fromUid, accepted) => ipcRenderer.invoke('social:respondListenAlong', fromUid, accepted),
-  endListenAlong: () => ipcRenderer.invoke('social:endListenAlong'),
-  onListenAlongRequest: (cb) => ipcRenderer.on('social:listenAlongRequest', (_e, data) => cb(data)),
-  onOwnPresenceUpdated: (cb) => ipcRenderer.on('social:ownPresenceUpdated', (_e, data) => cb(data)),
 
   // Graceful close
   onBeforeClose: (callback) => ipcRenderer.on('app:before-close', callback),

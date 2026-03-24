@@ -61,8 +61,6 @@ const { cleanupCacheDir } = require('./main/audio-cache');
 const { initYTMusic, register: registerYTMusic } = require('./main/ytmusic');
 const { createWindow } = require('./main/window');
 const { checkMacYtDlp } = require('./main/mac-setup');
-const { autoSignIn, register: registerAuth } = require('./main/auth');
-const { teardownSocialListeners, register: registerSocial } = require('./main/social');
 const { register: registerDiscord } = require('./main/discord');
 const { register: registerThumbar } = require('./main/thumbbar');
 const { register: registerThemes } = require('./main/themes');
@@ -84,8 +82,6 @@ app.whenReady().then(async () => {
   // Register all IPC handlers before creating the window
   registerDiscord(ipcMain);
   registerThumbar(ipcMain, ctx);
-  registerAuth(ipcMain, ctx);
-  registerSocial(ipcMain, ctx);
   registerYTMusic(ipcMain, ctx);
   registerThemes(ipcMain, ctx);
   registerPlugins(ipcMain, ctx);
@@ -99,10 +95,9 @@ app.whenReady().then(async () => {
     console.error('[YTMusic] Initialization failed (will retry on first use):', err.message);
   }
 
-  createWindow(ctx, { teardownSocialListeners });
+  createWindow(ctx);
 
   await checkMacYtDlp(ctx.mainWindow);
-  autoSignIn();
   initAutoUpdater(ctx);
 
   // Handle cold-start deep link (Linux/Windows pass it as CLI argument)
@@ -113,5 +108,5 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('before-quit', () => { cleanupCacheDir(); });
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow(ctx, { teardownSocialListeners });
+  if (BrowserWindow.getAllWindows().length === 0) createWindow(ctx);
 });

@@ -31,27 +31,27 @@
     </div>
   </div>
 
-  <!-- ═══════ Welcome / Login Screen ═══════ -->
-  <div id="welcome-overlay" class="welcome-overlay hidden">
+  <!-- ═══════ Migration Notice ═══════ -->
+  <div id="migration-notice-overlay" class="welcome-overlay hidden">
     <div class="welcome-card">
       <img class="welcome-logo" src="../../assets/logo.png" alt="Snowify" width="64" height="64" draggable="false" />
-      <h1 class="welcome-title" data-i18n="welcome.title">Welcome to Snowify</h1>
-      <p class="welcome-desc" data-i18n="welcome.desc">Sign in to sync your playlists, liked songs, and settings across all your devices.</p>
-      <div class="auth-form" id="welcome-auth-form">
-        <input type="email" id="welcome-email" class="auth-input" placeholder="Email" data-i18n-placeholder="common.email" spellcheck="false" autocomplete="email" />
-        <input type="password" id="welcome-password" class="auth-input" placeholder="Password" data-i18n-placeholder="common.password" autocomplete="current-password" />
-        <p class="auth-error hidden" id="welcome-auth-error"></p>
-        <div class="welcome-buttons">
-          <button class="btn-welcome-primary" id="btn-welcome-sign-in" data-i18n="welcome.signIn">Sign In</button>
-          <button class="btn-welcome-secondary" id="btn-welcome-sign-up" data-i18n="welcome.createAccount">Create Account</button>
-        </div>
-        <button class="btn-welcome-forgot" id="btn-welcome-forgot" data-i18n="welcome.forgotPassword">Forgot password?</button>
-      </div>
-      <button class="btn-welcome-skip" id="btn-welcome-skip" data-i18n="welcome.skip">Continue without an account</button>
-      <p class="welcome-warning" data-i18n="welcome.warning">Without an account, your data is stored locally and can't be recovered if lost.</p>
+      <h1 class="welcome-title">Cloud sync is gone</h1>
+      <p class="welcome-desc">
+        Starting with this version, <strong>cloud saving has been removed from Snowify.</strong>
+        The costs of running cloud infrastructure were too high to sustain.
+      </p>
+      <p class="welcome-desc" style="margin-top: 8px;">
+        <strong>Your library is still here.</strong> Everything - your playlists, liked songs, and settings - was always stored locally, so nothing is lost. Going forward, Snowify only saves data locally.
+      </p>
+      <p class="welcome-desc" style="margin-top: 8px; opacity: 0.6; font-size: 12px;">
+        Friends, Listen Along, and account features have also been removed as part of this change.
+      </p>
+      <p class="welcome-desc" style="margin-top: 10px; font-size: 12px; opacity: 0.55;">
+        You can export and re-import your library anytime from Settings → Local Data.
+      </p>
+      <button class="btn-welcome-primary" id="btn-migration-ok" style="margin-top: 20px; width: 100%;">Got it</button>
     </div>
   </div>
-
   <!-- ═══════ Main Layout ═══════ -->
   <div id="app">
     <!-- Sidebar -->
@@ -72,11 +72,6 @@
         <button class="nav-btn" data-view="library">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h2v16H4V4zm5 0h2v16H9V4zm5 2h2v14h-2V6zm5-2h2v16h-2V4z"/></svg>
           <span data-i18n="nav.library">Library</span>
-        </button>
-        <button class="nav-btn" data-view="friends">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-          <span data-i18n="nav.friends">Friends</span>
-          <span class="badge-experimental" data-i18n="common.beta">BETA</span>
         </button>
         <button class="nav-btn" data-view="plugins">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 11H19V7a2 2 0 0 0-2-2h-4V3.5a2.5 2.5 0 0 0-5 0V5H4a2 2 0 0 0-2 2v3.8h1.5a2.7 2.7 0 0 1 0 5.4H2V20a2 2 0 0 0 2 2h3.8v-1.5a2.7 2.7 0 0 1 5.4 0V22H17a2 2 0 0 0 2-2v-4h1.5a2.5 2.5 0 0 0 0-5z"/></svg>
@@ -266,59 +261,6 @@
         <div id="album-tracks" class="track-list"></div>
       </section>
 
-      <!-- ── Friends View ── -->
-      <section class="view" id="view-friends">
-        <div class="friends-content">
-          <div class="view-header">
-            <h1><span data-i18n="nav.friends">Friends</span> <span class="badge-experimental" data-i18n="common.beta">BETA</span></h1>
-          </div>
-
-          <!-- Not signed in state -->
-          <div id="friends-no-account" class="friends-signed-out hidden">
-            <div class="friends-signed-out-inner">
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor" opacity="0.15"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-              <h3 data-i18n="friends.signInTitle">Sign in to add friends</h3>
-              <p data-i18n="friends.signInDesc">Create an account or sign in to use social features.</p>
-            </div>
-          </div>
-
-          <!-- Signed in content -->
-          <div id="friends-main" class="hidden">
-
-            <!-- Top action bar: add friend + your code -->
-            <div class="friends-action-bar">
-              <div class="friends-add-group">
-                <input type="text" id="friend-code-input" class="friends-add-input" placeholder="Enter a friend code" data-i18n-placeholder="friends.codePlaceholder" maxlength="6" spellcheck="false" autocomplete="off" />
-                <button class="friends-add-btn" id="btn-add-friend" data-i18n="friends.addFriend">Add Friend</button>
-              </div>
-              <div class="friends-your-code">
-                <span class="friends-code-label" data-i18n="friends.yourCode">Your code:</span>
-                <span class="friends-code-value" id="friend-code-value">------</span>
-                <button class="friends-code-copy" id="btn-copy-friend-code" title="Copy code" data-i18n-title="friends.copyCode">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                </button>
-              </div>
-            </div>
-            <p class="friend-add-status hidden" id="friend-add-status"></p>
-
-            <!-- Tabs: All / Online -->
-            <div class="friends-tabs">
-              <button class="friends-tab active" data-friends-tab="all" data-i18n="friends.tabAll">All</button>
-              <button class="friends-tab" data-friends-tab="online" data-i18n="friends.tabOnline">Online</button>
-            </div>
-
-            <!-- Friends list with sections -->
-            <div id="friends-list" class="friends-list">
-              <div class="friends-list-empty" id="friends-list-empty">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" opacity="0.12"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                <h3 data-i18n="friends.emptyTitle">No friends yet</h3>
-                <p data-i18n="friends.emptyDesc">Share your friend code or enter someone else's above to get started.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <!-- ── Marketplace View ── -->
       <section class="view" id="view-plugins">
         <div class="plugins-content">
@@ -385,167 +327,23 @@
             <h1 data-i18n="settings.title">Settings</h1>
           </div>
           <div class="settings-group">
-            <h3 data-i18n="settings.account">Account</h3>
-            <div id="account-section">
-              <div id="account-signed-out">
-                <p class="setting-desc" style="margin-bottom:12px;" data-i18n="settings.accountDesc">Sign in to sync your playlists, liked songs, and settings across devices.</p>
-                <div class="auth-form" id="auth-form">
-                  <input type="email" id="auth-email" class="auth-input" placeholder="Email" data-i18n-placeholder="common.email" spellcheck="false" autocomplete="email" />
-                  <input type="password" id="auth-password" class="auth-input" placeholder="Password" data-i18n-placeholder="common.password" autocomplete="current-password" />
-                  <div class="auth-buttons">
-                    <button class="btn-setting-action" id="btn-sign-in" data-i18n="settings.signIn">Sign In</button>
-                    <button class="btn-setting-action" id="btn-sign-up" data-i18n="settings.createAccount">Create Account</button>
-                    <button class="btn-welcome-forgot" id="btn-forgot-settings" data-i18n="welcome.forgotPassword">Forgot password?</button>
-                  </div>
-                  <p class="auth-error hidden" id="auth-error"></p>
-                </div>
-              </div>
-              <div id="account-signed-in" class="hidden">
-                <div class="profile-section">
-                  <div class="profile-avatar-wrapper">
-                    <img class="profile-avatar" id="profile-avatar" src="" alt="" draggable="false" />
-                    <button class="profile-avatar-edit" id="btn-change-avatar" data-i18n-title="settings.changeAvatar" title="Change profile picture">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                    </button>
-                  </div>
-                  <div class="profile-info">
-                    <div class="profile-name-row">
-                      <span class="profile-display-name" id="profile-display-name">User</span>
-                      <button class="profile-edit-btn" id="btn-edit-name" data-i18n-title="settings.editName" title="Edit display name">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                      </button>
-                    </div>
-                    <span class="profile-email" id="profile-email"></span>
-                    <span class="setting-desc" id="account-sync-status"></span>
-                  </div>
-                </div>
-                <div class="profile-edit-row hidden" id="profile-edit-name-row">
-                  <input type="text" class="auth-input" id="profile-name-input" placeholder="Display name" data-i18n-placeholder="settings.displayName" maxlength="30" />
-                  <button class="btn-setting-action" id="btn-save-name" data-i18n="settings.save">Save</button>
-                  <button class="btn-setting-action" id="btn-cancel-name" data-i18n="settings.cancel">Cancel</button>
-                </div>
-                <div class="account-actions" style="margin-top: 12px;">
-                  <button class="btn-setting-action" id="btn-sync-now" data-i18n="settings.syncNow">Sync Now</button>
-                  <button class="btn-setting-action btn-danger" id="btn-sign-out" data-i18n="settings.signOut">Sign Out</button>
-                </div>
-
-                <!-- Profile: Banner & Bio -->
-                <div class="profile-extras" style="margin-top: 20px;">
-                  <h4 class="profile-extras-title" data-i18n="settings.profile">Profile</h4>
-                  <div class="profile-banner-section">
-                    <div class="profile-banner-preview" id="profile-banner-preview">
-                      <span class="profile-banner-placeholder" data-i18n="settings.noBanner">No banner</span>
-                    </div>
-                    <div class="profile-banner-actions">
-                      <button class="btn-setting-action" id="btn-change-banner" data-i18n="settings.changeBanner">Change Banner</button>
-                      <button class="btn-setting-action" id="btn-remove-banner" style="display:none;" data-i18n="settings.removeBanner">Remove</button>
-                    </div>
-                    <span class="setting-desc" style="margin-top:4px;">Recommended: 960×320. Max 800KB after crop.</span>
-                  </div>
-                  <div class="profile-bio-section">
-                    <textarea class="profile-bio-input" id="profile-bio-input" placeholder="Write a short bio..." data-i18n-placeholder="settings.bioPlaceholder" maxlength="200" rows="3" spellcheck="false"></textarea>
-                    <div class="profile-bio-footer">
-                      <span class="profile-bio-count" id="profile-bio-count">0/200</span>
-                      <button class="btn-setting-action" id="btn-save-bio" data-i18n="settings.saveBio">Save Bio</button>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Listening Activity Toggle -->
-                <div class="setting-row" style="margin-top: 16px;">
-                  <div class="setting-info">
-                    <span class="setting-label" data-i18n="settings.listeningActivity">Listening Activity</span>
-                    <span class="setting-desc" data-i18n="settings.listeningActivityDesc">Let friends see what you're currently playing</span>
-                  </div>
-                  <label class="toggle-switch">
-                    <input type="checkbox" id="setting-listening-activity" />
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
-              </div>
-            </div>
-            <div class="setting-row" style="margin-top: 16px;">
+            <h3 data-i18n="settings.localData">Local Data</h3>
+            <div class="setting-row">
               <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.country">Country</span>
-                <span class="setting-desc" data-i18n="settings.countryDesc">Localizes Explore recommendations</span>
+                <span class="setting-label">Export library</span>
+                <span class="setting-desc">Save your playlists, liked songs, and settings to a file</span>
               </div>
-              <select class="setting-select" id="setting-country">
-                <option value="" data-i18n="settings.countryNotSet">Not set</option>
-                <option value="AR">Argentina</option>
-                <option value="AU">Australia</option>
-                <option value="AT">Austria</option>
-                <option value="BE">Belgium</option>
-                <option value="BR">Brazil</option>
-                <option value="CA">Canada</option>
-                <option value="CL">Chile</option>
-                <option value="CO">Colombia</option>
-                <option value="CZ">Czechia</option>
-                <option value="DK">Denmark</option>
-                <option value="EG">Egypt</option>
-                <option value="FI">Finland</option>
-                <option value="FR">France</option>
-                <option value="DE">Germany</option>
-                <option value="GR">Greece</option>
-                <option value="HU">Hungary</option>
-                <option value="IN">India</option>
-                <option value="ID">Indonesia</option>
-                <option value="IE">Ireland</option>
-                <option value="IL">Israel</option>
-                <option value="IT">Italy</option>
-                <option value="JP">Japan</option>
-                <option value="KE">Kenya</option>
-                <option value="MY">Malaysia</option>
-                <option value="MX">Mexico</option>
-                <option value="NL">Netherlands</option>
-                <option value="NZ">New Zealand</option>
-                <option value="NG">Nigeria</option>
-                <option value="NO">Norway</option>
-                <option value="PK">Pakistan</option>
-                <option value="PE">Peru</option>
-                <option value="PH">Philippines</option>
-                <option value="PL">Poland</option>
-                <option value="PT">Portugal</option>
-                <option value="RO">Romania</option>
-                <option value="RU">Russia</option>
-                <option value="SA">Saudi Arabia</option>
-                <option value="SG">Singapore</option>
-                <option value="ZA">South Africa</option>
-                <option value="KR">South Korea</option>
-                <option value="ES">Spain</option>
-                <option value="SE">Sweden</option>
-                <option value="CH">Switzerland</option>
-                <option value="TW">Taiwan</option>
-                <option value="TH">Thailand</option>
-                <option value="TR">Türkiye</option>
-                <option value="UA">Ukraine</option>
-                <option value="AE">United Arab Emirates</option>
-                <option value="GB">United Kingdom</option>
-                <option value="US">United States</option>
-                <option value="VN">Vietnam</option>
-              </select>
+              <button class="btn-setting-action" id="btn-export-data">Export</button>
             </div>
             <div class="setting-row">
               <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.language">Language</span>
-                <span class="setting-desc" data-i18n="settings.languageDesc">App display language</span>
+                <span class="setting-label">Import library</span>
+                <span class="setting-desc">Restore from a previously exported file</span>
               </div>
-              <select class="setting-select" id="setting-language">
-                <option value="auto" data-i18n="settings.langAuto">System default</option>
-                <option value="de">Deutsch</option>
-                <option value="en">English</option>
-                <option value="es">Español</option>
-                <option value="fr">Français</option>
-                <option value="it">Italiano</option>
-                <option value="pt">Português</option>
-                <option value="tr">Türkçe</option>
-                <option value="ru">Русский</option>
-                <option value="hi">हिन्दी</option>
-                <option value="ja">日本語</option>
-                <option value="ko">한국어</option>
-                <option value="zh">中文</option>
-              </select>
+              <button class="btn-setting-action" id="btn-import-data">Import</button>
             </div>
           </div>
+
           <div class="settings-group">
             <h3 data-i18n="settings.playback">Playback</h3>
             <div class="setting-row">
@@ -719,6 +517,66 @@
                 <span class="toggle-slider"></span>
               </label>
             </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.country">Country</span>
+                <span class="setting-desc" data-i18n="settings.countryDesc">Localizes Explore recommendations</span>
+              </div>
+              <select class="setting-select" id="setting-country">
+                <option value="" data-i18n="settings.countryNotSet">Not set</option>
+                <option value="AR">Argentina</option>
+                <option value="AU">Australia</option>
+                <option value="AT">Austria</option>
+                <option value="BE">Belgium</option>
+                <option value="BR">Brazil</option>
+                <option value="CA">Canada</option>
+                <option value="CL">Chile</option>
+                <option value="CO">Colombia</option>
+                <option value="CZ">Czechia</option>
+                <option value="DK">Denmark</option>
+                <option value="EG">Egypt</option>
+                <option value="FI">Finland</option>
+                <option value="FR">France</option>
+                <option value="DE">Germany</option>
+                <option value="GR">Greece</option>
+                <option value="HU">Hungary</option>
+                <option value="IN">India</option>
+                <option value="ID">Indonesia</option>
+                <option value="IE">Ireland</option>
+                <option value="IL">Israel</option>
+                <option value="IT">Italy</option>
+                <option value="JP">Japan</option>
+                <option value="KE">Kenya</option>
+                <option value="MY">Malaysia</option>
+                <option value="MX">Mexico</option>
+                <option value="NL">Netherlands</option>
+                <option value="NZ">New Zealand</option>
+                <option value="NG">Nigeria</option>
+                <option value="NO">Norway</option>
+                <option value="PK">Pakistan</option>
+                <option value="PE">Peru</option>
+                <option value="PH">Philippines</option>
+                <option value="PL">Poland</option>
+                <option value="PT">Portugal</option>
+                <option value="RO">Romania</option>
+                <option value="RU">Russia</option>
+                <option value="SA">Saudi Arabia</option>
+                <option value="SG">Singapore</option>
+                <option value="ZA">South Africa</option>
+                <option value="KR">South Korea</option>
+                <option value="ES">Spain</option>
+                <option value="SE">Sweden</option>
+                <option value="CH">Switzerland</option>
+                <option value="TW">Taiwan</option>
+                <option value="TH">Thailand</option>
+                <option value="TR">Türkiye</option>
+                <option value="UA">Ukraine</option>
+                <option value="AE">United Arab Emirates</option>
+                <option value="GB">United Kingdom</option>
+                <option value="US">United States</option>
+                <option value="VN">Vietnam</option>
+              </select>
+            </div>
           </div>
           <div class="settings-group">
             <h3 data-i18n="settings.data">Data</h3>
@@ -873,37 +731,7 @@
         </div>
       </section>
 
-      <!-- ── Friend Profile View ── -->
-      <section class="view" id="view-profile">
-        <div class="artist-banner" id="profile-banner" style="display:none">
-          <img class="artist-banner-img" id="profile-banner-img" src="" alt="" />
-          <div class="artist-banner-fade"></div>
-        </div>
-        <div class="artist-header">
-          <img class="artist-avatar" id="profile-avatar-img" src="" alt="" />
-          <div class="artist-header-info">
-            <span class="artist-verified" id="profile-label" data-i18n="friends.profileLabel">FRIEND</span>
-            <h1 class="artist-name" id="profile-name">User</h1>
-            <span class="artist-followers" id="profile-status" data-i18n="friends.statusOffline">Offline</span>
-            <button class="listen-along-profile-btn hidden" id="profile-listen-along">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
-              <span data-i18n="friends.requestToListen">Request to Listen</span>
-            </button>
-          </div>
-        </div>
-        <div class="artist-section" id="profile-bio-section" style="display:none;">
-          <h2 data-i18n="friends.profileAbout">About</h2>
-          <p class="artist-description" id="profile-bio-text"></p>
-        </div>
-        <div class="artist-section" id="profile-listening-section" style="display:none;">
-          <h2 data-i18n="friends.currentlyListening">Currently Listening</h2>
-          <div id="profile-listening" class="track-list"></div>
-        </div>
-        <div class="artist-section" id="profile-playlists-section" style="display:none;">
-          <h2 data-i18n="friends.publicPlaylists">Public Playlists</h2>
-          <div id="profile-playlists" class="profile-playlists-grid"></div>
-        </div>
-      </section>
+
     </main>
   </div>
 
@@ -1116,7 +944,6 @@
     </div>
   </div>
 
-  <!-- ═══════ Friend Profile Modal ═══════ -->
   <!-- ═══════ Spotify Import Modal ═══════ -->
   <div id="spotify-modal" class="modal-overlay hidden">
     <div class="modal-box spotify-modal-box">
@@ -1209,28 +1036,6 @@
         <button class="modal-btn modal-confirm" id="changelog-ok" data-i18n="changelog.gotIt">Got it</button>
       </div>
     </div>
-  </div>
-
-  <!-- ═══════ Listen Along Notification ═══════ -->
-  <div id="listen-along-notification" class="listen-along-notification hidden">
-    <div class="listen-along-notification-content">
-      <svg class="listen-along-notification-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
-      <div class="listen-along-notification-text">
-        <span class="listen-along-notification-title" id="listen-along-req-name">Friend</span>
-        <span class="listen-along-notification-desc" data-i18n="listenAlong.requestDesc">wants to listen along with you</span>
-      </div>
-      <div class="listen-along-notification-actions">
-        <button class="listen-along-btn listen-along-accept" id="listen-along-accept" data-i18n="listenAlong.accept">Accept</button>
-        <button class="listen-along-btn listen-along-deny" id="listen-along-deny" data-i18n="listenAlong.deny">Deny</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════ Listen Along Banner ═══════ -->
-  <div id="listen-along-banner" class="listen-along-banner hidden">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
-    <span id="listen-along-banner-text">Listening along with Friend</span>
-    <button class="listen-along-banner-end" id="listen-along-end" data-i18n="listenAlong.leave">Leave</button>
   </div>
 
   <!-- ═══════ Notification Toast ═══════ -->

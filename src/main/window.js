@@ -3,7 +3,7 @@ const path = require('path');
 const { mt } = require('./i18n');
 const { updateThumbarButtons } = require('./thumbbar');
 
-function createWindow(ctx, { teardownSocialListeners }) {
+function createWindow(ctx) {
   const isMac = process.platform === 'darwin';
   ctx.mainWindow = new BrowserWindow({
     width: 1500,
@@ -34,14 +34,13 @@ function createWindow(ctx, { teardownSocialListeners }) {
 
   updateThumbarButtons(ctx.mainWindow, false);
 
-  // Intercept close to flush pending cloud saves before quitting
+  // Intercept close to flush pending saves before quitting
   let _closeReady = false;
   ctx.mainWindow.on('close', (e) => {
     if (_closeReady) return;
     e.preventDefault();
-    teardownSocialListeners();
     ctx.mainWindow.webContents.send('app:before-close');
-    setTimeout(() => { _closeReady = true; ctx.mainWindow?.close(); }, 4000);
+    setTimeout(() => { _closeReady = true; ctx.mainWindow?.close(); }, 2000);
   });
   _ipcMain.once('app:close-ready', () => { _closeReady = true; ctx.mainWindow?.close(); });
 

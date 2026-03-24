@@ -209,6 +209,28 @@ function register(ipcMain, ctx) {
     return true;
   });
 
+  // Library export/import
+  ipcMain.handle('library:export', async (_event, jsonStr) => {
+    const result = await dialog.showSaveDialog(ctx.mainWindow, {
+      title: 'Export Snowify Library',
+      defaultPath: `snowify-library-${new Date().toISOString().slice(0, 10)}.json`,
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    });
+    if (result.canceled || !result.filePath) return false;
+    fs.writeFileSync(result.filePath, jsonStr, 'utf-8');
+    return true;
+  });
+
+  ipcMain.handle('library:import', async () => {
+    const result = await dialog.showOpenDialog(ctx.mainWindow, {
+      title: 'Import Snowify Library',
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+      properties: ['openFile']
+    });
+    if (result.canceled || !result.filePaths.length) return null;
+    return fs.readFileSync(result.filePaths[0], 'utf-8');
+  });
+
   // Playlist cover images
   ipcMain.handle('playlist:pickImage', async () => {
     const result = await dialog.showOpenDialog(ctx.mainWindow, {

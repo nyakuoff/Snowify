@@ -4,7 +4,6 @@ const ctx = {
   mainWindow: null,
   ytmusic: null,
   ytmusicReady: false,
-  currentUser: null,
   currentCountry: '',
 };
 
