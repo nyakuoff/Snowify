@@ -1,24 +1,11 @@
-(() => {
-  'use strict';
+import state from './modules/state.js';
+import { setupSliderTooltip, showInputModal, showToast, escapeHtml, pathToFileUrl, addScrollArrows, renderArtistLinks, formatTime, formatFollowers } from './modules/utils.js';
+import { BUILTIN_THEMES, isCustomTheme, customThemeId, applyCustomThemeCss, removeCustomThemeCss, loadAndApplyThemeFile, applyTheme, populateCustomThemes } from './modules/theme.js';
 
-  const $ = (sel, ctx = document) => ctx.querySelector(sel);
-  const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
+'use strict';
 
-  // ─── Generic slider tooltip ───
-  function setupSliderTooltip(sliderEl, formatValue) {
-    const tip = document.createElement('div');
-    tip.className = 'slider-tooltip';
-    sliderEl.style.position = 'relative';
-    sliderEl.appendChild(tip);
-    sliderEl.addEventListener('mouseenter', () => tip.classList.add('visible'));
-    sliderEl.addEventListener('mouseleave', () => tip.classList.remove('visible'));
-    sliderEl.addEventListener('mousemove', (e) => {
-      const rect = sliderEl.getBoundingClientRect();
-      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      tip.textContent = formatValue(pct);
-      tip.style.left = (pct * rect.width) + 'px';
-    });
-  }
+const $ = (sel, ctx = document) => ctx.querySelector(sel);
+const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 
   const audioA = $('#audio-player');
   const audioB = $('#audio-player-b');
@@ -32,111 +19,9 @@
   $('#btn-maximize').onclick = () => window.snowify.maximize();
   $('#btn-close').onclick = () => window.snowify.close();
 
-  const state = {
-    currentView: 'home',
-    queue: [],
-    originalQueue: [],
-    queueIndex: -1,
-    isPlaying: false,
-    shuffle: false,
-    repeat: 'off',
-    volume: 0.7,
-    playlists: [],
-    likedSongs: [],
-    recentTracks: [],
-    followedArtists: [],
-    currentPlaylistId: null,
-    playingPlaylistId: null,
-    isLoading: false,
-    musicOnly: true,
-    autoplay: false,
-    audioQuality: 'bestaudio',
-    videoQuality: '720',
-    videoPremuxed: true,
-    animations: true,
-    effects: true,
-    theme: 'dark',
-    discordRpc: false,
-    country: '',
-    searchHistory: [],
-    crossfade: 0,
-    normalization: false,
-    normalizationTarget: -14,
-    prefetchCount: 0,
-    showListeningActivity: true,
-    showPlugins: true
-  };
-
   // ─── Save button SVGs ───
   const SAVE_SVG_CHECK = '<span class="save-burst"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
   const SAVE_SVG_PLUS = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-
-  // ─── Custom Theme Helpers ───
-  const BUILTIN_THEMES = ['dark', 'light', 'ocean', 'forest', 'sunset', 'rose', 'midnight'];
-
-  function isCustomTheme(theme) {
-    return theme && theme.startsWith('custom:');
-  }
-
-  function customThemeId(theme) {
-    return theme.slice('custom:'.length);
-  }
-
-  function applyCustomThemeCss(css) {
-    // Remove existing to force full re-parse (including @import)
-    removeCustomThemeCss();
-    const el = document.createElement('style');
-    el.id = 'custom-theme-style';
-    el.textContent = css;
-    document.head.appendChild(el);
-  }
-
-  function removeCustomThemeCss() {
-    const el = document.getElementById('custom-theme-style');
-    if (el) el.remove();
-  }
-
-  async function loadAndApplyThemeFile(themeValue) {
-    if (!isCustomTheme(themeValue)) { removeCustomThemeCss(); return false; }
-    const css = await window.snowify.loadTheme(customThemeId(themeValue));
-    if (css) { applyCustomThemeCss(css); return true; }
-    removeCustomThemeCss();
-    return false;
-  }
-
-  function applyTheme(theme) {
-    if (theme === 'dark' || isCustomTheme(theme)) {
-      document.documentElement.removeAttribute('data-theme');
-    } else {
-      document.documentElement.setAttribute('data-theme', theme);
-    }
-    return loadAndApplyThemeFile(theme);
-  }
-
-  async function populateCustomThemes(selectEl, currentValue) {
-    // Remove old custom options
-    selectEl.querySelectorAll('option[data-custom]').forEach(o => o.remove());
-    const themes = await window.snowify.scanThemes();
-    if (themes.length) {
-      const sep = document.createElement('option');
-      sep.disabled = true;
-      sep.textContent = I18n.t('settings.customThemeSeparator');
-      sep.dataset.custom = '1';
-      selectEl.appendChild(sep);
-      for (const t of themes) {
-        const opt = document.createElement('option');
-        opt.value = 'custom:' + t.id;
-        opt.textContent = t.name;
-        opt.dataset.custom = '1';
-        selectEl.appendChild(opt);
-      }
-    }
-    selectEl.value = currentValue;
-    // If the value didn't match (theme was removed), fall back to dark
-    if (selectEl.value !== currentValue && isCustomTheme(currentValue)) {
-      selectEl.value = 'dark';
-    }
-  }
 
   let _saveStateTimer = null;
   function saveState() {
@@ -3663,112 +3548,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     }
   });
 
-  function showInputModal(title, defaultValue = '') {
-    return new Promise((resolve) => {
-      const overlay = $('#input-modal');
-      const input = $('#input-modal-input');
-      const titleEl = $('#input-modal-title');
-
-      titleEl.textContent = title;
-      input.value = defaultValue;
-      overlay.classList.remove('hidden');
-      setTimeout(() => { input.focus(); input.select(); }, 50);
-
-      function cleanup(result) {
-        overlay.classList.add('hidden');
-        input.removeEventListener('keydown', onKey);
-        $('#input-modal-ok').removeEventListener('click', onOk);
-        $('#input-modal-cancel').removeEventListener('click', onCancel);
-        overlay.removeEventListener('click', onOverlay);
-        resolve(result);
-      }
-
-      function onOk() {
-        const val = input.value.trim();
-        cleanup(val || null);
-      }
-      function onCancel() { cleanup(null); }
-      function onKey(e) {
-        if (e.key === 'Enter') onOk();
-        if (e.key === 'Escape') onCancel();
-      }
-      function onOverlay(e) {
-        if (e.target === overlay) onCancel();
-      }
-
-      input.addEventListener('keydown', onKey);
-      $('#input-modal-ok').addEventListener('click', onOk);
-      $('#input-modal-cancel').addEventListener('click', onCancel);
-      overlay.addEventListener('click', onOverlay);
-    });
-  }
-
-  let toastTimeout = null;
-  function showToast(message, action) {
-    const toast = $('#toast');
-    toast.textContent = message;
-    if (action) {
-      const link = document.createElement('span');
-      link.className = 'toast-action';
-      link.textContent = action.label;
-      link.addEventListener('click', action.onClick);
-      toast.append(' ', link);
-    }
-    toast.classList.remove('hidden');
-    clearTimeout(toastTimeout);
-    requestAnimationFrame(() => toast.classList.add('show'));
-    toastTimeout = setTimeout(() => {
-      toast.classList.remove('show');
-      setTimeout(() => toast.classList.add('hidden'), 300);
-    }, action ? 5000 : 2500);
-  }
-
-  function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
-
-  function pathToFileUrl(p) {
-    const normalized = p.replace(/\\/g, '/');
-    return normalized.startsWith('/') ? 'file://' + normalized : 'file:///' + normalized;
-  }
-
-  /** Wrap an .album-scroll or .similar-artists-scroll element with scroll arrows if not already wrapped. */
-  function addScrollArrows(scrollEl) {
-    if (!scrollEl || scrollEl.parentElement?.classList.contains('scroll-container')) return;
-    const wrapper = document.createElement('div');
-    wrapper.className = 'scroll-container';
-    scrollEl.parentNode.insertBefore(wrapper, scrollEl);
-    const leftBtn = document.createElement('button');
-    leftBtn.className = 'scroll-arrow scroll-arrow-left';
-    leftBtn.dataset.dir = 'left';
-    leftBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
-    const rightBtn = document.createElement('button');
-    rightBtn.className = 'scroll-arrow scroll-arrow-right';
-    rightBtn.dataset.dir = 'right';
-    rightBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
-    wrapper.appendChild(leftBtn);
-    wrapper.appendChild(scrollEl);
-    wrapper.appendChild(rightBtn);
-    leftBtn.addEventListener('click', () => scrollEl.scrollBy({ left: -400, behavior: 'smooth' }));
-    rightBtn.addEventListener('click', () => scrollEl.scrollBy({ left: 400, behavior: 'smooth' }));
-  }
-
-  function renderArtistLinks(track) {
-    if (track.artists?.length) {
-      return track.artists.map((a, i, arr) => {
-        const sep = i < arr.length - 1 ? ', ' : '';
-        return (a.id
-          ? `<span class="artist-link" data-artist-id="${escapeHtml(a.id)}">${escapeHtml(a.name)}</span>`
-          : escapeHtml(a.name)) + sep;
-      }).join('');
-    }
-    if (track.artistId) {
-      return `<span class="artist-link" data-artist-id="${escapeHtml(track.artistId)}">${escapeHtml(track.artist)}</span>`;
-    }
-    return escapeHtml(track.artist || I18n.t('common.unknownArtist'));
-  }
-
   function bindArtistLinks(container) {
     container.querySelectorAll('.artist-link[data-artist-id]').forEach(link => {
       link.addEventListener('click', (e) => {
@@ -3776,13 +3555,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         openArtistPage(link.dataset.artistId);
       });
     });
-  }
-
-  function formatTime(s) {
-    if (!s || isNaN(s)) return '0:00';
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, '0')}`;
   }
 
   document.querySelector('[data-playlist="liked"]')?.addEventListener('click', () => {
@@ -4204,13 +3976,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         updatePlayAllBtn(artistPlayBtn, popular, null);
       }
     };
-  }
-
-  function formatFollowers(n) {
-    if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'B';
-    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
-    if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
-    return n.toString();
   }
 
   // ─── Drag & Drop helpers ───
@@ -8582,4 +8347,3 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   });
 
   init();
-})();
