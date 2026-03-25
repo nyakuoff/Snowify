@@ -5561,7 +5561,7 @@ body.i18n-switching { opacity: 0; }
   position: absolute; inset: 0; z-index: 3;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  padding: 64px 32px 20px;
+  padding: 56px 32px 56px;
   opacity: 0; pointer-events: none;
   transition: opacity 0.38s ease, transform 0.38s cubic-bezier(0.25,0.46,0.45,0.94);
 }
@@ -5570,6 +5570,14 @@ body.i18n-switching { opacity: 0; }
 .wrapped-slide.enter-left  { transform: translateX(-55px); }
 .wrapped-slide.exit-left   { transform: translateX(-55px); }
 .wrapped-slide.exit-right  { transform: translateX(55px); }
+
+/* Pause all animations until the slide becomes active — prevents all slides
+   animating at once when they're inserted into the DOM up-front */
+.wrapped-slide:not(.active) .wrapped-anim-up,
+.wrapped-slide:not(.active) .wrapped-anim-scale,
+.wrapped-slide:not(.active) .wrapped-anim-pop,
+.wrapped-slide:not(.active) .wrapped-list-item,
+.wrapped-slide:not(.active) .wrapped-month-bar { animation-play-state: paused; }
 
 /* Slide content sits above backgrounds */
 .wrapped-content {
