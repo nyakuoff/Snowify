@@ -8,3 +8,4 @@ plugins/*/
 build-dir/
 builddir/
 repo/
+json
