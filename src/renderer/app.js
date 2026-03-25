@@ -2,8 +2,6 @@ import state from './modules/state.js';
 import { setupSliderTooltip, showInputModal, showToast, escapeHtml, pathToFileUrl, addScrollArrows, renderArtistLinks, formatTime, formatFollowers } from './modules/utils.js';
 import { BUILTIN_THEMES, isCustomTheme, customThemeId, applyCustomThemeCss, removeCustomThemeCss, loadAndApplyThemeFile, applyTheme, populateCustomThemes } from './modules/theme.js';
 
-console.log('[Snowify] module body start');
-
 'use strict';
 
 const $ = (sel, ctx = document) => ctx.querySelector(sel);
@@ -97,10 +95,6 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
   }
 
   function loadState() {
-    // DEBUG: dump all snowify keys so we can see what's in storage
-    console.log('[loadState] localStorage keys:', Object.keys(localStorage).filter(k => k.startsWith('snowify')));
-    console.log('[loadState] snowify_state length:', (localStorage.getItem('snowify_state') || '').length);
-    console.log('[loadState] snowify_migrated_v2:', localStorage.getItem('snowify_migrated_v2'));
     try {
       // Migrate old 'snowfy' localStorage keys to 'snowify'
       if (localStorage.getItem('snowfy_state') && !localStorage.getItem('snowify_state')) {
@@ -113,13 +107,11 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
       }
       // One-time migration: clear data from old yt-dlp implementation
       if (!localStorage.getItem('snowify_migrated_v2')) {
-        console.warn('[loadState] snowify_migrated_v2 missing — wiping state and setting flag');
         localStorage.removeItem('snowify_state');
         localStorage.setItem('snowify_migrated_v2', '1');
         return;
       }
       const saved = JSON.parse(localStorage.getItem('snowify_state'));
-      console.log('[loadState] parsed saved state — playlists:', saved?.playlists?.length, '| likedSongs:', saved?.likedSongs?.length, '| recentTracks:', saved?.recentTracks?.length);
       if (saved) {
         state.playlists = saved.playlists || [];
         state.likedSongs = saved.likedSongs || [];
@@ -159,9 +151,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
       }
       // Play log, genre cache, and backfill are loaded async in loadPlayLogAsync()
       // to avoid blocking the main thread on startup.
-    } catch (err) {
-      console.error('[loadState] CRASHED — data not loaded:', err);
-    }
+    } catch (_) {}
   }
 
   function updateGreeting() {
@@ -5245,39 +5235,11 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   }
 
   async function init() {
-    console.log('[Snowify] init() entered');
-    console.time('[Snowify] total startup');
-    console.time('[Snowify] getLocale');
     const systemLocale = await window.snowify.getLocale();
-    console.timeEnd('[Snowify] getLocale');
-
-    console.time('[Snowify] I18n.init');
     await I18n.init(systemLocale);
-    console.timeEnd('[Snowify] I18n.init');
-
-    console.time('[Snowify] loadState');
     loadState();
-    console.timeEnd('[Snowify] loadState');
-    console.log('[Snowify] state sizes — playlists:', state.playlists.length,
-      '| likedSongs:', state.likedSongs.length,
-      '| recentTracks:', state.recentTracks.length,
-      '| queue:', state.queue.length,
-      '| searchHistory:', state.searchHistory.length);
-    const lsKeys = ['snowify_state','snowify_queue','snowify_play_log','snowify_genre_cache'];
-    lsKeys.forEach(k => {
-      const v = localStorage.getItem(k);
-      console.log(`[Snowify] localStorage[${k}] = ${v ? (v.length/1024).toFixed(1)+'KB' : 'empty'}`);
-    });
-
-    console.time('[Snowify] showMigrationNoticeIfNeeded');
     showMigrationNoticeIfNeeded();
-    console.timeEnd('[Snowify] showMigrationNoticeIfNeeded');
-
-    console.time('[Snowify] finishInit');
     finishInit();
-    console.timeEnd('[Snowify] finishInit');
-    console.timeEnd('[Snowify] total startup');
-
     loadPlayLogAsync(); // fire-and-forget — avoids blocking startup with large JSON parse
   }
 
@@ -5301,7 +5263,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     await new Promise(r => setTimeout(r, 0));
 
     // Parse play log — can be several MB for heavy listeners
-    console.time('[Snowify] loadPlayLogAsync:parse play_log');
     try {
       const raw = localStorage.getItem('snowify_play_log');
       if (raw) {
@@ -5309,12 +5270,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         if (Array.isArray(parsed)) state.playLog = parsed;
       }
     } catch (_) {}
-    console.timeEnd('[Snowify] loadPlayLogAsync:parse play_log');
-    console.log('[Snowify] playLog entries:', state.playLog.length);
 
     // Yield again before genre cache
     await new Promise(r => setTimeout(r, 0));
-    console.time('[Snowify] loadPlayLogAsync:parse genre_cache');
     try {
       const raw = localStorage.getItem('snowify_genre_cache');
       if (raw) {
@@ -5322,12 +5280,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         if (parsed && typeof parsed === 'object') state.trackGenreCache = parsed;
       }
     } catch (_) {}
-    console.timeEnd('[Snowify] loadPlayLogAsync:parse genre_cache');
-    console.log('[Snowify] genreCache keys:', Object.keys(state.trackGenreCache).length);
 
     // One-time backfill from recentTracks for users predating the Wrapped feature
     if (state.playLog.length === 0 && state.recentTracks.length > 0) {
-      console.log('[Snowify] loadPlayLogAsync: running recentTracks backfill...');
       await new Promise(r => setTimeout(r, 0));
       const now = Date.now();
       const span = Math.max(90 * 24 * 3600_000, state.recentTracks.length * 14 * 24 * 3600_000);
@@ -5342,13 +5297,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       }));
       // Persist without blocking UI (write in next task)
       await new Promise(r => setTimeout(r, 0));
-      console.time('[Snowify] loadPlayLogAsync:persist backfill');
       try { localStorage.setItem('snowify_play_log', JSON.stringify(state.playLog)); } catch (_) {}
-      console.timeEnd('[Snowify] loadPlayLogAsync:persist backfill');
     }
 
     _playLogReady = true;
-    console.log('[Snowify] loadPlayLogAsync: done');
     checkWrappedTrigger();
   }
 
@@ -5384,7 +5336,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     // Expose state reference and save function for wrapped.js + plugins
     window.__snowifyState = state;
     window.__snowifySaveState = _flushSaveState;
-    console.time('[Snowify] finishInit:updateGreeting+volume');
     updateGreeting();
     setVolume(state.volume);
     if (state.discordRpc) window.snowify.connectDiscord();
@@ -5392,21 +5343,12 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     btnShuffle.classList.toggle('active', state.shuffle);
     btnRepeat.classList.toggle('active', state.repeat !== 'off');
     updateRepeatButton();
-    console.timeEnd('[Snowify] finishInit:updateGreeting+volume');
-
-    console.time('[Snowify] finishInit:renderPlaylists');
     renderPlaylists();
-    console.timeEnd('[Snowify] finishInit:renderPlaylists');
-
-    console.time('[Snowify] finishInit:renderHome');
     renderHome();
-    console.timeEnd('[Snowify] finishInit:renderHome');
-
-    console.time('[Snowify] finishInit:initSettings (async, non-blocking)');
     initSettings().catch(err => {
       console.error('[initSettings crashed]', err);
       showToast('Settings error: ' + err.message);
-    }).then(() => console.timeEnd('[Snowify] finishInit:initSettings (async, non-blocking)'));
+    });
 
     // ─── Export / Import local data (wired here, outside the async initSettings) ───
     $('#btn-export-data').addEventListener('click', async () => {
@@ -5459,10 +5401,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       _refreshSources: null,
     };
 
-    console.time('[Snowify] finishInit:loadEnabledPlugins (async, non-blocking)');
-    loadEnabledPlugins().then(() => console.timeEnd('[Snowify] finishInit:loadEnabledPlugins (async, non-blocking)'));
-
-    console.time('[Snowify] finishInit:showNowPlaying');
+    loadEnabledPlugins();
     // Restore queue display (but don't auto-play)
     const restoredTrack = state.queue[state.queueIndex];
     if (restoredTrack) {
@@ -5471,7 +5410,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     } else {
       appEl.classList.add('no-player');
     }
-    console.timeEnd('[Snowify] finishInit:showNowPlaying');
 
     // Wrapped trigger is now fired by loadPlayLogAsync() once data is ready
   }
