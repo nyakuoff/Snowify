@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('snowify', {
   maximize: () => ipcRenderer.send('window:maximize'),
   close: () => ipcRenderer.send('window:close'),
   setMinimizeToTray: (enabled) => ipcRenderer.send('window:setMinimizeToTray', enabled),
+  setOpenAtLogin: (enabled) => ipcRenderer.send('window:setOpenAtLogin', enabled),
 
   // YouTube Music
   search: (query, musicOnly) => ipcRenderer.invoke('yt:search', query, musicOnly),
@@ -19,7 +20,6 @@ contextBridge.exposeInMainWorld('snowify', {
   getPlaylistVideos: (playlistId) => ipcRenderer.invoke('yt:getPlaylistVideos', playlistId),
   searchSuggestions: (query) => ipcRenderer.invoke('yt:searchSuggestions', query),
   getStreamUrl: (videoUrl, quality, trackMeta, sources) => ipcRenderer.invoke('yt:getStreamUrl', videoUrl, quality, trackMeta, sources),
-  enrichTrackMeta: (title, artist) => ipcRenderer.invoke('meta:enrichTrack', title, artist),
   downloadAudio: (videoUrl, quality, videoId) => ipcRenderer.invoke('yt:downloadAudio', videoUrl, quality, videoId),
   saveSong: (videoUrl, title, artist) => ipcRenderer.invoke('song:saveTo', videoUrl, title, artist),
   deleteCachedAudio: (filePath) => ipcRenderer.invoke('cache:deleteFile', filePath),
@@ -119,4 +119,7 @@ contextBridge.exposeInMainWorld('snowify', {
   getInstalledMarketplaceThemes: () => ipcRenderer.invoke('themes:getInstalled'),
   installMarketplaceTheme: (entry) => ipcRenderer.invoke('themes:install', entry),
   uninstallMarketplaceTheme: (id) => ipcRenderer.invoke('themes:uninstallMarketplace', id),
+
+  // Generic HTTP GET for plugins (bypasses renderer CORS restrictions)
+  httpGet: (url, headers) => ipcRenderer.invoke('net:httpGet', url, headers),
 });

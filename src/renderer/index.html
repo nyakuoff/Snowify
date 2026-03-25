@@ -73,10 +73,6 @@
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h2v16H4V4zm5 0h2v16H9V4zm5 2h2v14h-2V6zm5-2h2v16h-2V4z"/></svg>
           <span data-i18n="nav.library">Library</span>
         </button>
-        <button class="nav-btn" data-view="plugins">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 11H19V7a2 2 0 0 0-2-2h-4V3.5a2.5 2.5 0 0 0-5 0V5H4a2 2 0 0 0-2 2v3.8h1.5a2.7 2.7 0 0 1 0 5.4H2V20a2 2 0 0 0 2 2h3.8v-1.5a2.7 2.7 0 0 1 5.4 0V22H17a2 2 0 0 0 2-2v-4h1.5a2.5 2.5 0 0 0 0-5z"/></svg>
-          <span data-i18n="nav.plugins">Marketplace</span>
-        </button>
         <button class="nav-btn" data-view="settings">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96a7.04 7.04 0 00-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84a.48.48 0 00-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87a.48.48 0 00.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 00-.12-.61l-2.03-1.58zM12 15.6A3.6 3.6 0 1115.6 12 3.6 3.6 0 0112 15.6z"/></svg>
           <span data-i18n="nav.settings">Settings</span>
@@ -261,64 +257,6 @@
         <div id="album-tracks" class="track-list"></div>
       </section>
 
-      <!-- ── Marketplace View ── -->
-      <section class="view" id="view-plugins">
-        <div class="plugins-content">
-          <div class="view-header">
-            <h1 data-i18n="plugins.title">Marketplace</h1>
-          </div>
-          <p class="plugins-desc" data-i18n="plugins.desc">Extend Snowify with community-made plugins and themes.</p>
-
-          <div class="marketplace-tabs">
-            <button class="marketplace-tab active" data-tab="plugins" data-i18n="plugins.tabPlugins">Plugins</button>
-            <button class="marketplace-tab" data-tab="themes" data-i18n="plugins.tabThemes">Themes</button>
-          </div>
-
-          <!-- Plugins Tab -->
-          <div class="marketplace-tab-content active" id="marketplace-plugins">
-            <div class="marketplace-search-row">
-              <input class="marketplace-search" id="marketplace-search-plugins" type="text" placeholder="Search plugins…" autocomplete="off" />
-            </div>
-            <div id="plugins-installed-section" class="plugins-section" style="display:none;">
-              <h2 data-i18n="plugins.installed">Installed</h2>
-              <div id="plugins-installed-list" class="plugins-list"></div>
-            </div>
-
-            <div class="plugins-section">
-              <h2 data-i18n="plugins.available">Available</h2>
-              <div id="plugins-available-grid" class="plugins-grid">
-                <div class="loading"><div class="spinner"></div></div>
-              </div>
-            </div>
-
-            <div class="plugins-footer">
-              <p><span data-i18n="plugins.submitHint">Want to add your plugin?</span> <a href="https://github.com/nyakuoff/Snowify-Plugins" target="_blank" data-i18n="plugins.submitLink">Open a PR on GitHub</a></p>
-            </div>
-          </div>
-
-          <!-- Themes Tab -->
-          <div class="marketplace-tab-content" id="marketplace-themes">
-            <div class="marketplace-search-row">
-              <input class="marketplace-search" id="marketplace-search-themes" type="text" placeholder="Search themes…" autocomplete="off" />
-            </div>
-            <div id="themes-installed-section" class="plugins-section" style="display:none;">
-              <h2 data-i18n="plugins.installed">Installed</h2>
-              <div id="themes-installed-list" class="plugins-list"></div>
-            </div>
-
-            <div class="plugins-section">
-              <h2 data-i18n="plugins.available">Available</h2>
-              <div id="themes-available-grid" class="plugins-grid">
-                <div class="loading"><div class="spinner"></div></div>
-              </div>
-            </div>
-
-            <div class="plugins-footer">
-              <p><span data-i18n="plugins.submitThemeHint">Want to add your theme?</span> <a href="https://github.com/nyakuoff/Snowify-Themes" target="_blank" data-i18n="plugins.submitLink">Open a PR on GitHub</a></p>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <!-- ── Settings View ── -->
       <section class="view" id="view-settings">
@@ -332,6 +270,7 @@
             <button class="settings-tab-btn" data-settings-tab="playback" data-i18n="settings.tabPlayback">Playback</button>
             <button class="settings-tab-btn" data-settings-tab="appearance" data-i18n="settings.tabAppearance">Appearance</button>
             <button class="settings-tab-btn" data-settings-tab="data" data-i18n="settings.tabData">Data &amp; Library</button>
+            <button class="settings-tab-btn" data-settings-tab="marketplace" data-i18n="plugins.title">Marketplace</button>
             <button class="settings-tab-btn" data-settings-tab="about" data-i18n="settings.tabAbout">About</button>
           </div>
 
@@ -529,21 +468,21 @@
             </div>
             <div class="setting-row">
               <div class="setting-info">
-                <span class="setting-label" data-i18n="plugins.settingLabel">Marketplace</span>
-                <span class="setting-desc" data-i18n="plugins.settingDesc">Browse and install community plugins and themes</span>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-show-plugins" />
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-            <div class="setting-row">
-              <div class="setting-info">
                 <span class="setting-label" data-i18n="settings.minimizeToTray">Minimize to tray</span>
                 <span class="setting-desc" data-i18n="settings.minimizeToTrayDesc">Closing the app minimizes it to the system tray instead of quitting</span>
               </div>
               <label class="toggle-switch">
                 <input type="checkbox" id="setting-minimize-to-tray" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.launchOnStartup">Launch on startup</span>
+                <span class="setting-desc" data-i18n="settings.launchOnStartupDesc">Automatically start Snowify when you log in</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-launch-on-startup" />
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -728,6 +667,62 @@
           </div>
 
           </div><!-- /.settings-tab-pane[about] -->
+
+          <!-- ── Marketplace tab ── -->
+          <div class="settings-tab-pane" data-tab="marketplace">
+            <div class="plugins-content">
+              <p class="plugins-desc" data-i18n="plugins.desc">Extend Snowify with community-made plugins and themes.</p>
+
+              <div class="marketplace-tabs">
+                <button class="marketplace-tab active" data-tab="plugins" data-i18n="plugins.tabPlugins">Plugins</button>
+                <button class="marketplace-tab" data-tab="themes" data-i18n="plugins.tabThemes">Themes</button>
+              </div>
+
+              <!-- Plugins Tab -->
+              <div class="marketplace-tab-content active" id="marketplace-plugins">
+                <div class="marketplace-search-row">
+                  <input class="marketplace-search" id="marketplace-search-plugins" type="text" placeholder="Search plugins…" autocomplete="off" />
+                </div>
+                <div id="plugins-installed-section" class="plugins-section" style="display:none;">
+                  <h2 data-i18n="plugins.installed">Installed</h2>
+                  <div id="plugins-installed-list" class="plugins-list"></div>
+                </div>
+
+                <div class="plugins-section">
+                  <h2 data-i18n="plugins.available">Available</h2>
+                  <div id="plugins-available-grid" class="plugins-grid">
+                    <div class="loading"><div class="spinner"></div></div>
+                  </div>
+                </div>
+
+                <div class="plugins-footer">
+                  <p><span data-i18n="plugins.submitHint">Want to add your plugin?</span> <a href="https://github.com/nyakuoff/Snowify-Plugins" target="_blank" data-i18n="plugins.submitLink">Open a PR on GitHub</a></p>
+                </div>
+              </div>
+
+              <!-- Themes Tab -->
+              <div class="marketplace-tab-content" id="marketplace-themes">
+                <div class="marketplace-search-row">
+                  <input class="marketplace-search" id="marketplace-search-themes" type="text" placeholder="Search themes…" autocomplete="off" />
+                </div>
+                <div id="themes-installed-section" class="plugins-section" style="display:none;">
+                  <h2 data-i18n="plugins.installed">Installed</h2>
+                  <div id="themes-installed-list" class="plugins-list"></div>
+                </div>
+
+                <div class="plugins-section">
+                  <h2 data-i18n="plugins.available">Available</h2>
+                  <div id="themes-available-grid" class="plugins-grid">
+                    <div class="loading"><div class="spinner"></div></div>
+                  </div>
+                </div>
+
+                <div class="plugins-footer">
+                  <p><span data-i18n="plugins.submitThemeHint">Want to add your theme?</span> <a href="https://github.com/nyakuoff/Snowify-Themes" target="_blank" data-i18n="plugins.submitLink">Open a PR on GitHub</a></p>
+                </div>
+              </div>
+            </div>
+          </div><!-- /.settings-tab-pane[marketplace] -->
 
         </div>
       </section>

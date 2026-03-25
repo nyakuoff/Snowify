@@ -34,10 +34,10 @@ const state = {
   normalizationTarget: -14,
   prefetchCount: 0,
   showListeningActivity: true,
-  showPlugins: true,
   minimizeToTray: false,
+  launchOnStartup: false,
   // Sources (ordered by priority; first enabled = primary, rest = fallbacks)
-  songSources: ['youtube', 'soundcloud'],
+  songSources: ['youtube'],
   metadataSources: ['youtube'],
   // Play log for Wrapped — stored in a separate localStorage key to avoid quota issues
   playLog: [],

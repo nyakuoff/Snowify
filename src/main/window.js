@@ -61,6 +61,10 @@ function createWindow(ctx) {
     else destroyTray();
   });
 
+  _ipcMain.on('window:setOpenAtLogin', (_e, enabled) => {
+    app.setLoginItemSettings({ openAtLogin: !!enabled });
+  });
+
   ctx.mainWindow.on('close', (e) => {
     if (_closeReady) return;
     if (ctx.minimizeToTray && !_forceQuit) {

@@ -659,12 +659,38 @@ function register(ipcMain, ctx) {
     throw lastError;
   });
 
-  ipcMain.handle('meta:enrichTrack', async (_event, title, artist) => {
+  // Generic HTTP GET helper for renderer-side plugins (bypasses CORS).
+  // Only returns JSON responses; returns null on any failure.
+  ipcMain.handle('net:httpGet', async (_event, rawUrl, reqHeaders = {}) => {
     try {
-      const { enrichTrack } = require('./spotify-meta');
-      return await enrichTrack(title, artist);
+      const https = require('https');
+      const parsed = new URL(rawUrl);
+      if (parsed.protocol !== 'https:') throw new Error('Only HTTPS URLs are supported');
+      return await new Promise((resolve, reject) => {
+        const req = https.request({
+          hostname: parsed.hostname,
+          path: parsed.pathname + parsed.search,
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
+            'Accept-Language': 'en',
+            ...reqHeaders,
+          },
+        }, (res) => {
+          let data = '';
+          res.on('data', chunk => { data += chunk; });
+          res.on('end', () => {
+            try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
+            catch (_) { resolve({ status: res.statusCode, body: null }); }
+          });
+        });
+        req.on('error', reject);
+        req.setTimeout(10000, () => { req.destroy(new Error('Request timeout')); });
+        req.end();
+      });
     } catch (err) {
-      console.error('[SpotifyMeta] enrichTrack failed:', err.message);
+      console.error('[net:httpGet] failed:', err.message);
       return null;
     }
   });

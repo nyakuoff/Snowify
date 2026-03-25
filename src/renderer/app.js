@@ -59,8 +59,8 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
         normalizationTarget: state.normalizationTarget,
         prefetchCount: state.prefetchCount,
         showListeningActivity: state.showListeningActivity,
-        showPlugins: state.showPlugins,
         minimizeToTray: state.minimizeToTray,
+        launchOnStartup: state.launchOnStartup,
         songSources: state.songSources,
         metadataSources: state.metadataSources,
         wrappedShownYear: state.wrappedShownYear,
@@ -135,8 +135,8 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
         state.normalization = saved.normalization ?? false;
         state.normalizationTarget = saved.normalizationTarget ?? -14;
         state.prefetchCount = saved.prefetchCount ?? 0;
-        state.showPlugins = saved.showPlugins ?? true;
         state.minimizeToTray = saved.minimizeToTray ?? false;
+        state.launchOnStartup = saved.launchOnStartup ?? false;
         state.songSources = saved.songSources || ['youtube'];
         state.metadataSources = saved.metadataSources || ['youtube'];
         state.wrappedShownYear = saved.wrappedShownYear ?? null;
@@ -196,9 +196,6 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
       renderLibrary();
     }
     // Social listeners remain active while signed in; only stopped on sign-out
-    if (name === 'plugins') {
-      renderPlugins();
-    }
     if (name === 'settings') {
       const ts = $('#theme-select');
       if (ts) populateCustomThemes(ts, state.theme);
@@ -5331,17 +5328,20 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
   // ─── Spotify metadata enrichment (background, fire-and-forget) ───
   async function maybeEnrichTrackMeta(track) {
-    if (!state.metadataSources.includes('spotify')) return;
     if (!track?.id || !track.title) return;
     if (state.trackGenreCache[track.id]) return; // already cached
-    try {
-      const meta = await window.snowify.enrichTrackMeta(track.title, track.artist || '');
-      if (meta) {
-        state.trackGenreCache[track.id] = meta;
-        // Save genre cache separately (non-blocking)
-        try { localStorage.setItem('snowify_genre_cache', JSON.stringify(state.trackGenreCache)); } catch (_) {}
-      }
-    } catch (_) { /* enrichment is best-effort */ }
+    for (const sourceId of state.metadataSources) {
+      const handler = window.SnowifySources?._metaHandlers?.[sourceId];
+      if (!handler) continue;
+      try {
+        const meta = await handler(track.title, track.artist || '');
+        if (meta) {
+          state.trackGenreCache[track.id] = meta;
+          try { localStorage.setItem('snowify_genre_cache', JSON.stringify(state.trackGenreCache)); } catch (_) {}
+          break; // first successful source wins
+        }
+      } catch (_) { /* enrichment is best-effort */ }
+    }
   }
 
   function finishInit() {
@@ -5352,6 +5352,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     setVolume(state.volume);
     if (state.discordRpc) window.snowify.connectDiscord();
     if (state.minimizeToTray) window.snowify.setMinimizeToTray(true);
+    if (state.launchOnStartup) window.snowify.setOpenAtLogin(true);
     btnShuffle.classList.toggle('active', state.shuffle);
     btnRepeat.classList.toggle('active', state.repeat !== 'off');
     updateRepeatButton();
@@ -5398,6 +5399,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       _meta: [
         { id: 'youtube', label: I18n.t('settings.sourceYTMeta'), desc: I18n.t('settings.sourceYTMetaDesc') },
       ],
+      _metaHandlers: {},
       registerSongSource(def) {
         if (!this._song.find(s => s.id === def.id)) {
           this._song.push(def);
@@ -5407,6 +5409,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       registerMetaSource(def) {
         if (!this._meta.find(s => s.id === def.id)) {
           this._meta.push(def);
+          if (typeof def.enrich === 'function') this._metaHandlers[def.id] = def.enrich;
           this._refreshSources?.();
         }
       },
@@ -5883,6 +5886,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         document.querySelectorAll('.settings-tab-pane').forEach(p =>
           p.classList.toggle('active', p.dataset.tab === tabId));
         sessionStorage.setItem('settings-tab', tabId);
+        if (tabId === 'marketplace') renderPlugins();
       };
       settingsTabs.addEventListener('click', e => {
         const btn = e.target.closest('.settings-tab-btn');
@@ -5928,30 +5932,26 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     document.documentElement.classList.toggle('no-effects', !state.effects);
 
 
-    // ── Plugins toggle ──
-    const showPluginsToggle = $('#setting-show-plugins');
-    const pluginsNavBtn = document.querySelector('.nav-btn[data-view="plugins"]');
-    showPluginsToggle.checked = state.showPlugins;
-    if (pluginsNavBtn) pluginsNavBtn.style.display = state.showPlugins ? '' : 'none';
-    showPluginsToggle.addEventListener('change', () => {
-      state.showPlugins = showPluginsToggle.checked;
-      if (pluginsNavBtn) pluginsNavBtn.style.display = state.showPlugins ? '' : 'none';
-      if (!state.showPlugins) {
-        const ps = getPluginState();
-        Object.keys(ps).forEach(id => { ps[id].enabled = false; });
-        savePluginState(ps);
-        document.querySelectorAll('[data-plugin-id]').forEach(el => el.remove());
-        if (state.currentView === 'plugins') switchView('home');
-      }
-      saveState();
-    });
 
+
+    // ── Minimize to tray ──
     const minimizeToTrayToggle = $('#setting-minimize-to-tray');
     if (minimizeToTrayToggle) {
       minimizeToTrayToggle.checked = state.minimizeToTray;
       minimizeToTrayToggle.addEventListener('change', () => {
         state.minimizeToTray = minimizeToTrayToggle.checked;
         window.snowify.setMinimizeToTray(state.minimizeToTray);
+        saveState();
+      });
+    }
+
+    // ── Launch on startup ──
+    const launchOnStartupToggle = $('#setting-launch-on-startup');
+    if (launchOnStartupToggle) {
+      launchOnStartupToggle.checked = state.launchOnStartup;
+      launchOnStartupToggle.addEventListener('change', () => {
+        state.launchOnStartup = launchOnStartupToggle.checked;
+        window.snowify.setOpenAtLogin(state.launchOnStartup);
         saveState();
       });
     }
@@ -6803,7 +6803,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   }
 
   async function loadEnabledPlugins() {
-    if (!state.showPlugins) return;
     const ps = getPluginState();
     for (const [id, info] of Object.entries(ps)) {
       if (!info.enabled) continue;
