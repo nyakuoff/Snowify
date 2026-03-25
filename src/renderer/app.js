@@ -9,6 +9,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 
   const audioA = $('#audio-player');
   const audioB = $('#audio-player-b');
+  const appEl = $('#app');
   let engine; // initialized after state definition
   let audio;  // mutable alias, synced with engine after swaps
 
@@ -59,7 +60,10 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
         prefetchCount: state.prefetchCount,
         showListeningActivity: state.showListeningActivity,
         showPlugins: state.showPlugins,
-        minimizeToTray: state.minimizeToTray
+        minimizeToTray: state.minimizeToTray,
+        songSources: state.songSources,
+        metadataSources: state.metadataSources,
+        wrappedShownYear: state.wrappedShownYear,
       }));
       localStorage.setItem('snowify_lastSave', String(Date.now()));
     } catch (e) {
@@ -75,6 +79,18 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
       }));
     } catch (e) {
       console.error('Queue save failed (storage quota exceeded):', e);
+    }
+    // Play log — stored separately to avoid bloating the main state key
+    try {
+      localStorage.setItem('snowify_play_log', JSON.stringify(state.playLog));
+    } catch (e) {
+      console.warn('Play log save failed (quota?):', e);
+    }
+    // Genre cache — stored separately
+    try {
+      localStorage.setItem('snowify_genre_cache', JSON.stringify(state.trackGenreCache));
+    } catch (e) {
+      console.warn('Genre cache save failed (quota?):', e);
     }
   }
 
@@ -121,6 +137,9 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
         state.prefetchCount = saved.prefetchCount ?? 0;
         state.showPlugins = saved.showPlugins ?? true;
         state.minimizeToTray = saved.minimizeToTray ?? false;
+        state.songSources = saved.songSources || ['youtube'];
+        state.metadataSources = saved.metadataSources || ['youtube'];
+        state.wrappedShownYear = saved.wrappedShownYear ?? null;
       }
       // Restore queue (local-only, separate from cloud sync)
       const savedQueue = JSON.parse(localStorage.getItem('snowify_queue'));
@@ -130,6 +149,8 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
         state.queueIndex = savedQueue.queueIndex ?? -1;
         state.playingPlaylistId = savedQueue.playingPlaylistId || null;
       }
+      // Play log, genre cache, and backfill are loaded async in loadPlayLogAsync()
+      // to avoid blocking the main thread on startup.
     } catch (_) {}
   }
 
@@ -692,9 +713,11 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
         ${showPlays ? `<span style="text-align:right">${I18n.t('trackList.plays')}</span>` : ''}
       </div>`;
 
+    const _currentId = state.queue[state.queueIndex]?.id;
+    const _likedIds = new Set(state.likedSongs.map(t => t.id));
     tracks.forEach((track, i) => {
-      const isPlaying = state.queue[state.queueIndex]?.id === track.id;
-      const isLiked = state.likedSongs.some(t => t.id === track.id);
+      const isPlaying = _currentId === track.id;
+      const isLiked = _likedIds.has(track.id);
 
       html += `
         <div class="track-row ${isPlaying ? 'playing' : ''}${modifier}"
@@ -1084,7 +1107,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         if (!cachedPath) showToast(I18n.t('toast.loadingTrack', { title: track.title }));
         const directUrl = cachedPath
           ? pathToFileUrl(cachedPath)
-          : await window.snowify.getStreamUrl(track.url, state.audioQuality);
+          : await window.snowify.getStreamUrl(track.url, state.audioQuality, { title: track.title, artist: track.artist }, state.songSources);
         if (gen !== _playGeneration) return; // stale call — newer playTrack superseded us
         engine.setSource(directUrl);
         audio = engine.getActiveAudio();
@@ -1098,6 +1121,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       state.isLoading = false;
       addToRecent(track);
       updateDiscordPresence(track);
+      // Background Spotify enrichment (fire-and-forget, non-blocking)
+      maybeEnrichTrackMeta(track);
       renderQueue();
       updatePositionState();
       saveState();
@@ -1150,7 +1175,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     if (!next || next.isLocal || (!next.url && !next.id)) return;
     const url = next.url || `https://music.youtube.com/watch?v=${next.id}`;
     // Fire-and-forget: this populates the main-process cache
-    window.snowify.getStreamUrl(url, state.audioQuality).catch(() => {});
+    window.snowify.getStreamUrl(url, state.audioQuality, { title: next.title, artist: next.artist }, state.songSources).catch(() => {});
   }
 
   const PLAY_SVG = '<svg width="24" height="24" viewBox="0 0 24 24" fill="#000"><path d="M8 5v14l11-7L8 5z"/></svg>';
@@ -1501,7 +1526,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         const cached = prefetchCache.getCachedPath(videoId);
         if (cached) return pathToFileUrl(cached);
       }
-      return window.snowify.getStreamUrl(url, q);
+      // Look up the track in the queue to supply metadata for source fallback
+      const track = state.queue.find(t => t.url === url || (videoId && t.id === videoId));
+      const trackMeta = track ? { title: track.title, artist: track.artist } : {};
+      return window.snowify.getStreamUrl(url, q, trackMeta, state.songSources);
     },
     onTransition: handleEngineTransition,
     onTimeUpdate: handleEngineTimeUpdate,
@@ -1727,9 +1755,19 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     bar.dataset.trackUrl = track.url || '';
     bar.dataset.trackTitle = track.title || '';
     bar.dataset.trackArtist = track.artist || '';
-    document.querySelector('#app').classList.remove('no-player');
+    appEl.classList.remove('no-player');
 
     $('#np-thumbnail').src = track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : '');
+    // Extract dominant color from album art and push as ambient CSS variable
+    const _ambientSrc = track.thumbnail;
+    if (_ambientSrc) {
+      extractDominantColor({ src: _ambientSrc }).then(color => {
+        const rgb = color ? `${color.r}, ${color.g}, ${color.b}` : '170, 85, 230';
+        document.documentElement.style.setProperty('--ambient-rgb', rgb);
+      });
+    } else {
+      document.documentElement.style.setProperty('--ambient-rgb', '170, 85, 230');
+    }
     const npTitle = $('#np-title');
     npTitle.textContent = track.title;
     if (track.albumId) {
@@ -1794,9 +1832,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   }
 
   function updateTrackHighlight() {
+    const current = state.queue[state.queueIndex];
     $$('.track-row').forEach(row => {
-      const current = state.queue[state.queueIndex];
-      row.classList.toggle('playing', current && row.dataset.trackId === current.id);
+      row.classList.toggle('playing', !!current && row.dataset.trackId === current.id);
     });
     updatePlaylistHighlight();
   }
@@ -1936,9 +1974,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     el.addEventListener('animationend', () => el.remove());
   }
 
+  const _likedCountEl = document.querySelector('[data-playlist="liked"] .playlist-count');
   function updateLikedCount() {
-    const el = document.querySelector('[data-playlist="liked"] .playlist-count');
-    if (el) el.textContent = I18n.tp('sidebar.songCount', state.likedSongs.length);
+    if (_likedCountEl) _likedCountEl.textContent = I18n.tp('sidebar.songCount', state.likedSongs.length);
   }
 
   function createPlaylist(name) {
@@ -2865,8 +2903,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
   function startDragScroll() {
     if (_dragScrollRAF) return;
+    const scrollEl = $('#queue-up-next');
     const tick = () => {
-      $('#queue-up-next').scrollTop += _dragScrollSpeed;
+      scrollEl.scrollTop += _dragScrollSpeed;
       _dragScrollRAF = requestAnimationFrame(tick);
     };
     _dragScrollRAF = requestAnimationFrame(tick);
@@ -2895,6 +2934,22 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     state.recentTracks = state.recentTracks.filter(t => t.id !== track.id);
     state.recentTracks.unshift(track);
     if (state.recentTracks.length > 20) state.recentTracks.pop();
+
+    // Record play in log for Wrapped feature
+    state.playLog.push({
+      id: track.id,
+      title: track.title,
+      artist: track.artist || '',
+      thumbnail: track.thumbnail || '',
+      durationMs: track.durationMs || 0,
+      ts: Date.now()
+    });
+    // Trim to prevent unbounded growth (keep last 2 calendar years)
+    if (state.playLog.length > 15000) {
+      const twoYearsAgo = Date.now() - 2 * 365.25 * 24 * 3600 * 1000;
+      state.playLog = state.playLog.filter(e => e.ts >= twoYearsAgo);
+    }
+
     saveState();
     // Only update the lightweight parts — skip expensive API calls
     renderRecentTracks();
@@ -4121,6 +4176,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       ).join('')}
       <div class="lyrics-spacer"></div>
     </div>`;
+    _cachedLyricEls = null; // invalidate cache after re-render
 
     // Click a line to seek
     lyricsBody.querySelectorAll('.lyrics-line').forEach(el => {
@@ -4158,6 +4214,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   }
 
   let _lastActiveLyricIdx = -1;
+  let _cachedLyricEls = null;
   function syncLyrics() {
     if (!_lyricsLines.length || !_lyricsVisible) return;
     const ct = engine.getActiveSource().currentTime;
@@ -4174,7 +4231,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     if (activeIdx === _lastActiveLyricIdx) return;
     _lastActiveLyricIdx = activeIdx;
 
-    const allLines = lyricsBody.querySelectorAll('.lyrics-line');
+    if (!_cachedLyricEls) _cachedLyricEls = [...lyricsBody.querySelectorAll('.lyrics-line')];
+    const allLines = _cachedLyricEls;
     allLines.forEach((el, i) => {
       el.classList.toggle('active', i === activeIdx);
       const dist = Math.abs(i - activeIdx);
@@ -4182,18 +4240,25 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         el.style.opacity = '0.35';
       } else if (dist === 0) {
         el.style.opacity = '1';
-      } else if (dist <= 2) {
-        el.style.opacity = '0.45';
+      } else if (dist === 1) {
+        el.style.opacity = '0.5';
+      } else if (dist === 2) {
+        el.style.opacity = '0.3';
       } else {
-        el.style.opacity = '0.2';
+        el.style.opacity = '0.15';
       }
     });
 
-    // Auto-scroll active line to center
+    // Scroll container so active line is vertically centered
     if (activeIdx >= 0) {
       const activeLine = allLines[activeIdx];
-      if (activeLine) {
-        activeLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const container = lyricsBody;
+      if (activeLine && container) {
+        const lineTop = activeLine.offsetTop;
+        const lineHeight = activeLine.offsetHeight;
+        const containerHeight = container.clientHeight;
+        const targetScrollTop = lineTop - (containerHeight / 2) + (lineHeight / 2);
+        container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
       }
     }
   }
@@ -4309,6 +4374,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   let _maxNPOpen = false;
   let _maxNPLyricsVisible = false;
   let _maxLastActiveLyricIdx = -1;
+  let _cachedMaxLyricEls = null;
 
   function openMaxNP() {
     const current = state.queue[state.queueIndex];
@@ -4409,6 +4475,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         ).join('')}
         <div class="lyrics-spacer"></div>
       </div>`;
+      _cachedMaxLyricEls = null; // invalidate cache after re-render
 
       // Click to seek
       maxNPLyrics.querySelectorAll('.lyrics-line').forEach(el => {
@@ -4549,7 +4616,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     if (activeIdx === _maxLastActiveLyricIdx) return;
     _maxLastActiveLyricIdx = activeIdx;
 
-    const allLines = maxNPLyrics.querySelectorAll('.lyrics-line');
+    if (!_cachedMaxLyricEls) _cachedMaxLyricEls = [...maxNPLyrics.querySelectorAll('.lyrics-line')];
+    const allLines = _cachedMaxLyricEls;
     allLines.forEach((el, i) => {
       el.classList.toggle('active', i === activeIdx);
       const dist = Math.abs(i - activeIdx);
@@ -4557,17 +4625,25 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         el.style.opacity = '0.35';
       } else if (dist === 0) {
         el.style.opacity = '1';
-      } else if (dist <= 2) {
-        el.style.opacity = '0.45';
+      } else if (dist === 1) {
+        el.style.opacity = '0.5';
+      } else if (dist === 2) {
+        el.style.opacity = '0.3';
       } else {
-        el.style.opacity = '0.2';
+        el.style.opacity = '0.15';
       }
     });
 
+    // Scroll container so active line is vertically centered
     if (activeIdx >= 0) {
       const activeLine = allLines[activeIdx];
-      if (activeLine) {
-        activeLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const container = maxNPLyrics;
+      if (activeLine && container) {
+        const lineTop = activeLine.offsetTop;
+        const lineHeight = activeLine.offsetHeight;
+        const containerHeight = container.clientHeight;
+        const targetScrollTop = lineTop - (containerHeight / 2) + (lineHeight / 2);
+        container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
       }
     }
   }
@@ -5165,6 +5241,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     loadState();
     showMigrationNoticeIfNeeded();
     finishInit();
+    loadPlayLogAsync(); // fire-and-forget — avoids blocking startup with large JSON parse
   }
 
   function showMigrationNoticeIfNeeded() {
@@ -5179,7 +5256,98 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     });
   }
 
+  // ─── Wrapped trigger ───
+  let _playLogReady = false;
+
+  async function loadPlayLogAsync() {
+    // Yield control back to the renderer so the UI can paint before we touch localStorage
+    await new Promise(r => setTimeout(r, 0));
+
+    // Parse play log — can be several MB for heavy listeners
+    try {
+      const raw = localStorage.getItem('snowify_play_log');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) state.playLog = parsed;
+      }
+    } catch (_) {}
+
+    // Yield again before genre cache
+    await new Promise(r => setTimeout(r, 0));
+    try {
+      const raw = localStorage.getItem('snowify_genre_cache');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') state.trackGenreCache = parsed;
+      }
+    } catch (_) {}
+
+    // One-time backfill from recentTracks for users predating the Wrapped feature.
+    // v2: clear stale v1 backfill (spread wrongly across multiple years) and re-seed within current year.
+    const backfillVer = localStorage.getItem('snowify_playlog_backfill_ver');
+    if (backfillVer !== '2' && state.recentTracks.length > 0) {
+      state.playLog = []; // discard any stale backfill
+    }
+    if (state.playLog.length === 0 && state.recentTracks.length > 0) {
+      await new Promise(r => setTimeout(r, 0));
+      const now = Date.now();
+      // Spread entries across the current calendar year so they all count in Wrapped
+      const yearStart = new Date(new Date().getFullYear(), 0, 1).getTime();
+      const span = now - yearStart;
+      const n = state.recentTracks.length;
+      // recentTracks[0] = most recent → assign closest timestamp
+      state.playLog = state.recentTracks.map((t, i) => ({
+        id: t.id,
+        title: t.title,
+        artist: t.artist || '',
+        thumbnail: t.thumbnail || '',
+        durationMs: t.durationMs || 210000, // fall back to 3.5 min average if unknown
+        ts: now - (i / n) * span,
+      }));
+      // Persist without blocking UI (write in next task)
+      await new Promise(r => setTimeout(r, 0));
+      try {
+        localStorage.setItem('snowify_play_log', JSON.stringify(state.playLog));
+        localStorage.setItem('snowify_playlog_backfill_ver', '2');
+      } catch (_) {}
+    }
+
+    _playLogReady = true;
+    checkWrappedTrigger();
+  }
+
+  function checkWrappedTrigger() {
+    if (!_playLogReady) return; // data not loaded yet — loadPlayLogAsync() will re-call us
+    const now = new Date();
+    const month = now.getMonth(); // 0 = Jan, 11 = Dec
+    let targetYear = null;
+    if (month === 11) targetYear = now.getFullYear();       // December → this year's data
+    else if (month === 0) targetYear = now.getFullYear() - 1; // January → last year's data
+    if (targetYear === null) return;
+    if (state.wrappedShownYear === targetYear) return;
+    if (!state.playLog.some(e => new Date(e.ts).getFullYear() === targetYear)) return;
+    window.WrappedManager?.show(targetYear);
+  }
+
+  // ─── Spotify metadata enrichment (background, fire-and-forget) ───
+  async function maybeEnrichTrackMeta(track) {
+    if (!state.metadataSources.includes('spotify')) return;
+    if (!track?.id || !track.title) return;
+    if (state.trackGenreCache[track.id]) return; // already cached
+    try {
+      const meta = await window.snowify.enrichTrackMeta(track.title, track.artist || '');
+      if (meta) {
+        state.trackGenreCache[track.id] = meta;
+        // Save genre cache separately (non-blocking)
+        try { localStorage.setItem('snowify_genre_cache', JSON.stringify(state.trackGenreCache)); } catch (_) {}
+      }
+    } catch (_) { /* enrichment is best-effort */ }
+  }
+
   function finishInit() {
+    // Expose state reference and save function for wrapped.js + plugins
+    window.__snowifyState = state;
+    window.__snowifySaveState = _flushSaveState;
     updateGreeting();
     setVolume(state.volume);
     if (state.discordRpc) window.snowify.connectDiscord();
@@ -5222,15 +5390,40 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       }
     });
 
+    // ─── Source registration API (available to plugins via window.SnowifySources) ───
+    window.SnowifySources = {
+      _song: [
+        { id: 'youtube', label: I18n.t('settings.sourceYouTube'), desc: I18n.t('settings.sourceYouTubeDesc') },
+      ],
+      _meta: [
+        { id: 'youtube', label: I18n.t('settings.sourceYTMeta'), desc: I18n.t('settings.sourceYTMetaDesc') },
+      ],
+      registerSongSource(def) {
+        if (!this._song.find(s => s.id === def.id)) {
+          this._song.push(def);
+          this._refreshSources?.();
+        }
+      },
+      registerMetaSource(def) {
+        if (!this._meta.find(s => s.id === def.id)) {
+          this._meta.push(def);
+          this._refreshSources?.();
+        }
+      },
+      _refreshSources: null,
+    };
+
     loadEnabledPlugins();
     // Restore queue display (but don't auto-play)
     const restoredTrack = state.queue[state.queueIndex];
     if (restoredTrack) {
       showNowPlaying(restoredTrack);
-      document.querySelector('#app').classList.remove('no-player');
+      appEl.classList.remove('no-player');
     } else {
-      document.querySelector('#app').classList.add('no-player');
+      appEl.classList.add('no-player');
     }
+
+    // Wrapped trigger is now fired by loadPlayLogAsync() once data is ready
   }
 
   // ─── Image Crop Modal ───
@@ -5680,6 +5873,24 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   async function initSettings() {
     if (_settingsInitialized) return;
     _settingsInitialized = true;
+
+    // ── Settings tabs ──
+    const settingsTabs = document.querySelector('.settings-tabs');
+    if (settingsTabs) {
+      const activateSettingsTab = (tabId) => {
+        document.querySelectorAll('.settings-tab-btn').forEach(b =>
+          b.classList.toggle('active', b.dataset.settingsTab === tabId));
+        document.querySelectorAll('.settings-tab-pane').forEach(p =>
+          p.classList.toggle('active', p.dataset.tab === tabId));
+        sessionStorage.setItem('settings-tab', tabId);
+      };
+      settingsTabs.addEventListener('click', e => {
+        const btn = e.target.closest('.settings-tab-btn');
+        if (btn) activateSettingsTab(btn.dataset.settingsTab);
+      });
+      activateSettingsTab(sessionStorage.getItem('settings-tab') || 'playback');
+    }
+
     const autoplayToggle = $('#setting-autoplay');
     const qualitySelect = $('#setting-quality');
     const videoQualitySelect = $('#setting-video-quality');
@@ -6450,6 +6661,116 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       logsOutput.innerHTML = '';
       showToast(I18n.t('settings.logsCleared'));
     });
+
+    // ─── Wrapped dev preview ───
+    const devWrappedBtn = document.createElement('div');
+    devWrappedBtn.className = 'setting-row';
+    devWrappedBtn.innerHTML = `
+      <div class="setting-info">
+        <span class="setting-label" data-i18n="settings.devWrapped">${I18n.t('settings.devWrapped')}</span>
+        <span class="setting-desc" data-i18n="settings.devWrappedDesc">${I18n.t('settings.devWrappedDesc')}</span>
+      </div>
+      <button class="btn-setting-action" id="btn-preview-wrapped" data-i18n="settings.devWrappedBtn">${I18n.t('settings.devWrappedBtn')}</button>`;
+    devModeContent.appendChild(devWrappedBtn);
+    document.getElementById('btn-preview-wrapped')?.addEventListener('click', () => {
+      const year = new Date().getFullYear();
+      // Allow previewing current or previous year (whichever has data)
+      const targetYear = state.playLog.some(e => new Date(e.ts).getFullYear() === year) ? year : year - 1;
+      window.WrappedManager?.show(targetYear, true);
+    });
+
+    // ─── Source lists (song + metadata) — populated dynamically by SnowifySources API ───
+
+    function renderSourceList(listEl, available, enabled, onChange) {
+      listEl.innerHTML = '';
+
+      // Build ordered display: enabled sources first (in order), then disabled ones
+      const enabledSet = new Set(enabled);
+      const ordered = [
+        ...enabled.filter(id => available.find(s => s.id === id)),
+        ...available.filter(s => !enabledSet.has(s.id)).map(s => s.id)
+      ];
+
+      ordered.forEach((sourceId) => {
+        const def = available.find(s => s.id === sourceId);
+        if (!def) return;
+        const isEnabled = enabledSet.has(sourceId);
+        const enabledPos = enabled.indexOf(sourceId); // -1 if disabled
+        const isPrimary = enabledPos === 0;
+
+        // Support both plain label/desc strings and i18n key references
+        const label = def.label ?? (def.labelKey ? I18n.t(def.labelKey) : sourceId);
+        const desc  = def.desc  ?? (def.descKey  ? I18n.t(def.descKey)  : '');
+
+        const item = document.createElement('div');
+        item.className = 'source-item' + (isEnabled ? ' source-enabled' : ' source-disabled');
+        item.dataset.sourceId = sourceId;
+        item.innerHTML = `
+          <div class="source-item-arrows">
+            <button class="source-arrow-btn" data-dir="up" ${(enabledPos <= 0) ? 'disabled' : ''} aria-label="Move up">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 14l5-5 5 5z"/></svg>
+            </button>
+            <button class="source-arrow-btn" data-dir="down" ${(!isEnabled || enabledPos >= enabled.length - 1) ? 'disabled' : ''} aria-label="Move down">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+            </button>
+          </div>
+          <div class="source-item-info">
+            <span class="source-item-name">${escapeHtml(label)}</span>
+            <span class="source-item-desc">${escapeHtml(desc)}</span>
+          </div>
+          ${isEnabled ? `<span class="source-badge ${isPrimary ? 'source-badge-primary' : 'source-badge-fallback'}">${I18n.t(isPrimary ? 'settings.sourcePrimary' : 'settings.sourceFallback')}</span>` : ''}
+          <label class="toggle-switch source-item-toggle">
+            <input type="checkbox" ${isEnabled ? 'checked' : ''}>
+            <span class="toggle-slider"></span>
+          </label>`;
+        listEl.appendChild(item);
+
+        // Toggle
+        item.querySelector('input[type=checkbox]').addEventListener('change', (e) => {
+          const newEnabled = [...enabled];
+          if (e.target.checked) {
+            if (!newEnabled.includes(sourceId)) newEnabled.push(sourceId);
+          } else {
+            // Always keep at least one source enabled
+            if (newEnabled.length <= 1) {
+              e.target.checked = true;
+              showToast(I18n.t('toast.atLeastOneSource'));
+              return;
+            }
+            const i = newEnabled.indexOf(sourceId);
+            if (i !== -1) newEnabled.splice(i, 1);
+          }
+          enabled = newEnabled;
+          onChange(newEnabled);
+          renderSourceList(listEl, available, enabled, onChange);
+        });
+
+        // Up/down arrows
+        item.querySelectorAll('.source-arrow-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const dir = btn.dataset.dir;
+            const newEnabled = [...enabled];
+            const i = newEnabled.indexOf(sourceId);
+            if (i === -1) return;
+            if (dir === 'up' && i > 0) { [newEnabled[i], newEnabled[i-1]] = [newEnabled[i-1], newEnabled[i]]; }
+            else if (dir === 'down' && i < newEnabled.length - 1) { [newEnabled[i], newEnabled[i+1]] = [newEnabled[i+1], newEnabled[i]]; }
+            enabled = newEnabled;
+            onChange(newEnabled);
+            renderSourceList(listEl, available, enabled, onChange);
+          });
+        });
+      });
+    }
+
+    const songListEl = $('#song-sources-list');
+    const metaListEl = $('#meta-sources-list');
+
+    function renderAllSourceLists() {
+      if (songListEl) renderSourceList(songListEl, window.SnowifySources._song, state.songSources, (v) => { state.songSources = v; saveState(); });
+      if (metaListEl) renderSourceList(metaListEl, window.SnowifySources._meta, state.metadataSources, (v) => { state.metadataSources = v; saveState(); });
+    }
+    window.SnowifySources._refreshSources = renderAllSourceLists;
+    renderAllSourceLists();
   }
 
   // ─── Plugin System ───

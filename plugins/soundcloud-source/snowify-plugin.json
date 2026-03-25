@@ -1,0 +1,10 @@
+{
+  "id": "soundcloud-source",
+  "name": "SoundCloud Source",
+  "version": "1.0.0",
+  "description": "Adds SoundCloud as a song source. When enabled, Snowify can fall back to SoundCloud via yt-dlp when a track isn't available on YouTube Music.",
+  "author": "Snowify Team",
+  "icon": "☁️",
+  "renderer": "renderer.js",
+  "minAppVersion": "1.4.0"
+}

@@ -604,21 +604,69 @@ function register(ipcMain, ctx) {
     } catch (err) { console.error('Browse mood error:', err); return []; }
   });
 
-  ipcMain.handle('yt:getStreamUrl', async (_event, videoUrl, quality) => {
+  ipcMain.handle('yt:getStreamUrl', async (_event, videoUrl, quality, trackMeta = {}, sources = ['youtube']) => {
     const fmt = quality === 'worstaudio' ? 'worstaudio/worstaudio*/worst' : 'bestaudio/bestaudio*/best';
-    const cacheKey = `audio:${videoUrl}:${fmt}`;
-    const cached = getCachedUrl(cacheKey);
-    if (cached) return cached;
+    const YT_FLAGS = ['--no-warnings', '--no-playlist', '--no-check-certificates'];
 
-    return new Promise((resolve, reject) => {
-      execFile(getYtDlpPath(), ['-f', fmt, '--get-url', '--no-warnings', '--no-playlist', '--no-check-certificates', videoUrl], { timeout: 15000 }, (err, stdout, stderr) => {
-        if (err) return reject(stderr?.trim() || err.message);
-        const url = stdout.trim().split('\n')[0];
-        if (!url) return reject('yt-dlp returned no URL');
-        setCachedUrl(cacheKey, url);
-        resolve(url);
+    function runYtDlp(args, timeout) {
+      return new Promise((resolve, reject) => {
+        execFile(getYtDlpPath(), args, { timeout }, (err, stdout, stderr) => {
+          if (err) return reject(stderr?.trim() || err.message);
+          const url = stdout.trim().split('\n')[0];
+          if (!url) return reject('yt-dlp returned no URL');
+          resolve(url);
+        });
       });
-    });
+    }
+
+    // Normalise + deduplicate sources; default to youtube if empty/invalid
+    const activeSources = [...new Set(
+      Array.isArray(sources) && sources.length ? sources : ['youtube']
+    )];
+
+    let lastError = new Error('No enabled sources provided a stream URL');
+
+    for (const source of activeSources) {
+      if (source === 'youtube') {
+        const cacheKey = `audio:${videoUrl}:${fmt}`;
+        const cached = getCachedUrl(cacheKey);
+        if (cached) return cached;
+        try {
+          const url = await runYtDlp(['-f', fmt, '--get-url', ...YT_FLAGS, videoUrl], 15000);
+          setCachedUrl(cacheKey, url);
+          return url;
+        } catch (err) {
+          lastError = err;
+        }
+      } else if (source === 'soundcloud') {
+        const title = trackMeta?.title;
+        if (!title) continue; // need a title to search SoundCloud
+        const scQuery = `scsearch1:${title}${trackMeta.artist ? ' ' + trackMeta.artist : ''}`;
+        const cacheKey = `sc:${scQuery}`;
+        const cached = getCachedUrl(cacheKey);
+        if (cached) return cached;
+        try {
+          const url = await runYtDlp(['-f', 'bestaudio/best', '--get-url', ...YT_FLAGS, scQuery], 20000);
+          setCachedUrl(cacheKey, url);
+          return url;
+        } catch (err) {
+          lastError = err;
+        }
+      }
+      // Unknown source identifier — skip silently
+    }
+
+    throw lastError;
+  });
+
+  ipcMain.handle('meta:enrichTrack', async (_event, title, artist) => {
+    try {
+      const { enrichTrack } = require('./spotify-meta');
+      return await enrichTrack(title, artist);
+    } catch (err) {
+      console.error('[SpotifyMeta] enrichTrack failed:', err.message);
+      return null;
+    }
   });
 
   ipcMain.handle('yt:downloadAudio', async (_event, videoUrl, quality, videoId) => {
