@@ -4,8 +4,11 @@
 'use strict';
 
 const https = require('https');
+const { randomUUID } = require('crypto');
 
-const _tokenCache = { token: null, expiresAt: 0 };
+// sp_t is a random anonymous tracking ID that Spotify's web player sends;
+// generating one ourselves satisfies the endpoint's cookie requirement.
+const _tokenCache = { token: null, expiresAt: 0, spT: randomUUID() };
 
 function httpsGet(url, headers) {
   return new Promise((resolve, reject) => {
@@ -15,8 +18,11 @@ function httpsGet(url, headers) {
       path: opts.pathname + opts.search,
       method: 'GET',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        Accept: 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+        'Accept-Language': 'en',
+        'Referer': 'https://open.spotify.com/',
+        'Origin': 'https://open.spotify.com',
         ...headers,
       },
     }, (res) => {
@@ -24,7 +30,10 @@ function httpsGet(url, headers) {
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
         try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
-        catch (_) { reject(new Error('Invalid JSON from ' + url)); }
+        catch (_) {
+          console.error('[SpotifyMeta] Non-JSON response from', url, '— first 200 chars:', data.slice(0, 200));
+          reject(new Error('Non-JSON response from ' + url));
+        }
       });
     });
     req.on('error', reject);
@@ -37,7 +46,7 @@ async function fetchToken() {
   if (_tokenCache.token && Date.now() < _tokenCache.expiresAt) return _tokenCache.token;
   const res = await httpsGet(
     'https://open.spotify.com/get_access_token?reason=transport&productType=web_player',
-    { 'Accept-Language': 'en' }
+    { 'Cookie': `sp_t=${_tokenCache.spT}; sp_landing=/` }
   );
   if (res.status !== 200 || !res.body?.accessToken) {
     throw new Error(`Spotify token fetch failed: HTTP ${res.status}`);
@@ -50,12 +59,12 @@ async function fetchToken() {
 }
 
 /**
- * Enrich a track with Spotify metadata (genres, popularity, Spotify ID).
+ * Enrich a track with Spotify metadata (genres, popularity, artist images).
  * Returns null on any error so callers can safely ignore failures.
  *
  * @param {string} title
  * @param {string} artist
- * @returns {Promise<{spotifyId:string, popularity:number, genres:string[]}|null>}
+ * @returns {Promise<{spotifyId:string, popularity:number, genres:string[], artistImages:{url:string,width:number,height:number}[], albumArt:string|null}|null>}
  */
 async function enrichTrack(title, artist) {
   const token = await fetchToken();
@@ -71,9 +80,16 @@ async function enrichTrack(title, artist) {
   const track = searchRes.body?.tracks?.items?.[0];
   if (!track) return null;
 
-  const result = { spotifyId: track.id, popularity: track.popularity ?? 0, genres: [] };
+  const result = {
+    spotifyId: track.id,
+    popularity: track.popularity ?? 0,
+    genres: [],
+    artistImages: [],
+    // Best available album art from the track itself
+    albumArt: track.album?.images?.[0]?.url ?? null,
+  };
 
-  // Fetch genres from the primary artist
+  // Fetch genres and images from the primary artist endpoint
   const primaryArtistId = track.artists?.[0]?.id;
   if (primaryArtistId) {
     try {
@@ -81,10 +97,21 @@ async function enrichTrack(title, artist) {
         `https://api.spotify.com/v1/artists/${primaryArtistId}`,
         { Authorization: `Bearer ${token}` }
       );
-      if (artistRes.status === 200 && Array.isArray(artistRes.body?.genres)) {
-        result.genres = artistRes.body.genres.slice(0, 5); // cap to 5
+      if (artistRes.status === 200) {
+        const artistData = artistRes.body;
+        if (Array.isArray(artistData?.genres)) {
+          result.genres = artistData.genres.slice(0, 5);
+        }
+        if (Array.isArray(artistData?.images)) {
+          // Keep all sizes so consumers can pick what they need
+          result.artistImages = artistData.images.map(img => ({
+            url: img.url,
+            width: img.width,
+            height: img.height,
+          }));
+        }
       }
-    } catch (_) { /* genres are optional — ignore errors */ }
+    } catch (_) { /* artist enrichment is optional */ }
   }
 
   return result;

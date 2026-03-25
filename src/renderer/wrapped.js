@@ -291,8 +291,8 @@
   let _container = null;
   let _dots = null;
   let _isVisible = false;
-  let _currentYear = null;
-
+  let _currentYear = null;  let _autoTimer = null;
+  const AUTO_DELAY = 6000; // ms per slide
   function getOverlay() {
     if (!_overlay) _overlay = document.getElementById('wrapped-overlay');
     return _overlay;
@@ -304,8 +304,17 @@
       `<span class="wrapped-dot${i === _currentSlide ? ' active' : ''}" data-idx="${i}"></span>`
     ).join('');
     _dots.querySelectorAll('.wrapped-dot').forEach(dot => {
-      dot.addEventListener('click', () => goToSlide(parseInt(dot.dataset.idx)));
+      dot.addEventListener('click', () => { _resetAutoTimer(); goToSlide(parseInt(dot.dataset.idx)); });
     });
+
+    // Restart progress animation on the active dot
+    const activeDot = _dots.querySelector('.wrapped-dot.active');
+    if (activeDot) {
+      activeDot.style.animation = 'none';
+      // Force reflow so the browser picks up the reset before re-applying
+      void activeDot.offsetWidth;
+      activeDot.style.animation = `wrappedDotProgress ${AUTO_DELAY}ms linear forwards`;
+    }
   }
 
   function goToSlide(idx, direction) {
@@ -385,8 +394,8 @@
     // Keyboard navigation
     const keyHandler = (e) => {
       if (!_isVisible) return;
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') handleNext();
-      if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   handlePrev();
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { _resetAutoTimer(); handleNext(); }
+      if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   { _resetAutoTimer(); handlePrev(); }
       if (e.key === 'Escape') hide();
     };
     document.addEventListener('keydown', keyHandler);
@@ -397,7 +406,7 @@
     const touchStart = (e) => { touchStartX = e.touches[0].clientX; };
     const touchEnd = (e) => {
       const dx = touchStartX - e.changedTouches[0].clientX;
-      if (Math.abs(dx) > 50) dx > 0 ? handleNext() : handlePrev();
+      if (Math.abs(dx) > 50) { _resetAutoTimer(); dx > 0 ? handleNext() : handlePrev(); }
     };
     overlay.addEventListener('touchstart', touchStart, { passive: true });
     overlay.addEventListener('touchend', touchEnd, { passive: true });
@@ -407,9 +416,33 @@
     overlay.classList.remove('hidden');
     overlay.classList.add('visible');
     _isVisible = true;
+
+    // Start auto-advance
+    _startAutoTimer();
+  }
+
+  function _startAutoTimer() {
+    _stopAutoTimer();
+    _autoTimer = setInterval(() => {
+      if (!_isVisible) { _stopAutoTimer(); return; }
+      if (_currentSlide < _slides.length - 1) {
+        goToSlide(_currentSlide + 1);
+      } else {
+        hide();
+      }
+    }, AUTO_DELAY);
+  }
+
+  function _stopAutoTimer() {
+    if (_autoTimer) { clearInterval(_autoTimer); _autoTimer = null; }
+  }
+
+  function _resetAutoTimer() {
+    _startAutoTimer();
   }
 
   function handleNext() {
+    _resetAutoTimer();
     if (_currentSlide < _slides.length - 1) {
       goToSlide(_currentSlide + 1);
     } else {
@@ -418,6 +451,7 @@
   }
 
   function handlePrev() {
+    _resetAutoTimer();
     if (_currentSlide > 0) goToSlide(_currentSlide - 1);
   }
 
@@ -427,6 +461,7 @@
     overlay.classList.remove('visible');
     setTimeout(() => overlay.classList.add('hidden'), 350);
     _isVisible = false;
+    _stopAutoTimer();
 
     // Mark as shown for this year and persist
     if (_currentYear && window.__snowifyState) {

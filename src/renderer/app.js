@@ -137,7 +137,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
         state.prefetchCount = saved.prefetchCount ?? 0;
         state.showPlugins = saved.showPlugins ?? true;
         state.minimizeToTray = saved.minimizeToTray ?? false;
-        state.songSources = saved.songSources || ['youtube', 'soundcloud'];
+        state.songSources = saved.songSources || ['youtube'];
         state.metadataSources = saved.metadataSources || ['youtube'];
         state.wrappedShownYear = saved.wrappedShownYear ?? null;
       }
@@ -159,17 +159,25 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
         const savedGenre = JSON.parse(localStorage.getItem('snowify_genre_cache'));
         if (savedGenre && typeof savedGenre === 'object') state.trackGenreCache = savedGenre;
       } catch (_) {}
+
+      // Backfill play log from recentTracks for users who existed before the Wrapped feature.
+      // We only do this once (when playLog starts empty) and spread timestamps backwards so
+      // Wrapped can show at least basic stats from the listening history we do have.
+      if (state.playLog.length === 0 && state.recentTracks.length > 0) {
+        const now = Date.now();
+        const span = Math.max(90 * 24 * 3600_000, state.recentTracks.length * 14 * 24 * 3600_000);
+        const step = span / state.recentTracks.length;
+        // recentTracks[0] = most recent → smallest offset
+        state.playLog = state.recentTracks.map((t, i) => ({
+          id: t.id,
+          title: t.title,
+          artist: t.artist || '',
+          durationMs: t.durationMs || 0,
+          ts: now - (i * step),
+        }));
+        try { localStorage.setItem('snowify_play_log', JSON.stringify(state.playLog)); } catch (_) {}
+      }
     } catch (_) {}
-  }
-
-  function updateGreeting() {
-    const h = new Date().getHours();
-    const key = h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
-    $('#greeting-text').textContent = I18n.t('home.greeting.' + key);
-  }
-
-  function switchView(name) {
-    const targetView = $(`#view-${name}`);
     const alreadyActive = state.currentView === name && targetView && targetView.classList.contains('active');
 
     state.currentView = name;
@@ -5336,6 +5344,29 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       }
     });
 
+    // ─── Source registration API (available to plugins via window.SnowifySources) ───
+    window.SnowifySources = {
+      _song: [
+        { id: 'youtube', label: I18n.t('settings.sourceYouTube'), desc: I18n.t('settings.sourceYouTubeDesc') },
+      ],
+      _meta: [
+        { id: 'youtube', label: I18n.t('settings.sourceYTMeta'), desc: I18n.t('settings.sourceYTMetaDesc') },
+      ],
+      registerSongSource(def) {
+        if (!this._song.find(s => s.id === def.id)) {
+          this._song.push(def);
+          this._refreshSources?.();
+        }
+      },
+      registerMetaSource(def) {
+        if (!this._meta.find(s => s.id === def.id)) {
+          this._meta.push(def);
+          this._refreshSources?.();
+        }
+      },
+      _refreshSources: null,
+    };
+
     loadEnabledPlugins();
     // Restore queue display (but don't auto-play)
     const restoredTrack = state.queue[state.queueIndex];
@@ -6603,15 +6634,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       window.WrappedManager?.show(targetYear, true);
     });
 
-    // ─── Source lists (song + metadata) ───
-    const AVAILABLE_SONG_SOURCES = [
-      { id: 'youtube', labelKey: 'settings.sourceYouTube', descKey: 'settings.sourceYouTubeDesc' },
-      { id: 'soundcloud', labelKey: 'settings.sourceSoundCloud', descKey: 'settings.sourceSoundCloudDesc' },
-    ];
-    const AVAILABLE_META_SOURCES = [
-      { id: 'youtube', labelKey: 'settings.sourceYTMeta', descKey: 'settings.sourceYTMetaDesc' },
-      { id: 'spotify', labelKey: 'settings.sourceSpotify', descKey: 'settings.sourceSpotifyDesc' },
-    ];
+    // ─── Source lists (song + metadata) — populated dynamically by SnowifySources API ───
 
     function renderSourceList(listEl, available, enabled, onChange) {
       listEl.innerHTML = '';
@@ -6623,13 +6646,16 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         ...available.filter(s => !enabledSet.has(s.id)).map(s => s.id)
       ];
 
-      ordered.forEach((sourceId, idx) => {
+      ordered.forEach((sourceId) => {
         const def = available.find(s => s.id === sourceId);
         if (!def) return;
         const isEnabled = enabledSet.has(sourceId);
         const enabledPos = enabled.indexOf(sourceId); // -1 if disabled
         const isPrimary = enabledPos === 0;
-        const isFallback = enabledPos > 0;
+
+        // Support both plain label/desc strings and i18n key references
+        const label = def.label ?? (def.labelKey ? I18n.t(def.labelKey) : sourceId);
+        const desc  = def.desc  ?? (def.descKey  ? I18n.t(def.descKey)  : '');
 
         const item = document.createElement('div');
         item.className = 'source-item' + (isEnabled ? ' source-enabled' : ' source-disabled');
@@ -6644,8 +6670,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
             </button>
           </div>
           <div class="source-item-info">
-            <span class="source-item-name">${I18n.t(def.labelKey)}</span>
-            <span class="source-item-desc">${I18n.t(def.descKey)}</span>
+            <span class="source-item-name">${escapeHtml(label)}</span>
+            <span class="source-item-desc">${escapeHtml(desc)}</span>
           </div>
           ${isEnabled ? `<span class="source-badge ${isPrimary ? 'source-badge-primary' : 'source-badge-fallback'}">${I18n.t(isPrimary ? 'settings.sourcePrimary' : 'settings.sourceFallback')}</span>` : ''}
           <label class="toggle-switch source-item-toggle">
@@ -6693,8 +6719,13 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
     const songListEl = $('#song-sources-list');
     const metaListEl = $('#meta-sources-list');
-    if (songListEl) renderSourceList(songListEl, AVAILABLE_SONG_SOURCES, state.songSources, (v) => { state.songSources = v; saveState(); });
-    if (metaListEl) renderSourceList(metaListEl, AVAILABLE_META_SOURCES, state.metadataSources, (v) => { state.metadataSources = v; saveState(); });
+
+    function renderAllSourceLists() {
+      if (songListEl) renderSourceList(songListEl, window.SnowifySources._song, state.songSources, (v) => { state.songSources = v; saveState(); });
+      if (metaListEl) renderSourceList(metaListEl, window.SnowifySources._meta, state.metadataSources, (v) => { state.metadataSources = v; saveState(); });
+    }
+    window.SnowifySources._refreshSources = renderAllSourceLists;
+    renderAllSourceLists();
   }
 
   // ─── Plugin System ───
