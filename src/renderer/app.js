@@ -9,6 +9,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 
   const audioA = $('#audio-player');
   const audioB = $('#audio-player-b');
+  const appEl = $('#app');
   let engine; // initialized after state definition
   let audio;  // mutable alias, synced with engine after swaps
 
@@ -692,9 +693,11 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
         ${showPlays ? `<span style="text-align:right">${I18n.t('trackList.plays')}</span>` : ''}
       </div>`;
 
+    const _currentId = state.queue[state.queueIndex]?.id;
+    const _likedIds = new Set(state.likedSongs.map(t => t.id));
     tracks.forEach((track, i) => {
-      const isPlaying = state.queue[state.queueIndex]?.id === track.id;
-      const isLiked = state.likedSongs.some(t => t.id === track.id);
+      const isPlaying = _currentId === track.id;
+      const isLiked = _likedIds.has(track.id);
 
       html += `
         <div class="track-row ${isPlaying ? 'playing' : ''}${modifier}"
@@ -1727,7 +1730,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     bar.dataset.trackUrl = track.url || '';
     bar.dataset.trackTitle = track.title || '';
     bar.dataset.trackArtist = track.artist || '';
-    document.querySelector('#app').classList.remove('no-player');
+    appEl.classList.remove('no-player');
 
     $('#np-thumbnail').src = track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : '');
     // Extract dominant color from album art and push as ambient CSS variable
@@ -1804,9 +1807,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   }
 
   function updateTrackHighlight() {
+    const current = state.queue[state.queueIndex];
     $$('.track-row').forEach(row => {
-      const current = state.queue[state.queueIndex];
-      row.classList.toggle('playing', current && row.dataset.trackId === current.id);
+      row.classList.toggle('playing', !!current && row.dataset.trackId === current.id);
     });
     updatePlaylistHighlight();
   }
@@ -1946,9 +1949,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     el.addEventListener('animationend', () => el.remove());
   }
 
+  const _likedCountEl = document.querySelector('[data-playlist="liked"] .playlist-count');
   function updateLikedCount() {
-    const el = document.querySelector('[data-playlist="liked"] .playlist-count');
-    if (el) el.textContent = I18n.tp('sidebar.songCount', state.likedSongs.length);
+    if (_likedCountEl) _likedCountEl.textContent = I18n.tp('sidebar.songCount', state.likedSongs.length);
   }
 
   function createPlaylist(name) {
@@ -2875,8 +2878,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
   function startDragScroll() {
     if (_dragScrollRAF) return;
+    const scrollEl = $('#queue-up-next');
     const tick = () => {
-      $('#queue-up-next').scrollTop += _dragScrollSpeed;
+      scrollEl.scrollTop += _dragScrollSpeed;
       _dragScrollRAF = requestAnimationFrame(tick);
     };
     _dragScrollRAF = requestAnimationFrame(tick);
@@ -4131,6 +4135,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       ).join('')}
       <div class="lyrics-spacer"></div>
     </div>`;
+    _cachedLyricEls = null; // invalidate cache after re-render
 
     // Click a line to seek
     lyricsBody.querySelectorAll('.lyrics-line').forEach(el => {
@@ -4168,6 +4173,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   }
 
   let _lastActiveLyricIdx = -1;
+  let _cachedLyricEls = null;
   function syncLyrics() {
     if (!_lyricsLines.length || !_lyricsVisible) return;
     const ct = engine.getActiveSource().currentTime;
@@ -4184,7 +4190,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     if (activeIdx === _lastActiveLyricIdx) return;
     _lastActiveLyricIdx = activeIdx;
 
-    const allLines = lyricsBody.querySelectorAll('.lyrics-line');
+    if (!_cachedLyricEls) _cachedLyricEls = [...lyricsBody.querySelectorAll('.lyrics-line')];
+    const allLines = _cachedLyricEls;
     allLines.forEach((el, i) => {
       el.classList.toggle('active', i === activeIdx);
       const dist = Math.abs(i - activeIdx);
@@ -4326,6 +4333,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   let _maxNPOpen = false;
   let _maxNPLyricsVisible = false;
   let _maxLastActiveLyricIdx = -1;
+  let _cachedMaxLyricEls = null;
 
   function openMaxNP() {
     const current = state.queue[state.queueIndex];
@@ -4426,6 +4434,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         ).join('')}
         <div class="lyrics-spacer"></div>
       </div>`;
+      _cachedMaxLyricEls = null; // invalidate cache after re-render
 
       // Click to seek
       maxNPLyrics.querySelectorAll('.lyrics-line').forEach(el => {
@@ -4566,7 +4575,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     if (activeIdx === _maxLastActiveLyricIdx) return;
     _maxLastActiveLyricIdx = activeIdx;
 
-    const allLines = maxNPLyrics.querySelectorAll('.lyrics-line');
+    if (!_cachedMaxLyricEls) _cachedMaxLyricEls = [...maxNPLyrics.querySelectorAll('.lyrics-line')];
+    const allLines = _cachedMaxLyricEls;
     allLines.forEach((el, i) => {
       el.classList.toggle('active', i === activeIdx);
       const dist = Math.abs(i - activeIdx);
@@ -5252,9 +5262,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const restoredTrack = state.queue[state.queueIndex];
     if (restoredTrack) {
       showNowPlaying(restoredTrack);
-      document.querySelector('#app').classList.remove('no-player');
+      appEl.classList.remove('no-player');
     } else {
-      document.querySelector('#app').classList.add('no-player');
+      appEl.classList.add('no-player');
     }
   }
 

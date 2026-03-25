@@ -18,6 +18,7 @@
   --accent-glow: rgba(170, 85, 230, 0.25);
   --accent-border: rgba(170, 85, 230, 0.3);
   --red: #f06070;
+  --red-glow: rgba(240, 96, 112, 0.25);
   --radius: 10px;
   --radius-lg: 16px;
   --transition: 220ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -757,6 +758,7 @@ html, body {
   cursor: pointer;
   transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
   position: relative;
+  will-change: transform;
 }
 .quick-pick-card:hover {
   background: rgba(255, 255, 255, 0.08);
@@ -1460,6 +1462,7 @@ body.audio-playing .track-row.playing .track-eq { display: flex; justify-content
   padding: 0 16px;
   z-index: 100;
   transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), background 0.9s ease, box-shadow 0.9s ease;
+  will-change: transform;
 }
 #now-playing-bar.hidden {
   transform: translateY(100%);
@@ -2730,7 +2733,7 @@ body.audio-playing .play-btn {
 .settings-tab-btn.active {
   background: var(--accent);
   color: #fff;
-  box-shadow: 0 2px 12px rgba(170, 85, 230, 0.35);
+  box-shadow: 0 2px 12px var(--accent-border);
 }
 .settings-tab-pane {
   display: none;
@@ -3016,7 +3019,7 @@ body.audio-playing .play-btn {
   background: var(--red);
   color: #fff;
   border-color: var(--red);
-  box-shadow: 0 4px 16px rgba(240, 96, 112, 0.25);
+  box-shadow: 0 4px 16px var(--red-glow);
 }
 .btn-setting-action.btn-discord { border-color: #5865F2; color: #5865F2; }
 .btn-setting-action.btn-discord:hover {
@@ -3923,7 +3926,7 @@ body.audio-playing .play-btn {
   text-shadow:
     0 0 24px var(--accent-glow),
     0 0 48px var(--accent-glow),
-    0 0 72px rgba(170, 85, 230, 0.12);
+    0 0 72px var(--accent-dim);
 }
 
 /* Plain lyrics */
@@ -3971,6 +3974,7 @@ body.audio-playing .play-btn {
   background: #000;
   transform: translateY(100%);
   transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
 }
 .max-np.visible {
   transform: translateY(0);
@@ -3986,6 +3990,7 @@ body.audio-playing .play-btn {
   background-size: cover;
   background-position: center;
   filter: blur(90px) saturate(1.8) brightness(0.3);
+  will-change: filter, opacity;
 }
 .max-np-bg-a {
   z-index: -2;
@@ -4306,7 +4311,7 @@ body.audio-playing .play-btn {
   text-shadow:
     0 0 24px var(--lyrics-glow, var(--accent-glow)),
     0 0 48px var(--lyrics-glow, var(--accent-glow)),
-    0 0 72px rgba(170, 85, 230, 0.12);
+    0 0 72px var(--lyrics-glow, var(--accent-dim));
 }
 
 .max-np-lyrics .lyrics-content.plain .lyrics-line {
