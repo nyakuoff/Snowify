@@ -4,8 +4,7 @@
   "version": "1.0.0",
   "description": "Enriches tracks with Spotify metadata: genres, popularity score, artist images, and album art. Uses Spotify's anonymous web-player API — no account required.",
   "author": "Snowify Team",
-  "icon": "🎵",
-  "logoUrl": "logo.svg",
+  "logoUrl": "logo.png",
   "category": "metadata",
   "renderer": "renderer.js",
   "minAppVersion": "1.4.0"
