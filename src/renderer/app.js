@@ -5281,23 +5281,33 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       }
     } catch (_) {}
 
-    // One-time backfill from recentTracks for users predating the Wrapped feature
+    // One-time backfill from recentTracks for users predating the Wrapped feature.
+    // v2: clear stale v1 backfill (spread wrongly across multiple years) and re-seed within current year.
+    const backfillVer = localStorage.getItem('snowify_playlog_backfill_ver');
+    if (backfillVer !== '2' && state.recentTracks.length > 0) {
+      state.playLog = []; // discard any stale backfill
+    }
     if (state.playLog.length === 0 && state.recentTracks.length > 0) {
       await new Promise(r => setTimeout(r, 0));
       const now = Date.now();
-      const span = Math.max(90 * 24 * 3600_000, state.recentTracks.length * 14 * 24 * 3600_000);
-      const step = span / state.recentTracks.length;
+      // Spread entries across the current calendar year so they all count in Wrapped
+      const yearStart = new Date(new Date().getFullYear(), 0, 1).getTime();
+      const span = now - yearStart;
+      const n = state.recentTracks.length;
       // recentTracks[0] = most recent → assign closest timestamp
       state.playLog = state.recentTracks.map((t, i) => ({
         id: t.id,
         title: t.title,
         artist: t.artist || '',
-        durationMs: t.durationMs || 0,
-        ts: now - (i * step),
+        durationMs: t.durationMs || 210000, // fall back to 3.5 min average if unknown
+        ts: now - (i / n) * span,
       }));
       // Persist without blocking UI (write in next task)
       await new Promise(r => setTimeout(r, 0));
-      try { localStorage.setItem('snowify_play_log', JSON.stringify(state.playLog)); } catch (_) {}
+      try {
+        localStorage.setItem('snowify_play_log', JSON.stringify(state.playLog));
+        localStorage.setItem('snowify_playlog_backfill_ver', '2');
+      } catch (_) {}
     }
 
     _playLogReady = true;
