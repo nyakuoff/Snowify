@@ -169,17 +169,51 @@
     return bg;
   }
 
+  // Fetch real artist thumbnails before building slides:
+  // Priority 1 — Spotify artist photos already cached from enrichTrackMeta calls.
+  // Priority 2 — YT Music artist search (quick IPC, best-effort).
+  // Priority 3 — song thumbnail fallback (already set in artistMap).
+  async function enrichArtistThumbnails(stats) {
+    const liveState = window.__snowifyState;
+    const genreCache = liveState?.trackGenreCache || {};
+    const playLog = liveState?.playLog || [];
+
+    await Promise.all(stats.topArtists.map(async (artist) => {
+      const nameKey = artist.name.toLowerCase();
+      // Spotify cache first (no network, instant)
+      for (const e of playLog) {
+        if ((e.artist || '').toLowerCase() === nameKey) {
+          const meta = genreCache[e.id];
+          if (meta?.artistImages?.length) {
+            artist.thumbnail = meta.artistImages[0].url;
+            return;
+          }
+        }
+      }
+      // YT Music artist search (fast IPC)
+      try {
+        if (typeof window.snowify?.searchArtists === 'function') {
+          const results = await window.snowify.searchArtists(artist.name);
+          if (Array.isArray(results) && results[0]?.thumbnail) {
+            artist.thumbnail = results[0].thumbnail;
+          }
+        }
+      } catch (_) {}
+    }));
+  }
+
   function buildSlides(stats) {
-    // Collect all thumbnail URLs from top songs for mosaic backgrounds
     const allThumbs = stats.topSongs.map(s => s.thumbnail).filter(Boolean);
-    // Fallback tiles if no thumbnails available
     const thumbs = allThumbs.length ? allThumbs : [];
+    // Artist slides use artist images (now enriched) for their mosaic background too
+    const artistThumbs = stats.topArtists.map(a => a.thumbnail).filter(Boolean);
+    const aThumbs = artistThumbs.length ? artistThumbs : thumbs;
 
     return [
       buildIntro(stats, thumbs),
       buildTotals(stats, thumbs),
-      buildTopArtist(stats, thumbs),
-      buildTopArtists(stats, thumbs),
+      buildTopArtist(stats, aThumbs),
+      buildTopArtists(stats, aThumbs),
       buildTopSong(stats, thumbs),
       buildTopSongs(stats, thumbs),
       buildPersonality(stats, thumbs),
@@ -237,10 +271,10 @@
     const slide = makeSlide(0, thumbs, []);
     const content = slide.querySelector('.wrapped-content');
     content.innerHTML = `
-      <img class="wrapped-intro-logo wrapped-anim-scale" style="animation-delay:0.05s" src="../../assets/snowify-logo-text.png" alt="Snowify" draggable="false" />
-      <div class="wrapped-hero-year wrapped-anim-up" style="animation-delay:0.22s">${stats.year}</div>
-      <div class="wrapped-hero-title wrapped-anim-up" style="animation-delay:0.34s">${escapeHtml(t('wrapped.wrapped', 'Wrapped'))}</div>
-      <div class="wrapped-sub wrapped-anim-up" style="animation-delay:0.46s">${escapeHtml(t('wrapped.introSub', 'Your year in music'))}</div>
+      <img class="wrapped-intro-logo wrapped-anim-scale" style="animation-delay:0.15s" src="../../assets/snowify-logo-text-focused.png" alt="Snowify" draggable="false" />
+      <div class="wrapped-hero-year wrapped-anim-up" style="animation-delay:0.65s">${stats.year}</div>
+      <div class="wrapped-hero-title wrapped-anim-up" style="animation-delay:1.05s">${escapeHtml(t('wrapped.wrapped', 'Wrapped'))}</div>
+      <div class="wrapped-sub wrapped-anim-up" style="animation-delay:1.4s">${escapeHtml(t('wrapped.introSub', 'Your year in music'))}</div>
     `;
     return slide;
   }
@@ -249,10 +283,10 @@
     const slide = makeSlide(1, thumbs, []);
     const content = slide.querySelector('.wrapped-content');
     content.innerHTML = `
-      <div class="wrapped-eyebrow wrapped-anim-up" style="animation-delay:0.05s">${escapeHtml(t('wrapped.thisYear', 'This Year'))}</div>
-      <div class="wrapped-stat-number wrapped-anim-up" style="animation-delay:0.15s">${stats.totalPlays.toLocaleString()}</div>
-      <div class="wrapped-stat-label wrapped-anim-up" style="animation-delay:0.26s">${escapeHtml(t('wrapped.songsPlayed', 'songs played'))}</div>
-      <div class="wrapped-stat-grid wrapped-anim-up" style="animation-delay:0.38s">
+      <div class="wrapped-eyebrow wrapped-anim-up" style="animation-delay:0.1s">${escapeHtml(t('wrapped.thisYear', 'This Year'))}</div>
+      <div class="wrapped-stat-number wrapped-anim-up" style="animation-delay:0.5s">${stats.totalPlays.toLocaleString()}</div>
+      <div class="wrapped-stat-label wrapped-anim-up" style="animation-delay:0.9s">${escapeHtml(t('wrapped.songsPlayed', 'songs played'))}</div>
+      <div class="wrapped-stat-grid wrapped-anim-up" style="animation-delay:1.3s">
         <div class="wrapped-stat-chip">
           <div class="wrapped-chip-value">${stats.totalHours.toLocaleString()}</div>
           <div class="wrapped-chip-label">${escapeHtml(t('wrapped.hours', 'hours'))}</div>
@@ -285,10 +319,10 @@
 
     const textWrap = el('div', 'wrapped-hero-text');
     textWrap.innerHTML = `
-      <div class="wrapped-eyebrow wrapped-anim-up" style="animation-delay:0.22s">${escapeHtml(t('wrapped.yourTopArtist', 'Your #1 Artist'))}</div>
-      <div class="wrapped-hero-artist wrapped-anim-up" style="animation-delay:0.32s">${escapeHtml(artist.name)}</div>
-      <div class="wrapped-artist-plays wrapped-anim-up" style="animation-delay:0.44s">${artist.count.toLocaleString()} ${escapeHtml(t('wrapped.plays', 'plays'))}</div>
-      <div class="wrapped-artist-time wrapped-anim-up" style="animation-delay:0.54s">${Math.round(artist.totalMs / 60000).toLocaleString()} ${escapeHtml(t('wrapped.minutes', 'minutes'))}</div>
+      <div class="wrapped-eyebrow wrapped-anim-up" style="animation-delay:0.5s">${escapeHtml(t('wrapped.yourTopArtist', 'Your #1 Artist'))}</div>
+      <div class="wrapped-hero-artist wrapped-anim-up" style="animation-delay:0.88s">${escapeHtml(artist.name)}</div>
+      <div class="wrapped-artist-plays wrapped-anim-up" style="animation-delay:1.25s">${artist.count.toLocaleString()} ${escapeHtml(t('wrapped.plays', 'plays'))}</div>
+      <div class="wrapped-artist-time wrapped-anim-up" style="animation-delay:1.55s">${Math.round(artist.totalMs / 60000).toLocaleString()} ${escapeHtml(t('wrapped.minutes', 'minutes'))}</div>
     `;
     content.appendChild(textWrap);
     return slide;
@@ -299,7 +333,7 @@
     const content = slide.querySelector('.wrapped-content');
 
     const eyebrow = el('div', 'wrapped-eyebrow wrapped-anim-up');
-    eyebrow.style.animationDelay = '0.05s';
+    eyebrow.style.animationDelay = '0.1s';
     eyebrow.textContent = t('wrapped.topArtists', 'Top Artists');
     content.appendChild(eyebrow);
 
@@ -307,10 +341,10 @@
     stats.topArtists.forEach((a, i) => {
       const artUrl = a.thumbnail || thumbs[i] || null;
       const item = el('div', 'wrapped-list-item wrapped-anim-up');
-      item.style.animationDelay = (0.15 + i * 0.1) + 's';
+      item.style.animationDelay = (0.5 + i * 0.22) + 's';
       item.innerHTML = `
         <span class="wrapped-list-rank">${i + 1}</span>
-        <div class="wrapped-list-avatar">${artUrl ? `<img src="${escapeHtml(artUrl)}" alt="" loading="lazy" />` : '<div class="wrapped-list-avatar-fallback"></div>'}</div>
+        <div class="wrapped-list-avatar wrapped-list-avatar--artist">${artUrl ? `<img src="${escapeHtml(artUrl)}" alt="" loading="lazy" />` : '<div class="wrapped-list-avatar-fallback"></div>'}</div>
         <span class="wrapped-list-title">${escapeHtml(a.name)}</span>
         <span class="wrapped-list-meta">${a.count.toLocaleString()} ${escapeHtml(t('wrapped.plays', 'plays'))}</span>
       `;
@@ -334,10 +368,10 @@
 
     const textWrap = el('div', 'wrapped-hero-text');
     textWrap.innerHTML = `
-      <div class="wrapped-eyebrow wrapped-anim-up" style="animation-delay:0.22s">${escapeHtml(t('wrapped.yourTopSong', 'Your #1 Song'))}</div>
-      <div class="wrapped-hero-song wrapped-anim-up" style="animation-delay:0.32s">${escapeHtml(song.title)}</div>
-      <div class="wrapped-hero-artist-small wrapped-anim-up" style="animation-delay:0.42s">${escapeHtml(song.artist)}</div>
-      <div class="wrapped-song-plays wrapped-anim-up" style="animation-delay:0.54s">${escapeHtml(t('wrapped.playedXTimes', 'Played'))} ${song.count.toLocaleString()} ${escapeHtml(t('wrapped.times', 'times'))}</div>
+      <div class="wrapped-eyebrow wrapped-anim-up" style="animation-delay:0.5s">${escapeHtml(t('wrapped.yourTopSong', 'Your #1 Song'))}</div>
+      <div class="wrapped-hero-song wrapped-anim-up" style="animation-delay:0.88s">${escapeHtml(song.title)}</div>
+      <div class="wrapped-hero-artist-small wrapped-anim-up" style="animation-delay:1.2s">${escapeHtml(song.artist)}</div>
+      <div class="wrapped-song-plays wrapped-anim-up" style="animation-delay:1.5s">${escapeHtml(t('wrapped.playedXTimes', 'Played'))} ${song.count.toLocaleString()} ${escapeHtml(t('wrapped.times', 'times'))}</div>
     `;
     content.appendChild(textWrap);
     return slide;
@@ -348,7 +382,7 @@
     const content = slide.querySelector('.wrapped-content');
 
     const eyebrow = el('div', 'wrapped-eyebrow wrapped-anim-up');
-    eyebrow.style.animationDelay = '0.05s';
+    eyebrow.style.animationDelay = '0.1s';
     eyebrow.textContent = t('wrapped.topSongs', 'Top Songs');
     content.appendChild(eyebrow);
 
@@ -356,7 +390,7 @@
     stats.topSongs.forEach((s, i) => {
       const artUrl = s.thumbnail || thumbs[i] || null;
       const item = el('div', 'wrapped-list-item wrapped-anim-up');
-      item.style.animationDelay = (0.15 + i * 0.1) + 's';
+      item.style.animationDelay = (0.5 + i * 0.22) + 's';
       item.innerHTML = `
         <span class="wrapped-list-rank">${i + 1}</span>
         <div class="wrapped-list-avatar">${artUrl ? `<img src="${escapeHtml(artUrl)}" alt="" loading="lazy" />` : '<div class="wrapped-list-avatar-fallback"></div>'}</div>
@@ -376,10 +410,10 @@
     const slide = makeSlide(6, thumbs, []);
     const content = slide.querySelector('.wrapped-content');
     content.innerHTML = `
-      <div class="wrapped-eyebrow wrapped-anim-up" style="animation-delay:0.05s">${escapeHtml(t('wrapped.youAre', "You're a"))}</div>
-      <div class="wrapped-personality-emoji wrapped-anim-pop" style="animation-delay:0.18s">${stats.personalityEmoji}</div>
-      <div class="wrapped-hero-personality wrapped-anim-up" style="animation-delay:0.3s">${escapeHtml(t(stats.personalityKey, stats.personality))}</div>
-      <div class="wrapped-personality-streak wrapped-anim-up" style="animation-delay:0.44s">
+      <div class="wrapped-eyebrow wrapped-anim-up" style="animation-delay:0.1s">${escapeHtml(t('wrapped.youAre', "You're a"))}</div>
+      <div class="wrapped-personality-emoji wrapped-anim-pop" style="animation-delay:0.5s">${stats.personalityEmoji}</div>
+      <div class="wrapped-hero-personality wrapped-anim-up" style="animation-delay:0.92s">${escapeHtml(t(stats.personalityKey, stats.personality))}</div>
+      <div class="wrapped-personality-streak wrapped-anim-up" style="animation-delay:1.32s">
         ${escapeHtml(t('wrapped.streakPrefix', 'Your longest streak:'))} <strong>${stats.maxStreak}</strong> ${escapeHtml(t('wrapped.days', 'days'))}
       </div>
     `;
@@ -409,10 +443,10 @@
     }).join('');
 
     content.innerHTML = `
-      <div class="wrapped-eyebrow wrapped-anim-up" style="animation-delay:0.05s">${escapeHtml(t('wrapped.bestMonth', 'Your Most Active Month'))}</div>
-      <div class="wrapped-hero-month wrapped-anim-up" style="animation-delay:0.18s">${escapeHtml(MONTHS[stats.bestMonth])}</div>
-      <div class="wrapped-month-plays wrapped-anim-up" style="animation-delay:0.3s">${stats.bestMonthPlays.toLocaleString()} ${escapeHtml(t('wrapped.plays', 'plays'))}</div>
-      <div class="wrapped-month-chart wrapped-anim-up" style="animation-delay:0.38s">${bars}</div>
+      <div class="wrapped-eyebrow wrapped-anim-up" style="animation-delay:0.1s">${escapeHtml(t('wrapped.bestMonth', 'Your Most Active Month'))}</div>
+      <div class="wrapped-hero-month wrapped-anim-up" style="animation-delay:0.5s">${escapeHtml(MONTHS[stats.bestMonth])}</div>
+      <div class="wrapped-month-plays wrapped-anim-up" style="animation-delay:0.9s">${stats.bestMonthPlays.toLocaleString()} ${escapeHtml(t('wrapped.plays', 'plays'))}</div>
+      <div class="wrapped-month-chart wrapped-anim-up" style="animation-delay:1.28s">${bars}</div>
     `;
     return slide;
   }
@@ -438,9 +472,9 @@
 
     const textWrap = el('div', 'wrapped-hero-text');
     textWrap.innerHTML = `
-      <div class="wrapped-outro-note wrapped-anim-up" style="animation-delay:0.24s">${stats.year}</div>
-      <div class="wrapped-hero-outro wrapped-anim-up" style="animation-delay:0.34s">${escapeHtml(t('wrapped.outroTitle', 'Thanks for\nlistening.'))}</div>
-      <div class="wrapped-outro-sub wrapped-anim-up" style="animation-delay:0.46s">${escapeHtml(t('wrapped.outroSub', "Here's to"))} ${stats.year + 1} ♪</div>
+      <div class="wrapped-outro-note wrapped-anim-up" style="animation-delay:0.5s">${stats.year}</div>
+      <div class="wrapped-hero-outro wrapped-anim-up" style="animation-delay:0.88s">${escapeHtml(t('wrapped.outroTitle', 'Thanks for\nlistening.'))}</div>
+      <div class="wrapped-outro-sub wrapped-anim-up" style="animation-delay:1.22s">${escapeHtml(t('wrapped.outroSub', "Here's to"))} ${stats.year + 1} ♪</div>
     `;
     content.appendChild(textWrap);
     return slide;
@@ -530,7 +564,8 @@
     showWithStats(stats, overlay, devMode);
   }
 
-  function showWithStats(stats, overlay, devMode) {
+  async function showWithStats(stats, overlay, devMode) {
+    await enrichArtistThumbnails(stats);
     _slides = buildSlides(stats);
 
     // Build container

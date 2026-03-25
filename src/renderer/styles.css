@@ -5599,9 +5599,9 @@ body.i18n-switching { opacity: 0; }
 
 /* ─── Hero art (single big image on #1 artist / song slides) ─── */
 .wrapped-hero-art {
-  width: 160px; height: 160px; border-radius: 18px;
-  overflow: hidden; margin-bottom: 22px; flex-shrink: 0;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);
+  width: 200px; height: 200px; border-radius: 20px;
+  overflow: hidden; margin-bottom: 24px; flex-shrink: 0;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.08);
 }
 .wrapped-hero-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .wrapped-art-fallback { background: rgba(255,255,255,0.08); width: 100%; height: 100%; }
@@ -5609,33 +5609,33 @@ body.i18n-switching { opacity: 0; }
 
 /* ─── Typography tokens ─── */
 .wrapped-eyebrow {
-  font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
   color: rgba(255,255,255,0.55); margin-bottom: 10px;
 }
 .wrapped-hero-year {
-  font-size: clamp(78px, 18vw, 136px); font-weight: 900; line-height: 0.92;
+  font-size: clamp(88px, 20vw, 150px); font-weight: 900; line-height: 0.92;
   color: #fff; letter-spacing: -0.04em;
 }
 .wrapped-hero-title {
-  font-size: clamp(30px, 7vw, 52px); font-weight: 800;
+  font-size: clamp(36px, 8.5vw, 62px); font-weight: 800;
   color: rgba(255,255,255,0.88); margin-top: 4px;
 }
 .wrapped-sub {
-  font-size: 15px; color: rgba(255,255,255,0.45);
+  font-size: 17px; color: rgba(255,255,255,0.45);
   margin-top: 18px;
 }
 .wrapped-intro-logo {
-  width: 200px; height: auto; margin-bottom: 14px;
+  width: 220px; height: auto; margin-bottom: 14px;
   opacity: 0.92;
   pointer-events: none;
 }
 
 .wrapped-stat-number {
-  font-size: clamp(62px, 16vw, 116px); font-weight: 900; line-height: 1;
+  font-size: clamp(74px, 18vw, 130px); font-weight: 900; line-height: 1;
   color: #fff; letter-spacing: -0.04em; margin-bottom: 6px;
 }
 .wrapped-stat-label {
-  font-size: 18px; font-weight: 600; color: rgba(255,255,255,0.6);
+  font-size: 20px; font-weight: 600; color: rgba(255,255,255,0.6);
   margin-bottom: 28px;
 }
 .wrapped-stat-grid {
@@ -5643,29 +5643,29 @@ body.i18n-switching { opacity: 0; }
 }
 .wrapped-stat-chip {
   background: rgba(255,255,255,0.1); border-radius: 16px;
-  padding: 14px 20px; min-width: 88px;
+  padding: 16px 22px; min-width: 96px;
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255,255,255,0.1);
 }
-.wrapped-chip-value { font-size: 26px; font-weight: 800; color: #fff; }
-.wrapped-chip-label { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.06em; }
+.wrapped-chip-value { font-size: 30px; font-weight: 800; color: #fff; }
+.wrapped-chip-label { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.06em; }
 
 .wrapped-hero-artist {
-  font-size: clamp(32px, 8vw, 64px); font-weight: 900; color: #fff;
+  font-size: clamp(38px, 9.5vw, 76px); font-weight: 900; color: #fff;
   line-height: 1.1; margin: 6px 0 4px; word-break: break-word;
 }
-.wrapped-artist-plays { font-size: 18px; color: rgba(255,255,255,0.6); margin-top: 6px; }
-.wrapped-artist-time  { font-size: 14px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+.wrapped-artist-plays { font-size: 20px; color: rgba(255,255,255,0.6); margin-top: 8px; }
+.wrapped-artist-time  { font-size: 16px; color: rgba(255,255,255,0.4); margin-top: 4px; }
 
 .wrapped-hero-song {
-  font-size: clamp(26px, 6.5vw, 54px); font-weight: 900; color: #fff;
+  font-size: clamp(32px, 8vw, 64px); font-weight: 900; color: #fff;
   line-height: 1.15; margin: 6px 0 4px; word-break: break-word;
 }
 .wrapped-hero-artist-small {
-  font-size: 17px; color: rgba(255,255,255,0.55); margin-top: 2px;
+  font-size: 19px; color: rgba(255,255,255,0.55); margin-top: 2px;
 }
 .wrapped-song-plays {
-  font-size: 14px; color: rgba(255,255,255,0.4); margin-top: 10px;
+  font-size: 16px; color: rgba(255,255,255,0.4); margin-top: 12px;
 }
 
 /* ─── List slides (top artists / top songs) ─── */
@@ -5674,62 +5674,63 @@ body.i18n-switching { opacity: 0; }
   display: flex; flex-direction: column; gap: 8px;
 }
 .wrapped-list-item {
-  display: flex; align-items: center; gap: 12px;
-  background: rgba(255,255,255,0.07); border-radius: 14px;
-  padding: 10px 14px;
+  display: flex; align-items: center; gap: 14px;
+  background: rgba(255,255,255,0.07); border-radius: 16px;
+  padding: 12px 16px;
   opacity: 0; transform: translateY(14px);
   animation: wrappedSlideUp 0.5s cubic-bezier(0.22,1,0.36,1) forwards;
   border: 1px solid rgba(255,255,255,0.07);
   backdrop-filter: blur(8px);
 }
 .wrapped-list-rank {
-  font-size: 20px; font-weight: 900; color: rgba(255,255,255,0.28);
-  min-width: 26px; text-align: center;
+  font-size: 22px; font-weight: 900; color: rgba(255,255,255,0.28);
+  min-width: 28px; text-align: center;
 }
 /* Avatar thumbnail in list items */
 .wrapped-list-avatar {
-  width: 42px; height: 42px; border-radius: 8px;
+  width: 54px; height: 54px; border-radius: 10px;
   overflow: hidden; flex-shrink: 0;
   background: rgba(255,255,255,0.08);
 }
+.wrapped-list-avatar--artist { border-radius: 50%; }
 .wrapped-list-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .wrapped-list-avatar-fallback { width: 100%; height: 100%; }
 .wrapped-list-track { flex: 1; text-align: left; min-width: 0; }
 .wrapped-list-title {
-  display: block; font-size: 14px; font-weight: 600; color: #fff;
+  display: block; font-size: 16px; font-weight: 600; color: #fff;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .wrapped-list-artist {
-  display: block; font-size: 12px; color: rgba(255,255,255,0.45); margin-top: 2px;
+  display: block; font-size: 13px; color: rgba(255,255,255,0.45); margin-top: 2px;
 }
-.wrapped-list-meta { font-size: 13px; color: rgba(255,255,255,0.4); white-space: nowrap; }
+.wrapped-list-meta { font-size: 14px; color: rgba(255,255,255,0.4); white-space: nowrap; }
 
 /* ─── Personality slide ─── */
 .wrapped-personality-emoji {
-  font-size: 80px; margin: 6px 0 4px; line-height: 1;
+  font-size: 100px; margin: 6px 0 4px; line-height: 1;
 }
 .wrapped-hero-personality {
-  font-size: clamp(28px, 7.5vw, 56px); font-weight: 900; color: #fff;
+  font-size: clamp(34px, 9vw, 66px); font-weight: 900; color: #fff;
   letter-spacing: -0.02em; margin-top: 4px;
 }
 .wrapped-personality-streak {
-  font-size: 15px; color: rgba(255,255,255,0.45);
-  margin-top: 18px;
+  font-size: 17px; color: rgba(255,255,255,0.45);
+  margin-top: 20px;
 }
 .wrapped-personality-streak strong { color: rgba(255,255,255,0.9); font-weight: 700; }
 
 /* ─── Best month slide ─── */
 .wrapped-hero-month {
-  font-size: clamp(38px, 9.5vw, 76px); font-weight: 900; color: #fff;
+  font-size: clamp(46px, 11.5vw, 90px); font-weight: 900; color: #fff;
   letter-spacing: -0.03em; margin-bottom: 6px;
 }
 .wrapped-month-plays {
-  font-size: 18px; color: rgba(255,255,255,0.5); margin-bottom: 24px;
+  font-size: 20px; color: rgba(255,255,255,0.5); margin-bottom: 26px;
 }
 /* Bar chart */
 .wrapped-month-chart {
   display: flex; align-items: flex-end; gap: 5px;
-  height: 64px; width: 100%; max-width: 380px; justify-content: center;
+  height: 80px; width: 100%; max-width: 400px; justify-content: center;
 }
 .wrapped-month-bar-wrap {
   display: flex; flex-direction: column; align-items: center;
@@ -5756,10 +5757,10 @@ body.i18n-switching { opacity: 0; }
 
 /* ─── Outro slide ─── */
 .wrapped-outro-collage {
-  display: grid; grid-template-columns: repeat(2, 72px); grid-template-rows: repeat(2, 72px);
-  gap: 6px; border-radius: 18px; overflow: hidden;
-  margin-bottom: 22px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08);
+  display: grid; grid-template-columns: repeat(2, 90px); grid-template-rows: repeat(2, 90px);
+  gap: 6px; border-radius: 20px; overflow: hidden;
+  margin-bottom: 24px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.08);
 }
 .wrapped-outro-collage img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .wrapped-outro-note {
@@ -5767,12 +5768,12 @@ body.i18n-switching { opacity: 0; }
   letter-spacing: -0.01em; margin-bottom: 6px;
 }
 .wrapped-hero-outro {
-  font-size: clamp(36px, 8.5vw, 64px); font-weight: 900; color: #fff;
+  font-size: clamp(42px, 10.5vw, 76px); font-weight: 900; color: #fff;
   line-height: 1.15; white-space: pre-line;
   letter-spacing: -0.03em;
 }
 .wrapped-outro-sub {
-  font-size: 17px; color: rgba(255,255,255,0.45); margin-top: 18px;
+  font-size: 19px; color: rgba(255,255,255,0.45); margin-top: 20px;
 }
 
 /* ─── Progress bar (top edge) ─── */
