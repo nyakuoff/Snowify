@@ -2940,6 +2940,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       id: track.id,
       title: track.title,
       artist: track.artist || '',
+      thumbnail: track.thumbnail || '',
       durationMs: track.durationMs || 0,
       ts: Date.now()
     });
@@ -5299,6 +5300,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         id: t.id,
         title: t.title,
         artist: t.artist || '',
+        thumbnail: t.thumbnail || '',
         durationMs: t.durationMs || 210000, // fall back to 3.5 min average if unknown
         ts: now - (i / n) * span,
       }));

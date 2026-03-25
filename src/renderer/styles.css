@@ -5510,214 +5510,310 @@ body.i18n-switching { opacity: 0; }
 .wrapped-overlay {
   position: fixed; inset: 0; z-index: 9000;
   display: flex; flex-direction: column;
-  background: #0d0520;
+  background: #080010;
   opacity: 0; pointer-events: none;
-  transition: opacity 0.35s ease;
+  transition: opacity 0.4s ease;
   user-select: none; -webkit-user-select: none;
 }
 .wrapped-overlay.visible { opacity: 1; pointer-events: all; }
 .wrapped-overlay.hidden { display: none; }
 
+/* ─── Mosaic background ─── */
+.wrapped-mosaic-bg {
+  position: absolute; inset: 0; z-index: 0;
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  overflow: hidden;
+}
+.wrapped-mosaic-tile {
+  background-size: cover; background-position: center;
+  filter: blur(28px) saturate(1.3);
+  transform: scale(1.18); /* bleed past edges to avoid blank strips */
+  opacity: 0.55;
+}
+.wrapped-bg-glow {
+  position: absolute; inset: 0; z-index: 1;
+  pointer-events: none;
+}
+.wrapped-bg-scrim {
+  position: absolute; inset: 0; z-index: 2;
+  background: linear-gradient(160deg, rgba(0,0,0,0.60) 0%, rgba(0,0,0,0.82) 100%);
+}
+
+/* ─── Close button ─── */
 .wrapped-close-btn {
-  position: absolute; top: 18px; right: 18px; z-index: 10;
+  position: absolute; top: 18px; right: 18px; z-index: 20;
   background: rgba(255,255,255,0.12); border: none; cursor: pointer;
   color: #fff; border-radius: 50%; width: 38px; height: 38px;
   display: flex; align-items: center; justify-content: center;
   transition: background 0.15s, transform 0.15s;
+  backdrop-filter: blur(8px);
 }
 .wrapped-close-btn:hover { background: rgba(255,255,255,0.22); transform: scale(1.08); }
 
+/* ─── Slides container ─── */
 .wrapped-slides-container {
   flex: 1; position: relative; overflow: hidden;
 }
 
-/* ── Individual slide ── */
+/* ─── Individual slide ─── */
 .wrapped-slide {
-  position: absolute; inset: 0;
+  position: absolute; inset: 0; z-index: 3;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  padding: 72px 32px 80px;
-  text-align: center;
+  padding: 64px 32px 20px;
   opacity: 0; pointer-events: none;
   transition: opacity 0.38s ease, transform 0.38s cubic-bezier(0.25,0.46,0.45,0.94);
 }
 .wrapped-slide.active { opacity: 1; pointer-events: all; transform: translateX(0) !important; }
-.wrapped-slide.enter-right { transform: translateX(60px); }
-.wrapped-slide.enter-left  { transform: translateX(-60px); }
-.wrapped-slide.exit-left   { transform: translateX(-60px); }
-.wrapped-slide.exit-right  { transform: translateX(60px); }
+.wrapped-slide.enter-right { transform: translateX(55px); }
+.wrapped-slide.enter-left  { transform: translateX(-55px); }
+.wrapped-slide.exit-left   { transform: translateX(-55px); }
+.wrapped-slide.exit-right  { transform: translateX(55px); }
 
-/* ── Slide element animations ── */
+/* Slide content sits above backgrounds */
+.wrapped-content {
+  position: relative; z-index: 4;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; width: 100%; max-width: 560px;
+  gap: 0;
+}
+
+/* ─── Slide element animations ─── */
 .wrapped-anim-up {
-  opacity: 0; transform: translateY(20px);
+  opacity: 0; transform: translateY(22px);
   animation: wrappedSlideUp 0.55s cubic-bezier(0.22,1,0.36,1) forwards;
 }
-@keyframes wrappedSlideUp {
-  to { opacity: 1; transform: translateY(0); }
+.wrapped-anim-scale {
+  opacity: 0; transform: scale(0.82);
+  animation: wrappedScaleIn 0.6s cubic-bezier(0.22,1,0.36,1) forwards;
 }
+.wrapped-anim-pop {
+  opacity: 0; transform: scale(0.5);
+  animation: wrappedPop 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+@keyframes wrappedSlideUp  { to { opacity: 1; transform: translateY(0); } }
+@keyframes wrappedScaleIn  { to { opacity: 1; transform: scale(1); } }
+@keyframes wrappedPop      { to { opacity: 1; transform: scale(1); } }
 
-/* ── Typography tokens ── */
+/* ─── Hero art (single big image on #1 artist / song slides) ─── */
+.wrapped-hero-art {
+  width: 160px; height: 160px; border-radius: 18px;
+  overflow: hidden; margin-bottom: 22px; flex-shrink: 0;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);
+}
+.wrapped-hero-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wrapped-art-fallback { background: rgba(255,255,255,0.08); width: 100%; height: 100%; }
+.wrapped-hero-text { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+
+/* ─── Typography tokens ─── */
 .wrapped-eyebrow {
-  font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-  color: rgba(255,255,255,0.6); margin-bottom: 12px;
-  animation-delay: 0.05s;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55); margin-bottom: 10px;
 }
 .wrapped-hero-year {
-  font-size: clamp(80px, 18vw, 140px); font-weight: 900; line-height: 1;
-  color: #fff; letter-spacing: -0.03em;
-  animation-delay: 0.15s;
+  font-size: clamp(78px, 18vw, 136px); font-weight: 900; line-height: 0.92;
+  color: #fff; letter-spacing: -0.04em;
 }
 .wrapped-hero-title {
-  font-size: clamp(32px, 7vw, 56px); font-weight: 800;
-  color: rgba(255,255,255,0.9); margin-top: 2px;
-  animation-delay: 0.28s;
+  font-size: clamp(30px, 7vw, 52px); font-weight: 800;
+  color: rgba(255,255,255,0.88); margin-top: 4px;
 }
-.wrapped-sub  {
-  font-size: 16px; color: rgba(255,255,255,0.5);
-  margin-top: 16px; animation-delay: 0.4s;
+.wrapped-sub {
+  font-size: 15px; color: rgba(255,255,255,0.45);
+  margin-top: 18px;
 }
+.wrapped-intro-flake { margin-bottom: 18px; opacity: 0.75; }
+
 .wrapped-stat-number {
-  font-size: clamp(64px, 16vw, 120px); font-weight: 900; line-height: 1;
-  color: #fff; letter-spacing: -0.03em;
-  animation-delay: 0.18s;
+  font-size: clamp(62px, 16vw, 116px); font-weight: 900; line-height: 1;
+  color: #fff; letter-spacing: -0.04em; margin-bottom: 6px;
 }
 .wrapped-stat-label {
-  font-size: 18px; font-weight: 600; color: rgba(255,255,255,0.65);
-  margin-top: 4px; animation-delay: 0.28s;
+  font-size: 18px; font-weight: 600; color: rgba(255,255,255,0.6);
+  margin-bottom: 28px;
 }
-.wrapped-spacer { height: 24px; }
 .wrapped-stat-grid {
-  display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
-  animation-delay: 0.4s;
+  display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
 }
 .wrapped-stat-chip {
-  background: rgba(255,255,255,0.1); border-radius: 14px;
-  padding: 14px 20px; min-width: 90px;
-  backdrop-filter: blur(8px);
+  background: rgba(255,255,255,0.1); border-radius: 16px;
+  padding: 14px 20px; min-width: 88px;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.1);
 }
 .wrapped-chip-value { font-size: 26px; font-weight: 800; color: #fff; }
-.wrapped-chip-label { font-size: 11px; color: rgba(255,255,255,0.55); margin-top: 2px; }
+.wrapped-chip-label { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.06em; }
 
 .wrapped-hero-artist {
-  font-size: clamp(36px, 9vw, 72px); font-weight: 900; color: #fff;
-  line-height: 1.1; margin: 8px 0; animation-delay: 0.18s;
-  word-break: break-word; max-width: 700px;
+  font-size: clamp(32px, 8vw, 64px); font-weight: 900; color: #fff;
+  line-height: 1.1; margin: 6px 0 4px; word-break: break-word;
 }
-.wrapped-artist-plays, .wrapped-artist-time {
-  font-size: 18px; color: rgba(255,255,255,0.6);
-  animation-delay: 0.32s;
-}
-.wrapped-artist-time { animation-delay: 0.42s; }
+.wrapped-artist-plays { font-size: 18px; color: rgba(255,255,255,0.6); margin-top: 6px; }
+.wrapped-artist-time  { font-size: 14px; color: rgba(255,255,255,0.4); margin-top: 4px; }
 
 .wrapped-hero-song {
-  font-size: clamp(28px, 7vw, 58px); font-weight: 900; color: #fff;
-  line-height: 1.15; margin: 8px 0; animation-delay: 0.18s;
-  word-break: break-word; max-width: 680px;
+  font-size: clamp(26px, 6.5vw, 54px); font-weight: 900; color: #fff;
+  line-height: 1.15; margin: 6px 0 4px; word-break: break-word;
 }
 .wrapped-hero-artist-small {
-  font-size: 18px; color: rgba(255,255,255,0.6);
-  animation-delay: 0.28s;
+  font-size: 17px; color: rgba(255,255,255,0.55); margin-top: 2px;
 }
 .wrapped-song-plays {
-  font-size: 15px; color: rgba(255,255,255,0.45);
-  margin-top: 10px; animation-delay: 0.4s;
+  font-size: 14px; color: rgba(255,255,255,0.4); margin-top: 10px;
 }
 
+/* ─── List slides (top artists / top songs) ─── */
 .wrapped-list {
-  width: 100%; max-width: 560px; margin-top: 16px;
+  width: 100%; max-width: 560px; margin-top: 14px;
   display: flex; flex-direction: column; gap: 8px;
 }
 .wrapped-list-item {
   display: flex; align-items: center; gap: 12px;
-  background: rgba(255,255,255,0.08); border-radius: 12px;
-  padding: 12px 16px;
+  background: rgba(255,255,255,0.07); border-radius: 14px;
+  padding: 10px 14px;
   opacity: 0; transform: translateY(14px);
   animation: wrappedSlideUp 0.5s cubic-bezier(0.22,1,0.36,1) forwards;
+  border: 1px solid rgba(255,255,255,0.07);
+  backdrop-filter: blur(8px);
 }
 .wrapped-list-rank {
-  font-size: 22px; font-weight: 900; color: rgba(255,255,255,0.35);
-  min-width: 28px; text-align: center;
+  font-size: 20px; font-weight: 900; color: rgba(255,255,255,0.28);
+  min-width: 26px; text-align: center;
 }
+/* Avatar thumbnail in list items */
+.wrapped-list-avatar {
+  width: 42px; height: 42px; border-radius: 8px;
+  overflow: hidden; flex-shrink: 0;
+  background: rgba(255,255,255,0.08);
+}
+.wrapped-list-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wrapped-list-avatar-fallback { width: 100%; height: 100%; }
 .wrapped-list-track { flex: 1; text-align: left; min-width: 0; }
 .wrapped-list-title {
   display: block; font-size: 14px; font-weight: 600; color: #fff;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .wrapped-list-artist {
-  display: block; font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 1px;
+  display: block; font-size: 12px; color: rgba(255,255,255,0.45); margin-top: 2px;
 }
-.wrapped-list-meta { font-size: 13px; color: rgba(255,255,255,0.45); white-space: nowrap; }
+.wrapped-list-meta { font-size: 13px; color: rgba(255,255,255,0.4); white-space: nowrap; }
 
+/* ─── Personality slide ─── */
 .wrapped-personality-emoji {
-  font-size: 72px; margin: 8px 0; animation-delay: 0.18s; line-height: 1;
+  font-size: 80px; margin: 6px 0 4px; line-height: 1;
 }
 .wrapped-hero-personality {
-  font-size: clamp(32px, 8vw, 60px); font-weight: 900; color: #fff;
-  animation-delay: 0.3s; letter-spacing: -0.02em;
+  font-size: clamp(28px, 7.5vw, 56px); font-weight: 900; color: #fff;
+  letter-spacing: -0.02em; margin-top: 4px;
 }
 .wrapped-personality-streak {
-  font-size: 15px; color: rgba(255,255,255,0.5);
-  margin-top: 16px; animation-delay: 0.44s;
+  font-size: 15px; color: rgba(255,255,255,0.45);
+  margin-top: 18px;
 }
+.wrapped-personality-streak strong { color: rgba(255,255,255,0.9); font-weight: 700; }
 
+/* ─── Best month slide ─── */
 .wrapped-hero-month {
-  font-size: clamp(40px, 10vw, 80px); font-weight: 900; color: #fff;
-  animation-delay: 0.18s; letter-spacing: -0.02em;
+  font-size: clamp(38px, 9.5vw, 76px); font-weight: 900; color: #fff;
+  letter-spacing: -0.03em; margin-bottom: 6px;
 }
 .wrapped-month-plays {
-  font-size: 20px; color: rgba(255,255,255,0.55);
-  margin-top: 8px; animation-delay: 0.3s;
+  font-size: 18px; color: rgba(255,255,255,0.5); margin-bottom: 24px;
+}
+/* Bar chart */
+.wrapped-month-chart {
+  display: flex; align-items: flex-end; gap: 5px;
+  height: 64px; width: 100%; max-width: 380px; justify-content: center;
+}
+.wrapped-month-bar-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  flex: 1; height: 100%; justify-content: flex-end; gap: 4px;
+}
+.wrapped-month-bar {
+  width: 100%; border-radius: 4px 4px 2px 2px;
+  background: rgba(255,255,255,0.2);
+  min-height: 4px;
+  opacity: 0;
+  animation: wrappedBarIn 0.5s cubic-bezier(0.22,1,0.36,1) forwards;
+  transform-origin: bottom;
+}
+.wrapped-month-bar.active { background: #fff; }
+.wrapped-month-label {
+  font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.3);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.wrapped-month-label.active { color: rgba(255,255,255,0.9); }
+@keyframes wrappedBarIn {
+  from { opacity: 0; transform: scaleY(0); }
+  to   { opacity: 1; transform: scaleY(1); }
 }
 
+/* ─── Outro slide ─── */
+.wrapped-outro-collage {
+  display: grid; grid-template-columns: repeat(2, 72px); grid-template-rows: repeat(2, 72px);
+  gap: 6px; border-radius: 18px; overflow: hidden;
+  margin-bottom: 22px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08);
+}
+.wrapped-outro-collage img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .wrapped-outro-note {
-  font-size: 15px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-  color: rgba(255,255,255,0.4); animation-delay: 0.1s;
+  font-size: 28px; font-weight: 900; color: rgba(255,255,255,0.35);
+  letter-spacing: -0.01em; margin-bottom: 6px;
 }
 .wrapped-hero-outro {
-  font-size: clamp(40px, 9vw, 72px); font-weight: 900; color: #fff;
-  line-height: 1.15; white-space: pre-line; animation-delay: 0.22s;
-  letter-spacing: -0.02em;
+  font-size: clamp(36px, 8.5vw, 64px); font-weight: 900; color: #fff;
+  line-height: 1.15; white-space: pre-line;
+  letter-spacing: -0.03em;
 }
 .wrapped-outro-sub {
-  font-size: 18px; color: rgba(255,255,255,0.5);
-  margin-top: 20px; animation-delay: 0.4s;
+  font-size: 17px; color: rgba(255,255,255,0.45); margin-top: 18px;
 }
 
-/* ── Footer (navigation) ── */
+/* ─── Progress bar (top edge) ─── */
+.wrapped-progress-bar {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 20;
+  display: flex; gap: 4px; padding: 0 16px;
+  height: 3px;
+}
+.wrapped-progress-seg {
+  flex: 1; height: 3px; border-radius: 2px;
+  background: rgba(255,255,255,0.25); overflow: hidden; cursor: pointer;
+  transition: opacity 0.15s;
+}
+.wrapped-progress-seg:hover { opacity: 0.8; }
+.wrapped-progress-seg-fill {
+  height: 100%; background: #fff; width: 0%; border-radius: 2px;
+}
+.wrapped-progress-seg.done .wrapped-progress-seg-fill { width: 100%; }
+.wrapped-progress-seg.active .wrapped-progress-seg-fill {
+  animation: wrappedSegProgress var(--seg-duration, 6000ms) linear forwards;
+}
+@keyframes wrappedSegProgress {
+  from { width: 0% } to { width: 100% }
+}
+
+/* ─── Footer (nav arrows only, no background band) ─── */
 .wrapped-footer {
+  position: absolute; bottom: 28px; left: 0; right: 0; z-index: 20;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 24px; gap: 16px;
-  background: linear-gradient(transparent, rgba(0,0,0,0.4));
+  padding: 0 24px; pointer-events: none;
 }
 .wrapped-nav-btn {
-  background: rgba(255,255,255,0.12); border: none; cursor: pointer;
-  color: #fff; border-radius: 50%; width: 40px; height: 40px;
+  background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.12);
+  cursor: pointer; color: #fff; border-radius: 50%;
+  width: 44px; height: 44px;
   display: flex; align-items: center; justify-content: center;
-  transition: background 0.15s, transform 0.15s; flex-shrink: 0;
+  transition: background 0.15s, transform 0.15s;
+  pointer-events: all;
+  backdrop-filter: blur(12px);
+  flex-shrink: 0;
 }
-.wrapped-nav-btn:hover { background: rgba(255,255,255,0.22); transform: scale(1.08); }
-.wrapped-progress-dots {
-  display: flex; gap: 7px; align-items: center; justify-content: center; flex: 1;
-  flex-wrap: wrap;
-}
-.wrapped-dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: rgba(255,255,255,0.3); cursor: pointer;
-  transition: background 0.2s, width 0.25s;
-  overflow: hidden; position: relative;
-}
-.wrapped-dot.active {
-  background: rgba(255,255,255,0.35); width: 52px; border-radius: 4px;
-}
-/* Progress fill animation on the active dot */
-.wrapped-dot.active::after {
-  content: '';
-  position: absolute; inset: 0; left: 0;
-  background: #fff; border-radius: 4px;
-  width: 0%;
-}
-@keyframes wrappedDotProgress {
-  from { width: 0% }
-  to   { width: 100% }
+.wrapped-nav-btn:hover { background: rgba(255,255,255,0.24); transform: scale(1.08); }
+.wrapped-slide-counter {
+  font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.45);
+  letter-spacing: 0.05em;
+  pointer-events: none;
 }
 

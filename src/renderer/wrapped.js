@@ -10,17 +10,17 @@
     'July', 'August', 'September', 'October', 'November', 'December',
   ];
 
-  // Slide gradient backgrounds (hsl pairs: from → to)
-  const SLIDE_GRADIENTS = [
-    ['#0d0520', '#1a0a3d'],  // 0 intro        – deep violet
-    ['#081828', '#0a2848'],  // 1 totals        – deep blue
-    ['#0a2010', '#062818'],  // 2 top-artist    – dark forest
-    ['#061828', '#0a2038'],  // 3 top-artists   – deep teal
-    ['#281008', '#200808'],  // 4 top-song      – dark ember
-    ['#200810', '#180818'],  // 5 top-songs     – dark rose
-    ['#080818', '#100830'],  // 6 personality   – midnight
-    ['#0a1600', '#102000'],  // 7 best-month    – dark earth
-    ['#100020', '#1a0030'],  // 8 outro         – deep purple
+  // Per-slide accent color (used for glow + tint)
+  const SLIDE_ACCENTS = [
+    '#7c4dff',  // 0 intro        – violet
+    '#2979ff',  // 1 totals        – blue
+    '#00c853',  // 2 top-artist    – green
+    '#00bcd4',  // 3 top-artists   – teal
+    '#ff6d00',  // 4 top-song      – amber
+    '#e91e8c',  // 5 top-songs     – rose
+    '#7c4dff',  // 6 personality   – violet
+    '#43a047',  // 7 best-month    – earth green
+    '#aa00ff',  // 8 outro         – purple
   ];
 
   // ─── Statistics computation ───────────────────────────────────────────────
@@ -32,10 +32,11 @@
     // — Songs —
     const songMap = new Map();
     for (const e of entries) {
-      if (!songMap.has(e.id)) songMap.set(e.id, { id: e.id, title: e.title, artist: e.artist, count: 0, totalMs: 0 });
+      if (!songMap.has(e.id)) songMap.set(e.id, { id: e.id, title: e.title, artist: e.artist, thumbnail: e.thumbnail || '', count: 0, totalMs: 0 });
       const s = songMap.get(e.id);
       s.count++;
       s.totalMs += e.durationMs || 0;
+      if (!s.thumbnail && e.thumbnail) s.thumbnail = e.thumbnail;
     }
     const topSongs = [...songMap.values()].sort((a, b) => b.count - a.count).slice(0, 5);
 
@@ -43,10 +44,11 @@
     const artistMap = new Map();
     for (const e of entries) {
       const key = (e.artist || 'Unknown Artist').toLowerCase();
-      if (!artistMap.has(key)) artistMap.set(key, { name: e.artist || 'Unknown Artist', count: 0, totalMs: 0 });
+      if (!artistMap.has(key)) artistMap.set(key, { name: e.artist || 'Unknown Artist', thumbnail: e.thumbnail || '', count: 0, totalMs: 0 });
       const a = artistMap.get(key);
       a.count++;
       a.totalMs += e.durationMs || 0;
+      if (!a.thumbnail && e.thumbnail) a.thumbnail = e.thumbnail;
     }
     const topArtists = [...artistMap.values()].sort((a, b) => b.count - a.count).slice(0, 5);
 
@@ -120,17 +122,61 @@
     return fallback || key;
   }
 
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // Build a blurred mosaic background from an array of thumbnail URLs.
+  // Tiles are arranged in a 3×3 (or whatever fits) grid, each blurred + darkened.
+  function makeMosaicBg(thumbUrls, accent) {
+    const bg = document.createElement('div');
+    bg.className = 'wrapped-mosaic-bg';
+
+    // Fill up to 9 tiles, cycling through available images
+    const tiles = [];
+    for (let i = 0; i < 9; i++) {
+      const url = thumbUrls[i % thumbUrls.length];
+      if (url) tiles.push(url);
+    }
+    tiles.forEach(url => {
+      const tile = document.createElement('div');
+      tile.className = 'wrapped-mosaic-tile';
+      tile.style.backgroundImage = `url('${url}')`;
+      bg.appendChild(tile);
+    });
+
+    // Radial glow accent overlay
+    const glow = document.createElement('div');
+    glow.className = 'wrapped-bg-glow';
+    glow.style.background = `radial-gradient(ellipse 70% 60% at 50% 40%, ${accent}55 0%, transparent 70%)`;
+    bg.appendChild(glow);
+
+    // Dark scrim so text is always readable
+    const scrim = document.createElement('div');
+    scrim.className = 'wrapped-bg-scrim';
+    bg.appendChild(scrim);
+
+    return bg;
+  }
+
   function buildSlides(stats) {
+    // Collect all thumbnail URLs from top songs for mosaic backgrounds
+    const allThumbs = stats.topSongs.map(s => s.thumbnail).filter(Boolean);
+    // Fallback tiles if no thumbnails available
+    const thumbs = allThumbs.length ? allThumbs : [];
+
     return [
-      buildIntro(stats),
-      buildTotals(stats),
-      buildTopArtist(stats),
-      buildTopArtists(stats),
-      buildTopSong(stats),
-      buildTopSongs(stats),
-      buildPersonality(stats),
-      buildBestMonth(stats),
-      buildOutro(stats),
+      buildIntro(stats, thumbs),
+      buildTotals(stats, thumbs),
+      buildTopArtist(stats, thumbs),
+      buildTopArtists(stats, thumbs),
+      buildTopSong(stats, thumbs),
+      buildTopSongs(stats, thumbs),
+      buildPersonality(stats, thumbs),
+      buildBestMonth(stats, thumbs),
+      buildOutro(stats, thumbs),
     ];
   }
 
@@ -141,145 +187,259 @@
     return e;
   }
 
-  function makeSlide(gradientIdx, children) {
+  function makeSlide(idx, thumbs, children) {
     const slide = el('div', 'wrapped-slide');
-    const [from, to] = SLIDE_GRADIENTS[gradientIdx] || SLIDE_GRADIENTS[0];
-    slide.style.background = `radial-gradient(ellipse at 30% 20%, ${to}dd, ${from}) no-repeat center/cover`;
+    slide.dataset.accent = SLIDE_ACCENTS[idx];
+
+    // Mosaic background if we have thumbnails, else a solid dark gradient
+    if (thumbs.length) {
+      slide.appendChild(makeMosaicBg(thumbs, SLIDE_ACCENTS[idx]));
+    } else {
+      slide.style.background = '#0d0520';
+    }
+
+    const content = el('div', 'wrapped-content');
     children.forEach((c, i) => {
       if (c) {
         c.style.animationDelay = (i * 0.12) + 's';
-        slide.appendChild(c);
+        content.appendChild(c);
       }
     });
+    slide.appendChild(content);
     return slide;
   }
 
-  function buildIntro(stats) {
-    return makeSlide(0, [
-      el('div', 'wrapped-eyebrow wrapped-anim-up', t('wrapped.your', 'Your')),
-      el('div', 'wrapped-hero-year wrapped-anim-up', String(stats.year)),
-      el('div', 'wrapped-hero-title wrapped-anim-up', t('wrapped.wrapped', 'Wrapped')),
-      el('div', 'wrapped-sub wrapped-anim-up', t('wrapped.introSub', 'Your year in music')),
-    ]);
+  // Build an avatar image element (for track/artist art)
+  function makeArt(url, cls) {
+    const wrap = el('div', cls || 'wrapped-art');
+    if (url) {
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = '';
+      img.loading = 'lazy';
+      img.onerror = () => { wrap.classList.add('wrapped-art-fallback'); };
+      wrap.appendChild(img);
+    } else {
+      wrap.classList.add('wrapped-art-fallback');
+    }
+    return wrap;
   }
 
-  function buildTotals(stats) {
-    return makeSlide(1, [
-      el('div', 'wrapped-eyebrow wrapped-anim-up', t('wrapped.thisYear', 'This Year')),
-      el('div', 'wrapped-stat-number wrapped-anim-up', stats.totalPlays.toLocaleString()),
-      el('div', 'wrapped-stat-label wrapped-anim-up', t('wrapped.songsPlayed', 'songs played')),
-      el('div', 'wrapped-spacer'),
-      el('div', 'wrapped-stat-grid wrapped-anim-up', `
+  function buildIntro(stats, thumbs) {
+    const slide = makeSlide(0, thumbs, []);
+    const content = slide.querySelector('.wrapped-content');
+
+    const snowflakeSvg = `<svg class="wrapped-intro-flake wrapped-anim-up" style="animation-delay:0.05s" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><path d="m20 10-8-8-8 8"/><path d="m4 6 8 8 8-8"/><line x1="2" y1="12" x2="22" y2="12"/><path d="m6 4 8 8-8 8"/><path d="m18 4-8 8 8 8"/></svg>`;
+
+    content.innerHTML = `
+      ${snowflakeSvg}
+      <div class="wrapped-eyebrow wrapped-anim-up" style="animation-delay:0.1s">${escapeHtml(t('wrapped.your', 'Your'))}</div>
+      <div class="wrapped-hero-year wrapped-anim-up" style="animation-delay:0.2s">${stats.year}</div>
+      <div class="wrapped-hero-title wrapped-anim-up" style="animation-delay:0.32s">${escapeHtml(t('wrapped.wrapped', 'Wrapped'))}</div>
+      <div class="wrapped-sub wrapped-anim-up" style="animation-delay:0.44s">${escapeHtml(t('wrapped.introSub', 'Your year in music'))}</div>
+    `;
+    return slide;
+  }
+
+  function buildTotals(stats, thumbs) {
+    const slide = makeSlide(1, thumbs, []);
+    const content = slide.querySelector('.wrapped-content');
+    content.innerHTML = `
+      <div class="wrapped-eyebrow wrapped-anim-up" style="animation-delay:0.05s">${escapeHtml(t('wrapped.thisYear', 'This Year'))}</div>
+      <div class="wrapped-stat-number wrapped-anim-up" style="animation-delay:0.15s">${stats.totalPlays.toLocaleString()}</div>
+      <div class="wrapped-stat-label wrapped-anim-up" style="animation-delay:0.26s">${escapeHtml(t('wrapped.songsPlayed', 'songs played'))}</div>
+      <div class="wrapped-stat-grid wrapped-anim-up" style="animation-delay:0.38s">
         <div class="wrapped-stat-chip">
           <div class="wrapped-chip-value">${stats.totalHours.toLocaleString()}</div>
-          <div class="wrapped-chip-label">${t('wrapped.hours', 'hours')}</div>
+          <div class="wrapped-chip-label">${escapeHtml(t('wrapped.hours', 'hours'))}</div>
         </div>
         <div class="wrapped-stat-chip">
           <div class="wrapped-chip-value">${stats.uniqueSongs.toLocaleString()}</div>
-          <div class="wrapped-chip-label">${t('wrapped.uniqueSongs', 'unique songs')}</div>
+          <div class="wrapped-chip-label">${escapeHtml(t('wrapped.uniqueSongs', 'unique songs'))}</div>
         </div>
         <div class="wrapped-stat-chip">
           <div class="wrapped-chip-value">${stats.uniqueArtists.toLocaleString()}</div>
-          <div class="wrapped-chip-label">${t('wrapped.uniqueArtists', 'artists')}</div>
+          <div class="wrapped-chip-label">${escapeHtml(t('wrapped.uniqueArtists', 'artists'))}</div>
         </div>
-      `),
-    ]);
-  }
-
-  function buildTopArtist(stats) {
-    const artist = stats.topArtists[0];
-    if (!artist) return buildTopArtists(stats); // fallback
-    return makeSlide(2, [
-      el('div', 'wrapped-eyebrow wrapped-anim-up', t('wrapped.yourTopArtist', 'Your #1 Artist')),
-      el('div', 'wrapped-hero-artist wrapped-anim-up', artist.name),
-      el('div', 'wrapped-artist-plays wrapped-anim-up',
-        `${artist.count.toLocaleString()} ${t('wrapped.plays', 'plays')}`),
-      el('div', 'wrapped-artist-time wrapped-anim-up',
-        `${Math.round(artist.totalMs / 60000).toLocaleString()} ${t('wrapped.minutes', 'minutes')}`),
-    ]);
-  }
-
-  function buildTopArtists(stats) {
-    const items = stats.topArtists.map((a, i) =>
-      `<div class="wrapped-list-item wrapped-anim-up" style="animation-delay:${0.15 + i * 0.1}s">
-        <span class="wrapped-list-rank">${i + 1}</span>
-        <span class="wrapped-list-title">${escapeHtml(a.name)}</span>
-        <span class="wrapped-list-meta">${a.count.toLocaleString()} ${t('wrapped.plays','plays')}</span>
-      </div>`
-    ).join('');
-    const slide = makeSlide(3, [
-      el('div', 'wrapped-eyebrow wrapped-anim-up', t('wrapped.topArtists', 'Top Artists')),
-    ]);
-    const list = el('div', 'wrapped-list');
-    list.innerHTML = items;
-    slide.appendChild(list);
+      </div>
+    `;
     return slide;
   }
 
-  function buildTopSong(stats) {
-    const song = stats.topSongs[0];
-    if (!song) return buildTopSongs(stats);
-    return makeSlide(4, [
-      el('div', 'wrapped-eyebrow wrapped-anim-up', t('wrapped.yourTopSong', 'Your #1 Song')),
-      el('div', 'wrapped-hero-song wrapped-anim-up', escapeHtml(song.title)),
-      el('div', 'wrapped-hero-artist-small wrapped-anim-up', escapeHtml(song.artist)),
-      el('div', 'wrapped-song-plays wrapped-anim-up',
-        `${t('wrapped.playedXTimes', 'Played')} ${song.count.toLocaleString()} ${t('wrapped.times', 'times')}`),
-    ]);
+  function buildTopArtist(stats, thumbs) {
+    const artist = stats.topArtists[0];
+    if (!artist) return buildTopArtists(stats, thumbs);
+
+    // Use artist thumbnail if available, else fall back to first song thumb
+    const artUrl = artist.thumbnail || thumbs[0] || null;
+    const slide = makeSlide(2, thumbs, []);
+    const content = slide.querySelector('.wrapped-content');
+
+    const artEl = makeArt(artUrl, 'wrapped-hero-art wrapped-anim-scale');
+    artEl.style.animationDelay = '0.1s';
+    content.appendChild(artEl);
+
+    const textWrap = el('div', 'wrapped-hero-text');
+    textWrap.innerHTML = `
+      <div class="wrapped-eyebrow wrapped-anim-up" style="animation-delay:0.22s">${escapeHtml(t('wrapped.yourTopArtist', 'Your #1 Artist'))}</div>
+      <div class="wrapped-hero-artist wrapped-anim-up" style="animation-delay:0.32s">${escapeHtml(artist.name)}</div>
+      <div class="wrapped-artist-plays wrapped-anim-up" style="animation-delay:0.44s">${artist.count.toLocaleString()} ${escapeHtml(t('wrapped.plays', 'plays'))}</div>
+      <div class="wrapped-artist-time wrapped-anim-up" style="animation-delay:0.54s">${Math.round(artist.totalMs / 60000).toLocaleString()} ${escapeHtml(t('wrapped.minutes', 'minutes'))}</div>
+    `;
+    content.appendChild(textWrap);
+    return slide;
   }
 
-  function buildTopSongs(stats) {
-    const items = stats.topSongs.map((s, i) =>
-      `<div class="wrapped-list-item wrapped-anim-up" style="animation-delay:${0.15 + i * 0.1}s">
+  function buildTopArtists(stats, thumbs) {
+    const slide = makeSlide(3, thumbs, []);
+    const content = slide.querySelector('.wrapped-content');
+
+    const eyebrow = el('div', 'wrapped-eyebrow wrapped-anim-up');
+    eyebrow.style.animationDelay = '0.05s';
+    eyebrow.textContent = t('wrapped.topArtists', 'Top Artists');
+    content.appendChild(eyebrow);
+
+    const list = el('div', 'wrapped-list');
+    stats.topArtists.forEach((a, i) => {
+      const artUrl = a.thumbnail || thumbs[i] || null;
+      const item = el('div', 'wrapped-list-item wrapped-anim-up');
+      item.style.animationDelay = (0.15 + i * 0.1) + 's';
+      item.innerHTML = `
         <span class="wrapped-list-rank">${i + 1}</span>
+        <div class="wrapped-list-avatar">${artUrl ? `<img src="${escapeHtml(artUrl)}" alt="" loading="lazy" />` : '<div class="wrapped-list-avatar-fallback"></div>'}</div>
+        <span class="wrapped-list-title">${escapeHtml(a.name)}</span>
+        <span class="wrapped-list-meta">${a.count.toLocaleString()} ${escapeHtml(t('wrapped.plays', 'plays'))}</span>
+      `;
+      list.appendChild(item);
+    });
+    content.appendChild(list);
+    return slide;
+  }
+
+  function buildTopSong(stats, thumbs) {
+    const song = stats.topSongs[0];
+    if (!song) return buildTopSongs(stats, thumbs);
+
+    const artUrl = song.thumbnail || thumbs[0] || null;
+    const slide = makeSlide(4, thumbs, []);
+    const content = slide.querySelector('.wrapped-content');
+
+    const artEl = makeArt(artUrl, 'wrapped-hero-art wrapped-anim-scale');
+    artEl.style.animationDelay = '0.1s';
+    content.appendChild(artEl);
+
+    const textWrap = el('div', 'wrapped-hero-text');
+    textWrap.innerHTML = `
+      <div class="wrapped-eyebrow wrapped-anim-up" style="animation-delay:0.22s">${escapeHtml(t('wrapped.yourTopSong', 'Your #1 Song'))}</div>
+      <div class="wrapped-hero-song wrapped-anim-up" style="animation-delay:0.32s">${escapeHtml(song.title)}</div>
+      <div class="wrapped-hero-artist-small wrapped-anim-up" style="animation-delay:0.42s">${escapeHtml(song.artist)}</div>
+      <div class="wrapped-song-plays wrapped-anim-up" style="animation-delay:0.54s">${escapeHtml(t('wrapped.playedXTimes', 'Played'))} ${song.count.toLocaleString()} ${escapeHtml(t('wrapped.times', 'times'))}</div>
+    `;
+    content.appendChild(textWrap);
+    return slide;
+  }
+
+  function buildTopSongs(stats, thumbs) {
+    const slide = makeSlide(5, thumbs, []);
+    const content = slide.querySelector('.wrapped-content');
+
+    const eyebrow = el('div', 'wrapped-eyebrow wrapped-anim-up');
+    eyebrow.style.animationDelay = '0.05s';
+    eyebrow.textContent = t('wrapped.topSongs', 'Top Songs');
+    content.appendChild(eyebrow);
+
+    const list = el('div', 'wrapped-list');
+    stats.topSongs.forEach((s, i) => {
+      const artUrl = s.thumbnail || thumbs[i] || null;
+      const item = el('div', 'wrapped-list-item wrapped-anim-up');
+      item.style.animationDelay = (0.15 + i * 0.1) + 's';
+      item.innerHTML = `
+        <span class="wrapped-list-rank">${i + 1}</span>
+        <div class="wrapped-list-avatar">${artUrl ? `<img src="${escapeHtml(artUrl)}" alt="" loading="lazy" />` : '<div class="wrapped-list-avatar-fallback"></div>'}</div>
         <div class="wrapped-list-track">
           <span class="wrapped-list-title">${escapeHtml(s.title)}</span>
           <span class="wrapped-list-artist">${escapeHtml(s.artist)}</span>
         </div>
         <span class="wrapped-list-meta">${s.count.toLocaleString()}×</span>
-      </div>`
-    ).join('');
-    const slide = makeSlide(5, [
-      el('div', 'wrapped-eyebrow wrapped-anim-up', t('wrapped.topSongs', 'Top Songs')),
-    ]);
-    const list = el('div', 'wrapped-list');
-    list.innerHTML = items;
-    slide.appendChild(list);
+      `;
+      list.appendChild(item);
+    });
+    content.appendChild(list);
     return slide;
   }
 
-  function buildPersonality(stats) {
-    return makeSlide(6, [
-      el('div', 'wrapped-eyebrow wrapped-anim-up', t('wrapped.youAre', "You're a")),
-      el('div', 'wrapped-personality-emoji wrapped-anim-up', stats.personalityEmoji),
-      el('div', 'wrapped-hero-personality wrapped-anim-up', t(stats.personalityKey, stats.personality)),
-      el('div', 'wrapped-personality-streak wrapped-anim-up',
-        `${t('wrapped.streakPrefix', 'Your longest streak:')} ${stats.maxStreak} ${t('wrapped.days', 'days')}`),
-    ]);
+  function buildPersonality(stats, thumbs) {
+    const slide = makeSlide(6, thumbs, []);
+    const content = slide.querySelector('.wrapped-content');
+    content.innerHTML = `
+      <div class="wrapped-eyebrow wrapped-anim-up" style="animation-delay:0.05s">${escapeHtml(t('wrapped.youAre', "You're a"))}</div>
+      <div class="wrapped-personality-emoji wrapped-anim-pop" style="animation-delay:0.18s">${stats.personalityEmoji}</div>
+      <div class="wrapped-hero-personality wrapped-anim-up" style="animation-delay:0.3s">${escapeHtml(t(stats.personalityKey, stats.personality))}</div>
+      <div class="wrapped-personality-streak wrapped-anim-up" style="animation-delay:0.44s">
+        ${escapeHtml(t('wrapped.streakPrefix', 'Your longest streak:'))} <strong>${stats.maxStreak}</strong> ${escapeHtml(t('wrapped.days', 'days'))}
+      </div>
+    `;
+    return slide;
   }
 
-  function buildBestMonth(stats) {
-    return makeSlide(7, [
-      el('div', 'wrapped-eyebrow wrapped-anim-up', t('wrapped.bestMonth', 'Your Most Active Month')),
-      el('div', 'wrapped-hero-month wrapped-anim-up', MONTHS[stats.bestMonth]),
-      el('div', 'wrapped-month-plays wrapped-anim-up',
-        `${stats.bestMonthPlays.toLocaleString()} ${t('wrapped.plays', 'plays')}`),
-    ]);
+  function buildBestMonth(stats, thumbs) {
+    const slide = makeSlide(7, thumbs, []);
+    const content = slide.querySelector('.wrapped-content');
+
+    // Month bar chart
+    // Compute monthly play counts to show context
+    const playLog = (window.__snowifyState?.playLog) || [];
+    const year = stats.year;
+    const monthCounts = new Array(12).fill(0);
+    playLog.filter(e => new Date(e.ts).getFullYear() === year)
+           .forEach(e => monthCounts[new Date(e.ts).getMonth()]++);
+    const maxCount = Math.max(...monthCounts, 1);
+
+    const bars = monthCounts.map((c, i) => {
+      const pct = Math.round((c / maxCount) * 100);
+      const isActive = i === stats.bestMonth;
+      return `<div class="wrapped-month-bar-wrap">
+        <div class="wrapped-month-bar${isActive ? ' active' : ''}" style="height:${Math.max(4, pct)}%; animation-delay:${0.35 + i * 0.04}s"></div>
+        <div class="wrapped-month-label${isActive ? ' active' : ''}">${MONTHS[i].slice(0,1)}</div>
+      </div>`;
+    }).join('');
+
+    content.innerHTML = `
+      <div class="wrapped-eyebrow wrapped-anim-up" style="animation-delay:0.05s">${escapeHtml(t('wrapped.bestMonth', 'Your Most Active Month'))}</div>
+      <div class="wrapped-hero-month wrapped-anim-up" style="animation-delay:0.18s">${escapeHtml(MONTHS[stats.bestMonth])}</div>
+      <div class="wrapped-month-plays wrapped-anim-up" style="animation-delay:0.3s">${stats.bestMonthPlays.toLocaleString()} ${escapeHtml(t('wrapped.plays', 'plays'))}</div>
+      <div class="wrapped-month-chart wrapped-anim-up" style="animation-delay:0.38s">${bars}</div>
+    `;
+    return slide;
   }
 
-  function buildOutro(stats) {
-    return makeSlide(8, [
-      el('div', 'wrapped-eyebrow wrapped-anim-up', String(stats.year)),
-      el('div', 'wrapped-outro-note wrapped-anim-up', t('wrapped.outroNotes', 'notes played')),
-      el('div', 'wrapped-hero-outro wrapped-anim-up', t('wrapped.outroTitle', 'Thanks for\nlistening.')),
-      el('div', 'wrapped-outro-sub wrapped-anim-up', `${t('wrapped.outroSub', "Here's to")} ${stats.year + 1} ♪`),
-    ]);
-  }
+  function buildOutro(stats, thumbs) {
+    const slide = makeSlide(8, thumbs, []);
+    const content = slide.querySelector('.wrapped-content');
 
-  function escapeHtml(str) {
-    return String(str || '')
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    // Album art collage for the outro
+    const collage = el('div', 'wrapped-outro-collage wrapped-anim-scale');
+    collage.style.animationDelay = '0.1s';
+    const collageThumbs = thumbs.slice(0, 4);
+    while (collageThumbs.length < 4 && thumbs.length > 0) collageThumbs.push(thumbs[collageThumbs.length % thumbs.length]);
+    collageThumbs.forEach(url => {
+      const img = document.createElement('img');
+      img.src = url || '';
+      img.alt = '';
+      img.loading = 'lazy';
+      collage.appendChild(img);
+    });
+    if (collageThumbs.length === 0) collage.classList.add('hidden');
+    content.appendChild(collage);
+
+    const textWrap = el('div', 'wrapped-hero-text');
+    textWrap.innerHTML = `
+      <div class="wrapped-outro-note wrapped-anim-up" style="animation-delay:0.24s">${stats.year}</div>
+      <div class="wrapped-hero-outro wrapped-anim-up" style="animation-delay:0.34s">${escapeHtml(t('wrapped.outroTitle', 'Thanks for\nlistening.'))}</div>
+      <div class="wrapped-outro-sub wrapped-anim-up" style="animation-delay:0.46s">${escapeHtml(t('wrapped.outroSub', "Here's to"))} ${stats.year + 1} ♪</div>
+    `;
+    content.appendChild(textWrap);
+    return slide;
   }
 
   // ─── Manager ─────────────────────────────────────────────────────────────
@@ -300,21 +460,18 @@
 
   function updateDots() {
     if (!_dots) return;
-    _dots.innerHTML = _slides.map((_, i) =>
-      `<span class="wrapped-dot${i === _currentSlide ? ' active' : ''}" data-idx="${i}"></span>`
-    ).join('');
-    _dots.querySelectorAll('.wrapped-dot').forEach(dot => {
-      dot.addEventListener('click', () => { _resetAutoTimer(); goToSlide(parseInt(dot.dataset.idx)); });
+    // Rebuild segment bar
+    _dots.innerHTML = _slides.map((_, i) => {
+      const state = i < _currentSlide ? 'done' : i === _currentSlide ? 'active' : '';
+      return `<div class="wrapped-progress-seg ${state}" data-idx="${i}" style="--seg-duration:${AUTO_DELAY}ms"><div class="wrapped-progress-seg-fill"></div></div>`;
+    }).join('');
+    _dots.querySelectorAll('.wrapped-progress-seg').forEach(seg => {
+      seg.addEventListener('click', () => { _resetAutoTimer(); goToSlide(parseInt(seg.dataset.idx)); });
     });
 
-    // Restart progress animation on the active dot
-    const activeDot = _dots.querySelector('.wrapped-dot.active');
-    if (activeDot) {
-      activeDot.style.animation = 'none';
-      // Force reflow so the browser picks up the reset before re-applying
-      void activeDot.offsetWidth;
-      activeDot.style.animation = `wrappedDotProgress ${AUTO_DELAY}ms linear forwards`;
-    }
+    // Update slide counter
+    const counter = document.getElementById('wrapped-slide-counter');
+    if (counter) counter.textContent = `${_currentSlide + 1} / ${_slides.length}`;
   }
 
   function goToSlide(idx, direction) {
