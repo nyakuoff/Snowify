@@ -2,6 +2,8 @@ import state from './modules/state.js';
 import { setupSliderTooltip, showInputModal, showToast, escapeHtml, pathToFileUrl, addScrollArrows, renderArtistLinks, formatTime, formatFollowers } from './modules/utils.js';
 import { BUILTIN_THEMES, isCustomTheme, customThemeId, applyCustomThemeCss, removeCustomThemeCss, loadAndApplyThemeFile, applyTheme, populateCustomThemes } from './modules/theme.js';
 
+console.log('[Snowify] module body start');
+
 'use strict';
 
 const $ = (sel, ctx = document) => ctx.querySelector(sel);
@@ -5229,6 +5231,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   }
 
   async function init() {
+    console.log('[Snowify] init() entered');
     console.time('[Snowify] total startup');
     console.time('[Snowify] getLocale');
     const systemLocale = await window.snowify.getLocale();
