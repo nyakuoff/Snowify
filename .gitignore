@@ -8,4 +8,5 @@ plugins/*/
 build-dir/
 builddir/
 repo/
+jsonupdate_locales.py
 json

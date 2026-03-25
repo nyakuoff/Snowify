@@ -60,7 +60,10 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
         prefetchCount: state.prefetchCount,
         showListeningActivity: state.showListeningActivity,
         showPlugins: state.showPlugins,
-        minimizeToTray: state.minimizeToTray
+        minimizeToTray: state.minimizeToTray,
+        songSources: state.songSources,
+        metadataSources: state.metadataSources,
+        wrappedShownYear: state.wrappedShownYear,
       }));
       localStorage.setItem('snowify_lastSave', String(Date.now()));
     } catch (e) {
@@ -76,6 +79,18 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
       }));
     } catch (e) {
       console.error('Queue save failed (storage quota exceeded):', e);
+    }
+    // Play log — stored separately to avoid bloating the main state key
+    try {
+      localStorage.setItem('snowify_play_log', JSON.stringify(state.playLog));
+    } catch (e) {
+      console.warn('Play log save failed (quota?):', e);
+    }
+    // Genre cache — stored separately
+    try {
+      localStorage.setItem('snowify_genre_cache', JSON.stringify(state.trackGenreCache));
+    } catch (e) {
+      console.warn('Genre cache save failed (quota?):', e);
     }
   }
 
@@ -122,6 +137,9 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
         state.prefetchCount = saved.prefetchCount ?? 0;
         state.showPlugins = saved.showPlugins ?? true;
         state.minimizeToTray = saved.minimizeToTray ?? false;
+        state.songSources = saved.songSources || ['youtube', 'soundcloud'];
+        state.metadataSources = saved.metadataSources || ['youtube'];
+        state.wrappedShownYear = saved.wrappedShownYear ?? null;
       }
       // Restore queue (local-only, separate from cloud sync)
       const savedQueue = JSON.parse(localStorage.getItem('snowify_queue'));
@@ -131,6 +149,16 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
         state.queueIndex = savedQueue.queueIndex ?? -1;
         state.playingPlaylistId = savedQueue.playingPlaylistId || null;
       }
+      // Play log (separate key)
+      try {
+        const savedLog = JSON.parse(localStorage.getItem('snowify_play_log'));
+        if (Array.isArray(savedLog)) state.playLog = savedLog;
+      } catch (_) {}
+      // Genre cache (separate key)
+      try {
+        const savedGenre = JSON.parse(localStorage.getItem('snowify_genre_cache'));
+        if (savedGenre && typeof savedGenre === 'object') state.trackGenreCache = savedGenre;
+      } catch (_) {}
     } catch (_) {}
   }
 
@@ -1087,7 +1115,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         if (!cachedPath) showToast(I18n.t('toast.loadingTrack', { title: track.title }));
         const directUrl = cachedPath
           ? pathToFileUrl(cachedPath)
-          : await window.snowify.getStreamUrl(track.url, state.audioQuality);
+          : await window.snowify.getStreamUrl(track.url, state.audioQuality, { title: track.title, artist: track.artist }, state.songSources);
         if (gen !== _playGeneration) return; // stale call — newer playTrack superseded us
         engine.setSource(directUrl);
         audio = engine.getActiveAudio();
@@ -1101,6 +1129,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       state.isLoading = false;
       addToRecent(track);
       updateDiscordPresence(track);
+      // Background Spotify enrichment (fire-and-forget, non-blocking)
+      maybeEnrichTrackMeta(track);
       renderQueue();
       updatePositionState();
       saveState();
@@ -1153,7 +1183,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     if (!next || next.isLocal || (!next.url && !next.id)) return;
     const url = next.url || `https://music.youtube.com/watch?v=${next.id}`;
     // Fire-and-forget: this populates the main-process cache
-    window.snowify.getStreamUrl(url, state.audioQuality).catch(() => {});
+    window.snowify.getStreamUrl(url, state.audioQuality, { title: next.title, artist: next.artist }, state.songSources).catch(() => {});
   }
 
   const PLAY_SVG = '<svg width="24" height="24" viewBox="0 0 24 24" fill="#000"><path d="M8 5v14l11-7L8 5z"/></svg>';
@@ -1504,7 +1534,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         const cached = prefetchCache.getCachedPath(videoId);
         if (cached) return pathToFileUrl(cached);
       }
-      return window.snowify.getStreamUrl(url, q);
+      // Look up the track in the queue to supply metadata for source fallback
+      const track = state.queue.find(t => t.url === url || (videoId && t.id === videoId));
+      const trackMeta = track ? { title: track.title, artist: track.artist } : {};
+      return window.snowify.getStreamUrl(url, q, trackMeta, state.songSources);
     },
     onTransition: handleEngineTransition,
     onTimeUpdate: handleEngineTimeUpdate,
@@ -2909,6 +2942,21 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     state.recentTracks = state.recentTracks.filter(t => t.id !== track.id);
     state.recentTracks.unshift(track);
     if (state.recentTracks.length > 20) state.recentTracks.pop();
+
+    // Record play in log for Wrapped feature
+    state.playLog.push({
+      id: track.id,
+      title: track.title,
+      artist: track.artist || '',
+      durationMs: track.durationMs || 0,
+      ts: Date.now()
+    });
+    // Trim to prevent unbounded growth (keep last 2 calendar years)
+    if (state.playLog.length > 15000) {
+      const twoYearsAgo = Date.now() - 2 * 365.25 * 24 * 3600 * 1000;
+      state.playLog = state.playLog.filter(e => e.ts >= twoYearsAgo);
+    }
+
     saveState();
     // Only update the lightweight parts — skip expensive API calls
     renderRecentTracks();
@@ -5214,7 +5262,38 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     });
   }
 
+  // ─── Wrapped trigger ───
+  function checkWrappedTrigger() {
+    const now = new Date();
+    const month = now.getMonth(); // 0 = Jan, 11 = Dec
+    let targetYear = null;
+    if (month === 11) targetYear = now.getFullYear();       // December → this year's data
+    else if (month === 0) targetYear = now.getFullYear() - 1; // January → last year's data
+    if (targetYear === null) return;
+    if (state.wrappedShownYear === targetYear) return;
+    if (!state.playLog.some(e => new Date(e.ts).getFullYear() === targetYear)) return;
+    window.WrappedManager?.show(targetYear);
+  }
+
+  // ─── Spotify metadata enrichment (background, fire-and-forget) ───
+  async function maybeEnrichTrackMeta(track) {
+    if (!state.metadataSources.includes('spotify')) return;
+    if (!track?.id || !track.title) return;
+    if (state.trackGenreCache[track.id]) return; // already cached
+    try {
+      const meta = await window.snowify.enrichTrackMeta(track.title, track.artist || '');
+      if (meta) {
+        state.trackGenreCache[track.id] = meta;
+        // Save genre cache separately (non-blocking)
+        try { localStorage.setItem('snowify_genre_cache', JSON.stringify(state.trackGenreCache)); } catch (_) {}
+      }
+    } catch (_) { /* enrichment is best-effort */ }
+  }
+
   function finishInit() {
+    // Expose state reference and save function for wrapped.js + plugins
+    window.__snowifyState = state;
+    window.__snowifySaveState = _flushSaveState;
     updateGreeting();
     setVolume(state.volume);
     if (state.discordRpc) window.snowify.connectDiscord();
@@ -5266,6 +5345,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     } else {
       appEl.classList.add('no-player');
     }
+
+    // Check if Wrapped should be shown (December or early January, new year)
+    setTimeout(() => checkWrappedTrigger(), 3000);
   }
 
   // ─── Image Crop Modal ───
@@ -6503,6 +6585,116 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       logsOutput.innerHTML = '';
       showToast(I18n.t('settings.logsCleared'));
     });
+
+    // ─── Wrapped dev preview ───
+    const devWrappedBtn = document.createElement('div');
+    devWrappedBtn.className = 'setting-row';
+    devWrappedBtn.innerHTML = `
+      <div class="setting-info">
+        <span class="setting-label" data-i18n="settings.devWrapped">${I18n.t('settings.devWrapped')}</span>
+        <span class="setting-desc" data-i18n="settings.devWrappedDesc">${I18n.t('settings.devWrappedDesc')}</span>
+      </div>
+      <button class="btn-setting-action" id="btn-preview-wrapped" data-i18n="settings.devWrappedBtn">${I18n.t('settings.devWrappedBtn')}</button>`;
+    devModeContent.appendChild(devWrappedBtn);
+    document.getElementById('btn-preview-wrapped')?.addEventListener('click', () => {
+      const year = new Date().getFullYear();
+      // Allow previewing current or previous year (whichever has data)
+      const targetYear = state.playLog.some(e => new Date(e.ts).getFullYear() === year) ? year : year - 1;
+      window.WrappedManager?.show(targetYear, true);
+    });
+
+    // ─── Source lists (song + metadata) ───
+    const AVAILABLE_SONG_SOURCES = [
+      { id: 'youtube', labelKey: 'settings.sourceYouTube', descKey: 'settings.sourceYouTubeDesc' },
+      { id: 'soundcloud', labelKey: 'settings.sourceSoundCloud', descKey: 'settings.sourceSoundCloudDesc' },
+    ];
+    const AVAILABLE_META_SOURCES = [
+      { id: 'youtube', labelKey: 'settings.sourceYTMeta', descKey: 'settings.sourceYTMetaDesc' },
+      { id: 'spotify', labelKey: 'settings.sourceSpotify', descKey: 'settings.sourceSpotifyDesc' },
+    ];
+
+    function renderSourceList(listEl, available, enabled, onChange) {
+      listEl.innerHTML = '';
+
+      // Build ordered display: enabled sources first (in order), then disabled ones
+      const enabledSet = new Set(enabled);
+      const ordered = [
+        ...enabled.filter(id => available.find(s => s.id === id)),
+        ...available.filter(s => !enabledSet.has(s.id)).map(s => s.id)
+      ];
+
+      ordered.forEach((sourceId, idx) => {
+        const def = available.find(s => s.id === sourceId);
+        if (!def) return;
+        const isEnabled = enabledSet.has(sourceId);
+        const enabledPos = enabled.indexOf(sourceId); // -1 if disabled
+        const isPrimary = enabledPos === 0;
+        const isFallback = enabledPos > 0;
+
+        const item = document.createElement('div');
+        item.className = 'source-item' + (isEnabled ? ' source-enabled' : ' source-disabled');
+        item.dataset.sourceId = sourceId;
+        item.innerHTML = `
+          <div class="source-item-arrows">
+            <button class="source-arrow-btn" data-dir="up" ${(enabledPos <= 0) ? 'disabled' : ''} aria-label="Move up">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 14l5-5 5 5z"/></svg>
+            </button>
+            <button class="source-arrow-btn" data-dir="down" ${(!isEnabled || enabledPos >= enabled.length - 1) ? 'disabled' : ''} aria-label="Move down">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+            </button>
+          </div>
+          <div class="source-item-info">
+            <span class="source-item-name">${I18n.t(def.labelKey)}</span>
+            <span class="source-item-desc">${I18n.t(def.descKey)}</span>
+          </div>
+          ${isEnabled ? `<span class="source-badge ${isPrimary ? 'source-badge-primary' : 'source-badge-fallback'}">${I18n.t(isPrimary ? 'settings.sourcePrimary' : 'settings.sourceFallback')}</span>` : ''}
+          <label class="toggle-switch source-item-toggle">
+            <input type="checkbox" ${isEnabled ? 'checked' : ''}>
+            <span class="toggle-slider"></span>
+          </label>`;
+        listEl.appendChild(item);
+
+        // Toggle
+        item.querySelector('input[type=checkbox]').addEventListener('change', (e) => {
+          const newEnabled = [...enabled];
+          if (e.target.checked) {
+            if (!newEnabled.includes(sourceId)) newEnabled.push(sourceId);
+          } else {
+            // Always keep at least one source enabled
+            if (newEnabled.length <= 1) {
+              e.target.checked = true;
+              showToast(I18n.t('toast.atLeastOneSource'));
+              return;
+            }
+            const i = newEnabled.indexOf(sourceId);
+            if (i !== -1) newEnabled.splice(i, 1);
+          }
+          enabled = newEnabled;
+          onChange(newEnabled);
+          renderSourceList(listEl, available, enabled, onChange);
+        });
+
+        // Up/down arrows
+        item.querySelectorAll('.source-arrow-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const dir = btn.dataset.dir;
+            const newEnabled = [...enabled];
+            const i = newEnabled.indexOf(sourceId);
+            if (i === -1) return;
+            if (dir === 'up' && i > 0) { [newEnabled[i], newEnabled[i-1]] = [newEnabled[i-1], newEnabled[i]]; }
+            else if (dir === 'down' && i < newEnabled.length - 1) { [newEnabled[i], newEnabled[i+1]] = [newEnabled[i+1], newEnabled[i]]; }
+            enabled = newEnabled;
+            onChange(newEnabled);
+            renderSourceList(listEl, available, enabled, onChange);
+          });
+        });
+      });
+    }
+
+    const songListEl = $('#song-sources-list');
+    const metaListEl = $('#meta-sources-list');
+    if (songListEl) renderSourceList(songListEl, AVAILABLE_SONG_SOURCES, state.songSources, (v) => { state.songSources = v; saveState(); });
+    if (metaListEl) renderSourceList(metaListEl, AVAILABLE_META_SOURCES, state.metadataSources, (v) => { state.metadataSources = v; saveState(); });
   }
 
   // ─── Plugin System ───

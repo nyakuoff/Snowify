@@ -372,7 +372,7 @@
             </div>
             <div class="setting-row">
               <div class="setting-info">
-                <span class="setting-label"><span data-i18n="settings.crossfade">Crossfade</span> <span class="experimental-tag" data-i18n="settings.experimental">EXPERIMENTAL</span></span>
+                <span class="setting-label" data-i18n="settings.crossfade">Crossfade</span>
                 <span class="setting-desc" data-i18n="settings.crossfadeDesc">Smoothly transition between songs</span>
               </div>
               <label class="toggle-switch">
@@ -394,7 +394,7 @@
             </div>
             <div class="setting-row">
               <div class="setting-info">
-                <span class="setting-label"><span data-i18n="settings.normalization">Loudness normalization</span> <span class="experimental-tag" data-i18n="settings.experimental">EXPERIMENTAL</span></span>
+                <span class="setting-label" data-i18n="settings.normalization">Loudness normalization</span>
                 <span class="setting-desc" data-i18n="settings.normalizationDesc">Automatically balance volume between tracks (LUFS)</span>
               </div>
               <label class="toggle-switch">
@@ -415,7 +415,7 @@
             </div>
             <div class="setting-row">
               <div class="setting-info">
-                <span class="setting-label"><span data-i18n="settings.prefetchCache">Prefetch cache</span> <span class="experimental-tag" data-i18n="settings.experimental">EXPERIMENTAL</span></span>
+                <span class="setting-label" data-i18n="settings.prefetchCache">Prefetch cache</span>
                 <span class="setting-desc" data-i18n="settings.prefetchCacheDesc">Pre-download upcoming tracks for uninterrupted playback</span>
               </div>
               <select class="setting-select" id="setting-prefetch-count">
@@ -428,6 +428,26 @@
               </select>
             </div>
           </div>
+
+          <!-- ── Sources ── -->
+          <div class="settings-group">
+            <h3 data-i18n="settings.sources">Sources</h3>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.songSources">Song sources</span>
+                <span class="setting-desc" data-i18n="settings.songSourcesDesc">First enabled source is primary; others are used as fallbacks.</span>
+              </div>
+            </div>
+            <div class="source-list" id="song-sources-list"></div>
+            <div class="setting-row" style="margin-top:16px;">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.metadataSources">Metadata sources</span>
+                <span class="setting-desc" data-i18n="settings.metadataSourcesDesc">Enrich track data with genres and popularity. Spotify uses an anonymous public API.</span>
+              </div>
+            </div>
+            <div class="source-list" id="meta-sources-list"></div>
+          </div>
+
           <div class="settings-group">
             <h3 data-i18n="settings.video">Video</h3>
             <div class="setting-row">
@@ -1110,12 +1130,30 @@
     </div>
   </div>
 
+  <!-- ═══════ Wrapped Overlay ═══════ -->
+  <div id="wrapped-overlay" class="wrapped-overlay hidden" role="dialog" aria-modal="true" aria-label="Year in Review">
+    <button class="wrapped-close-btn" id="wrapped-close" aria-label="Close">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+    <div class="wrapped-slides-container" id="wrapped-slides-container"></div>
+    <div class="wrapped-footer">
+      <button class="wrapped-nav-btn" id="wrapped-prev" aria-label="Previous slide">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </button>
+      <div class="wrapped-progress-dots" id="wrapped-progress-dots"></div>
+      <button class="wrapped-nav-btn" id="wrapped-next" aria-label="Next slide">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+      </button>
+    </div>
+  </div>
+
   <audio id="audio-player" preload="auto" crossorigin="anonymous"></audio>
   <audio id="audio-player-b" preload="auto" crossorigin="anonymous"></audio>
   <script src="i18n.js"></script>
   <script src="crossfade-engine.js"></script>
   <script src="loudness-normalizer.js"></script>
   <script src="prefetch-cache.js"></script>
+  <script src="wrapped.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>

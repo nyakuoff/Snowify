@@ -35,7 +35,15 @@ const state = {
   prefetchCount: 0,
   showListeningActivity: true,
   showPlugins: true,
-  minimizeToTray: false
+  minimizeToTray: false,
+  // Sources (ordered by priority; first enabled = primary, rest = fallbacks)
+  songSources: ['youtube', 'soundcloud'],
+  metadataSources: ['youtube'],
+  // Play log for Wrapped — stored in a separate localStorage key to avoid quota issues
+  playLog: [],
+  wrappedShownYear: null,
+  // Spotify genre cache — stored in a separate localStorage key
+  trackGenreCache: {}
 };
 
 export default state;
