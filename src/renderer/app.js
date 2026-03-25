@@ -5256,6 +5256,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     loadState();
     showMigrationNoticeIfNeeded();
     finishInit();
+    loadPlayLogAsync(); // fire-and-forget — avoids blocking startup with large JSON parse
   }
 
   function showMigrationNoticeIfNeeded() {
@@ -5271,7 +5272,56 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   }
 
   // ─── Wrapped trigger ───
+  let _playLogReady = false;
+
+  async function loadPlayLogAsync() {
+    // Yield control back to the renderer so the UI can paint before we touch localStorage
+    await new Promise(r => setTimeout(r, 0));
+
+    // Parse play log — can be several MB for heavy listeners
+    try {
+      const raw = localStorage.getItem('snowify_play_log');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) state.playLog = parsed;
+      }
+    } catch (_) {}
+
+    // Yield again before genre cache
+    await new Promise(r => setTimeout(r, 0));
+    try {
+      const raw = localStorage.getItem('snowify_genre_cache');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') state.trackGenreCache = parsed;
+      }
+    } catch (_) {}
+
+    // One-time backfill from recentTracks for users predating the Wrapped feature
+    if (state.playLog.length === 0 && state.recentTracks.length > 0) {
+      await new Promise(r => setTimeout(r, 0));
+      const now = Date.now();
+      const span = Math.max(90 * 24 * 3600_000, state.recentTracks.length * 14 * 24 * 3600_000);
+      const step = span / state.recentTracks.length;
+      // recentTracks[0] = most recent → assign closest timestamp
+      state.playLog = state.recentTracks.map((t, i) => ({
+        id: t.id,
+        title: t.title,
+        artist: t.artist || '',
+        durationMs: t.durationMs || 0,
+        ts: now - (i * step),
+      }));
+      // Persist without blocking UI (write in next task)
+      await new Promise(r => setTimeout(r, 0));
+      try { localStorage.setItem('snowify_play_log', JSON.stringify(state.playLog)); } catch (_) {}
+    }
+
+    _playLogReady = true;
+    checkWrappedTrigger();
+  }
+
   function checkWrappedTrigger() {
+    if (!_playLogReady) return; // data not loaded yet — loadPlayLogAsync() will re-call us
     const now = new Date();
     const month = now.getMonth(); // 0 = Jan, 11 = Dec
     let targetYear = null;
@@ -5377,8 +5427,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       appEl.classList.add('no-player');
     }
 
-    // Check if Wrapped should be shown (December or early January, new year)
-    setTimeout(() => checkWrappedTrigger(), 3000);
+    // Wrapped trigger is now fired by loadPlayLogAsync() once data is ready
   }
 
   // ─── Image Crop Modal ───
