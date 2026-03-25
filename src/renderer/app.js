@@ -97,6 +97,10 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
   }
 
   function loadState() {
+    // DEBUG: dump all snowify keys so we can see what's in storage
+    console.log('[loadState] localStorage keys:', Object.keys(localStorage).filter(k => k.startsWith('snowify')));
+    console.log('[loadState] snowify_state length:', (localStorage.getItem('snowify_state') || '').length);
+    console.log('[loadState] snowify_migrated_v2:', localStorage.getItem('snowify_migrated_v2'));
     try {
       // Migrate old 'snowfy' localStorage keys to 'snowify'
       if (localStorage.getItem('snowfy_state') && !localStorage.getItem('snowify_state')) {
@@ -109,11 +113,13 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
       }
       // One-time migration: clear data from old yt-dlp implementation
       if (!localStorage.getItem('snowify_migrated_v2')) {
+        console.warn('[loadState] snowify_migrated_v2 missing — wiping state and setting flag');
         localStorage.removeItem('snowify_state');
         localStorage.setItem('snowify_migrated_v2', '1');
         return;
       }
       const saved = JSON.parse(localStorage.getItem('snowify_state'));
+      console.log('[loadState] parsed saved state — playlists:', saved?.playlists?.length, '| likedSongs:', saved?.likedSongs?.length, '| recentTracks:', saved?.recentTracks?.length);
       if (saved) {
         state.playlists = saved.playlists || [];
         state.likedSongs = saved.likedSongs || [];
@@ -153,7 +159,9 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
       }
       // Play log, genre cache, and backfill are loaded async in loadPlayLogAsync()
       // to avoid blocking the main thread on startup.
-    } catch (_) {}
+    } catch (err) {
+      console.error('[loadState] CRASHED — data not loaded:', err);
+    }
   }
 
   function updateGreeting() {
