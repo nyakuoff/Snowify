@@ -183,7 +183,6 @@ function register(ipcMain, ctx) {
         const score = scoreMatch(song, title, artist);
         if (score > bestScore) { bestScore = score; bestSong = song; }
       }
-      console.log(`[Match] "${title}" by "${artist}" → "${bestSong.name}" by "${bestSong.artist?.name}" (score: ${bestScore.toFixed(3)})`);
       return mapSongToTrack(bestSong);
     } catch (err) { console.error('Spotify match error:', err); return null; }
   });

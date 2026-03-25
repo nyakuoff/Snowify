@@ -12,5 +12,3 @@ build-dir/
 builddir/
 repo/
 update_locales.py
-json
-fs
