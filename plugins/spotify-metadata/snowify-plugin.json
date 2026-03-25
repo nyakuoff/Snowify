@@ -2,7 +2,7 @@
   "id": "spotify-metadata",
   "name": "Spotify Metadata",
   "version": "1.0.0",
-  "description": "Enriches tracks with Spotify metadata: genres, popularity score, artist images, and album art. Uses Spotify's anonymous web-player API — no account required.",
+  "description": "Enriches tracks with Spotify metadata: genres, popularity score, artist images, and album art. Uses Spotify's anonymous web-player API.",
   "author": "Snowify Team",
   "logoUrl": "logo.png",
   "category": "metadata",

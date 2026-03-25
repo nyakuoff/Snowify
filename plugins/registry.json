@@ -70,7 +70,7 @@
     {
       "id": "spotify-metadata",
       "name": "Spotify Metadata",
-      "description": "Enriches tracks with Spotify metadata: genres, popularity, and artist images. No account required.",
+      "description": "Enriches tracks with Spotify metadata: genres, popularity, and artist images.",
       "author": "Snowify Team",
       "version": "1.0.0",
       "icon": "🎵",
