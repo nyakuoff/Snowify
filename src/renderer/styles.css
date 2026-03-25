@@ -5624,7 +5624,11 @@ body.i18n-switching { opacity: 0; }
   font-size: 15px; color: rgba(255,255,255,0.45);
   margin-top: 18px;
 }
-.wrapped-intro-flake { margin-bottom: 18px; opacity: 0.75; }
+.wrapped-intro-logo {
+  width: 200px; height: auto; margin-bottom: 14px;
+  opacity: 0.92;
+  pointer-events: none;
+}
 
 .wrapped-stat-number {
   font-size: clamp(62px, 16vw, 116px); font-weight: 900; line-height: 1;

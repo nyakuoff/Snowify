@@ -29,14 +29,21 @@
     const entries = playLog.filter(e => new Date(e.ts).getFullYear() === year);
     if (entries.length < 5) return null; // not enough data
 
+    // Build thumbnail lookup from live state to cover old playLog entries that predate thumbnail storage
+    const thumbLookup = new Map();
+    const liveState = window.__snowifyState;
+    [...(liveState?.recentTracks || []), ...(liveState?.likedSongs || [])]
+      .forEach(t => { if (t.id && t.thumbnail) thumbLookup.set(t.id, t.thumbnail); });
+
     // — Songs —
     const songMap = new Map();
     for (const e of entries) {
-      if (!songMap.has(e.id)) songMap.set(e.id, { id: e.id, title: e.title, artist: e.artist, thumbnail: e.thumbnail || '', count: 0, totalMs: 0 });
+      const thumb = e.thumbnail || thumbLookup.get(e.id) || '';
+      if (!songMap.has(e.id)) songMap.set(e.id, { id: e.id, title: e.title, artist: e.artist, thumbnail: thumb, count: 0, totalMs: 0 });
       const s = songMap.get(e.id);
       s.count++;
       s.totalMs += e.durationMs || 0;
-      if (!s.thumbnail && e.thumbnail) s.thumbnail = e.thumbnail;
+      if (!s.thumbnail && thumb) s.thumbnail = thumb;
     }
     const topSongs = [...songMap.values()].sort((a, b) => b.count - a.count).slice(0, 5);
 
@@ -44,11 +51,12 @@
     const artistMap = new Map();
     for (const e of entries) {
       const key = (e.artist || 'Unknown Artist').toLowerCase();
-      if (!artistMap.has(key)) artistMap.set(key, { name: e.artist || 'Unknown Artist', thumbnail: e.thumbnail || '', count: 0, totalMs: 0 });
+      const thumb = e.thumbnail || thumbLookup.get(e.id) || '';
+      if (!artistMap.has(key)) artistMap.set(key, { name: e.artist || 'Unknown Artist', thumbnail: thumb, count: 0, totalMs: 0 });
       const a = artistMap.get(key);
       a.count++;
       a.totalMs += e.durationMs || 0;
-      if (!a.thumbnail && e.thumbnail) a.thumbnail = e.thumbnail;
+      if (!a.thumbnail && thumb) a.thumbnail = thumb;
     }
     const topArtists = [...artistMap.values()].sort((a, b) => b.count - a.count).slice(0, 5);
 
@@ -228,15 +236,11 @@
   function buildIntro(stats, thumbs) {
     const slide = makeSlide(0, thumbs, []);
     const content = slide.querySelector('.wrapped-content');
-
-    const snowflakeSvg = `<svg class="wrapped-intro-flake wrapped-anim-up" style="animation-delay:0.05s" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><path d="m20 10-8-8-8 8"/><path d="m4 6 8 8 8-8"/><line x1="2" y1="12" x2="22" y2="12"/><path d="m6 4 8 8-8 8"/><path d="m18 4-8 8 8 8"/></svg>`;
-
     content.innerHTML = `
-      ${snowflakeSvg}
-      <div class="wrapped-eyebrow wrapped-anim-up" style="animation-delay:0.1s">${escapeHtml(t('wrapped.your', 'Your'))}</div>
-      <div class="wrapped-hero-year wrapped-anim-up" style="animation-delay:0.2s">${stats.year}</div>
-      <div class="wrapped-hero-title wrapped-anim-up" style="animation-delay:0.32s">${escapeHtml(t('wrapped.wrapped', 'Wrapped'))}</div>
-      <div class="wrapped-sub wrapped-anim-up" style="animation-delay:0.44s">${escapeHtml(t('wrapped.introSub', 'Your year in music'))}</div>
+      <img class="wrapped-intro-logo wrapped-anim-scale" style="animation-delay:0.05s" src="../../assets/snowify-logo-text.png" alt="Snowify" draggable="false" />
+      <div class="wrapped-hero-year wrapped-anim-up" style="animation-delay:0.22s">${stats.year}</div>
+      <div class="wrapped-hero-title wrapped-anim-up" style="animation-delay:0.34s">${escapeHtml(t('wrapped.wrapped', 'Wrapped'))}</div>
+      <div class="wrapped-sub wrapped-anim-up" style="animation-delay:0.46s">${escapeHtml(t('wrapped.introSub', 'Your year in music'))}</div>
     `;
     return slide;
   }
