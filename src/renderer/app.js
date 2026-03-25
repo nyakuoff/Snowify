@@ -6886,13 +6886,13 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const tabs = $$('.marketplace-tab');
     const tabContents = $$('.marketplace-tab-content');
     tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
+      tab.onclick = () => {
         tabs.forEach(t => t.classList.remove('active'));
         tabContents.forEach(c => c.classList.remove('active'));
         tab.classList.add('active');
         const target = tab.dataset.tab === 'themes' ? '#marketplace-themes' : '#marketplace-plugins';
         $(target)?.classList.add('active');
-      });
+      };
     });
 
     // Fetch registry once for all sections
@@ -6916,7 +6916,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         const tagLabel = isOfficial ? I18n.t('plugins.official') : I18n.t('plugins.community');
         return `
           <div class="plugin-installed-item" data-plugin-id="${escapeHtml(p.id)}">
-            <div class="plugin-installed-icon">${p.icon || '🧩'}</div>
+            <div class="plugin-installed-icon">${p.logoUrl ? `<img class="plugin-logo-img" src="${escapeHtml(p.logoUrl)}" alt="${escapeHtml(p.name)}" onerror="this.style.display='none'">` : (p.icon || '🧩')}</div>
             <div class="plugin-installed-info">
               <span class="plugin-installed-name">${escapeHtml(p.name)} <span class="plugin-tag ${tagClass}">${tagLabel}</span></span>
               <span class="plugin-installed-meta">${escapeHtml(p.author || '')}${p.version ? ' · v' + escapeHtml(p.version) : ''}</span>
@@ -6979,15 +6979,30 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     // ── Available plugins from registry ──
     const installedIds = new Set(installed.map(p => p.id));
     const available = registry.plugins || [];
+    const allCategories = [...new Set(available.map(p => p.category).filter(Boolean))];
+    let _activeCategory = 'all';
 
     const pluginSearchInput = $('#marketplace-search-plugins');
     function renderPluginGrid(query) {
       const q = (query || '').trim().toLowerCase();
-      const filtered = q ? available.filter(p =>
+      let filtered = q ? available.filter(p =>
         p.name.toLowerCase().includes(q) ||
         (p.description || '').toLowerCase().includes(q) ||
         (p.author || '').toLowerCase().includes(q)
       ) : available;
+      if (_activeCategory !== 'all') filtered = filtered.filter(p => p.category === _activeCategory);
+
+      // Render category filter pills
+      const filterContainer = $('#plugin-category-filters');
+      if (filterContainer && allCategories.length > 0) {
+        filterContainer.innerHTML = ['all', ...allCategories].map(cat => {
+          const label = cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1);
+          return `<button class="plugin-category-pill${_activeCategory === cat ? ' active' : ''}" data-category="${escapeHtml(cat)}">${label}</button>`;
+        }).join('');
+        filterContainer.querySelectorAll('.plugin-category-pill').forEach(pill => {
+          pill.onclick = () => { _activeCategory = pill.dataset.category; renderPluginGrid(pluginSearchInput ? pluginSearchInput.value : ''); };
+        });
+      }
 
       if (filtered.length === 0) {
         grid.innerHTML = `<div class="plugins-empty">
@@ -7003,7 +7018,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         return `
           <div class="plugin-card" data-plugin-id="${escapeHtml(p.id)}">
             <div class="plugin-card-header">
-              <div class="plugin-card-icon">${p.icon || '🧩'}</div>
+              <div class="plugin-card-icon">${p.logoUrl ? `<img class="plugin-logo-img" src="${escapeHtml(p.logoUrl)}" alt="${escapeHtml(p.name)}" onerror="this.style.display='none'">` : (p.icon || '🧩')}</div>
               <span class="plugin-tag ${tagClass}">${tagLabel}</span>
             </div>
             <div class="plugin-card-name">${escapeHtml(p.name)}</div>
@@ -7074,12 +7089,12 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     // ── Themes tab ──
     await renderMarketplaceThemes(registry);
 
-    // Make footer links open externally
+    // Make footer links open externally (use onclick to avoid duplicates on re-render)
     document.querySelectorAll('.plugins-footer a[href]').forEach(footerLink => {
-      footerLink.addEventListener('click', (e) => {
+      footerLink.onclick = (e) => {
         e.preventDefault();
         window.snowify.openExternal(footerLink.href);
-      });
+      };
     });
   }
 
