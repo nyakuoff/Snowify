@@ -156,6 +156,12 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
     } catch (_) {}
   }
 
+  function updateGreeting() {
+    const h = new Date().getHours();
+    const key = h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
+    $('#greeting-text').textContent = I18n.t('home.greeting.' + key);
+  }
+
   function switchView(name) {
     const targetView = $(`#view-${name}`);
     const alreadyActive = state.currentView === name && targetView && targetView.classList.contains('active');
