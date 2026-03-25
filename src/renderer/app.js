@@ -3759,6 +3759,35 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
     aboutSection.style.display = 'none';
 
+    // ── Plugin metadata overlay (non-blocking — patches in artist art/genres when ready) ──
+    resolvePluginArtistMeta(info.name).then(overlay => {
+      if (!overlay) return;
+      if (overlay.avatar) {
+        avatar.addEventListener('load', () => {
+          avatar.classList.remove('shimmer');
+          avatar.classList.add('loaded');
+        }, { once: true });
+        avatar.classList.add('shimmer');
+        avatar.classList.remove('loaded');
+        avatar.src = overlay.avatar;
+      }
+      if (overlay.banner) {
+        bannerImg.src = overlay.banner;
+        bannerEl.style.display = '';
+      }
+      if (overlay.genres?.length) {
+        tagsEl.innerHTML = overlay.genres.map(g => `<span class="artist-tag">${escapeHtml(g)}</span>`).join('');
+        aboutSection.style.display = '';
+      }
+      if (overlay.bio && !descEl.textContent) {
+        descEl.textContent = overlay.bio;
+        aboutSection.style.display = '';
+      }
+      if (overlay.followers && !followersEl.textContent) {
+        followersEl.textContent = formatFollowers(overlay.followers);
+      }
+    }).catch(() => {});
+
     // Follow button
     const followBtn = $('#btn-artist-follow');
     const isFollowed = () => state.followedArtists.some(a => a.artistId === artistId);
@@ -5326,10 +5355,44 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     window.WrappedManager?.show(targetYear);
   }
 
-  // ─── Spotify metadata enrichment (background, fire-and-forget) ───
+  // ─── Plugin metadata helpers ───
+
+  // If the currently playing track has a richer album art from a plugin, update the now-playing UI.
+  function _maybeUpdateNowPlayingArt(track) {
+    const current = state.queue[state.queueIndex];
+    if (current?.id !== track.id) return;
+    const cached = state.trackGenreCache[track.id];
+    if (!cached?.albumArt) return;
+    const thumb = $('#np-thumbnail');
+    if (thumb && thumb.src !== cached.albumArt) {
+      thumb.src = cached.albumArt;
+      extractDominantColor({ src: cached.albumArt }).then(color => {
+        const rgb = color ? `${color.r}, ${color.g}, ${color.b}` : '170, 85, 230';
+        document.documentElement.style.setProperty('--ambient-rgb', rgb);
+      }).catch(() => {});
+    }
+  }
+
+  // Call each enabled meta source's getArtistMeta handler in priority order; return first result.
+  async function resolvePluginArtistMeta(artistName) {
+    for (const sourceId of state.metadataSources) {
+      const handler = window.SnowifySources?._artistMetaHandlers?.[sourceId];
+      if (!handler) continue;
+      try {
+        const meta = await handler(artistName);
+        if (meta) return meta;
+      } catch (_) { /* best-effort */ }
+    }
+    return null;
+  }
+
+  // ─── Track metadata enrichment (background, fire-and-forget) ───
   async function maybeEnrichTrackMeta(track) {
     if (!track?.id || !track.title) return;
-    if (state.trackGenreCache[track.id]) return; // already cached
+    if (state.trackGenreCache[track.id]) {
+      _maybeUpdateNowPlayingArt(track); // still apply cached art on repeat plays
+      return;
+    }
     for (const sourceId of state.metadataSources) {
       const handler = window.SnowifySources?._metaHandlers?.[sourceId];
       if (!handler) continue;
@@ -5338,6 +5401,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         if (meta) {
           state.trackGenreCache[track.id] = meta;
           try { localStorage.setItem('snowify_genre_cache', JSON.stringify(state.trackGenreCache)); } catch (_) {}
+          _maybeUpdateNowPlayingArt(track);
           break; // first successful source wins
         }
       } catch (_) { /* enrichment is best-effort */ }
@@ -5400,6 +5464,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         { id: 'youtube', label: I18n.t('settings.sourceYTMeta'), desc: I18n.t('settings.sourceYTMetaDesc') },
       ],
       _metaHandlers: {},
+      _artistMetaHandlers: {},
       registerSongSource(def) {
         if (!this._song.find(s => s.id === def.id)) {
           this._song.push(def);
@@ -5410,6 +5475,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         if (!this._meta.find(s => s.id === def.id)) {
           this._meta.push(def);
           if (typeof def.enrich === 'function') this._metaHandlers[def.id] = def.enrich;
+          if (typeof def.getArtistMeta === 'function') this._artistMetaHandlers[def.id] = def.getArtistMeta;
           this._refreshSources?.();
         }
       },

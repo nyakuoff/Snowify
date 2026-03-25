@@ -34,6 +34,25 @@
     return _tokenCache.token;
   }
 
+  async function getArtistMeta(artistName) {
+    const token = await fetchToken();
+    const q = encodeURIComponent(artistName);
+    const res = await window.snowify.httpGet(
+      `https://api.spotify.com/v1/search?q=${q}&type=artist&limit=1`,
+      { 'Authorization': `Bearer ${token}`, 'Referer': 'https://open.spotify.com/', 'Origin': 'https://open.spotify.com' }
+    );
+    if (!res || res.status !== 200) return null;
+    const artist = res.body?.artists?.items?.[0];
+    if (!artist) return null;
+    return {
+      avatar: artist.images?.[0]?.url ?? null,
+      banner: null, // Spotify doesn't provide banner/panoramic images
+      bio: null,    // Not exposed in the public Spotify API
+      genres: artist.genres?.slice(0, 5) ?? [],
+      followers: artist.followers?.total ?? null,
+    };
+  }
+
   async function enrich(title, artist) {
     const token = await fetchToken();
     const q = encodeURIComponent(`track:${title}${artist ? ' artist:' + artist : ''}`);
@@ -85,6 +104,7 @@
       label: 'Spotify',
       desc: 'Enrich tracks with genres, popularity, and artist images via Spotify.',
       enrich,
+      getArtistMeta,
     });
   }
 
