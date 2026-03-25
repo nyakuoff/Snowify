@@ -149,35 +149,13 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
         state.queueIndex = savedQueue.queueIndex ?? -1;
         state.playingPlaylistId = savedQueue.playingPlaylistId || null;
       }
-      // Play log (separate key)
-      try {
-        const savedLog = JSON.parse(localStorage.getItem('snowify_play_log'));
-        if (Array.isArray(savedLog)) state.playLog = savedLog;
-      } catch (_) {}
-      // Genre cache (separate key)
-      try {
-        const savedGenre = JSON.parse(localStorage.getItem('snowify_genre_cache'));
-        if (savedGenre && typeof savedGenre === 'object') state.trackGenreCache = savedGenre;
-      } catch (_) {}
-
-      // Backfill play log from recentTracks for users who existed before the Wrapped feature.
-      // We only do this once (when playLog starts empty) and spread timestamps backwards so
-      // Wrapped can show at least basic stats from the listening history we do have.
-      if (state.playLog.length === 0 && state.recentTracks.length > 0) {
-        const now = Date.now();
-        const span = Math.max(90 * 24 * 3600_000, state.recentTracks.length * 14 * 24 * 3600_000);
-        const step = span / state.recentTracks.length;
-        // recentTracks[0] = most recent → smallest offset
-        state.playLog = state.recentTracks.map((t, i) => ({
-          id: t.id,
-          title: t.title,
-          artist: t.artist || '',
-          durationMs: t.durationMs || 0,
-          ts: now - (i * step),
-        }));
-        try { localStorage.setItem('snowify_play_log', JSON.stringify(state.playLog)); } catch (_) {}
-      }
+      // Play log, genre cache, and backfill are loaded async in loadPlayLogAsync()
+      // to avoid blocking the main thread on startup.
     } catch (_) {}
+  }
+
+  function switchView(name) {
+    const targetView = $(`#view-${name}`);
     const alreadyActive = state.currentView === name && targetView && targetView.classList.contains('active');
 
     state.currentView = name;
