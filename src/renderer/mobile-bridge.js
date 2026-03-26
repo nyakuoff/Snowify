@@ -1136,28 +1136,33 @@ var __SnowifyMobile = (() => {
   var _context = null;
   var _initDone = false;
   var _initP = null;
-  var ANDROID_CONTEXT = {
+  var VISITOR_DATA = "CgtsZG1ySnZiQWtSbyiMjuGSBg%3D%3D";
+  function generateCpn() {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
+    return Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * 64)]).join("");
+  }
+  var ANDROID_MUSIC_CONTEXT = {
     client: {
-      clientName: "ANDROID",
-      clientVersion: "19.09.37",
-      androidSdkVersion: 30,
+      clientName: "ANDROID_MUSIC",
+      clientVersion: "5.01",
       hl: "en",
       gl: "US",
-      userAgent: "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip"
+      visitorData: VISITOR_DATA,
+      userAgent: "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Mobile Safari/537.36"
     }
   };
-  var IOS_CONTEXT = {
+  var AM_API_KEY = "AIzaSyAOghZGza2MQSZkY_zfZ370N-PUdXEo8AI";
+  var TVHTML5_CONTEXT = {
     client: {
-      clientName: "IOS",
-      clientVersion: "19.09.3",
-      deviceModel: "iPhone14,5",
-      osName: "iPhone",
-      osVersion: "15.6",
+      clientName: "TVHTML5_SIMPLY_EMBEDDED_PLAYER",
+      clientVersion: "2.0",
       hl: "en",
       gl: "US",
-      userAgent: "com.google.ios.youtube/19.09.3 (iPhone14,5; U; CPU iOS 15_6 like Mac OS X)"
+      visitorData: VISITOR_DATA,
+      userAgent: "Mozilla/5.0 (PlayStation 4 5.55) AppleWebKit/601.2 (KHTML, like Gecko)"
     }
   };
+  var TV_API_KEY = "AIzaSyDCU8hByM-4DrUqRUYnGn-3llEO78bcxq8";
   async function initSession() {
     if (_initDone) return;
     if (_initP) return _initP;
@@ -1942,23 +1947,28 @@ var __SnowifyMobile = (() => {
       url: `https://music.youtube.com/watch?v=${videoId}`
     };
   }
-  async function fetchPlayerData(videoId, ctx = ANDROID_CONTEXT) {
-    await initSession();
-    const clientNum = ctx.client.clientName === "IOS" ? "5" : "3";
+  async function fetchPlayerData(videoId, ctx, apiKey) {
+    const isTv = ctx.client.clientName === "TVHTML5_SIMPLY_EMBEDDED_PLAYER";
+    const clientNum = isTv ? "85" : "21";
+    const contextBody = isTv ? { ...ctx, thirdParty: { embedUrl: `https://www.youtube.com/watch?v=${videoId}` } } : ctx;
     const resp = await fetch(
-      `https://www.youtube.com/youtubei/v1/player?prettyPrint=false`,
+      `https://music.youtube.com/youtubei/v1/player?key=${apiKey}&prettyPrint=false`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-Goog-Api-Format-Version": "1",
+          "X-Goog-Visitor-Id": VISITOR_DATA,
           "X-YouTube-Client-Name": clientNum,
-          "X-YouTube-Client-Version": ctx.client.clientVersion
+          "X-YouTube-Client-Version": ctx.client.clientVersion,
+          "User-Agent": ctx.client.userAgent,
+          "x-origin": "https://music.youtube.com"
         },
         body: JSON.stringify({
-          context: ctx,
+          context: contextBody,
           videoId,
-          contentCheckOk: true,
-          racyCheckOk: true
+          cpn: generateCpn(),
+          param: "8AUB"
         })
       }
     );
@@ -1968,36 +1978,48 @@ var __SnowifyMobile = (() => {
     await initSession();
     const videoId = videoUrl?.includes("watch?v=") ? new URL(videoUrl).searchParams.get("v") : videoUrl;
     if (!videoId) throw new Error("Invalid video URL");
-    let data = await fetchPlayerData(videoId, ANDROID_CONTEXT);
+    const cpn = generateCpn();
+    let data = await fetchPlayerData(videoId, ANDROID_MUSIC_CONTEXT, AM_API_KEY);
     let status = data?.playabilityStatus?.status;
-    const hasDirectAudio = (data?.streamingData?.adaptiveFormats || []).some((f2) => f2.mimeType?.startsWith("audio/") && f2.url);
-    const hasDirectMuxed = (data?.streamingData?.formats || []).some((f2) => f2.url);
-    if (status === "LOGIN_REQUIRED" || status === "UNPLAYABLE" || !hasDirectAudio && !hasDirectMuxed) {
-      data = await fetchPlayerData(videoId, IOS_CONTEXT);
+    let hasDirectAudio = (data?.streamingData?.adaptiveFormats || []).some((f2) => f2.mimeType?.startsWith("audio/") && f2.url);
+    if (status !== "OK" || !hasDirectAudio) {
+      console.log("[YTM] ANDROID_MUSIC fallback. Status:", status, "hasAudio:", hasDirectAudio);
+      data = await fetchPlayerData(videoId, TVHTML5_CONTEXT, TV_API_KEY);
       status = data?.playabilityStatus?.status;
+      hasDirectAudio = (data?.streamingData?.adaptiveFormats || []).some((f2) => f2.mimeType?.startsWith("audio/") && f2.url);
     }
-    if (status === "LOGIN_REQUIRED" || status === "UNPLAYABLE") {
-      throw new Error(`Video unplayable: ${status}`);
+    if (status === "OK") {
+      let audioFormats = (data?.streamingData?.adaptiveFormats || []).filter((f2) => f2.mimeType?.startsWith("audio/") && f2.url);
+      if (!audioFormats.length) {
+        console.log("[YTM] No direct URLs, trying Piped API\u2026");
+        try {
+          const piped = await fetch(`https://pipedapi.kavin.rocks/streams/${videoId}`).then((r) => r.json());
+          const pipedAudio = piped?.audioStreams || [];
+          const allFmts = data?.streamingData?.adaptiveFormats || [];
+          audioFormats = allFmts.map((fmt) => {
+            const match = pipedAudio.find((s2) => s2.itag === fmt.itag);
+            return match ? { ...fmt, url: match.url } : fmt;
+          }).filter((f2) => f2.mimeType?.startsWith("audio/") && f2.url);
+        } catch (e) {
+          console.error("[YTM] Piped API failed:", e);
+        }
+      }
+      if (audioFormats.length) {
+        const sorted = quality === "worstaudio" ? [...audioFormats].sort((a, b) => (a.bitrate || 0) - (b.bitrate || 0)) : [...audioFormats].sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+        return `${sorted[0].url}&cpn=${cpn}`;
+      }
+      const muxed = (data?.streamingData?.formats || []).filter((f2) => f2.url);
+      if (muxed.length) return `${muxed[0].url}&cpn=${cpn}`;
     }
-    const adaptiveFormats = data?.streamingData?.adaptiveFormats || [];
-    const audioFormats = adaptiveFormats.filter(
-      (f2) => f2.mimeType?.startsWith("audio/") && f2.url
-    );
-    if (audioFormats.length) {
-      const sorted = quality === "worstaudio" ? [...audioFormats].sort((a, b) => (a.bitrate || 0) - (b.bitrate || 0)) : [...audioFormats].sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
-      return sorted[0].url;
-    }
-    const muxed = (data?.streamingData?.formats || []).filter((f2) => f2.url);
-    if (muxed.length) return muxed[0].url;
     console.error("[YTM] Player response:", JSON.stringify(data?.playabilityStatus));
-    throw new Error("No stream URLs found");
+    throw new Error(`No stream URLs found (status: ${data?.playabilityStatus?.status})`);
   }
   async function getVideoStreamUrl(videoId, quality = "720", premuxed = false) {
     await initSession();
-    let data = await fetchPlayerData(videoId, ANDROID_CONTEXT);
+    let data = await fetchPlayerData(videoId, ANDROID_MUSIC_CONTEXT, AM_API_KEY);
     const height = parseInt(quality) || 720;
     const hasVideo = (data?.streamingData?.adaptiveFormats || []).some((f2) => f2.url && f2.mimeType?.includes("video/"));
-    if (!hasVideo) data = await fetchPlayerData(videoId, IOS_CONTEXT);
+    if (!hasVideo) data = await fetchPlayerData(videoId, TVHTML5_CONTEXT, TV_API_KEY);
     if (premuxed) {
       const muxed = (data?.streamingData?.formats || []).filter((f2) => f2.url && (f2.height || 0) <= height).sort((a, b) => (b.height || 0) - (a.height || 0));
       if (muxed.length) return { videoUrl: muxed[0].url, audioUrl: null };
