@@ -1,27 +1,15 @@
-(() => {
-  'use strict';
+import state from './modules/state.js';
+import { setupSliderTooltip, showInputModal, showToast, escapeHtml, pathToFileUrl, addScrollArrows, renderArtistLinks, formatTime, formatFollowers } from './modules/utils.js';
+import { BUILTIN_THEMES, isCustomTheme, customThemeId, applyCustomThemeCss, removeCustomThemeCss, loadAndApplyThemeFile, applyTheme, populateCustomThemes } from './modules/theme.js';
 
-  const $ = (sel, ctx = document) => ctx.querySelector(sel);
-  const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
+'use strict';
 
-  // ─── Generic slider tooltip ───
-  function setupSliderTooltip(sliderEl, formatValue) {
-    const tip = document.createElement('div');
-    tip.className = 'slider-tooltip';
-    sliderEl.style.position = 'relative';
-    sliderEl.appendChild(tip);
-    sliderEl.addEventListener('mouseenter', () => tip.classList.add('visible'));
-    sliderEl.addEventListener('mouseleave', () => tip.classList.remove('visible'));
-    sliderEl.addEventListener('mousemove', (e) => {
-      const rect = sliderEl.getBoundingClientRect();
-      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      tip.textContent = formatValue(pct);
-      tip.style.left = (pct * rect.width) + 'px';
-    });
-  }
+const $ = (sel, ctx = document) => ctx.querySelector(sel);
+const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 
   const audioA = $('#audio-player');
   const audioB = $('#audio-player-b');
+  const appEl = $('#app');
   let engine; // initialized after state definition
   let audio;  // mutable alias, synced with engine after swaps
 
@@ -32,111 +20,9 @@
   $('#btn-maximize').onclick = () => window.snowify.maximize();
   $('#btn-close').onclick = () => window.snowify.close();
 
-  const state = {
-    currentView: 'home',
-    queue: [],
-    originalQueue: [],
-    queueIndex: -1,
-    isPlaying: false,
-    shuffle: false,
-    repeat: 'off',
-    volume: 0.7,
-    playlists: [],
-    likedSongs: [],
-    recentTracks: [],
-    followedArtists: [],
-    currentPlaylistId: null,
-    playingPlaylistId: null,
-    isLoading: false,
-    musicOnly: true,
-    autoplay: false,
-    audioQuality: 'bestaudio',
-    videoQuality: '720',
-    videoPremuxed: true,
-    animations: true,
-    effects: true,
-    theme: 'dark',
-    discordRpc: false,
-    country: '',
-    searchHistory: [],
-    crossfade: 0,
-    normalization: false,
-    normalizationTarget: -14,
-    prefetchCount: 0,
-    showListeningActivity: true,
-    showPlugins: true
-  };
-
   // ─── Save button SVGs ───
   const SAVE_SVG_CHECK = '<span class="save-burst"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
   const SAVE_SVG_PLUS = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-
-  // ─── Custom Theme Helpers ───
-  const BUILTIN_THEMES = ['dark', 'light', 'ocean', 'forest', 'sunset', 'rose', 'midnight'];
-
-  function isCustomTheme(theme) {
-    return theme && theme.startsWith('custom:');
-  }
-
-  function customThemeId(theme) {
-    return theme.slice('custom:'.length);
-  }
-
-  function applyCustomThemeCss(css) {
-    // Remove existing to force full re-parse (including @import)
-    removeCustomThemeCss();
-    const el = document.createElement('style');
-    el.id = 'custom-theme-style';
-    el.textContent = css;
-    document.head.appendChild(el);
-  }
-
-  function removeCustomThemeCss() {
-    const el = document.getElementById('custom-theme-style');
-    if (el) el.remove();
-  }
-
-  async function loadAndApplyThemeFile(themeValue) {
-    if (!isCustomTheme(themeValue)) { removeCustomThemeCss(); return false; }
-    const css = await window.snowify.loadTheme(customThemeId(themeValue));
-    if (css) { applyCustomThemeCss(css); return true; }
-    removeCustomThemeCss();
-    return false;
-  }
-
-  function applyTheme(theme) {
-    if (theme === 'dark' || isCustomTheme(theme)) {
-      document.documentElement.removeAttribute('data-theme');
-    } else {
-      document.documentElement.setAttribute('data-theme', theme);
-    }
-    return loadAndApplyThemeFile(theme);
-  }
-
-  async function populateCustomThemes(selectEl, currentValue) {
-    // Remove old custom options
-    selectEl.querySelectorAll('option[data-custom]').forEach(o => o.remove());
-    const themes = await window.snowify.scanThemes();
-    if (themes.length) {
-      const sep = document.createElement('option');
-      sep.disabled = true;
-      sep.textContent = I18n.t('settings.customThemeSeparator');
-      sep.dataset.custom = '1';
-      selectEl.appendChild(sep);
-      for (const t of themes) {
-        const opt = document.createElement('option');
-        opt.value = 'custom:' + t.id;
-        opt.textContent = t.name;
-        opt.dataset.custom = '1';
-        selectEl.appendChild(opt);
-      }
-    }
-    selectEl.value = currentValue;
-    // If the value didn't match (theme was removed), fall back to dark
-    if (selectEl.value !== currentValue && isCustomTheme(currentValue)) {
-      selectEl.value = 'dark';
-    }
-  }
 
   let _saveStateTimer = null;
   function saveState() {
@@ -148,41 +34,64 @@
   }
   function _flushSaveState() {
     if (_saveStateTimer) { clearTimeout(_saveStateTimer); _saveStateTimer = null; }
-    localStorage.setItem('snowify_state', JSON.stringify({
-      playlists: state.playlists,
-      likedSongs: state.likedSongs,
-      recentTracks: state.recentTracks,
-      followedArtists: state.followedArtists,
-      volume: state.volume,
-      shuffle: state.shuffle,
-      repeat: state.repeat,
-      musicOnly: state.musicOnly,
-      autoplay: state.autoplay,
-      audioQuality: state.audioQuality,
-      videoQuality: state.videoQuality,
-      videoPremuxed: state.videoPremuxed,
-      animations: state.animations,
-      effects: state.effects,
-      theme: state.theme,
-      discordRpc: state.discordRpc,
-      country: state.country,
-      searchHistory: state.searchHistory,
-      crossfade: state.crossfade,
-      normalization: state.normalization,
-      normalizationTarget: state.normalizationTarget,
-      prefetchCount: state.prefetchCount,
-      showListeningActivity: state.showListeningActivity,
-      showPlugins: state.showPlugins
-    }));
-    localStorage.setItem('snowify_lastSave', String(Date.now()));
-    cloudSaveDebounced();
-    // Queue persistence (local-only, not synced to cloud)
-    localStorage.setItem('snowify_queue', JSON.stringify({
-      queue: state.queue,
-      originalQueue: state.originalQueue,
-      queueIndex: state.queueIndex,
-      playingPlaylistId: state.playingPlaylistId
-    }));
+    try {
+      localStorage.setItem('snowify_state', JSON.stringify({
+        playlists: state.playlists,
+        likedSongs: state.likedSongs,
+        recentTracks: state.recentTracks,
+        followedArtists: state.followedArtists,
+        volume: state.volume,
+        shuffle: state.shuffle,
+        repeat: state.repeat,
+        musicOnly: state.musicOnly,
+        autoplay: state.autoplay,
+        audioQuality: state.audioQuality,
+        videoQuality: state.videoQuality,
+        videoPremuxed: state.videoPremuxed,
+        animations: state.animations,
+        effects: state.effects,
+        theme: state.theme,
+        discordRpc: state.discordRpc,
+        country: state.country,
+        searchHistory: state.searchHistory,
+        crossfade: state.crossfade,
+        normalization: state.normalization,
+        normalizationTarget: state.normalizationTarget,
+        prefetchCount: state.prefetchCount,
+        showListeningActivity: state.showListeningActivity,
+        minimizeToTray: state.minimizeToTray,
+        launchOnStartup: state.launchOnStartup,
+        songSources: state.songSources,
+        metadataSources: state.metadataSources,
+        wrappedShownYear: state.wrappedShownYear,
+      }));
+      localStorage.setItem('snowify_lastSave', String(Date.now()));
+    } catch (e) {
+      console.error('State save failed (storage quota exceeded):', e);
+    }
+    // Queue persistence (local-only)
+    try {
+      localStorage.setItem('snowify_queue', JSON.stringify({
+        queue: state.queue,
+        originalQueue: state.originalQueue,
+        queueIndex: state.queueIndex,
+        playingPlaylistId: state.playingPlaylistId
+      }));
+    } catch (e) {
+      console.error('Queue save failed (storage quota exceeded):', e);
+    }
+    // Play log — stored separately to avoid bloating the main state key
+    try {
+      localStorage.setItem('snowify_play_log', JSON.stringify(state.playLog));
+    } catch (e) {
+      console.warn('Play log save failed (quota?):', e);
+    }
+    // Genre cache — stored separately
+    try {
+      localStorage.setItem('snowify_genre_cache', JSON.stringify(state.trackGenreCache));
+    } catch (e) {
+      console.warn('Genre cache save failed (quota?):', e);
+    }
   }
 
   function loadState() {
@@ -226,7 +135,11 @@
         state.normalization = saved.normalization ?? false;
         state.normalizationTarget = saved.normalizationTarget ?? -14;
         state.prefetchCount = saved.prefetchCount ?? 0;
-        state.showPlugins = saved.showPlugins ?? true;
+        state.minimizeToTray = saved.minimizeToTray ?? false;
+        state.launchOnStartup = saved.launchOnStartup ?? false;
+        state.songSources = saved.songSources || ['youtube'];
+        state.metadataSources = saved.metadataSources || ['youtube'];
+        state.wrappedShownYear = saved.wrappedShownYear ?? null;
       }
       // Restore queue (local-only, separate from cloud sync)
       const savedQueue = JSON.parse(localStorage.getItem('snowify_queue'));
@@ -236,6 +149,8 @@
         state.queueIndex = savedQueue.queueIndex ?? -1;
         state.playingPlaylistId = savedQueue.playingPlaylistId || null;
       }
+      // Play log, genre cache, and backfill are loaded async in loadPlayLogAsync()
+      // to avoid blocking the main thread on startup.
     } catch (_) {}
   }
 
@@ -280,17 +195,7 @@
     if (name === 'library') {
       renderLibrary();
     }
-    if (name === 'friends') {
-      renderFriends();
-    } else {
-      stopFriendsRefresh();
-    }
-    if (name === 'plugins') {
-      renderPlugins();
-    }
-    if (name === 'donate') {
-      // Donation page - just needs to be visible
-    }
+    // Social listeners remain active while signed in; only stopped on sign-out
     if (name === 'settings') {
       const ts = $('#theme-select');
       if (ts) populateCustomThemes(ts, state.theme);
@@ -805,9 +710,11 @@
         ${showPlays ? `<span style="text-align:right">${I18n.t('trackList.plays')}</span>` : ''}
       </div>`;
 
+    const _currentId = state.queue[state.queueIndex]?.id;
+    const _likedIds = new Set(state.likedSongs.map(t => t.id));
     tracks.forEach((track, i) => {
-      const isPlaying = state.queue[state.queueIndex]?.id === track.id;
-      const isLiked = state.likedSongs.some(t => t.id === track.id);
+      const isPlaying = _currentId === track.id;
+      const isLiked = _likedIds.has(track.id);
 
       html += `
         <div class="track-row ${isPlaying ? 'playing' : ''}${modifier}"
@@ -1197,7 +1104,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         if (!cachedPath) showToast(I18n.t('toast.loadingTrack', { title: track.title }));
         const directUrl = cachedPath
           ? pathToFileUrl(cachedPath)
-          : await window.snowify.getStreamUrl(track.url, state.audioQuality);
+          : await window.snowify.getStreamUrl(track.url, state.audioQuality, { title: track.title, artist: track.artist }, state.songSources);
         if (gen !== _playGeneration) return; // stale call — newer playTrack superseded us
         engine.setSource(directUrl);
         audio = engine.getActiveAudio();
@@ -1211,6 +1118,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       state.isLoading = false;
       addToRecent(track);
       updateDiscordPresence(track);
+      // Background Spotify enrichment (fire-and-forget, non-blocking)
+      maybeEnrichTrackMeta(track);
       renderQueue();
       updatePositionState();
       saveState();
@@ -1263,7 +1172,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     if (!next || next.isLocal || (!next.url && !next.id)) return;
     const url = next.url || `https://music.youtube.com/watch?v=${next.id}`;
     // Fire-and-forget: this populates the main-process cache
-    window.snowify.getStreamUrl(url, state.audioQuality).catch(() => {});
+    window.snowify.getStreamUrl(url, state.audioQuality, { title: next.title, artist: next.artist }, state.songSources).catch(() => {});
   }
 
   const PLAY_SVG = '<svg width="24" height="24" viewBox="0 0 24 24" fill="#000"><path d="M8 5v14l11-7L8 5z"/></svg>';
@@ -1286,7 +1195,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   }
 
   function playFromList(tracks, index, sourcePlaylistId = null) {
-    if (isListenAlongGuest()) { showToast(I18n.t('toast.playbackSyncedWithHost')); return; }
     state.playingPlaylistId = sourcePlaylistId;
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     engine.clearPreload();
@@ -1311,7 +1219,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   }
 
   function playNext() {
-    if (isListenAlongGuest()) { showToast(I18n.t('toast.playbackSyncedWithHost')); return; }
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     if (!state.queue.length) return;
 
@@ -1423,7 +1330,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   }
 
   function playPrev() {
-    if (isListenAlongGuest()) { showToast(I18n.t('toast.playbackSyncedWithHost')); return; }
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     if (!state.queue.length) return;
     if (audio.currentTime > 3) {
@@ -1442,9 +1348,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   // ─── Discord RPC helpers ───
 
   function updateDiscordPresence(track) {
-    // Broadcast social activity presence (always, if signed in)
-    updateSocialPresence(track);
-
     if (!state.discordRpc || !track) return;
 
     // If a radio plugin is active, let it manage its own Discord presence
@@ -1467,91 +1370,13 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   }
 
   function clearDiscordPresence() {
-    clearSocialPresence();
     if (!state.discordRpc) return;
     if (document.body.classList.contains('radio-plugin-active')) return;
     window.snowify.clearPresence();
   }
 
-  // ─── Social Activity Presence ───
-
-  function updateSocialPresence(track) {
-    if (!_cloudUser || !track || !state.showListeningActivity) return;
-    const src = engine.getActiveSource();
-    window.snowify.updateSocialPresence({
-      trackTitle: track.title || '',
-      trackArtist: track.artist || '',
-      trackThumbnail: track.isLocal ? '' : (track.thumbnail || ''),
-      trackId: track.isLocal ? '' : (track.id || ''),
-      isPlaying: true,
-      isOnline: true,
-      trackPosition: src ? src.currentTime || 0 : 0,
-      trackTimestamp: Date.now()
-    });
-  }
-
-  function clearSocialPresence() {
-    if (!_cloudUser) return;
-    // Keep track info visible (paused state) — only mark not playing, send position
-    const src = engine.getActiveSource();
-    window.snowify.updateSocialPresence({
-      isPlaying: false,
-      isOnline: true,
-      trackPosition: src ? src.currentTime || 0 : 0,
-      trackTimestamp: Date.now()
-    });
-  }
-
-  // Set online presence when app is active (even if not playing)
-  function setOnlinePresence() {
-    if (!_cloudUser || !state.showListeningActivity) return;
-    // Only set online — don't overwrite isPlaying if already playing
-    window.snowify.updateSocialPresence({ isOnline: true });
-  }
-
-  function onListeningActivityToggled() {
-    if (!state.showListeningActivity) clearSocialPresence();
-  }
-
-  async function syncPublicPlaylists() {
-    if (!_cloudUser) return;
-    const publicPlaylists = await Promise.all(
-      state.playlists
-        .filter(p => p.isPublic)
-        .map(async p => {
-          let cover = null;
-          if (p.coverImage) {
-            // Convert local file to data URI so friends can see it
-            cover = await window.snowify.readImage(p.coverImage).catch(() => null);
-          }
-          // Include first 4 track thumbnails for auto-generated covers
-          const thumbs = (!cover && p.tracks.length > 0)
-            ? p.tracks.slice(0, 4).map(t => t.thumbnail)
-            : [];
-          // Include lightweight track data so friends can view/play (exclude local files)
-          const tracks = p.tracks.filter(t => !t.isLocal).map(t => ({
-            id: t.id,
-            title: t.title,
-            artist: t.artist,
-            thumbnail: t.thumbnail,
-            duration: t.duration || 0,
-          }));
-          return {
-            id: p.id,
-            name: p.name,
-            trackCount: p.tracks.length,
-            coverImage: cover,
-            thumbnails: thumbs,
-            tracks,
-          };
-        })
-    );
-    await window.snowify.savePublicPlaylists(publicPlaylists);
-  }
-
   function togglePlay() {
     if (state.isLoading) return;
-    if (isListenAlongGuest()) { showToast(I18n.t('toast.playbackSyncedWithHost')); return; }
 
     // ─── Crossfade pause/resume handling ───
     if (engine.isInProgress()) {
@@ -1698,7 +1523,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         const cached = prefetchCache.getCachedPath(videoId);
         if (cached) return pathToFileUrl(cached);
       }
-      return window.snowify.getStreamUrl(url, q);
+      // Look up the track in the queue to supply metadata for source fallback
+      const track = state.queue.find(t => t.url === url || (videoId && t.id === videoId));
+      const trackMeta = track ? { title: track.title, artist: track.artist } : {};
+      return window.snowify.getStreamUrl(url, q, trackMeta, state.songSources);
     },
     onTransition: handleEngineTransition,
     onTimeUpdate: handleEngineTimeUpdate,
@@ -1850,7 +1678,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   });
 
   function seekTo(e) {
-    if (isListenAlongGuest()) { showToast(I18n.t('toast.playbackSyncedWithHost')); return; }
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     const rect = progressBar.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -1925,9 +1752,19 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     bar.dataset.trackUrl = track.url || '';
     bar.dataset.trackTitle = track.title || '';
     bar.dataset.trackArtist = track.artist || '';
-    document.querySelector('#app').classList.remove('no-player');
+    appEl.classList.remove('no-player');
 
     $('#np-thumbnail').src = track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : '');
+    // Extract dominant color from album art and push as ambient CSS variable
+    const _ambientSrc = track.thumbnail;
+    if (_ambientSrc) {
+      extractDominantColor({ src: _ambientSrc }).then(color => {
+        const rgb = color ? `${color.r}, ${color.g}, ${color.b}` : '170, 85, 230';
+        document.documentElement.style.setProperty('--ambient-rgb', rgb);
+      });
+    } else {
+      document.documentElement.style.setProperty('--ambient-rgb', '170, 85, 230');
+    }
     const npTitle = $('#np-title');
     npTitle.textContent = track.title;
     if (track.albumId) {
@@ -1992,9 +1829,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   }
 
   function updateTrackHighlight() {
+    const current = state.queue[state.queueIndex];
     $$('.track-row').forEach(row => {
-      const current = state.queue[state.queueIndex];
-      row.classList.toggle('playing', current && row.dataset.trackId === current.id);
+      row.classList.toggle('playing', !!current && row.dataset.trackId === current.id);
     });
     updatePlaylistHighlight();
   }
@@ -2134,9 +1971,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     el.addEventListener('animationend', () => el.remove());
   }
 
+  const _likedCountEl = document.querySelector('[data-playlist="liked"] .playlist-count');
   function updateLikedCount() {
-    const el = document.querySelector('[data-playlist="liked"] .playlist-count');
-    if (el) el.textContent = I18n.tp('sidebar.songCount', state.likedSongs.length);
+    if (_likedCountEl) _likedCountEl.textContent = I18n.tp('sidebar.songCount', state.likedSongs.length);
   }
 
   function createPlaylist(name) {
@@ -2308,6 +2145,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
     const manageHtml = isLiked ? '' : `
       <div class="context-menu-divider"></div>
+      <div class="context-menu-item" data-action="import-files">${I18n.t('playlist.importLocalFiles')}</div>
+      ${playlist.folderPath ? `<div class="context-menu-item" data-action="update-files">${I18n.t('playlist.updateFiles')}</div>` : ''}
+      <div class="context-menu-divider"></div>
       <div class="context-menu-item" data-action="change-cover">${I18n.t('context.changeCover')}</div>
       ${playlist.coverImage ? `<div class="context-menu-item" data-action="remove-cover">${I18n.t('context.removeCover')}</div>` : ''}
       <div class="context-menu-item" data-action="rename">${I18n.t('context.rename')}</div>
@@ -2346,16 +2186,17 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
           break;
         case 'rename': {
           removeContextMenu();
-          const newName = await showInputModal(I18n.t('modal.renamePlaylist'), playlist.name);
-          if (newName && newName !== playlist.name) {
-            playlist.name = newName;
-            saveState();
-            renderPlaylists();
-            renderLibrary();
-            showToast(I18n.t('toast.renamedTo', { name: playlist.name }));
-          }
+          await renameUserPlaylist(playlist);
           return;
         }
+        case 'import-files':
+          removeContextMenu();
+          await importFilesIntoPlaylist(playlist);
+          return;
+        case 'update-files':
+          removeContextMenu();
+          await refreshFolderPlaylist(playlist);
+          return;
         case 'change-cover': {
           removeContextMenu();
           await changePlaylistCover(playlist);
@@ -2368,9 +2209,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         }
         case 'export-csv': {
           removeContextMenu();
-          if (!playlist.tracks.length) { showToast(I18n.t('toast.playlistEmpty')); return; }
-          const ok = await window.snowify.exportPlaylistCsv(playlist.name, playlist.tracks);
-          if (ok) showToast(I18n.t('toast.playlistExported'));
+          await exportUserPlaylist(playlist);
           return;
         }
         case 'delete':
@@ -2394,6 +2233,81 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     }, 10);
   }
 
+  function refreshPlaylistUi(playlist) {
+    renderPlaylists();
+    renderLibrary();
+    if (state.currentView === 'playlist' && state.currentPlaylistId === playlist.id) {
+      showPlaylistDetail(playlist, false);
+    }
+  }
+
+  async function renameUserPlaylist(playlist) {
+    const newName = await showInputModal(I18n.t('modal.renamePlaylist'), playlist.name);
+    if (!newName || newName === playlist.name) return false;
+    playlist.name = newName;
+    saveState();
+    refreshPlaylistUi(playlist);
+    showToast(I18n.t('toast.renamedTo', { name: playlist.name }));
+    return true;
+  }
+
+  async function exportUserPlaylist(playlist) {
+    if (!playlist.tracks.length) {
+      showToast(I18n.t('toast.playlistEmpty'));
+      return false;
+    }
+    const ok = await window.snowify.exportPlaylistCsv(playlist.name, playlist.tracks);
+    if (ok) showToast(I18n.t('toast.playlistExported'));
+    return ok;
+  }
+
+  async function importFilesIntoPlaylist(playlist) {
+    const picked = await window.snowify.pickAudioFiles();
+    if (!picked || !picked.length) return 0;
+    let added = 0;
+    for (const t of picked) {
+      let track = t;
+      if (playlist.folderPath) {
+        const copied = await window.snowify.copyToPlaylistFolder(t.localPath, playlist.folderPath);
+        if (copied) track = copied;
+      }
+      if (!playlist.tracks.some(pt => pt.id === track.id)) {
+        playlist.tracks.push(track);
+        added++;
+      }
+    }
+    if (!added) {
+      showToast('Files already in playlist');
+      return 0;
+    }
+    saveState();
+    refreshPlaylistUi(playlist);
+    showToast(playlist.folderPath
+      ? I18n.t('toast.fileCopiedToFolder')
+      : `Added ${added} local file${added > 1 ? 's' : ''}`);
+    return added;
+  }
+
+  async function refreshFolderPlaylist(playlist, { silent = false } = {}) {
+    if (!playlist.folderPath) return 0;
+    const scanned = await window.snowify.scanAudioFolder(playlist.folderPath).catch(() => null);
+    if (!scanned) {
+      if (!silent) showToast(I18n.t('toast.folderNotFound'));
+      return 0;
+    }
+    const existing = new Set(playlist.tracks.map(t => t.id));
+    const newTracks = scanned.filter(t => !existing.has(t.id));
+    if (!newTracks.length) {
+      if (!silent) showToast(I18n.t('toast.folderNoNewTracks'));
+      return 0;
+    }
+    playlist.tracks.push(...newTracks);
+    saveState();
+    refreshPlaylistUi(playlist);
+    if (!silent) showToast(I18n.t('toast.folderRefreshed', { count: newTracks.length }));
+    return newTracks.length;
+  }
+
   function showPlaylistDetail(playlist, isLiked) {
     state.currentPlaylistId = playlist.id;
     switchView('playlist');
@@ -2401,6 +2315,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const heroName = $('#playlist-hero-name');
     const heroCount = $('#playlist-hero-count');
     const heroCover = $('#playlist-hero-cover');
+    const heroHeader = $('#view-playlist .playlist-header');
     const tracksContainer = $('#playlist-tracks');
 
     heroName.textContent = playlist.name;
@@ -2415,24 +2330,29 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       heroCover.innerHTML = coverContent;
       heroCover.style.background = hasCover ? '' : 'linear-gradient(135deg, #450af5, #8e2de2)';
     }
+    heroCover.classList.toggle('playlist-cover-editable', !isLiked);
+    heroCover.title = isLiked ? '' : I18n.t('playlist.changeCover');
+    heroCover.onclick = isLiked ? null : async () => {
+      await changePlaylistCover(playlist);
+    };
+    if (heroHeader) {
+      heroHeader.oncontextmenu = isLiked ? null : (e) => {
+        e.preventDefault();
+        showSidebarPlaylistMenu(e, playlist, false);
+      };
+    }
 
-    // Hide rename/delete/cover/public/import for Liked Songs
-    const renameBtn = $('#btn-rename-playlist');
+    // Keep only essential page actions on playlist detail
     const deleteBtn = $('#btn-delete-playlist');
-    const coverBtn = $('#btn-cover-playlist');
-    const exportBtn = $('#btn-export-playlist');
-    const importBtn = $('#btn-import-local');
-    const publicBtn = $('#btn-toggle-public');
-    renameBtn.style.display = isLiked ? 'none' : '';
+    const folderBtn = $('#btn-import-folder');
     deleteBtn.style.display = isLiked ? 'none' : '';
-    coverBtn.style.display = isLiked ? 'none' : '';
-    importBtn.style.display = isLiked ? 'none' : '';
-    publicBtn.style.display = (isLiked || !_cloudUser) ? 'none' : '';
+    folderBtn.textContent = I18n.t('playlist.updateFiles');
+    folderBtn.title = I18n.t('playlist.updateFiles');
+    folderBtn.style.display = (!isLiked && playlist.folderPath) ? '' : 'none';
 
-    // Init public toggle state
-    if (!isLiked && _cloudUser) {
-      publicBtn.classList.toggle('btn-toggle-public-active', !!playlist.isPublic);
-      publicBtn.title = playlist.isPublic ? I18n.t('playlist.makePrivate') : I18n.t('playlist.makePublic');
+    // Auto-scan linked folder for new tracks on open
+    if (!isLiked && playlist.folderPath) {
+      refreshFolderPlaylist(playlist, { silent: true });
     }
 
     if (playlist.tracks.length) {
@@ -2479,60 +2399,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       }
     };
 
-    renameBtn.onclick = async () => {
-      if (isLiked) return;
-      const newName = await showInputModal(I18n.t('modal.renamePlaylist'), playlist.name);
-      if (newName && newName !== playlist.name) {
-        playlist.name = newName;
-        saveState();
-        if (playlist.isPublic) syncPublicPlaylists();
-        heroName.textContent = playlist.name;
-        renderPlaylists();
-        renderLibrary();
-        showToast(I18n.t('toast.renamedTo', { name: playlist.name }));
-      }
-    };
-
-    coverBtn.onclick = async () => {
-      if (isLiked) return;
-      await changePlaylistCover(playlist);
-    };
-
-    publicBtn.onclick = async () => {
-      if (isLiked) return;
-      playlist.isPublic = !playlist.isPublic;
-      publicBtn.classList.toggle('btn-toggle-public-active', playlist.isPublic);
-      publicBtn.title = playlist.isPublic ? I18n.t('playlist.makePrivate') : I18n.t('playlist.makePublic');
-      saveState();
-      showToast(playlist.isPublic ? I18n.t('toast.playlistNowPublic') : I18n.t('toast.playlistNowPrivate'));
-      await syncPublicPlaylists();
-    };
-
-    exportBtn.onclick = async () => {
-      if (!playlist.tracks.length) return showToast(I18n.t('toast.playlistEmpty'));
-      const ok = await window.snowify.exportPlaylistCsv(playlist.name, playlist.tracks);
-      if (ok) showToast(I18n.t('toast.playlistExported'));
-    };
-
-    importBtn.onclick = async () => {
-      if (isLiked) return;
-      const tracks = await window.snowify.pickAudioFiles();
-      if (!tracks || !tracks.length) return;
-      let added = 0;
-      for (const t of tracks) {
-        if (!playlist.tracks.some(pt => pt.id === t.id)) {
-          playlist.tracks.push(t);
-          added++;
-        }
-      }
-      if (added) {
-        saveState();
-        renderPlaylists();
-        showPlaylistDetail(playlist, false);
-        showToast(`Added ${added} local file${added > 1 ? 's' : ''}`);
-      } else {
-        showToast('Files already in playlist');
-      }
+    folderBtn.onclick = async () => {
+      await refreshFolderPlaylist(playlist);
     };
 
     deleteBtn.onclick = () => {
@@ -2542,7 +2410,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         state.playlists = state.playlists.filter(p => p.id !== playlist.id);
         if (state.playingPlaylistId === playlist.id) state.playingPlaylistId = null;
         saveState();
-        if (playlist.isPublic) syncPublicPlaylists();
         renderPlaylists();
         renderLibrary();
         switchView('library');
@@ -2639,6 +2506,21 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   $('#btn-lib-create-playlist')?.addEventListener('click', async () => {
     const name = await showInputModal(I18n.t('modal.createPlaylist'), I18n.t('modal.defaultPlaylistName'));
     if (name) createPlaylist(name);
+  });
+  $('#btn-import-folder-playlist')?.addEventListener('click', async () => {
+    const result = await window.snowify.pickAudioFolder();
+    if (!result) return;
+    const { folderPath, name, tracks } = result;
+    if (!tracks.length) return showToast('No audio files found in that folder');
+    const id = 'pl_' + Date.now();
+    const playlist = { id, name, tracks, folderPath };
+    state.playlists.push(playlist);
+    saveState();
+    renderPlaylists();
+    renderLibrary();
+    showToast(I18n.t('toast.folderImported', { count: tracks.length }));
+    showPlaylistDetail(playlist, false);
+    switchView('playlist');
   });
   $('#btn-spotify-import').addEventListener('click', () => openSpotifyImport());
 
@@ -3018,8 +2900,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
   function startDragScroll() {
     if (_dragScrollRAF) return;
+    const scrollEl = $('#queue-up-next');
     const tick = () => {
-      $('#queue-up-next').scrollTop += _dragScrollSpeed;
+      scrollEl.scrollTop += _dragScrollSpeed;
       _dragScrollRAF = requestAnimationFrame(tick);
     };
     _dragScrollRAF = requestAnimationFrame(tick);
@@ -3048,6 +2931,22 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     state.recentTracks = state.recentTracks.filter(t => t.id !== track.id);
     state.recentTracks.unshift(track);
     if (state.recentTracks.length > 20) state.recentTracks.pop();
+
+    // Record play in log for Wrapped feature
+    state.playLog.push({
+      id: track.id,
+      title: track.title,
+      artist: track.artist || '',
+      thumbnail: track.thumbnail || '',
+      durationMs: track.durationMs || 0,
+      ts: Date.now()
+    });
+    // Trim to prevent unbounded growth (keep last 2 calendar years)
+    if (state.playLog.length > 15000) {
+      const twoYearsAgo = Date.now() - 2 * 365.25 * 24 * 3600 * 1000;
+      state.playLog = state.playLog.filter(e => e.ts >= twoYearsAgo);
+    }
+
     saveState();
     // Only update the lightweight parts — skip expensive API calls
     renderRecentTracks();
@@ -3666,112 +3565,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     }
   });
 
-  function showInputModal(title, defaultValue = '') {
-    return new Promise((resolve) => {
-      const overlay = $('#input-modal');
-      const input = $('#input-modal-input');
-      const titleEl = $('#input-modal-title');
-
-      titleEl.textContent = title;
-      input.value = defaultValue;
-      overlay.classList.remove('hidden');
-      setTimeout(() => { input.focus(); input.select(); }, 50);
-
-      function cleanup(result) {
-        overlay.classList.add('hidden');
-        input.removeEventListener('keydown', onKey);
-        $('#input-modal-ok').removeEventListener('click', onOk);
-        $('#input-modal-cancel').removeEventListener('click', onCancel);
-        overlay.removeEventListener('click', onOverlay);
-        resolve(result);
-      }
-
-      function onOk() {
-        const val = input.value.trim();
-        cleanup(val || null);
-      }
-      function onCancel() { cleanup(null); }
-      function onKey(e) {
-        if (e.key === 'Enter') onOk();
-        if (e.key === 'Escape') onCancel();
-      }
-      function onOverlay(e) {
-        if (e.target === overlay) onCancel();
-      }
-
-      input.addEventListener('keydown', onKey);
-      $('#input-modal-ok').addEventListener('click', onOk);
-      $('#input-modal-cancel').addEventListener('click', onCancel);
-      overlay.addEventListener('click', onOverlay);
-    });
-  }
-
-  let toastTimeout = null;
-  function showToast(message, action) {
-    const toast = $('#toast');
-    toast.textContent = message;
-    if (action) {
-      const link = document.createElement('span');
-      link.className = 'toast-action';
-      link.textContent = action.label;
-      link.addEventListener('click', action.onClick);
-      toast.append(' ', link);
-    }
-    toast.classList.remove('hidden');
-    clearTimeout(toastTimeout);
-    requestAnimationFrame(() => toast.classList.add('show'));
-    toastTimeout = setTimeout(() => {
-      toast.classList.remove('show');
-      setTimeout(() => toast.classList.add('hidden'), 300);
-    }, action ? 5000 : 2500);
-  }
-
-  function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
-
-  function pathToFileUrl(p) {
-    const normalized = p.replace(/\\/g, '/');
-    return normalized.startsWith('/') ? 'file://' + normalized : 'file:///' + normalized;
-  }
-
-  /** Wrap an .album-scroll or .similar-artists-scroll element with scroll arrows if not already wrapped. */
-  function addScrollArrows(scrollEl) {
-    if (!scrollEl || scrollEl.parentElement?.classList.contains('scroll-container')) return;
-    const wrapper = document.createElement('div');
-    wrapper.className = 'scroll-container';
-    scrollEl.parentNode.insertBefore(wrapper, scrollEl);
-    const leftBtn = document.createElement('button');
-    leftBtn.className = 'scroll-arrow scroll-arrow-left';
-    leftBtn.dataset.dir = 'left';
-    leftBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
-    const rightBtn = document.createElement('button');
-    rightBtn.className = 'scroll-arrow scroll-arrow-right';
-    rightBtn.dataset.dir = 'right';
-    rightBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
-    wrapper.appendChild(leftBtn);
-    wrapper.appendChild(scrollEl);
-    wrapper.appendChild(rightBtn);
-    leftBtn.addEventListener('click', () => scrollEl.scrollBy({ left: -400, behavior: 'smooth' }));
-    rightBtn.addEventListener('click', () => scrollEl.scrollBy({ left: 400, behavior: 'smooth' }));
-  }
-
-  function renderArtistLinks(track) {
-    if (track.artists?.length) {
-      return track.artists.map((a, i, arr) => {
-        const sep = i < arr.length - 1 ? ', ' : '';
-        return (a.id
-          ? `<span class="artist-link" data-artist-id="${escapeHtml(a.id)}">${escapeHtml(a.name)}</span>`
-          : escapeHtml(a.name)) + sep;
-      }).join('');
-    }
-    if (track.artistId) {
-      return `<span class="artist-link" data-artist-id="${escapeHtml(track.artistId)}">${escapeHtml(track.artist)}</span>`;
-    }
-    return escapeHtml(track.artist || I18n.t('common.unknownArtist'));
-  }
-
   function bindArtistLinks(container) {
     container.querySelectorAll('.artist-link[data-artist-id]').forEach(link => {
       link.addEventListener('click', (e) => {
@@ -3779,13 +3572,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         openArtistPage(link.dataset.artistId);
       });
     });
-  }
-
-  function formatTime(s) {
-    if (!s || isNaN(s)) return '0:00';
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, '0')}`;
   }
 
   document.querySelector('[data-playlist="liked"]')?.addEventListener('click', () => {
@@ -3972,6 +3758,35 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     }
 
     aboutSection.style.display = 'none';
+
+    // ── Plugin metadata overlay (non-blocking — patches in artist art/genres when ready) ──
+    resolvePluginArtistMeta(info.name).then(overlay => {
+      if (!overlay) return;
+      if (overlay.avatar) {
+        avatar.addEventListener('load', () => {
+          avatar.classList.remove('shimmer');
+          avatar.classList.add('loaded');
+        }, { once: true });
+        avatar.classList.add('shimmer');
+        avatar.classList.remove('loaded');
+        avatar.src = overlay.avatar;
+      }
+      if (overlay.banner) {
+        bannerImg.src = overlay.banner;
+        bannerEl.style.display = '';
+      }
+      if (overlay.genres?.length) {
+        tagsEl.innerHTML = overlay.genres.map(g => `<span class="artist-tag">${escapeHtml(g)}</span>`).join('');
+        aboutSection.style.display = '';
+      }
+      if (overlay.bio && !descEl.textContent) {
+        descEl.textContent = overlay.bio;
+        aboutSection.style.display = '';
+      }
+      if (overlay.followers && !followersEl.textContent) {
+        followersEl.textContent = formatFollowers(overlay.followers);
+      }
+    }).catch(() => {});
 
     // Follow button
     const followBtn = $('#btn-artist-follow');
@@ -4209,13 +4024,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     };
   }
 
-  function formatFollowers(n) {
-    if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'B';
-    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
-    if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
-    return n.toString();
-  }
-
   // ─── Drag & Drop helpers ───
 
   let _dragActive = false;
@@ -4394,6 +4202,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       ).join('')}
       <div class="lyrics-spacer"></div>
     </div>`;
+    _cachedLyricEls = null; // invalidate cache after re-render
 
     // Click a line to seek
     lyricsBody.querySelectorAll('.lyrics-line').forEach(el => {
@@ -4431,6 +4240,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   }
 
   let _lastActiveLyricIdx = -1;
+  let _cachedLyricEls = null;
   function syncLyrics() {
     if (!_lyricsLines.length || !_lyricsVisible) return;
     const ct = engine.getActiveSource().currentTime;
@@ -4447,7 +4257,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     if (activeIdx === _lastActiveLyricIdx) return;
     _lastActiveLyricIdx = activeIdx;
 
-    const allLines = lyricsBody.querySelectorAll('.lyrics-line');
+    if (!_cachedLyricEls) _cachedLyricEls = [...lyricsBody.querySelectorAll('.lyrics-line')];
+    const allLines = _cachedLyricEls;
     allLines.forEach((el, i) => {
       el.classList.toggle('active', i === activeIdx);
       const dist = Math.abs(i - activeIdx);
@@ -4455,18 +4266,25 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         el.style.opacity = '0.35';
       } else if (dist === 0) {
         el.style.opacity = '1';
-      } else if (dist <= 2) {
-        el.style.opacity = '0.45';
+      } else if (dist === 1) {
+        el.style.opacity = '0.5';
+      } else if (dist === 2) {
+        el.style.opacity = '0.3';
       } else {
-        el.style.opacity = '0.2';
+        el.style.opacity = '0.15';
       }
     });
 
-    // Auto-scroll active line to center
+    // Scroll container so active line is vertically centered
     if (activeIdx >= 0) {
       const activeLine = allLines[activeIdx];
-      if (activeLine) {
-        activeLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const container = lyricsBody;
+      if (activeLine && container) {
+        const lineTop = activeLine.offsetTop;
+        const lineHeight = activeLine.offsetHeight;
+        const containerHeight = container.clientHeight;
+        const targetScrollTop = lineTop - (containerHeight / 2) + (lineHeight / 2);
+        container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
       }
     }
   }
@@ -4582,6 +4400,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   let _maxNPOpen = false;
   let _maxNPLyricsVisible = false;
   let _maxLastActiveLyricIdx = -1;
+  let _cachedMaxLyricEls = null;
 
   function openMaxNP() {
     const current = state.queue[state.queueIndex];
@@ -4682,6 +4501,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         ).join('')}
         <div class="lyrics-spacer"></div>
       </div>`;
+      _cachedMaxLyricEls = null; // invalidate cache after re-render
 
       // Click to seek
       maxNPLyrics.querySelectorAll('.lyrics-line').forEach(el => {
@@ -4822,7 +4642,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     if (activeIdx === _maxLastActiveLyricIdx) return;
     _maxLastActiveLyricIdx = activeIdx;
 
-    const allLines = maxNPLyrics.querySelectorAll('.lyrics-line');
+    if (!_cachedMaxLyricEls) _cachedMaxLyricEls = [...maxNPLyrics.querySelectorAll('.lyrics-line')];
+    const allLines = _cachedMaxLyricEls;
     allLines.forEach((el, i) => {
       el.classList.toggle('active', i === activeIdx);
       const dist = Math.abs(i - activeIdx);
@@ -4830,17 +4651,25 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         el.style.opacity = '0.35';
       } else if (dist === 0) {
         el.style.opacity = '1';
-      } else if (dist <= 2) {
-        el.style.opacity = '0.45';
+      } else if (dist === 1) {
+        el.style.opacity = '0.5';
+      } else if (dist === 2) {
+        el.style.opacity = '0.3';
       } else {
-        el.style.opacity = '0.2';
+        el.style.opacity = '0.15';
       }
     });
 
+    // Scroll container so active line is vertically centered
     if (activeIdx >= 0) {
       const activeLine = allLines[activeIdx];
-      if (activeLine) {
-        activeLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const container = maxNPLyrics;
+      if (activeLine && container) {
+        const lineTop = activeLine.offsetTop;
+        const lineHeight = activeLine.offsetHeight;
+        const containerHeight = container.clientHeight;
+        const targetScrollTop = lineTop - (containerHeight / 2) + (lineHeight / 2);
+        container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
       }
     }
   }
@@ -5435,400 +5264,235 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   async function init() {
     const systemLocale = await window.snowify.getLocale();
     await I18n.init(systemLocale);
-
     loadState();
+    showMigrationNoticeIfNeeded();
+    finishInit();
+    loadPlayLogAsync(); // fire-and-forget — avoids blocking startup with large JSON parse
+  }
 
-    // Show welcome screen on first launch (no account, never skipped)
-    const hasSkipped = localStorage.getItem('snowify_welcome_skipped');
-    if (!hasSkipped) {
-      // Wait briefly for auto-sign-in from saved credentials to complete
-      // then check if a user is available
-      let resolved = false;
-      const tryResolve = (user) => {
-        if (resolved) return;
-        resolved = true;
-        if (user) {
-          localStorage.setItem('snowify_welcome_skipped', '1');
-          finishInit();
-        } else {
-          showWelcomeScreen();
+  function showMigrationNoticeIfNeeded() {
+    const key = 'snowify_local_migration_v1';
+    if (localStorage.getItem(key)) return;
+    const overlay = $('#migration-notice-overlay');
+    if (!overlay) return;
+    overlay.classList.remove('hidden');
+    $('#btn-migration-ok').addEventListener('click', () => {
+      localStorage.setItem(key, '1');
+      overlay.classList.add('hidden');
+    });
+  }
+
+  // ─── Wrapped trigger ───
+  let _playLogReady = false;
+
+  async function loadPlayLogAsync() {
+    // Yield control back to the renderer so the UI can paint before we touch localStorage
+    await new Promise(r => setTimeout(r, 0));
+
+    // Parse play log — can be several MB for heavy listeners
+    try {
+      const raw = localStorage.getItem('snowify_play_log');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) state.playLog = parsed;
+      }
+    } catch (_) {}
+
+    // Yield again before genre cache
+    await new Promise(r => setTimeout(r, 0));
+    try {
+      const raw = localStorage.getItem('snowify_genre_cache');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') state.trackGenreCache = parsed;
+      }
+    } catch (_) {}
+
+    // One-time backfill from recentTracks for users predating the Wrapped feature.
+    // v2: clear stale v1 backfill (spread wrongly across multiple years) and re-seed within current year.
+    const backfillVer = localStorage.getItem('snowify_playlog_backfill_ver');
+    if (backfillVer !== '2' && state.recentTracks.length > 0) {
+      state.playLog = []; // discard any stale backfill
+    }
+    if (state.playLog.length === 0 && state.recentTracks.length > 0) {
+      await new Promise(r => setTimeout(r, 0));
+      const now = Date.now();
+      // Spread entries across the current calendar year so they all count in Wrapped
+      const yearStart = new Date(new Date().getFullYear(), 0, 1).getTime();
+      const span = now - yearStart;
+      const n = state.recentTracks.length;
+      // recentTracks[0] = most recent → assign closest timestamp
+      state.playLog = state.recentTracks.map((t, i) => ({
+        id: t.id,
+        title: t.title,
+        artist: t.artist || '',
+        thumbnail: t.thumbnail || '',
+        durationMs: t.durationMs || 210000, // fall back to 3.5 min average if unknown
+        ts: now - (i / n) * span,
+      }));
+      // Persist without blocking UI (write in next task)
+      await new Promise(r => setTimeout(r, 0));
+      try {
+        localStorage.setItem('snowify_play_log', JSON.stringify(state.playLog));
+        localStorage.setItem('snowify_playlog_backfill_ver', '2');
+      } catch (_) {}
+    }
+
+    _playLogReady = true;
+    checkWrappedTrigger();
+  }
+
+  function checkWrappedTrigger() {
+    if (!_playLogReady) return; // data not loaded yet — loadPlayLogAsync() will re-call us
+    const now = new Date();
+    const month = now.getMonth(); // 0 = Jan, 11 = Dec
+    let targetYear = null;
+    if (month === 11) targetYear = now.getFullYear();       // December → this year's data
+    else if (month === 0) targetYear = now.getFullYear() - 1; // January → last year's data
+    if (targetYear === null) return;
+    if (state.wrappedShownYear === targetYear) return;
+    if (!state.playLog.some(e => new Date(e.ts).getFullYear() === targetYear)) return;
+    window.WrappedManager?.show(targetYear);
+  }
+
+  // ─── Plugin metadata helpers ───
+
+  // If the currently playing track has a richer album art from a plugin, update the now-playing UI.
+  function _maybeUpdateNowPlayingArt(track) {
+    const current = state.queue[state.queueIndex];
+    if (current?.id !== track.id) return;
+    const cached = state.trackGenreCache[track.id];
+    if (!cached?.albumArt) return;
+    const thumb = $('#np-thumbnail');
+    if (thumb && thumb.src !== cached.albumArt) {
+      thumb.src = cached.albumArt;
+      extractDominantColor({ src: cached.albumArt }).then(color => {
+        const rgb = color ? `${color.r}, ${color.g}, ${color.b}` : '170, 85, 230';
+        document.documentElement.style.setProperty('--ambient-rgb', rgb);
+      }).catch(() => {});
+    }
+  }
+
+  // Call each enabled meta source's getArtistMeta handler in priority order; return first result.
+  async function resolvePluginArtistMeta(artistName) {
+    for (const sourceId of state.metadataSources) {
+      const handler = window.SnowifySources?._artistMetaHandlers?.[sourceId];
+      if (!handler) continue;
+      try {
+        const meta = await handler(artistName);
+        if (meta) return meta;
+      } catch (_) { /* best-effort */ }
+    }
+    return null;
+  }
+
+  // ─── Track metadata enrichment (background, fire-and-forget) ───
+  async function maybeEnrichTrackMeta(track) {
+    if (!track?.id || !track.title) return;
+    if (state.trackGenreCache[track.id]) {
+      _maybeUpdateNowPlayingArt(track); // still apply cached art on repeat plays
+      return;
+    }
+    for (const sourceId of state.metadataSources) {
+      const handler = window.SnowifySources?._metaHandlers?.[sourceId];
+      if (!handler) continue;
+      try {
+        const meta = await handler(track.title, track.artist || '');
+        if (meta) {
+          state.trackGenreCache[track.id] = meta;
+          try { localStorage.setItem('snowify_genre_cache', JSON.stringify(state.trackGenreCache)); } catch (_) {}
+          _maybeUpdateNowPlayingArt(track);
+          break; // first successful source wins
         }
-      };
-      // Listen for auth state in case auto-sign-in fires
-      window.snowify.onAuthStateChanged((user) => { if (user) tryResolve(user); });
-      // Also check after a short delay in case there's no saved session
-      setTimeout(async () => {
-        const user = await window.snowify.getUser();
-        tryResolve(user);
-      }, 800);
-    } else {
-      finishInit();
+      } catch (_) { /* enrichment is best-effort */ }
     }
   }
 
   function finishInit() {
+    // Expose state reference and save function for wrapped.js + plugins
+    window.__snowifyState = state;
+    window.__snowifySaveState = _flushSaveState;
     updateGreeting();
     setVolume(state.volume);
     if (state.discordRpc) window.snowify.connectDiscord();
+    if (state.minimizeToTray) window.snowify.setMinimizeToTray(true);
+    if (state.launchOnStartup) window.snowify.setOpenAtLogin(true);
     btnShuffle.classList.toggle('active', state.shuffle);
     btnRepeat.classList.toggle('active', state.repeat !== 'off');
     updateRepeatButton();
     renderPlaylists();
     renderHome();
-    initSettings();
+    initSettings().catch(err => {
+      console.error('[initSettings crashed]', err);
+      showToast('Settings error: ' + err.message);
+    });
+
+    // ─── Export / Import local data (wired here, outside the async initSettings) ───
+    $('#btn-export-data').addEventListener('click', async () => {
+      try {
+        const data = localStorage.getItem('snowify_state');
+        if (!data) { showToast(I18n.t('toast.nothingToExport')); return; }
+        showToast(I18n.t('toast.exportingSave'));
+        const ok = await window.snowify.exportLibrary(data);
+        if (ok) showToast(I18n.t('toast.libraryExported'));
+      } catch (err) {
+        console.error('[Export]', err);
+        showToast('Export failed: ' + err.message);
+      }
+    });
+
+    $('#btn-import-data').addEventListener('click', async () => {
+      try {
+        const text = await window.snowify.importLibrary();
+        if (!text) return;
+        try { JSON.parse(text); } catch { showToast(I18n.t('toast.importInvalidFile')); return; }
+        if (!confirm(I18n.t('settings.confirmImportLibrary'))) return;
+        localStorage.setItem('snowify_state', text);
+        location.reload();
+      } catch (err) {
+        console.error('[Import]', err);
+        showToast('Import failed: ' + err.message);
+      }
+    });
+
+    // ─── Source registration API (available to plugins via window.SnowifySources) ───
+    window.SnowifySources = {
+      _song: [
+        { id: 'youtube', label: I18n.t('settings.sourceYouTube'), desc: I18n.t('settings.sourceYouTubeDesc') },
+      ],
+      _meta: [
+        { id: 'youtube', label: I18n.t('settings.sourceYTMeta'), desc: I18n.t('settings.sourceYTMetaDesc') },
+      ],
+      _metaHandlers: {},
+      _artistMetaHandlers: {},
+      registerSongSource(def) {
+        if (!this._song.find(s => s.id === def.id)) {
+          this._song.push(def);
+          this._refreshSources?.();
+        }
+      },
+      registerMetaSource(def) {
+        if (!this._meta.find(s => s.id === def.id)) {
+          this._meta.push(def);
+          if (typeof def.enrich === 'function') this._metaHandlers[def.id] = def.enrich;
+          if (typeof def.getArtistMeta === 'function') this._artistMetaHandlers[def.id] = def.getArtistMeta;
+          this._refreshSources?.();
+        }
+      },
+      _refreshSources: null,
+    };
+
     loadEnabledPlugins();
     // Restore queue display (but don't auto-play)
     const restoredTrack = state.queue[state.queueIndex];
     if (restoredTrack) {
       showNowPlaying(restoredTrack);
-      document.querySelector('#app').classList.remove('no-player');
+      appEl.classList.remove('no-player');
     } else {
-      document.querySelector('#app').classList.add('no-player');
+      appEl.classList.add('no-player');
     }
-    // Show donation modal once per version
-    showDonationModalIfNeeded();
-  }
 
-  function showWelcomeScreen() {
-    const overlay = $('#welcome-overlay');
-    overlay.classList.remove('hidden');
-
-    const emailInput = $('#welcome-email');
-    const passInput = $('#welcome-password');
-    const errorEl = $('#welcome-auth-error');
-
-    const clearError = () => errorEl.classList.add('hidden');
-    const showError = (msg) => { errorEl.textContent = msg; errorEl.classList.remove('hidden'); };
-
-    $('#btn-welcome-sign-in').addEventListener('click', async () => {
-      clearError();
-      const email = emailInput.value.trim();
-      const password = passInput.value;
-      if (!email || !password) { showError(I18n.t('welcome.enterEmailPassword')); return; }
-      const result = await window.snowify.signInWithEmail(email, password);
-      if (result?.error) { showError(result.error); return; }
-      localStorage.setItem('snowify_welcome_skipped', '1');
-      dismissWelcome();
-      showToast(I18n.t('toast.signedIn'));
-    });
-
-    $('#btn-welcome-sign-up').addEventListener('click', async () => {
-      clearError();
-      const email = emailInput.value.trim();
-      const password = passInput.value;
-      if (!email || !password) { showError(I18n.t('welcome.enterEmailPassword')); return; }
-      if (password.length < 6) { showError(I18n.t('welcome.passwordMinLength')); return; }
-      const result = await window.snowify.signUpWithEmail(email, password);
-      if (result?.error) { showError(result.error); return; }
-      localStorage.setItem('snowify_welcome_skipped', '1');
-      dismissWelcome();
-      showToast(I18n.t('toast.accountCreated'));
-    });
-
-    $('#btn-welcome-skip').addEventListener('click', () => {
-      localStorage.setItem('snowify_welcome_skipped', '1');
-      dismissWelcome();
-    });
-
-    $('#btn-welcome-forgot').addEventListener('click', async () => {
-      clearError();
-      const email = emailInput.value.trim();
-      if (!email) { showError(I18n.t('welcome.enterEmailForReset')); return; }
-      const now = Date.now();
-      const remaining = Math.ceil((RESET_COOLDOWN_MS - (now - _resetEmailLastSent)) / 1000);
-      if (remaining > 0) { showError(`Please wait ${remaining}s before sending another reset email.`); return; }
-      const btn = $('#btn-welcome-forgot');
-      btn.disabled = true;
-      const result = await window.snowify.sendPasswordReset(email);
-      if (result?.error) { btn.disabled = false; showError(result.error); return; }
-      _resetEmailLastSent = Date.now();
-      errorEl.classList.remove('hidden');
-      errorEl.style.color = 'var(--accent)';
-      errorEl.textContent = I18n.t('welcome.resetEmailSent');
-      // Cooldown countdown on button
-      let secs = 60;
-      const iv = setInterval(() => {
-        secs--;
-        if (secs <= 0) { clearInterval(iv); btn.disabled = false; btn.textContent = I18n.t('welcome.forgotPassword'); }
-        else { btn.textContent = `Resend in ${secs}s`; }
-      }, 1000);
-    });
-  }
-
-  function dismissWelcome() {
-    const overlay = $('#welcome-overlay');
-    overlay.classList.add('fade-out');
-    overlay.addEventListener('animationend', () => {
-      overlay.classList.add('hidden');
-      overlay.classList.remove('fade-out');
-    }, { once: true });
-    finishInit();
-  }
-
-  // ─── Donation Modal ───
-
-  function showDonationModalIfNeeded() {
-    const versionKey = 'snowify_donation_shown_v2';
-    if (localStorage.getItem(versionKey)) return;
-    localStorage.setItem(versionKey, '1');
-    // Small delay so the app finishes loading first
-    setTimeout(showDonationModal, 2000);
-  }
-
-  const BMC_URL = 'https://buymeacoffee.com/nyaku';
-
-  function openBMC() {
-    window.snowify?.openExternal(BMC_URL);
-  }
-
-  function showDonationModal() {
-    const modal = $('#donation-modal');
-    modal.classList.remove('hidden');
-
-    $('#btn-donation-close').onclick = () => closeDonationModal();
-    $('#btn-donate-once').onclick = () => {
-      closeDonationModal();
-      openBMC();
-    };
-
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeDonationModal();
-    }, { once: true });
-  }
-
-  function closeDonationModal() {
-    $('#donation-modal').classList.add('hidden');
-  }
-
-  // Support floating button → open donation modal
-  if ($('#btn-support-floating')) {
-    $('#btn-support-floating').onclick = showDonationModal;
-  }
-
-  // ─── Cloud Sync ───
-
-  let _cloudSaveTimeout = null;
-  let _resetEmailLastSent = 0;
-  const RESET_COOLDOWN_MS = 60000;
-  let _cloudUser = null;
-  let _cloudSyncPaused = false;
-
-  function cloudSaveDebounced() {
-    if (!_cloudUser || _cloudSyncPaused) return;
-    clearTimeout(_cloudSaveTimeout);
-    _cloudSaveTimeout = setTimeout(async () => {
-      // Strip local-only tracks from playlists/liked before cloud sync
-      const stripLocal = (tracks) => tracks.filter(t => !t.isLocal);
-      const data = {
-        playlists: state.playlists.map(p => ({ ...p, tracks: stripLocal(p.tracks) })),
-        likedSongs: stripLocal(state.likedSongs),
-        recentTracks: stripLocal(state.recentTracks),
-        followedArtists: state.followedArtists,
-        volume: state.volume,
-        shuffle: state.shuffle,
-        repeat: state.repeat,
-        musicOnly: state.musicOnly,
-        autoplay: state.autoplay,
-        audioQuality: state.audioQuality,
-        videoQuality: state.videoQuality,
-        videoPremuxed: state.videoPremuxed,
-        animations: state.animations,
-        effects: state.effects,
-        theme: isCustomTheme(state.theme) ? 'dark' : state.theme,
-        discordRpc: state.discordRpc,
-        country: state.country,
-        crossfade: state.crossfade,
-        normalization: state.normalization,
-        normalizationTarget: state.normalizationTarget,
-        prefetchCount: state.prefetchCount,
-        showPlugins: state.showPlugins
-      };
-      const result = await window.snowify.cloudSave(data);
-      if (result?.error) console.error('Cloud save failed:', result.error);
-      else updateSyncStatus(I18n.t('sync.syncedJustNow'));
-    }, 3000);
-  }
-
-  async function cloudLoadAndMerge({ forceCloud = false } = {}) {
-    const cloud = await window.snowify.cloudLoad();
-    if (!cloud) return false;
-    // forceCloud: always use cloud data (e.g. on sign-in / fresh device)
-    // otherwise: last-write-wins by timestamp
-    const localTime = parseInt(localStorage.getItem('snowify_lastSave') || '0');
-    const shouldApply = forceCloud || (cloud.updatedAt && cloud.updatedAt > localTime);
-    if (shouldApply) {
-      // Preserve local-only tracks before cloud overwrites playlists/liked
-      const localTracksByPlaylist = new Map();
-      for (const p of state.playlists) {
-        const locals = p.tracks.filter(t => t.isLocal);
-        if (locals.length) localTracksByPlaylist.set(p.id, locals);
-      }
-      const localLiked = state.likedSongs.filter(t => t.isLocal);
-
-      state.playlists = cloud.playlists || state.playlists;
-      state.likedSongs = cloud.likedSongs || state.likedSongs;
-
-      // Re-inject local tracks into their playlists
-      for (const p of state.playlists) {
-        const locals = localTracksByPlaylist.get(p.id);
-        if (locals) {
-          const ids = new Set(p.tracks.map(t => t.id));
-          for (const lt of locals) {
-            if (!ids.has(lt.id)) p.tracks.push(lt);
-          }
-        }
-      }
-      if (localLiked.length) {
-        const likedIds = new Set(state.likedSongs.map(t => t.id));
-        for (const lt of localLiked) {
-          if (!likedIds.has(lt.id)) state.likedSongs.push(lt);
-        }
-      }
-
-      state.recentTracks = cloud.recentTracks || state.recentTracks;
-      state.followedArtists = cloud.followedArtists || state.followedArtists;
-      state.volume = cloud.volume ?? state.volume;
-      state.shuffle = cloud.shuffle ?? state.shuffle;
-      state.repeat = cloud.repeat || state.repeat;
-      state.musicOnly = cloud.musicOnly ?? state.musicOnly;
-      state.autoplay = cloud.autoplay ?? state.autoplay;
-      state.audioQuality = cloud.audioQuality || state.audioQuality;
-      state.videoQuality = cloud.videoQuality || state.videoQuality;
-      state.videoPremuxed = cloud.videoPremuxed ?? state.videoPremuxed;
-      state.animations = cloud.animations ?? state.animations;
-      state.effects = cloud.effects ?? state.effects;
-      if (cloud.theme && !isCustomTheme(cloud.theme) && !isCustomTheme(state.theme)) {
-        state.theme = cloud.theme;
-      }
-      state.discordRpc = cloud.discordRpc ?? state.discordRpc;
-      state.country = cloud.country || state.country;
-      state.crossfade = cloud.crossfade ?? state.crossfade;
-      state.normalization = cloud.normalization ?? state.normalization;
-      state.normalizationTarget = cloud.normalizationTarget ?? state.normalizationTarget;
-      state.prefetchCount = cloud.prefetchCount ?? state.prefetchCount;
-      state.showPlugins = cloud.showPlugins ?? state.showPlugins;
-      const spt = $('#setting-show-plugins');
-      if (spt) spt.checked = state.showPlugins;
-      const pluginsNavBtnCloud = document.querySelector('.nav-btn[data-view="plugins"]');
-      if (pluginsNavBtnCloud) pluginsNavBtnCloud.style.display = state.showPlugins ? '' : 'none';
-      // Pause cloud save so saveState() doesn't push old data back up
-      _cloudSyncPaused = true;
-      saveState();
-      _cloudSyncPaused = false;
-      renderPlaylists();
-      renderHome();
-      // Apply synced theme
-      if (state.theme === 'dark' || isCustomTheme(state.theme)) {
-        document.documentElement.removeAttribute('data-theme');
-      } else {
-        document.documentElement.setAttribute('data-theme', state.theme);
-      }
-      loadAndApplyThemeFile(state.theme);
-      // Re-apply synced settings to UI controls
-      const aq = $('#setting-quality'); if (aq) aq.value = state.audioQuality;
-      const vq = $('#setting-video-quality'); if (vq) vq.value = state.videoQuality;
-      const at = $('#setting-autoplay'); if (at) at.checked = state.autoplay;
-      const vp = $('#setting-video-premuxed'); if (vp) vp.checked = state.videoPremuxed;
-      const an = $('#setting-animations'); if (an) an.checked = state.animations;
-      const ef = $('#setting-effects'); if (ef) ef.checked = state.effects;
-      const dr = $('#setting-discord-rpc'); if (dr) dr.checked = state.discordRpc;
-      const co = $('#setting-country'); if (co) co.value = state.country || '';
-      const ts = $('#theme-select'); if (ts) { await populateCustomThemes(ts, state.theme); }
-      if (state.country) window.snowify.setCountry(state.country);
-      const cft = $('#setting-crossfade-toggle'); if (cft) cft.checked = state.crossfade > 0;
-      const cfsl = $('#crossfade-slider-row'); if (cfsl) cfsl.classList.toggle('hidden', state.crossfade <= 0);
-      const cff = $('#crossfade-fill');
-      const cfvl = $('#crossfade-value');
-      if (cff && cfvl) {
-        const v = state.crossfade > 0 ? state.crossfade : 5;
-        cff.style.width = ((v - 1) / (engine.CROSSFADE_MAX - 1) * 100) + '%';
-        cfvl.textContent = I18n.t('settings.seconds', { value: v });
-      }
-      const nt = $('#setting-normalization'); if (nt) nt.checked = state.normalization;
-      const ntr = $('#normalization-target-row'); if (ntr) ntr.classList.toggle('hidden', !state.normalization);
-      const nts = $('#setting-normalization-target'); if (nts) nts.value = String(state.normalizationTarget);
-      if (typeof normalizer !== 'undefined') { normalizer.setEnabled(state.normalization); normalizer.setTarget(state.normalizationTarget); }
-      const pfc = $('#setting-prefetch-count'); if (pfc) pfc.value = String(state.prefetchCount);
-      if (typeof prefetchCache !== 'undefined') {
-        if (state.prefetchCount === 0) { prefetchCache.clear(); }
-        else {
-          prefetchCache.setCount(state.prefetchCount);
-          if (state.queue.length && state.queueIndex >= 0) prefetchCache.onTrackChanged(state.queueIndex, state.queue);
-        }
-      }
-      document.documentElement.classList.toggle('no-animations', !state.animations);
-      document.documentElement.classList.toggle('no-effects', !state.effects);
-      engine.applyVolume(state.volume);
-      audio.volume = state.volume * VOLUME_SCALE;
-      showToast(I18n.t('toast.syncedFromCloud'));
-      return true;
-    }
-    return false;
-  }
-
-  function updateSyncStatus(text) {
-    const el = $('#account-sync-status');
-    if (el) el.textContent = text;
-  }
-
-  async function loadProfileExtras() {
-    if (!_cloudUser) return;
-    const bannerPreview = $('#profile-banner-preview');
-    const btnRemoveBanner = $('#btn-remove-banner');
-    const bioInput = $('#profile-bio-input');
-    const bioCount = $('#profile-bio-count');
-    if (!bannerPreview || !bioInput) return;
-    try {
-      const profile = await window.snowify.getProfile(_cloudUser.uid);
-      if (profile) {
-        if (profile.banner) {
-          bannerPreview.innerHTML = `<img src="${escapeHtml(profile.banner)}" alt="" draggable="false" />`;
-          btnRemoveBanner.style.display = '';
-        }
-        if (profile.bio) {
-          bioInput.value = profile.bio;
-          bioCount.textContent = `${profile.bio.length}/200`;
-        }
-      }
-    } catch (_) { /* ignore */ }
-  }
-
-  function updateAccountUI(user) {
-    _cloudUser = user;
-    const signedOut = $('#account-signed-out');
-    const signedIn = $('#account-signed-in');
-    if (user) {
-      signedOut.classList.add('hidden');
-      signedIn.classList.remove('hidden');
-      const avatar = $('#profile-avatar');
-      const nameEl = $('#profile-display-name');
-      const emailEl = $('#profile-email');
-      nameEl.textContent = user.displayName || I18n.t('common.user');
-      emailEl.textContent = user.email || '';
-      // Default avatar: first letter of name on accent background
-      if (user.photoURL) {
-        avatar.src = user.photoURL;
-      } else {
-        avatar.src = generateDefaultAvatar(user.displayName || user.email || 'U');
-      }
-      updateSyncStatus(I18n.t('sync.connected'));
-      // Load profile extras (banner & bio) into settings
-      loadProfileExtras();
-      // Start social listeners immediately on sign-in so presence &
-      // listen-along notifications work without needing to visit the Friends tab
-      if (!_socialListening) {
-        _socialListening = true;
-        window.snowify.startSocialListening();
-        setOnlinePresence();
-      }
-    } else {
-      signedOut.classList.remove('hidden');
-      signedIn.classList.add('hidden');
-      // Tear down social listeners on sign-out
-      stopFriendsRefresh();
-    }
-    // Refresh friends view if it's active
-    if (state.currentView === 'friends') renderFriends();
+    // Wrapped trigger is now fired by loadPlayLogAsync() once data is ready
   }
 
   // ─── Image Crop Modal ───
@@ -6007,75 +5671,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     });
   }
 
-  function generateDefaultAvatar(name) {
-    const letter = name.charAt(0).toUpperCase();
-    const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    // Use accent color from CSS
-    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#aa55e6';
-    ctx.fillStyle = accent;
-    ctx.beginPath();
-    ctx.arc(64, 64, 64, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 56px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(letter, 64, 67);
-    return canvas.toDataURL();
-  }
-
-  // Listen for auth state changes from main process
-  window.snowify.onAuthStateChanged(async (user) => {
-    updateAccountUI(user);
-    if (user) {
-      // On sign-in, always pull cloud data first — cloud wins if it exists.
-      // This prevents empty local state from overwriting cloud data.
-      _cloudSyncPaused = true;
-      const loaded = await cloudLoadAndMerge({ forceCloud: true });
-      _cloudSyncPaused = false;
-      // If cloud had nothing, push local state up as the initial backup
-      if (!loaded) {
-        await forceCloudSave();
-      }
-    }
-  });
-
-  async function forceCloudSave() {
-    if (!_cloudUser) return;
-    const stripLocal = (tracks) => tracks.filter(t => !t.isLocal);
-    const data = {
-      playlists: state.playlists.map(p => ({ ...p, tracks: stripLocal(p.tracks) })),
-      likedSongs: stripLocal(state.likedSongs),
-      recentTracks: stripLocal(state.recentTracks),
-      followedArtists: state.followedArtists,
-      volume: state.volume,
-      shuffle: state.shuffle,
-      repeat: state.repeat,
-      musicOnly: state.musicOnly,
-      autoplay: state.autoplay,
-      audioQuality: state.audioQuality,
-      videoQuality: state.videoQuality,
-      videoPremuxed: state.videoPremuxed,
-      animations: state.animations,
-      effects: state.effects,
-        theme: isCustomTheme(state.theme) ? 'dark' : state.theme,
-      discordRpc: state.discordRpc,
-      country: state.country,
-      crossfade: state.crossfade,
-      normalization: state.normalization,
-      normalizationTarget: state.normalizationTarget,
-      prefetchCount: state.prefetchCount,
-      showListeningActivity: state.showListeningActivity,
-      showPlugins: state.showPlugins
-    };
-    const result = await window.snowify.cloudSave(data);
-    if (result?.error) console.error('Cloud save failed:', result.error);
-    else updateSyncStatus(I18n.t('sync.syncedJustNow'));
-  }
-
   // ─── Deep link handler ───
   async function handleAppDeepLink({ type, id }) {
     if (type === 'track') {
@@ -6106,19 +5701,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   }
 
   // Flush any pending saves before the window closes
-  window.snowify.onBeforeClose(async () => {
+  window.snowify.onBeforeClose(() => {
     prefetchCache.destroy();
-    _flushSaveState(); // flush debounced localStorage write
-    // Fully clear presence on close — go offline and wipe track info
-    if (_cloudUser) {
-      if (_listenAlong) window.snowify.endListenAlong();
-      window.snowify.clearSocialPresence();
-    }
-    if (_cloudSaveTimeout) {
-      clearTimeout(_cloudSaveTimeout);
-      _cloudSaveTimeout = null;
-      await forceCloudSave();
-    }
+    _flushSaveState();
     window.snowify.closeReady();
   });
 
@@ -6352,847 +5937,30 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     };
   }
 
-  // ─── Friends View ───
-
-  let _friendsList = [];
-  let _friendsPresenceMap = {};
-  let _socialListening = false;
-
-  // ─── Listen Along State ───
-  let _listenAlong = null; // { peerUid, role } or null
-  let _listenAlongPendingRequest = null; // { fromUid, fromName } or null
-  let _listenAlongSavedCrossfade = null; // saved crossfade value to restore after session
-  let _listenAlongSyncing = false; // true while guest sync is changing playback
-  let _listenAlongStartedAt = 0; // timestamp when session was established
-
-  function isListenAlongGuest() {
-    return _listenAlong && _listenAlong.role === 'guest' && !_listenAlongSyncing;
-  }
-
-  async function renderFriends() {
-    const noAccount = $('#friends-no-account');
-    const main = $('#friends-main');
-
-    if (!_cloudUser) {
-      noAccount.classList.remove('hidden');
-      main.classList.add('hidden');
-      stopFriendsRefresh();
-      return;
-    }
-    noAccount.classList.add('hidden');
-    main.classList.remove('hidden');
-
-    // Load friend code
-    const codeResult = await window.snowify.getFriendCode();
-    if (codeResult && codeResult.code) {
-      $('#friend-code-value').textContent = codeResult.code;
-    }
-
-    // Ensure social listeners are running (may already be started at sign-in)
-    if (!_socialListening) {
-      _socialListening = true;
-      window.snowify.startSocialListening();
-      setOnlinePresence();
-    }
-
-    // Always re-render the list from cached data on view entry
-    renderFriendsListUI();
-  }
-
-  // Real-time callbacks from main process
-  window.snowify.onFriendsUpdated((friends) => {
-    _friendsList = friends || [];
-    // Clean up presence entries for removed friends
-    const friendUids = new Set(_friendsList.map(f => f.uid));
-    for (const uid of Object.keys(_friendsPresenceMap)) {
-      if (!friendUids.has(uid)) delete _friendsPresenceMap[uid];
-    }
-    renderFriendsListUI();
-  });
-
-  window.snowify.onPresenceUpdated(({ uid, presence }) => {
-    if (presence) _friendsPresenceMap[uid] = presence;
-    else delete _friendsPresenceMap[uid];
-    renderFriendsListUI();
-    // Also update the friend profile view if we're viewing this friend
-    updateProfilePresence(uid);
-  });
-
-  function renderFriendsListUI() {
-    const container = $('#friends-list');
-    const emptyState = $('#friends-list-empty');
-    if (!container) return;
-
-    if (_friendsList.length === 0) {
-      if (emptyState) emptyState.classList.remove('hidden');
-      container.querySelectorAll('.friend-card, .friends-section-header').forEach(el => el.remove());
-      // Update online tab count
-      const onlineTab = $('[data-friends-tab="online"]');
-      if (onlineTab) onlineTab.textContent = I18n.t('friends.tabOnline');
-      return;
-    }
-
-    if (emptyState) emptyState.classList.add('hidden');
-
-    // Split into online / offline, sort alphabetically within each group
-    const online = [];
-    const offline = [];
-    _friendsList.forEach(friend => {
-      const presence = _friendsPresenceMap[friend.uid];
-      const isOnline = !!(presence && presence.isOnline);
-      if (isOnline) online.push({ friend, presence });
-      else offline.push({ friend, presence });
-    });
-    const sortByName = (a, b) => (a.friend.displayName || '').localeCompare(b.friend.displayName || '');
-    online.sort(sortByName);
-    offline.sort(sortByName);
-
-    // Update online tab count
-    const onlineTab = $('[data-friends-tab="online"]');
-    if (onlineTab) onlineTab.textContent = online.length > 0 ? I18n.t('friends.tabOnlineCount', { count: online.length }) : I18n.t('friends.tabOnline');
-
-    // Check active tab filter
-    const activeTab = $('.friends-tab.active')?.dataset.friendsTab || 'all';
-
-    // Build card HTML helper
-    const buildCard = ({ friend, presence }) => {
-      const isListening = presence && presence.isPlaying && presence.trackTitle;
-      const isOnline = !!(presence && presence.isOnline);
-      const avatarSrc = friend.photoURL || '';
-      const name = escapeHtml(friend.displayName || 'User');
-      const initial = (friend.displayName || 'U').charAt(0).toUpperCase();
-
-      let card = `<div class="friend-card" data-friend-uid="${escapeHtml(friend.uid)}">`;
-      card += `<div class="friend-avatar-wrap">`;
-      if (avatarSrc) {
-        card += `<img class="friend-avatar" src="${escapeHtml(avatarSrc)}" alt="" draggable="false" />`;
-      } else {
-        card += `<div class="friend-avatar friend-avatar-placeholder">${initial}</div>`;
-      }
-      card += `<span class="friend-status-dot ${isOnline ? 'online' : 'offline'}"></span>`;
-      card += `</div>`;
-      card += `<div class="friend-info">`;
-      card += `<span class="friend-name">${name}</span>`;
-      if (isListening) {
-        const trackTitle = escapeHtml(presence.trackTitle);
-        const trackArtist = escapeHtml(presence.trackArtist || '');
-        card += `<span class="friend-activity">`;
-        card += `<svg class="friend-activity-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>`;
-        card += `<span class="friend-activity-text">`;
-        card += `<span class="friend-activity-title">${trackTitle}</span>`;
-        if (trackArtist) card += `<span class="friend-activity-separator">${I18n.t('friends.activityBy')}</span> <span class="friend-activity-artist">${trackArtist}</span>`;
-        card += `</span>`;
-        card += `</span>`;
-      } else if (isOnline) {
-        card += `<span class="friend-activity-offline">${I18n.t('friends.statusOnline')}</span>`;
-      } else {
-        card += `<span class="friend-activity-offline">${I18n.t('friends.statusOffline')}</span>`;
-      }
-      card += `</div>`;
-      card += `<div class="friend-actions">`;
-      if (isOnline && !_listenAlong) {
-        card += `<button class="friend-action-btn friend-listen-along-btn" title="${I18n.t('friends.requestListenAlong')}" data-uid="${escapeHtml(friend.uid)}" data-name="${name}">`;
-        card += `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0118 0v6"/><path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/></svg>`;
-        card += `</button>`;
-      }
-      card += `<button class="friend-action-btn friend-remove-btn" title="${I18n.t('friends.removeFriend')}" data-uid="${escapeHtml(friend.uid)}">`;
-      card += `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>`;
-      card += `</button>`;
-      card += `</div>`;
-      card += `</div>`;
-      return card;
-    };
-
-    let html = '';
-    if (activeTab === 'online') {
-      html += `<div class="friends-section-header">${I18n.t('friends.sectionOnline', { count: online.length })}</div>`;
-      online.forEach(item => { html += buildCard(item); });
-      if (online.length === 0) {
-        html += `<div class="friends-list-empty"><p>${I18n.t('friends.noOnline')}</p></div>`;
-      }
-    } else {
-      if (online.length > 0) {
-        html += `<div class="friends-section-header">${I18n.t('friends.sectionOnline', { count: online.length })}</div>`;
-        online.forEach(item => { html += buildCard(item); });
-      }
-      if (offline.length > 0) {
-        html += `<div class="friends-section-header">${I18n.t('friends.sectionOffline', { count: offline.length })}</div>`;
-        offline.forEach(item => { html += buildCard(item); });
-      }
-    }
-
-    container.querySelectorAll('.friend-card, .friends-section-header, .friends-list-empty:not(#friends-list-empty)').forEach(el => el.remove());
-    container.insertAdjacentHTML('beforeend', html);
-
-    // Attach remove handlers
-    container.querySelectorAll('.friend-remove-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const uid = btn.dataset.uid;
-        const friendName = _friendsList.find(f => f.uid === uid)?.displayName || 'this friend';
-        if (!confirm(I18n.t('friends.confirmRemove', { name: friendName }))) return;
-        const result = await window.snowify.removeFriend(uid);
-        if (result?.success) {
-          showToast(I18n.t('toast.friendRemoved'));
-          // Real-time listener will auto-update the list
-        } else {
-          showToast(result?.error || I18n.t('toast.failedRemoveFriend'));
-        }
-      });
-    });
-
-    // Attach listen-along invite handlers on friend cards
-    container.querySelectorAll('.friend-listen-along-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const uid = btn.dataset.uid;
-        const name = btn.dataset.name;
-        btn.disabled = true;
-        const result = await window.snowify.requestListenAlong(uid);
-        if (result?.success) {
-          showToast(I18n.t('toast.listenAlongRequestSent', { name }));
-        } else {
-          showToast(result?.error || I18n.t('toast.failedSendRequest'));
-        }
-        btn.disabled = false;
-      });
-    });
-
-    // Attach card click → open profile
-    container.querySelectorAll('.friend-card').forEach(card => {
-      card.style.cursor = 'pointer';
-      card.addEventListener('click', (e) => {
-        if (e.target.closest('.friend-remove-btn') || e.target.closest('.friend-listen-along-btn')) return;
-        const uid = card.dataset.friendUid;
-        if (uid) showFriendProfile(uid);
-      });
-    });
-  }
-
-  // Live-update the friend profile view when presence changes
-  function updateProfilePresence(uid) {
-    const profileView = $('#view-profile');
-    if (!profileView || !profileView.classList.contains('active')) return;
-    const btn = $('#profile-listen-along');
-    if (!btn || btn.dataset.friendUid !== uid) return;
-
-    const presence = _friendsPresenceMap[uid];
-    const isListening = presence && presence.isPlaying && presence.trackTitle;
-    const isOnline = !!(presence && presence.isOnline);
-
-    // Update status text
-    const statusEl = $('#profile-status');
-    statusEl.textContent = '';
-    statusEl.className = 'artist-followers';
-    statusEl.style.display = 'none';
-
-    // Update listen along button visibility
-    updateProfileListenAlongButton();
-
-    // Update "Currently Listening" section
-    const listeningSection = $('#profile-listening-section');
-    const listeningContainer = $('#profile-listening');
-    if (isListening) {
-      listeningSection.style.display = '';
-      const thumb = presence.trackThumbnail ? escapeHtml(presence.trackThumbnail) : '';
-      const title = escapeHtml(presence.trackTitle || '');
-      const artist = escapeHtml(presence.trackArtist || '');
-      listeningContainer.innerHTML = `
-        <div class="profile-listening-card" data-track-id="${escapeHtml(presence.trackId || '')}">
-          ${thumb ? `<img class="profile-listening-thumb" src="${thumb}" alt="" />` : ''}
-          <div class="profile-listening-info">
-            <div class="profile-listening-title">${title}</div>
-            ${artist ? `<div class="profile-listening-artist">${artist}</div>` : ''}
-          </div>
-          <div class="profile-listening-eq"><span></span><span></span><span></span><span></span></div>
-        </div>`;
-      const card = listeningContainer.querySelector('.profile-listening-card');
-      if (card && presence.trackId) {
-        card.style.cursor = 'pointer';
-        card.addEventListener('click', () => {
-          playFromList([{ id: presence.trackId, title: presence.trackTitle, artist: presence.trackArtist, thumbnail: presence.trackThumbnail || '' }], 0);
-        });
-      }
-    } else {
-      listeningSection.style.display = 'none';
-      listeningContainer.innerHTML = '';
-    }
-  }
-
-  // ── Friend Profile View ──
-  async function showFriendProfile(uid) {
-    switchView('profile');
-
-    const bannerEl = $('#profile-banner');
-    const bannerImg = $('#profile-banner-img');
-    const avatarEl = $('#profile-avatar-img');
-    const labelEl = $('#profile-label');
-    const nameEl = $('#profile-name');
-    const statusEl = $('#profile-status');
-    const bioSection = $('#profile-bio-section');
-    const bioText = $('#profile-bio-text');
-    const listeningSection = $('#profile-listening-section');
-    const listeningContainer = $('#profile-listening');
-    const playlistsSection = $('#profile-playlists-section');
-    const playlistsContainer = $('#profile-playlists');
-
-    // Find friend info from cached list
-    const friend = _friendsList.find(f => f.uid === uid);
-    const presence = _friendsPresenceMap[uid];
-    const isListening = presence && presence.isPlaying && presence.trackTitle;
-    const isOnline = !!(presence && presence.isOnline);
-
-    // Reset everything
-    bannerEl.style.display = 'none';
-    bannerImg.src = '';
-    avatarEl.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-    avatarEl.classList.remove('loaded');
-    avatarEl.classList.add('shimmer');
-    labelEl.textContent = I18n.t('friends.profileLabel');
-    nameEl.textContent = friend?.displayName || I18n.t('common.user');
-    statusEl.textContent = '';
-    statusEl.className = 'artist-followers';
-    statusEl.style.display = 'none';
-    bioSection.style.display = 'none';
-
-    // Listen Along button (show if friend is online and we're not in a session)
-    const listenAlongBtn = $('#profile-listen-along');
-    listenAlongBtn.dataset.friendUid = uid;
-    listenAlongBtn.disabled = false;
-    listenAlongBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg> ${I18n.t('friends.requestToListen')}`;
-    if (isOnline && !_listenAlong) {
-      listenAlongBtn.classList.remove('hidden');
-    } else {
-      listenAlongBtn.classList.add('hidden');
-    }
-    bioText.textContent = '';
-    listeningSection.style.display = 'none';
-    listeningContainer.innerHTML = '';
-    playlistsSection.style.display = 'none';
-    playlistsContainer.innerHTML = '';
-
-    // Set avatar from cache immediately
-    if (friend?.photoURL) {
-      avatarEl.addEventListener('load', () => {
-        avatarEl.classList.remove('shimmer');
-        avatarEl.classList.add('loaded');
-      }, { once: true });
-      avatarEl.src = friend.photoURL;
-    } else {
-      avatarEl.classList.remove('shimmer');
-      avatarEl.classList.add('loaded');
-    }
-
-    // Show "Currently Listening" section
-    if (isListening) {
-      listeningSection.style.display = '';
-      const thumb = presence.trackThumbnail ? escapeHtml(presence.trackThumbnail) : '';
-      const title = escapeHtml(presence.trackTitle || '');
-      const artist = escapeHtml(presence.trackArtist || '');
-      listeningContainer.innerHTML = `
-        <div class="profile-listening-card" data-track-id="${escapeHtml(presence.trackId || '')}">
-          ${thumb ? `<img class="profile-listening-thumb" src="${thumb}" alt="" />` : ''}
-          <div class="profile-listening-info">
-            <div class="profile-listening-title">${title}</div>
-            ${artist ? `<div class="profile-listening-artist">${artist}</div>` : ''}
-          </div>
-          <div class="profile-listening-eq"><span></span><span></span><span></span><span></span></div>
-        </div>`;
-      const card = listeningContainer.querySelector('.profile-listening-card');
-      if (card && presence.trackId) {
-        card.style.cursor = 'pointer';
-        card.addEventListener('click', () => {
-          const track = {
-            id: presence.trackId,
-            title: presence.trackTitle,
-            artist: presence.trackArtist,
-            thumbnail: presence.trackThumbnail || '',
-          };
-          playFromList([track], 0);
-        });
-      }
-    }
-
-    // Fetch profile extras + public playlists in parallel
-    const [profile, publicPlaylists] = await Promise.all([
-      window.snowify.getProfile(uid).catch(() => null),
-      window.snowify.getPublicPlaylists(uid).catch(() => []),
-    ]);
-
-    // Update avatar from fetched profile (more up-to-date)
-    if (profile?.photoURL) {
-      avatarEl.addEventListener('load', () => {
-        avatarEl.classList.remove('shimmer');
-        avatarEl.classList.add('loaded');
-      }, { once: true });
-      avatarEl.src = profile.photoURL;
-    }
-    if (profile?.displayName) {
-      nameEl.textContent = profile.displayName;
-    }
-
-    // Banner
-    if (profile?.banner && profile.banner.startsWith('data:image/')) {
-      bannerImg.src = profile.banner;
-      bannerEl.style.display = '';
-    }
-
-    // Bio
-    if (profile?.bio) {
-      bioText.textContent = profile.bio;
-      bioSection.style.display = '';
-    }
-
-    // Public playlists as album-card scrollable row (like discography)
-    if (publicPlaylists && publicPlaylists.length > 0) {
-      playlistsSection.style.display = '';
-      playlistsContainer.innerHTML = publicPlaylists.map((pl, idx) => {
-        const name = escapeHtml(pl.name || I18n.t('friends.untitledPlaylist'));
-        const count = pl.trackCount || 0;
-        let coverHtml;
-        if (pl.coverImage) {
-          // Custom cover stored as data URI
-          coverHtml = `<img class="album-card-cover" src="${escapeHtml(pl.coverImage)}" alt="" loading="lazy" />`;
-        } else if (pl.thumbnails && pl.thumbnails.length >= 4) {
-          // Auto-generated 2×2 grid from track thumbnails
-          coverHtml = `<div class="album-card-cover playlist-cover-grid">${pl.thumbnails.slice(0, 4).map(t => `<img src="${escapeHtml(t)}" alt="" />`).join('')}</div>`;
-        } else if (pl.thumbnails && pl.thumbnails.length > 0) {
-          // Single track thumbnail
-          coverHtml = `<img class="album-card-cover" src="${escapeHtml(pl.thumbnails[0])}" alt="" loading="lazy" />`;
-        } else {
-          coverHtml = `<div class="album-card-cover" style="display:flex;align-items:center;justify-content:center;background:var(--bg-highlight);aspect-ratio:1;border-radius:var(--radius);"><svg width="32" height="32" viewBox="0 0 24 24" fill="var(--text-subdued)" opacity="0.4"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg></div>`;
-        }
-        return `
-          <div class="album-card" data-playlist-idx="${escapeHtml(String(idx))}">
-            ${coverHtml}
-            <div class="album-card-name" title="${name}">${name}</div>
-            <div class="album-card-meta">${I18n.tp('sidebar.songCount', count)}</div>
-          </div>`;
-      }).join('');
-
-      // Click handler to view friend's playlist tracks
-      playlistsContainer.querySelectorAll('.album-card').forEach(card => {
-        card.addEventListener('click', () => {
-          const idx = parseInt(card.dataset.playlistIdx, 10);
-          const pl = publicPlaylists[idx];
-          if (!pl || !pl.tracks || !pl.tracks.length) return;
-          showFriendPlaylistDetail(pl, friend || { displayName: nameEl.textContent });
-        });
-      });
-    }
-  }
-
-  function showFriendPlaylistDetail(pl, friend) {
-    // Reuse the playlist detail view to show a friend's public playlist read-only
-    switchView('playlist');
-    const heroName = $('#playlist-hero-name');
-    const heroCount = $('#playlist-hero-count');
-    const heroCover = $('#playlist-hero-cover');
-    const tracksContainer = $('#playlist-tracks');
-
-    heroName.textContent = pl.name || I18n.t('friends.untitledPlaylist');
-    const count = pl.trackCount || pl.tracks.length;
-    heroCount.innerHTML = `${I18n.tp('sidebar.songCount', count)} · <span class="friend-playlist-owner" style="cursor:pointer;color:var(--accent);">${escapeHtml(friend.displayName || I18n.t('friends.friendFallback'))}</span>`;
-    const ownerLink = heroCount.querySelector('.friend-playlist-owner');
-    if (ownerLink && friend.uid) {
-      ownerLink.addEventListener('click', () => showFriendProfile(friend.uid));
-    }
-
-    // Cover
-    if (pl.coverImage) {
-      heroCover.innerHTML = `<img src="${escapeHtml(pl.coverImage)}" alt="" />`;
-      heroCover.style.background = '';
-    } else if (pl.thumbnails && pl.thumbnails.length >= 4) {
-      heroCover.innerHTML = `<div class="playlist-cover-grid playlist-cover-lg">${pl.thumbnails.slice(0, 4).map(t => `<img src="${escapeHtml(t)}" alt="" />`).join('')}</div>`;
-      heroCover.style.background = '';
-    } else if (pl.thumbnails && pl.thumbnails.length > 0) {
-      heroCover.innerHTML = `<img src="${escapeHtml(pl.thumbnails[0])}" alt="" />`;
-      heroCover.style.background = '';
-    } else {
-      heroCover.innerHTML = `<svg width="64" height="64" viewBox="0 0 24 24" fill="#535353"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>`;
-      heroCover.style.background = 'linear-gradient(135deg, #450af5, #8e2de2)';
-    }
-
-    // Hide edit buttons (this is a read-only friend playlist)
-    const renameBtn = $('#btn-rename-playlist');
-    const deleteBtn = $('#btn-delete-playlist');
-    const coverBtn = $('#btn-cover-playlist');
-    const exportBtn = $('#btn-export-playlist');
-    const publicBtn = $('#btn-toggle-public');
-    if (renameBtn) renameBtn.style.display = 'none';
-    if (deleteBtn) deleteBtn.style.display = 'none';
-    if (coverBtn) coverBtn.style.display = 'none';
-    if (exportBtn) exportBtn.style.display = 'none';
-    if (publicBtn) publicBtn.style.display = 'none';
-    const importBtn = $('#btn-import-local');
-    if (importBtn) importBtn.style.display = 'none';
-
-    // Render tracks
-    state.currentPlaylistId = null; // Not a local playlist
-    renderTrackList(tracksContainer, pl.tracks, 'friend-playlist');
-  }
-
-  // Copy friend code button
-  $('#btn-copy-friend-code').addEventListener('click', () => {
-    const code = $('#friend-code-value').textContent;
-    if (code && code !== '------') {
-      navigator.clipboard.writeText(code);
-      showToast(I18n.t('toast.friendCodeCopied'));
-    }
-  });
-
-  // Add friend button
-  $('#btn-add-friend').addEventListener('click', async () => {
-    const input = $('#friend-code-input');
-    const status = $('#friend-add-status');
-    const code = input.value.trim().toUpperCase();
-
-    if (!code || code.length !== 6) {
-      status.textContent = I18n.t('friends.codeValidation');
-      status.className = 'friend-add-status friend-add-error';
-      status.classList.remove('hidden');
-      return;
-    }
-
-    // Check if user is trying to add their own code
-    const ownCode = $('#friend-code-value').textContent;
-    if (code === ownCode) {
-      status.textContent = I18n.t('friends.codeOwnError');
-      status.className = 'friend-add-status friend-add-error';
-      status.classList.remove('hidden');
-      return;
-    }
-
-    status.textContent = I18n.t('friends.adding');
-    status.className = 'friend-add-status';
-    status.classList.remove('hidden');
-
-    const result = await window.snowify.addFriend(code);
-    if (result?.success) {
-      status.textContent = I18n.t('friends.added', { name: result.friend?.displayName || I18n.t('friends.friendFallback') });
-      status.className = 'friend-add-status friend-add-success';
-      input.value = '';
-      setTimeout(() => status.classList.add('hidden'), 4000);
-    } else {
-      status.textContent = result?.error || I18n.t('friends.failedAdd');
-      status.className = 'friend-add-status friend-add-error';
-    }
-  });
-
-  // Allow Enter key in friend code input
-  $('#friend-code-input').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') $('#btn-add-friend').click();
-  });
-
-  // Auto-uppercase friend code input
-  $('#friend-code-input').addEventListener('input', (e) => {
-    e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  });
-
-  // Friends tab switching
-  $$('.friends-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      $$('.friends-tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      renderFriendsListUI();
-    });
-  });
-
-  // ─── Listen Along ───
-
-  // Handle incoming listen-along requests
-  window.snowify.onListenAlongRequest((data) => {
-    if (!data || !data.fromUid || !data.fromName) return;
-    // Don't show if already in a listen-along session
-    if (_listenAlong) return;
-    // Don't show if there's already a pending request
-    if (_listenAlongPendingRequest) return;
-
-    _listenAlongPendingRequest = { fromUid: data.fromUid, fromName: data.fromName };
-    const notification = $('#listen-along-notification');
-    const nameEl = $('#listen-along-req-name');
-    nameEl.textContent = data.fromName;
-    notification.classList.remove('hidden');
-
-    // Auto-dismiss after 30 seconds
-    clearTimeout(_listenAlongRequestTimeout);
-    _listenAlongRequestTimeout = setTimeout(() => {
-      dismissListenAlongRequest(false);
-    }, 30000);
-  });
-
-  let _listenAlongRequestTimeout = null;
-
-  $('#listen-along-accept').addEventListener('click', () => {
-    dismissListenAlongRequest(true);
-  });
-
-  $('#listen-along-deny').addEventListener('click', () => {
-    dismissListenAlongRequest(false);
-  });
-
-  async function dismissListenAlongRequest(accepted) {
-    clearTimeout(_listenAlongRequestTimeout);
-    const notification = $('#listen-along-notification');
-    notification.classList.add('hidden');
-
-    if (!_listenAlongPendingRequest) return;
-    // Block accepting if we entered a session while the notification was up
-    if (accepted && _listenAlong) {
-      _listenAlongPendingRequest = null;
-      showToast('Already in a listen along session');
-      return;
-    }
-    const { fromUid, fromName } = _listenAlongPendingRequest;
-    _listenAlongPendingRequest = null;
-
-    const result = await window.snowify.respondListenAlong(fromUid, accepted);
-    if (accepted && result?.success) {
-      showToast(I18n.t('toast.listeningAlongWith', { name: fromName }));
-    }
-  }
-
-  // Track own presence updates (listen-along state changes)
-  window.snowify.onOwnPresenceUpdated((data) => {
-    const la = data.listenAlong || null;
-    const prevLa = _listenAlong;
-    _listenAlong = la;
-
-    const banner = $('#listen-along-banner');
-    const bannerText = $('#listen-along-banner-text');
-    const endBtn = $('#listen-along-end');
-
-    if (la) {
-      // Entering a listen-along session — disable crossfade for both sides
-      if (!prevLa) {
-        _listenAlongStartedAt = Date.now();
-        _listenAlongSavedCrossfade = state.crossfade;
-        state.crossfade = 0;
-      }
-
-      if (la.role === 'guest') {
-        const hostFriend = _friendsList.find(f => f.uid === la.peerUid);
-        const hostName = hostFriend?.displayName || I18n.t('friends.friendFallback');
-        bannerText.textContent = I18n.t('listenAlong.listeningWith', { name: hostName });
-        endBtn.textContent = I18n.t('listenAlong.leave');
-
-        // Initial sync: immediately play the host's current track
-        if (!prevLa) {
-          const hostPresence = _friendsPresenceMap[la.peerUid];
-          if (hostPresence && hostPresence.trackId) {
-            syncGuestPlayback(hostPresence);
-          }
-        }
-      } else {
-        const guestFriend = _friendsList.find(f => f.uid === la.peerUid);
-        const guestName = guestFriend?.displayName || I18n.t('friends.friendFallback');
-        bannerText.textContent = I18n.t('listenAlong.guestListening', { name: guestName });
-        endBtn.textContent = I18n.t('listenAlong.end');
-      }
-      banner.classList.remove('hidden');
-
-      updateProfileListenAlongButton();
-    } else {
-      banner.classList.add('hidden');
-
-      // Restore crossfade on session end
-      if (prevLa && _listenAlongSavedCrossfade !== null) {
-        state.crossfade = _listenAlongSavedCrossfade;
-        _listenAlongSavedCrossfade = null;
-      }
-
-      if (prevLa) {
-        showToast(I18n.t('toast.listenAlongEnded'));
-      }
-      updateProfileListenAlongButton();
-    }
-  });
-
-  // End / Leave listen-along session
-  $('#listen-along-end').addEventListener('click', async () => {
-    // Restore crossfade before clearing state
-    if (_listenAlongSavedCrossfade !== null) {
-      state.crossfade = _listenAlongSavedCrossfade;
-      _listenAlongSavedCrossfade = null;
-    }
-    await window.snowify.endListenAlong();
-    _listenAlong = null;
-    $('#listen-along-banner').classList.add('hidden');
-  });
-
-  // Guest sync: follow the host's playback (track, play/pause, seek)
-  // Also detect when peer ends the session
-  window.snowify.onPresenceUpdated((data) => {
-    if (!_listenAlong) return;
-
-    // ── Detect peer ended their session ──
-    // Skip this check during the first 10s — the peer may not have set their
-    // listenAlong field yet (Firestore round-trip delay).
-    if (data.uid === _listenAlong.peerUid && Date.now() - _listenAlongStartedAt > 10000) {
-      const peerPresence = data.presence;
-      if (!peerPresence?.listenAlong || peerPresence.listenAlong.peerUid !== _cloudUser?.uid) {
-        // Peer no longer has listenAlong pointing to us — session ended on their side
-        window.snowify.endListenAlong();
-        return;
-      }
-    }
-
-    if (_listenAlong.role !== 'guest') return;
-    if (data.uid !== _listenAlong.peerUid) return;
-
-    const presence = data.presence;
-    if (!presence || !presence.trackId) return;
-
-    syncGuestPlayback(presence);
-  });
-
-  // Perform actual sync of guest playback to host presence
-  function syncGuestPlayback(presence) {
-    const currentTrack = state.queue[state.queueIndex];
-    const sameTrack = currentTrack && currentTrack.id === presence.trackId;
-
-    // ── Track change ──
-    if (!sameTrack) {
-      // On initial sync (no current track), load even if paused; otherwise skip paused tracks
-      if (!presence.isPlaying && currentTrack) return;
-      const track = {
-        id: presence.trackId,
-        title: presence.trackTitle || '',
-        artist: presence.trackArtist || '',
-        thumbnail: presence.trackThumbnail || '',
-        url: `https://music.youtube.com/watch?v=${presence.trackId}`,
-      };
-      _listenAlongSyncing = true;
-      playFromList([track], 0);
-      _listenAlongSyncing = false;
-      // After loading, sync to host's position
-      const hostPos = calcHostPosition(presence);
-      if (hostPos > 2) {
-        const waitForPlay = () => {
-          if (!state.isLoading && audio.duration) {
-            audio.currentTime = Math.min(hostPos, audio.duration - 0.5);
-          } else {
-            setTimeout(waitForPlay, 200);
-          }
-        };
-        setTimeout(waitForPlay, 300);
-      }
-      return;
-    }
-
-    // ── Play / Pause sync ──
-    if (presence.isPlaying && !state.isPlaying) {
-      // Host resumed — resume and sync position
-      const hostPos = calcHostPosition(presence);
-      if (audio.duration && Math.abs(audio.currentTime - hostPos) > 3) {
-        audio.currentTime = Math.min(hostPos, audio.duration - 0.5);
-      }
-      audio.play();
-      state.isPlaying = true;
-      updatePlayButton();
-      const track = state.queue[state.queueIndex];
-      if (track) updateDiscordPresence(track);
-    } else if (!presence.isPlaying && state.isPlaying) {
-      // Host paused
-      audio.pause();
-      state.isPlaying = false;
-      updatePlayButton();
-      clearDiscordPresence();
-    }
-
-    // ── Seek sync (same track, same play state) ──
-    if (sameTrack && presence.trackTimestamp && audio.duration) {
-      const hostPos = calcHostPosition(presence);
-      const drift = Math.abs(audio.currentTime - hostPos);
-      if (drift > 3) {
-        audio.currentTime = Math.min(hostPos, audio.duration - 0.5);
-      }
-    }
-  }
-
-  // Calculate where the host should be right now
-  function calcHostPosition(presence) {
-    const pos = presence.trackPosition || 0;
-    const ts = presence.trackTimestamp || 0;
-    if (!ts) return pos;
-    if (presence.isPlaying) {
-      // Playing — extrapolate position based on elapsed time
-      const elapsed = (Date.now() - ts) / 1000;
-      return pos + elapsed;
-    }
-    // Paused — position is frozen
-    return pos;
-  }
-
-  // "Listen Along" button on friend profile
-  $('#profile-listen-along').addEventListener('click', async () => {
-    const uid = $('#profile-listen-along').dataset.friendUid;
-    if (!uid) return;
-    // Block if already in a listen-along session
-    if (_listenAlong) {
-      showToast('Already in a listen along session');
-      return;
-    }
-    const btn = $('#profile-listen-along');
-    btn.disabled = true;
-    btn.textContent = I18n.t('friends.requesting');
-    const result = await window.snowify.requestListenAlong(uid);
-    if (result?.success) {
-      showToast(I18n.t('toast.requestSent'));
-      btn.textContent = I18n.t('friends.requestSent');
-      setTimeout(() => {
-        btn.disabled = false;
-        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg> ${I18n.t('friends.requestToListen')}`;
-      }, 5000);
-    } else {
-      showToast(result?.error || I18n.t('toast.failedSendRequest'));
-      btn.disabled = false;
-      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg> ${I18n.t('friends.requestToListen')}`;
-    }
-  });
-
-  // Helper: update profile "Listen Along" button visibility
-  function updateProfileListenAlongButton() {
-    const btn = $('#profile-listen-along');
-    if (!btn) return;
-    const uid = btn.dataset.friendUid;
-    if (!uid) { btn.classList.add('hidden'); return; }
-
-    const presence = _friendsPresenceMap[uid];
-    const isOnline = !!(presence && presence.isOnline);
-    // Show button if friend is online AND we're not already in a listen-along session
-    if (isOnline && !_listenAlong) {
-      btn.classList.remove('hidden');
-    } else {
-      btn.classList.add('hidden');
-    }
-  }
-
-  // Stop real-time listeners when leaving friends view or signing out
-  function stopFriendsRefresh() {
-    if (_socialListening) {
-      _socialListening = false;
-      _friendsPresenceMap = {};
-      // End listen-along if active
-      if (_listenAlong) {
-        window.snowify.endListenAlong();
-        _listenAlong = null;
-        $('#listen-along-banner').classList.add('hidden');
-      }
-      // Dismiss any pending request
-      if (_listenAlongPendingRequest) {
-        _listenAlongPendingRequest = null;
-        clearTimeout(_listenAlongRequestTimeout);
-        $('#listen-along-notification').classList.add('hidden');
-      }
-      window.snowify.stopSocialListening();
-    }
-  }
 
   let _settingsInitialized = false;
   async function initSettings() {
     if (_settingsInitialized) return;
     _settingsInitialized = true;
+
+    // ── Settings tabs ──
+    const settingsTabs = document.querySelector('.settings-tabs');
+    if (settingsTabs) {
+      const activateSettingsTab = (tabId) => {
+        document.querySelectorAll('.settings-tab-btn').forEach(b =>
+          b.classList.toggle('active', b.dataset.settingsTab === tabId));
+        document.querySelectorAll('.settings-tab-pane').forEach(p =>
+          p.classList.toggle('active', p.dataset.tab === tabId));
+        sessionStorage.setItem('settings-tab', tabId);
+        if (tabId === 'marketplace') renderPlugins();
+      };
+      settingsTabs.addEventListener('click', e => {
+        const btn = e.target.closest('.settings-tab-btn');
+        if (btn) activateSettingsTab(btn.dataset.settingsTab);
+      });
+      activateSettingsTab(sessionStorage.getItem('settings-tab') || 'playback');
+    }
+
     const autoplayToggle = $('#setting-autoplay');
     const qualitySelect = $('#setting-quality');
     const videoQualitySelect = $('#setting-video-quality');
@@ -7223,97 +5991,36 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     videoQualitySelect.disabled = state.videoPremuxed;
     animationsToggle.checked = state.animations;
     effectsToggle.checked = state.effects;
-    countrySelect.value = state.country || '';
+    if (countrySelect) countrySelect.value = state.country || '';
     // Apply saved country to backend
     if (state.country) window.snowify.setCountry(state.country);
     document.documentElement.classList.toggle('no-animations', !state.animations);
     document.documentElement.classList.toggle('no-effects', !state.effects);
 
-    // ── Listening Activity toggle ──
-    const listeningActivityToggle = $('#setting-listening-activity');
-    listeningActivityToggle.checked = state.showListeningActivity;
-    listeningActivityToggle.addEventListener('change', () => {
-      state.showListeningActivity = listeningActivityToggle.checked;
-      saveState();
-      onListeningActivityToggled();
-    });
 
-    // ── Plugins toggle ──
-    const showPluginsToggle = $('#setting-show-plugins');
-    const pluginsNavBtn = document.querySelector('.nav-btn[data-view="plugins"]');
-    showPluginsToggle.checked = state.showPlugins;
-    if (pluginsNavBtn) pluginsNavBtn.style.display = state.showPlugins ? '' : 'none';
-    showPluginsToggle.addEventListener('change', () => {
-      state.showPlugins = showPluginsToggle.checked;
-      if (pluginsNavBtn) pluginsNavBtn.style.display = state.showPlugins ? '' : 'none';
-      if (!state.showPlugins) {
-        const ps = getPluginState();
-        Object.keys(ps).forEach(id => { ps[id].enabled = false; });
-        savePluginState(ps);
-        document.querySelectorAll('[data-plugin-id]').forEach(el => el.remove());
-        if (state.currentView === 'plugins') switchView('home');
-      }
-      saveState();
-    });
 
-    // ── Profile Extras (banner & bio) ──
-    const bannerPreview = $('#profile-banner-preview');
-    const btnChangeBanner = $('#btn-change-banner');
-    const btnRemoveBanner = $('#btn-remove-banner');
-    const bioInput = $('#profile-bio-input');
-    const bioCount = $('#profile-bio-count');
-    const btnSaveBio = $('#btn-save-bio');
 
-    loadProfileExtras();
-
-    bioInput.addEventListener('input', () => {
-      bioCount.textContent = `${bioInput.value.length}/200`;
-    });
-
-    btnChangeBanner.addEventListener('click', async () => {
-      const result = await window.snowify.pickImage();
-      if (!result) return;
-      if (/\.gif$/i.test(result)) { showToast('GIFs are not supported'); return; }
-      const dataUri = await window.snowify.readImage(result);
-      if (!dataUri) return;
-      const cropped = await openCropModal({
-        dataUrl: dataUri,
-        title: 'Crop Banner',
-        circle: false,
-        aspectRatio: 3,
-        outputWidth: 960,
-        outputHeight: 320,
-        quality: 0.85
+    // ── Minimize to tray ──
+    const minimizeToTrayToggle = $('#setting-minimize-to-tray');
+    if (minimizeToTrayToggle) {
+      minimizeToTrayToggle.checked = state.minimizeToTray;
+      minimizeToTrayToggle.addEventListener('change', () => {
+        state.minimizeToTray = minimizeToTrayToggle.checked;
+        window.snowify.setMinimizeToTray(state.minimizeToTray);
+        saveState();
       });
-      if (!cropped) return;
-      const res = await window.snowify.updateProfileExtras({ banner: cropped });
-      if (res?.success) {
-        bannerPreview.innerHTML = `<img src="${escapeHtml(cropped)}" alt="" draggable="false" />`;
-        btnRemoveBanner.style.display = '';
-        showToast(I18n.t('toast.bannerUpdated'));
-      } else {
-        showToast(res?.error || I18n.t('toast.failedUpdateBanner'));
-      }
-    });
+    }
 
-    btnRemoveBanner.addEventListener('click', async () => {
-      const res = await window.snowify.updateProfileExtras({ banner: '' });
-      if (res?.success) {
-        bannerPreview.innerHTML = `<span class="profile-banner-placeholder">${I18n.t('settings.noBanner')}</span>`;
-        btnRemoveBanner.style.display = 'none';
-        showToast(I18n.t('toast.bannerRemoved'));
-      }
-    });
-
-    btnSaveBio.addEventListener('click', async () => {
-      const bio = bioInput.value.trim().slice(0, 200);
-      const res = await window.snowify.updateProfileExtras({ bio });
-      if (res?.success) {
-        showToast(I18n.t('toast.bioSaved'));
-      } else {
-        showToast(res?.error || I18n.t('toast.failedSaveBio'));
-      }
-    });
+    // ── Launch on startup ──
+    const launchOnStartupToggle = $('#setting-launch-on-startup');
+    if (launchOnStartupToggle) {
+      launchOnStartupToggle.checked = state.launchOnStartup;
+      launchOnStartupToggle.addEventListener('change', () => {
+        state.launchOnStartup = launchOnStartupToggle.checked;
+        window.snowify.setOpenAtLogin(state.launchOnStartup);
+        saveState();
+      });
+    }
 
     // Apply theme
     applyTheme(state.theme);
@@ -7543,7 +6250,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       saveState();
     });
 
-    countrySelect.addEventListener('change', () => {
+    if (countrySelect) countrySelect.addEventListener('change', () => {
       state.country = countrySelect.value;
       window.snowify.setCountry(state.country);
       // Invalidate explore caches so next visit fetches localized data
@@ -8021,184 +6728,115 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       showToast(I18n.t('settings.logsCleared'));
     });
 
-    // Account buttons
-    $('#btn-sign-in').addEventListener('click', async () => {
-      const email = $('#auth-email').value.trim();
-      const password = $('#auth-password').value;
-      const errorEl = $('#auth-error');
-      errorEl.classList.add('hidden');
-      if (!email || !password) {
-        errorEl.textContent = I18n.t('welcome.enterEmailPassword');
-        errorEl.classList.remove('hidden');
-        return;
-      }
-      const result = await window.snowify.signInWithEmail(email, password);
-      if (result?.error) {
-        errorEl.textContent = result.error;
-        errorEl.classList.remove('hidden');
-      } else {
-        showToast(I18n.t('toast.signedIn'));
-      }
+    // ─── Wrapped dev preview ───
+    const devWrappedBtn = document.createElement('div');
+    devWrappedBtn.className = 'setting-row';
+    devWrappedBtn.innerHTML = `
+      <div class="setting-info">
+        <span class="setting-label" data-i18n="settings.devWrapped">${I18n.t('settings.devWrapped')}</span>
+        <span class="setting-desc" data-i18n="settings.devWrappedDesc">${I18n.t('settings.devWrappedDesc')}</span>
+      </div>
+      <button class="btn-setting-action" id="btn-preview-wrapped" data-i18n="settings.devWrappedBtn">${I18n.t('settings.devWrappedBtn')}</button>`;
+    devModeContent.appendChild(devWrappedBtn);
+    document.getElementById('btn-preview-wrapped')?.addEventListener('click', () => {
+      const year = new Date().getFullYear();
+      // Allow previewing current or previous year (whichever has data)
+      const targetYear = state.playLog.some(e => new Date(e.ts).getFullYear() === year) ? year : year - 1;
+      window.WrappedManager?.show(targetYear, true);
     });
 
-    $('#btn-sign-up').addEventListener('click', async () => {
-      const email = $('#auth-email').value.trim();
-      const password = $('#auth-password').value;
-      const errorEl = $('#auth-error');
-      errorEl.classList.add('hidden');
-      if (!email || !password) {
-        errorEl.textContent = I18n.t('welcome.enterEmailPassword');
-        errorEl.classList.remove('hidden');
-        return;
-      }
-      if (password.length < 6) {
-        errorEl.textContent = I18n.t('welcome.passwordMinLength');
-        errorEl.classList.remove('hidden');
-        return;
-      }
-      const result = await window.snowify.signUpWithEmail(email, password);
-      if (result?.error) {
-        errorEl.textContent = result.error;
-        errorEl.classList.remove('hidden');
-      } else {
-        showToast(I18n.t('toast.accountCreated'));
-      }
-    });
+    // ─── Source lists (song + metadata) — populated dynamically by SnowifySources API ───
 
-    $('#btn-sign-out').addEventListener('click', async () => {
-      await window.snowify.authSignOut();
-      showToast(I18n.t('toast.signedOut'));
-    });
+    function renderSourceList(listEl, available, enabled, onChange) {
+      listEl.innerHTML = '';
 
-    $('#btn-forgot-settings').addEventListener('click', async () => {
-      const email = $('#auth-email').value.trim();
-      const errorEl = $('#auth-error');
-      errorEl.classList.add('hidden');
-      if (!email) {
-        errorEl.textContent = I18n.t('welcome.enterEmailForReset');
-        errorEl.classList.remove('hidden');
-        return;
-      }
-      const now = Date.now();
-      const remaining = Math.ceil((RESET_COOLDOWN_MS - (now - _resetEmailLastSent)) / 1000);
-      if (remaining > 0) {
-        errorEl.textContent = `Please wait ${remaining}s before sending another reset email.`;
-        errorEl.style.color = '';
-        errorEl.classList.remove('hidden');
-        return;
-      }
-      const btn = $('#btn-forgot-settings');
-      btn.disabled = true;
-      const result = await window.snowify.sendPasswordReset(email);
-      if (result?.error) {
-        btn.disabled = false;
-        errorEl.textContent = result.error;
-        errorEl.style.color = '';
-        errorEl.classList.remove('hidden');
-      } else {
-        _resetEmailLastSent = Date.now();
-        errorEl.style.color = 'var(--accent)';
-        errorEl.textContent = I18n.t('welcome.resetEmailSent');
-        errorEl.classList.remove('hidden');
-        // Cooldown countdown on button
-        let secs = 60;
-        const iv = setInterval(() => {
-          secs--;
-          if (secs <= 0) { clearInterval(iv); btn.disabled = false; btn.textContent = I18n.t('welcome.forgotPassword'); }
-          else { btn.textContent = `Resend in ${secs}s`; }
-        }, 1000);
-      }
-    });
+      // Build ordered display: enabled sources first (in order), then disabled ones
+      const enabledSet = new Set(enabled);
+      const ordered = [
+        ...enabled.filter(id => available.find(s => s.id === id)),
+        ...available.filter(s => !enabledSet.has(s.id)).map(s => s.id)
+      ];
 
-    $('#btn-sync-now').addEventListener('click', async () => {
-      updateSyncStatus(I18n.t('sync.syncing'));
-      await cloudLoadAndMerge({ forceCloud: true });
-      await forceCloudSave();
-      updateSyncStatus(I18n.t('sync.syncedJustNow'));
-    });
+      ordered.forEach((sourceId) => {
+        const def = available.find(s => s.id === sourceId);
+        if (!def) return;
+        const isEnabled = enabledSet.has(sourceId);
+        const enabledPos = enabled.indexOf(sourceId); // -1 if disabled
+        const isPrimary = enabledPos === 0;
 
-    // ── Profile editing ──
-    $('#btn-edit-name').addEventListener('click', () => {
-      const row = $('#profile-edit-name-row');
-      const input = $('#profile-name-input');
-      row.classList.remove('hidden');
-      input.value = $('#profile-display-name').textContent;
-      input.focus();
-      input.select();
-    });
+        // Support both plain label/desc strings and i18n key references
+        const label = def.label ?? (def.labelKey ? I18n.t(def.labelKey) : sourceId);
+        const desc  = def.desc  ?? (def.descKey  ? I18n.t(def.descKey)  : '');
 
-    $('#btn-cancel-name').addEventListener('click', () => {
-      $('#profile-edit-name-row').classList.add('hidden');
-    });
+        const item = document.createElement('div');
+        item.className = 'source-item' + (isEnabled ? ' source-enabled' : ' source-disabled');
+        item.dataset.sourceId = sourceId;
+        item.innerHTML = `
+          <div class="source-item-arrows">
+            <button class="source-arrow-btn" data-dir="up" ${(enabledPos <= 0) ? 'disabled' : ''} aria-label="Move up">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 14l5-5 5 5z"/></svg>
+            </button>
+            <button class="source-arrow-btn" data-dir="down" ${(!isEnabled || enabledPos >= enabled.length - 1) ? 'disabled' : ''} aria-label="Move down">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+            </button>
+          </div>
+          <div class="source-item-info">
+            <span class="source-item-name">${escapeHtml(label)}</span>
+            <span class="source-item-desc">${escapeHtml(desc)}</span>
+          </div>
+          ${isEnabled ? `<span class="source-badge ${isPrimary ? 'source-badge-primary' : 'source-badge-fallback'}">${I18n.t(isPrimary ? 'settings.sourcePrimary' : 'settings.sourceFallback')}</span>` : ''}
+          <label class="toggle-switch source-item-toggle">
+            <input type="checkbox" ${isEnabled ? 'checked' : ''}>
+            <span class="toggle-slider"></span>
+          </label>`;
+        listEl.appendChild(item);
 
-    $('#btn-save-name').addEventListener('click', async () => {
-      const input = $('#profile-name-input');
-      const name = input.value.trim();
-      if (!name) return;
-      const result = await window.snowify.updateProfile({ displayName: name });
-      if (result?.error) {
-        showToast(I18n.t('toast.failedUpdateName'));
-      } else {
-        $('#profile-display-name').textContent = name;
-        $('#profile-avatar').src = result.photoURL || generateDefaultAvatar(name);
-        $('#profile-edit-name-row').classList.add('hidden');
-        showToast(I18n.t('toast.nameUpdated'));
-      }
-    });
-
-    $('#profile-name-input').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') $('#btn-save-name').click();
-      if (e.key === 'Escape') $('#btn-cancel-name').click();
-    });
-
-    $('#btn-change-avatar').addEventListener('click', async () => {
-      const filePath = await window.snowify.pickImage();
-      if (!filePath) return;
-      if (/\.gif$/i.test(filePath)) { showToast('GIFs are not supported'); return; }
-      try {
-        const dataUrl = await window.snowify.readImage(filePath);
-        if (!dataUrl) { showToast(I18n.t('toast.failedLoadImage')); return; }
-        const cropped = await openCropModal({
-          dataUrl,
-          title: 'Crop Profile Picture',
-          circle: true,
-          aspectRatio: 1,
-          outputWidth: 256,
-          outputHeight: 256,
-          quality: 0.85
+        // Toggle
+        item.querySelector('input[type=checkbox]').addEventListener('change', (e) => {
+          const newEnabled = [...enabled];
+          if (e.target.checked) {
+            if (!newEnabled.includes(sourceId)) newEnabled.push(sourceId);
+          } else {
+            // Always keep at least one source enabled
+            if (newEnabled.length <= 1) {
+              e.target.checked = true;
+              showToast(I18n.t('toast.atLeastOneSource'));
+              return;
+            }
+            const i = newEnabled.indexOf(sourceId);
+            if (i !== -1) newEnabled.splice(i, 1);
+          }
+          enabled = newEnabled;
+          onChange(newEnabled);
+          renderSourceList(listEl, available, enabled, onChange);
         });
-        if (!cropped) return;
-        const updateResult = await window.snowify.updateProfile({ photoURL: cropped });
-        if (updateResult?.error) {
-          showToast(I18n.t('toast.failedUpdateAvatarMsg', { error: updateResult.error }));
-        } else {
-          $('#profile-avatar').src = cropped;
-          showToast(I18n.t('toast.avatarUpdated'));
-        }
-      } catch (_) {
-        showToast(I18n.t('toast.failedLoadImage'));
-      }
-    });
 
-    // ─── Language ───
-    const langSelect = $('#setting-language');
-    langSelect.value = localStorage.getItem('snowify_locale') || 'auto';
-    langSelect.addEventListener('change', async () => {
-      const val = langSelect.value;
-      if (val === 'auto') {
-        localStorage.removeItem('snowify_locale');
-        const systemLocale = await window.snowify.getLocale();
-        await I18n.init(systemLocale);
-        window.snowify.setLocale(systemLocale);
-      } else {
-        await I18n.changeLanguage(val);
-        window.snowify.setLocale(val);
-      }
-    });
+        // Up/down arrows
+        item.querySelectorAll('.source-arrow-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const dir = btn.dataset.dir;
+            const newEnabled = [...enabled];
+            const i = newEnabled.indexOf(sourceId);
+            if (i === -1) return;
+            if (dir === 'up' && i > 0) { [newEnabled[i], newEnabled[i-1]] = [newEnabled[i-1], newEnabled[i]]; }
+            else if (dir === 'down' && i < newEnabled.length - 1) { [newEnabled[i], newEnabled[i+1]] = [newEnabled[i+1], newEnabled[i]]; }
+            enabled = newEnabled;
+            onChange(newEnabled);
+            renderSourceList(listEl, available, enabled, onChange);
+          });
+        });
+      });
+    }
 
-    // Check initial auth state
-    const user = await window.snowify.getUser();
-    if (user) updateAccountUI(user);
+    const songListEl = $('#song-sources-list');
+    const metaListEl = $('#meta-sources-list');
+
+    function renderAllSourceLists() {
+      if (songListEl) renderSourceList(songListEl, window.SnowifySources._song, state.songSources, (v) => { state.songSources = v; saveState(); });
+      if (metaListEl) renderSourceList(metaListEl, window.SnowifySources._meta, state.metadataSources, (v) => { state.metadataSources = v; saveState(); });
+    }
+    window.SnowifySources._refreshSources = renderAllSourceLists;
+    renderAllSourceLists();
   }
 
   // ─── Plugin System ───
@@ -8231,7 +6869,6 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   }
 
   async function loadEnabledPlugins() {
-    if (!state.showPlugins) return;
     const ps = getPluginState();
     for (const [id, info] of Object.entries(ps)) {
       if (!info.enabled) continue;
@@ -8249,13 +6886,13 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const tabs = $$('.marketplace-tab');
     const tabContents = $$('.marketplace-tab-content');
     tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
+      tab.onclick = () => {
         tabs.forEach(t => t.classList.remove('active'));
         tabContents.forEach(c => c.classList.remove('active'));
         tab.classList.add('active');
         const target = tab.dataset.tab === 'themes' ? '#marketplace-themes' : '#marketplace-plugins';
         $(target)?.classList.add('active');
-      });
+      };
     });
 
     // Fetch registry once for all sections
@@ -8279,7 +6916,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         const tagLabel = isOfficial ? I18n.t('plugins.official') : I18n.t('plugins.community');
         return `
           <div class="plugin-installed-item" data-plugin-id="${escapeHtml(p.id)}">
-            <div class="plugin-installed-icon">${p.icon || '🧩'}</div>
+            <div class="plugin-installed-icon">${p.logoUrl ? `<img class="plugin-logo-img" src="${escapeHtml(p.logoUrl)}" alt="${escapeHtml(p.name)}" onerror="this.style.display='none'">` : (p.icon || '🧩')}</div>
             <div class="plugin-installed-info">
               <span class="plugin-installed-name">${escapeHtml(p.name)} <span class="plugin-tag ${tagClass}">${tagLabel}</span></span>
               <span class="plugin-installed-meta">${escapeHtml(p.author || '')}${p.version ? ' · v' + escapeHtml(p.version) : ''}</span>
@@ -8342,15 +6979,30 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     // ── Available plugins from registry ──
     const installedIds = new Set(installed.map(p => p.id));
     const available = registry.plugins || [];
+    const allCategories = [...new Set(available.map(p => p.category).filter(Boolean))];
+    let _activeCategory = 'all';
 
     const pluginSearchInput = $('#marketplace-search-plugins');
     function renderPluginGrid(query) {
       const q = (query || '').trim().toLowerCase();
-      const filtered = q ? available.filter(p =>
+      let filtered = q ? available.filter(p =>
         p.name.toLowerCase().includes(q) ||
         (p.description || '').toLowerCase().includes(q) ||
         (p.author || '').toLowerCase().includes(q)
       ) : available;
+      if (_activeCategory !== 'all') filtered = filtered.filter(p => p.category === _activeCategory);
+
+      // Render category filter pills
+      const filterContainer = $('#plugin-category-filters');
+      if (filterContainer && allCategories.length > 0) {
+        filterContainer.innerHTML = ['all', ...allCategories].map(cat => {
+          const label = cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1);
+          return `<button class="plugin-category-pill${_activeCategory === cat ? ' active' : ''}" data-category="${escapeHtml(cat)}">${label}</button>`;
+        }).join('');
+        filterContainer.querySelectorAll('.plugin-category-pill').forEach(pill => {
+          pill.onclick = () => { _activeCategory = pill.dataset.category; renderPluginGrid(pluginSearchInput ? pluginSearchInput.value : ''); };
+        });
+      }
 
       if (filtered.length === 0) {
         grid.innerHTML = `<div class="plugins-empty">
@@ -8366,7 +7018,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         return `
           <div class="plugin-card" data-plugin-id="${escapeHtml(p.id)}">
             <div class="plugin-card-header">
-              <div class="plugin-card-icon">${p.icon || '🧩'}</div>
+              <div class="plugin-card-icon">${p.logoUrl ? `<img class="plugin-logo-img" src="${escapeHtml(p.logoUrl)}" alt="${escapeHtml(p.name)}" onerror="this.style.display='none'">` : (p.icon || '🧩')}</div>
               <span class="plugin-tag ${tagClass}">${tagLabel}</span>
             </div>
             <div class="plugin-card-name">${escapeHtml(p.name)}</div>
@@ -8437,12 +7089,12 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     // ── Themes tab ──
     await renderMarketplaceThemes(registry);
 
-    // Make footer links open externally
+    // Make footer links open externally (use onclick to avoid duplicates on re-render)
     document.querySelectorAll('.plugins-footer a[href]').forEach(footerLink => {
-      footerLink.addEventListener('click', (e) => {
+      footerLink.onclick = (e) => {
         e.preventDefault();
         window.snowify.openExternal(footerLink.href);
-      });
+      };
     });
   }
 
@@ -8627,4 +7279,3 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   });
 
   init();
-})();

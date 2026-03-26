@@ -31,43 +31,27 @@
     </div>
   </div>
 
-  <!-- ═══════ Welcome / Login Screen ═══════ -->
-  <div id="welcome-overlay" class="welcome-overlay hidden">
+  <!-- ═══════ Migration Notice ═══════ -->
+  <div id="migration-notice-overlay" class="welcome-overlay hidden">
     <div class="welcome-card">
       <img class="welcome-logo" src="../../assets/logo.png" alt="Snowify" width="64" height="64" draggable="false" />
-      <h1 class="welcome-title" data-i18n="welcome.title">Welcome to Snowify</h1>
-      <p class="welcome-desc" data-i18n="welcome.desc">Sign in to sync your playlists, liked songs, and settings across all your devices.</p>
-      <div class="auth-form" id="welcome-auth-form">
-        <input type="email" id="welcome-email" class="auth-input" placeholder="Email" data-i18n-placeholder="common.email" spellcheck="false" autocomplete="email" />
-        <input type="password" id="welcome-password" class="auth-input" placeholder="Password" data-i18n-placeholder="common.password" autocomplete="current-password" />
-        <p class="auth-error hidden" id="welcome-auth-error"></p>
-        <div class="welcome-buttons">
-          <button class="btn-welcome-primary" id="btn-welcome-sign-in" data-i18n="welcome.signIn">Sign In</button>
-          <button class="btn-welcome-secondary" id="btn-welcome-sign-up" data-i18n="welcome.createAccount">Create Account</button>
-        </div>
-        <button class="btn-welcome-forgot" id="btn-welcome-forgot" data-i18n="welcome.forgotPassword">Forgot password?</button>
-      </div>
-      <button class="btn-welcome-skip" id="btn-welcome-skip" data-i18n="welcome.skip">Continue without an account</button>
-      <p class="welcome-warning" data-i18n="welcome.warning">Without an account, your data is stored locally and can't be recovered if lost.</p>
+      <h1 class="welcome-title">Cloud sync is gone</h1>
+      <p class="welcome-desc">
+        Starting with this version, <strong>cloud saving has been removed from Snowify.</strong>
+        The costs of running cloud infrastructure were too high to sustain.
+      </p>
+      <p class="welcome-desc" style="margin-top: 8px;">
+        <strong>Your library is still here.</strong> Everything - your playlists, liked songs, and settings - was always stored locally, so nothing is lost. Going forward, Snowify only saves data locally.
+      </p>
+      <p class="welcome-desc" style="margin-top: 8px; opacity: 0.6; font-size: 12px;">
+        Friends, Listen Along, and account features have also been removed as part of this change.
+      </p>
+      <p class="welcome-desc" style="margin-top: 10px; font-size: 12px; opacity: 0.55;">
+        You can export and re-import your library anytime from Settings → Local Data.
+      </p>
+      <button class="btn-welcome-primary" id="btn-migration-ok" style="margin-top: 20px; width: 100%;">Got it</button>
     </div>
   </div>
-
-  <!-- ═══════ Donation Modal ═══════ -->
-  <div id="donation-modal" class="donation-modal hidden">
-    <div class="donation-modal-content">
-      <button class="donation-modal-close" id="btn-donation-close" aria-label="Close">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-      </button>
-      <h1 class="donation-modal-title" data-i18n="donation.title">Snowify Needs Your Help</h1>
-      <p class="donation-modal-subtitle" data-i18n="donation.subtitle">Server costs are rising - and we need your support</p>
-      <p class="donation-modal-message" data-i18n="donation.message">Snowify is free and ad-free, and we want to keep it that way. But our running costs are growing every month, and without community support, the future of Snowify is genuinely at risk. If this app means something to you, now is the time to help.</p>
-      <div class="donation-modal-buttons">
-        <button class="donation-btn-donate" id="btn-donate-once" data-i18n="donation.donate">Donate and Support</button>
-      </div>
-      <p class="donation-modal-footer" data-i18n="donation.footer">Every contribution helps keep Snowify alive for everyone!</p>
-    </div>
-  </div>
-
   <!-- ═══════ Main Layout ═══════ -->
   <div id="app">
     <!-- Sidebar -->
@@ -89,15 +73,6 @@
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h2v16H4V4zm5 0h2v16H9V4zm5 2h2v14h-2V6zm5-2h2v16h-2V4z"/></svg>
           <span data-i18n="nav.library">Library</span>
         </button>
-        <button class="nav-btn" data-view="friends">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-          <span data-i18n="nav.friends">Friends</span>
-          <span class="badge-experimental" data-i18n="common.beta">BETA</span>
-        </button>
-        <button class="nav-btn" data-view="plugins">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 11H19V7a2 2 0 0 0-2-2h-4V3.5a2.5 2.5 0 0 0-5 0V5H4a2 2 0 0 0-2 2v3.8h1.5a2.7 2.7 0 0 1 0 5.4H2V20a2 2 0 0 0 2 2h3.8v-1.5a2.7 2.7 0 0 1 5.4 0V22H17a2 2 0 0 0 2-2v-4h1.5a2.5 2.5 0 0 0 0-5z"/></svg>
-          <span data-i18n="nav.plugins">Marketplace</span>
-        </button>
         <button class="nav-btn" data-view="settings">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96a7.04 7.04 0 00-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84a.48.48 0 00-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87a.48.48 0 00.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 00-.12-.61l-2.03-1.58zM12 15.6A3.6 3.6 0 1115.6 12 3.6 3.6 0 0112 15.6z"/></svg>
           <span data-i18n="nav.settings">Settings</span>
@@ -114,6 +89,9 @@
             <button class="icon-btn" id="btn-create-playlist" data-i18n-title="common.createPlaylist" title="Create playlist">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3v14M3 10h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
             </button>
+            <button class="icon-btn" id="btn-import-folder-playlist" data-i18n-title="common.importFolderPlaylist" title="Import folder as playlist">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+            </button>
           </div>
         </div>
         <div id="playlist-list" class="playlist-list">
@@ -129,12 +107,6 @@
         </div>
       </div>
     </aside>
-
-    <!-- Support Button (subtle, bottom-right) -->
-    <button id="btn-support-floating" class="support-floating-btn" title="Help support Snowify" data-i18n-title="donation.supportTitle">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
-      <span class="support-btn-text" data-i18n="donation.supportBtn">Support</span>
-    </button>
 
     <!-- Main Content -->
     <main id="main-content">
@@ -251,21 +223,7 @@
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
           </button>
           <span class="playlist-actions-spacer"></span>
-          <button class="icon-btn playlist-action-btn" id="btn-export-playlist" data-i18n-title="playlist.exportCsv" title="Export as CSV">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          </button>
-          <button class="icon-btn playlist-action-btn" id="btn-import-local" title="Import local audio">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          </button>
-          <button class="icon-btn playlist-action-btn" id="btn-cover-playlist" data-i18n-title="playlist.changeCover" title="Change cover">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          </button>
-          <button class="icon-btn playlist-action-btn" id="btn-toggle-public" title="Make public" data-i18n-title="playlist.makePublic">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
-          </button>
-          <button class="icon-btn playlist-action-btn" id="btn-rename-playlist" data-i18n-title="playlist.rename" title="Rename playlist">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </button>
+          <button class="btn-setting-action playlist-files-btn" id="btn-import-folder" data-i18n="playlist.updateFiles" title="Update Files" style="display:none">Update Files</button>
           <button class="icon-btn playlist-action-btn btn-delete" id="btn-delete-playlist" data-i18n-title="playlist.delete" title="Delete playlist">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
           </button>
@@ -299,117 +257,6 @@
         <div id="album-tracks" class="track-list"></div>
       </section>
 
-      <!-- ── Friends View ── -->
-      <section class="view" id="view-friends">
-        <div class="friends-content">
-          <div class="view-header">
-            <h1><span data-i18n="nav.friends">Friends</span> <span class="badge-experimental" data-i18n="common.beta">BETA</span></h1>
-          </div>
-
-          <!-- Not signed in state -->
-          <div id="friends-no-account" class="friends-signed-out hidden">
-            <div class="friends-signed-out-inner">
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor" opacity="0.15"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-              <h3 data-i18n="friends.signInTitle">Sign in to add friends</h3>
-              <p data-i18n="friends.signInDesc">Create an account or sign in to use social features.</p>
-            </div>
-          </div>
-
-          <!-- Signed in content -->
-          <div id="friends-main" class="hidden">
-
-            <!-- Top action bar: add friend + your code -->
-            <div class="friends-action-bar">
-              <div class="friends-add-group">
-                <input type="text" id="friend-code-input" class="friends-add-input" placeholder="Enter a friend code" data-i18n-placeholder="friends.codePlaceholder" maxlength="6" spellcheck="false" autocomplete="off" />
-                <button class="friends-add-btn" id="btn-add-friend" data-i18n="friends.addFriend">Add Friend</button>
-              </div>
-              <div class="friends-your-code">
-                <span class="friends-code-label" data-i18n="friends.yourCode">Your code:</span>
-                <span class="friends-code-value" id="friend-code-value">------</span>
-                <button class="friends-code-copy" id="btn-copy-friend-code" title="Copy code" data-i18n-title="friends.copyCode">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                </button>
-              </div>
-            </div>
-            <p class="friend-add-status hidden" id="friend-add-status"></p>
-
-            <!-- Tabs: All / Online -->
-            <div class="friends-tabs">
-              <button class="friends-tab active" data-friends-tab="all" data-i18n="friends.tabAll">All</button>
-              <button class="friends-tab" data-friends-tab="online" data-i18n="friends.tabOnline">Online</button>
-            </div>
-
-            <!-- Friends list with sections -->
-            <div id="friends-list" class="friends-list">
-              <div class="friends-list-empty" id="friends-list-empty">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" opacity="0.12"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                <h3 data-i18n="friends.emptyTitle">No friends yet</h3>
-                <p data-i18n="friends.emptyDesc">Share your friend code or enter someone else's above to get started.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ── Marketplace View ── -->
-      <section class="view" id="view-plugins">
-        <div class="plugins-content">
-          <div class="view-header">
-            <h1 data-i18n="plugins.title">Marketplace</h1>
-          </div>
-          <p class="plugins-desc" data-i18n="plugins.desc">Extend Snowify with community-made plugins and themes.</p>
-
-          <div class="marketplace-tabs">
-            <button class="marketplace-tab active" data-tab="plugins" data-i18n="plugins.tabPlugins">Plugins</button>
-            <button class="marketplace-tab" data-tab="themes" data-i18n="plugins.tabThemes">Themes</button>
-          </div>
-
-          <!-- Plugins Tab -->
-          <div class="marketplace-tab-content active" id="marketplace-plugins">
-            <div class="marketplace-search-row">
-              <input class="marketplace-search" id="marketplace-search-plugins" type="text" placeholder="Search plugins…" autocomplete="off" />
-            </div>
-            <div id="plugins-installed-section" class="plugins-section" style="display:none;">
-              <h2 data-i18n="plugins.installed">Installed</h2>
-              <div id="plugins-installed-list" class="plugins-list"></div>
-            </div>
-
-            <div class="plugins-section">
-              <h2 data-i18n="plugins.available">Available</h2>
-              <div id="plugins-available-grid" class="plugins-grid">
-                <div class="loading"><div class="spinner"></div></div>
-              </div>
-            </div>
-
-            <div class="plugins-footer">
-              <p><span data-i18n="plugins.submitHint">Want to add your plugin?</span> <a href="https://github.com/nyakuoff/Snowify-Plugins" target="_blank" data-i18n="plugins.submitLink">Open a PR on GitHub</a></p>
-            </div>
-          </div>
-
-          <!-- Themes Tab -->
-          <div class="marketplace-tab-content" id="marketplace-themes">
-            <div class="marketplace-search-row">
-              <input class="marketplace-search" id="marketplace-search-themes" type="text" placeholder="Search themes…" autocomplete="off" />
-            </div>
-            <div id="themes-installed-section" class="plugins-section" style="display:none;">
-              <h2 data-i18n="plugins.installed">Installed</h2>
-              <div id="themes-installed-list" class="plugins-list"></div>
-            </div>
-
-            <div class="plugins-section">
-              <h2 data-i18n="plugins.available">Available</h2>
-              <div id="themes-available-grid" class="plugins-grid">
-                <div class="loading"><div class="spinner"></div></div>
-              </div>
-            </div>
-
-            <div class="plugins-footer">
-              <p><span data-i18n="plugins.submitThemeHint">Want to add your theme?</span> <a href="https://github.com/nyakuoff/Snowify-Themes" target="_blank" data-i18n="plugins.submitLink">Open a PR on GitHub</a></p>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <!-- ── Settings View ── -->
       <section class="view" id="view-settings">
@@ -417,87 +264,255 @@
           <div class="view-header">
             <h1 data-i18n="settings.title">Settings</h1>
           </div>
+
+          <!-- Tab bar -->
+          <div class="settings-tabs">
+            <button class="settings-tab-btn" data-settings-tab="playback" data-i18n="settings.tabPlayback">Playback</button>
+            <button class="settings-tab-btn" data-settings-tab="appearance" data-i18n="settings.tabAppearance">Appearance</button>
+            <button class="settings-tab-btn" data-settings-tab="data" data-i18n="settings.tabData">Data &amp; Library</button>
+            <button class="settings-tab-btn" data-settings-tab="marketplace" data-i18n="plugins.title">Marketplace</button>
+            <button class="settings-tab-btn" data-settings-tab="about" data-i18n="settings.tabAbout">About</button>
+          </div>
+
+          <!-- ── Playback tab ── -->
+          <div class="settings-tab-pane" data-tab="playback">
+
           <div class="settings-group">
-            <h3 data-i18n="settings.account">Account</h3>
-            <div id="account-section">
-              <div id="account-signed-out">
-                <p class="setting-desc" style="margin-bottom:12px;" data-i18n="settings.accountDesc">Sign in to sync your playlists, liked songs, and settings across devices.</p>
-                <div class="auth-form" id="auth-form">
-                  <input type="email" id="auth-email" class="auth-input" placeholder="Email" data-i18n-placeholder="common.email" spellcheck="false" autocomplete="email" />
-                  <input type="password" id="auth-password" class="auth-input" placeholder="Password" data-i18n-placeholder="common.password" autocomplete="current-password" />
-                  <div class="auth-buttons">
-                    <button class="btn-setting-action" id="btn-sign-in" data-i18n="settings.signIn">Sign In</button>
-                    <button class="btn-setting-action" id="btn-sign-up" data-i18n="settings.createAccount">Create Account</button>
-                    <button class="btn-welcome-forgot" id="btn-forgot-settings" data-i18n="welcome.forgotPassword">Forgot password?</button>
-                  </div>
-                  <p class="auth-error hidden" id="auth-error"></p>
-                </div>
+            <h3 data-i18n="settings.playback">Playback</h3>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.autoplay">Autoplay</span>
+                <span class="setting-desc" data-i18n="settings.autoplayDesc">Continue playing similar songs when queue ends</span>
               </div>
-              <div id="account-signed-in" class="hidden">
-                <div class="profile-section">
-                  <div class="profile-avatar-wrapper">
-                    <img class="profile-avatar" id="profile-avatar" src="" alt="" draggable="false" />
-                    <button class="profile-avatar-edit" id="btn-change-avatar" data-i18n-title="settings.changeAvatar" title="Change profile picture">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                    </button>
-                  </div>
-                  <div class="profile-info">
-                    <div class="profile-name-row">
-                      <span class="profile-display-name" id="profile-display-name">User</span>
-                      <button class="profile-edit-btn" id="btn-edit-name" data-i18n-title="settings.editName" title="Edit display name">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                      </button>
-                    </div>
-                    <span class="profile-email" id="profile-email"></span>
-                    <span class="setting-desc" id="account-sync-status"></span>
-                  </div>
-                </div>
-                <div class="profile-edit-row hidden" id="profile-edit-name-row">
-                  <input type="text" class="auth-input" id="profile-name-input" placeholder="Display name" data-i18n-placeholder="settings.displayName" maxlength="30" />
-                  <button class="btn-setting-action" id="btn-save-name" data-i18n="settings.save">Save</button>
-                  <button class="btn-setting-action" id="btn-cancel-name" data-i18n="settings.cancel">Cancel</button>
-                </div>
-                <div class="account-actions" style="margin-top: 12px;">
-                  <button class="btn-setting-action" id="btn-sync-now" data-i18n="settings.syncNow">Sync Now</button>
-                  <button class="btn-setting-action btn-danger" id="btn-sign-out" data-i18n="settings.signOut">Sign Out</button>
-                </div>
-
-                <!-- Profile: Banner & Bio -->
-                <div class="profile-extras" style="margin-top: 20px;">
-                  <h4 class="profile-extras-title" data-i18n="settings.profile">Profile</h4>
-                  <div class="profile-banner-section">
-                    <div class="profile-banner-preview" id="profile-banner-preview">
-                      <span class="profile-banner-placeholder" data-i18n="settings.noBanner">No banner</span>
-                    </div>
-                    <div class="profile-banner-actions">
-                      <button class="btn-setting-action" id="btn-change-banner" data-i18n="settings.changeBanner">Change Banner</button>
-                      <button class="btn-setting-action" id="btn-remove-banner" style="display:none;" data-i18n="settings.removeBanner">Remove</button>
-                    </div>
-                    <span class="setting-desc" style="margin-top:4px;">Recommended: 960×320. Max 800KB after crop.</span>
-                  </div>
-                  <div class="profile-bio-section">
-                    <textarea class="profile-bio-input" id="profile-bio-input" placeholder="Write a short bio..." data-i18n-placeholder="settings.bioPlaceholder" maxlength="200" rows="3" spellcheck="false"></textarea>
-                    <div class="profile-bio-footer">
-                      <span class="profile-bio-count" id="profile-bio-count">0/200</span>
-                      <button class="btn-setting-action" id="btn-save-bio" data-i18n="settings.saveBio">Save Bio</button>
-                    </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-autoplay" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.discordRpc">Discord Rich Presence</span>
+                <span class="setting-desc" data-i18n="settings.discordRpcDesc">Show what you're listening to on Discord</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-discord-rpc" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.audioQuality">Audio quality</span>
+                <span class="setting-desc" data-i18n="settings.audioQualityDesc">Higher quality uses more bandwidth</span>
+              </div>
+              <select class="setting-select" id="setting-quality">
+                <option value="bestaudio" data-i18n="settings.audioBest">Best</option>
+                <option value="worstaudio" data-i18n="settings.audioLow">Low</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.crossfade">Crossfade</span>
+                <span class="setting-desc" data-i18n="settings.crossfadeDesc">Smoothly transition between songs</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-crossfade-toggle" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="setting-row crossfade-slider-row hidden" id="crossfade-slider-row">
+              <div class="crossfade-slider-wrap">
+                <span class="crossfade-label-min">1s</span>
+                <div class="crossfade-slider" id="crossfade-slider">
+                  <div class="crossfade-fill" id="crossfade-fill">
+                    <div class="crossfade-handle" id="crossfade-handle"></div>
                   </div>
                 </div>
-
-                <!-- Listening Activity Toggle -->
-                <div class="setting-row" style="margin-top: 16px;">
-                  <div class="setting-info">
-                    <span class="setting-label" data-i18n="settings.listeningActivity">Listening Activity</span>
-                    <span class="setting-desc" data-i18n="settings.listeningActivityDesc">Let friends see what you're currently playing</span>
-                  </div>
-                  <label class="toggle-switch">
-                    <input type="checkbox" id="setting-listening-activity" />
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
+                <span class="crossfade-label-max">12s</span>
+                <span class="crossfade-label-value" id="crossfade-value">5s</span>
               </div>
             </div>
-            <div class="setting-row" style="margin-top: 16px;">
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.normalization">Loudness normalization</span>
+                <span class="setting-desc" data-i18n="settings.normalizationDesc">Automatically balance volume between tracks (LUFS)</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-normalization" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="setting-row normalization-target-row hidden" id="normalization-target-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.normTarget">Target loudness</span>
+                <span class="setting-desc" data-i18n="settings.normTargetDesc">Lower values = quieter but more dynamic</span>
+              </div>
+              <select class="setting-select" id="setting-normalization-target">
+                <option value="-14">-14 LUFS (Spotify)</option>
+                <option value="-16">-16 LUFS (Apple Music)</option>
+                <option value="-23">-23 LUFS (EBU R128)</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.prefetchCache">Prefetch cache</span>
+                <span class="setting-desc" data-i18n="settings.prefetchCacheDesc">Pre-download upcoming tracks for uninterrupted playback</span>
+              </div>
+              <select class="setting-select" id="setting-prefetch-count">
+                <option value="0" data-i18n="settings.prefetchOff">Off</option>
+                <option value="1" data-i18n="settings.prefetch1Track">1 track</option>
+                <option value="3" data-i18n="settings.prefetch3Tracks">3 tracks</option>
+                <option value="5" data-i18n="settings.prefetch5Tracks">5 tracks</option>
+                <option value="10" data-i18n="settings.prefetch10Tracks">10 tracks</option>
+                <option value="-1" data-i18n="settings.prefetchEntireQueue">Entire queue</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- ── Sources ── -->
+          <div class="settings-group">
+            <h3 data-i18n="settings.sources">Sources</h3>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.songSources">Song sources</span>
+                <span class="setting-desc" data-i18n="settings.songSourcesDesc">First enabled source is primary; others are used as fallbacks.</span>
+              </div>
+            </div>
+            <div class="source-list" id="song-sources-list"></div>
+            <div class="setting-row" style="margin-top:16px;">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.metadataSources">Metadata sources</span>
+                <span class="setting-desc" data-i18n="settings.metadataSourcesDesc">Enrich track data with genres and popularity. Spotify uses an anonymous public API.</span>
+              </div>
+            </div>
+            <div class="source-list" id="meta-sources-list"></div>
+          </div>
+
+          <div class="settings-group">
+            <h3 data-i18n="settings.video">Video</h3>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.videoQuality">Video quality</span>
+                <span class="setting-desc" data-i18n="settings.videoQualityDesc">Resolution for in-app video playback</span>
+              </div>
+              <select class="setting-select" id="setting-video-quality">
+                <option value="480">480p</option>
+                <option value="720">720p</option>
+                <option value="1080">1080p</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.premuxed">Use pre-muxed videos</span>
+                <span class="setting-desc" data-i18n="settings.premuxedDesc">Faster loading, lower quality (disable for HD)</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-video-premuxed" checked />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          </div><!-- /.settings-tab-pane[playback] -->
+
+          <!-- ── Appearance tab ── -->
+          <div class="settings-tab-pane" data-tab="appearance">
+
+          <div class="settings-group">
+            <h3 data-i18n="settings.appearance">Appearance</h3>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.theme">Theme</span>
+                <span class="setting-desc" data-i18n="settings.themeDesc">Choose a color theme for the app</span>
+              </div>
+              <select class="setting-select" id="theme-select">
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+                <option value="ocean">Ocean</option>
+                <option value="forest">Forest</option>
+                <option value="sunset">Sunset</option>
+                <option value="rose">Rose</option>
+                <option value="midnight">Midnight</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.customThemes">Custom themes</span>
+                <span class="setting-desc" data-i18n="settings.customThemesDesc">Add custom .css files</span>
+              </div>
+              <div class="custom-theme-actions">
+                <button class="btn-setting-action" id="btn-add-theme" data-i18n-title="settings.addThemeTitle" title="Add a .css theme file" data-i18n="settings.addTheme">Add theme</button>
+                <button class="btn-setting-action" id="btn-reload-theme" data-i18n-title="settings.reloadThemeTitle" title="Reload current custom theme from disk" data-i18n="settings.reloadTheme">Reload</button>
+                <button class="btn-setting-action" id="btn-open-themes" data-i18n-title="settings.openThemesTitle" title="Open themes folder" data-i18n="settings.openThemesFolder">Open folder</button>
+                <button class="btn-setting-action btn-danger" id="btn-remove-theme" data-i18n-title="settings.removeThemeTitle" title="Remove the currently selected custom theme" data-i18n="settings.removeTheme">Remove</button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.animations">Animations</span>
+                <span class="setting-desc" data-i18n="settings.animationsDesc">Enable smooth transitions and animations throughout the app</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-animations" checked />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.effects">Visual effects</span>
+                <span class="setting-desc" data-i18n="settings.effectsDesc">Glow, blur and shadow effects</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-effects" checked />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.minimizeToTray">Minimize to tray</span>
+                <span class="setting-desc" data-i18n="settings.minimizeToTrayDesc">Closing the app minimizes it to the system tray instead of quitting</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-minimize-to-tray" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.launchOnStartup">Launch on startup</span>
+                <span class="setting-desc" data-i18n="settings.launchOnStartupDesc">Automatically start Snowify when you log in</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-launch-on-startup" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+          </div><!-- /.settings-tab-pane[appearance] -->
+
+          <!-- ── Data & Library tab ── -->
+          <div class="settings-tab-pane" data-tab="data">
+
+          <div class="settings-group">
+            <h3 data-i18n="settings.localData">Local Data</h3>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.exportLibrary">Export library</span>
+                <span class="setting-desc" data-i18n="settings.exportLibraryDesc">Save your playlists, liked songs, and settings to a file</span>
+              </div>
+              <button class="btn-setting-action" id="btn-export-data" data-i18n="settings.exportAction">Export</button>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.importLibrary">Import library</span>
+                <span class="setting-desc" data-i18n="settings.importLibraryDesc">Restore from a previously exported file</span>
+              </div>
+              <button class="btn-setting-action" id="btn-import-data" data-i18n="settings.importAction">Import</button>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h3 data-i18n="settings.data">Data</h3>
+            <div class="setting-row">
               <div class="setting-info">
                 <span class="setting-label" data-i18n="settings.country">Country</span>
                 <span class="setting-desc" data-i18n="settings.countryDesc">Localizes Explore recommendations</span>
@@ -559,204 +574,6 @@
             </div>
             <div class="setting-row">
               <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.language">Language</span>
-                <span class="setting-desc" data-i18n="settings.languageDesc">App display language</span>
-              </div>
-              <select class="setting-select" id="setting-language">
-                <option value="auto" data-i18n="settings.langAuto">System default</option>
-                <option value="de">Deutsch</option>
-                <option value="en">English</option>
-                <option value="es">Español</option>
-                <option value="fr">Français</option>
-                <option value="it">Italiano</option>
-                <option value="pt">Português</option>
-                <option value="tr">Türkçe</option>
-                <option value="ru">Русский</option>
-                <option value="hi">हिन्दी</option>
-                <option value="ja">日本語</option>
-                <option value="ko">한국어</option>
-                <option value="zh">中文</option>
-              </select>
-            </div>
-          </div>
-          <div class="settings-group">
-            <h3 data-i18n="settings.playback">Playback</h3>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.autoplay">Autoplay</span>
-                <span class="setting-desc" data-i18n="settings.autoplayDesc">Continue playing similar songs when queue ends</span>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-autoplay" />
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.discordRpc">Discord Rich Presence</span>
-                <span class="setting-desc" data-i18n="settings.discordRpcDesc">Show what you're listening to on Discord</span>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-discord-rpc" />
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.audioQuality">Audio quality</span>
-                <span class="setting-desc" data-i18n="settings.audioQualityDesc">Higher quality uses more bandwidth</span>
-              </div>
-              <select class="setting-select" id="setting-quality">
-                <option value="bestaudio" data-i18n="settings.audioBest">Best</option>
-                <option value="worstaudio" data-i18n="settings.audioLow">Low</option>
-              </select>
-            </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label"><span data-i18n="settings.crossfade">Crossfade</span> <span class="experimental-tag" data-i18n="settings.experimental">EXPERIMENTAL</span></span>
-                <span class="setting-desc" data-i18n="settings.crossfadeDesc">Smoothly transition between songs</span>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-crossfade-toggle" />
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-            <div class="setting-row crossfade-slider-row hidden" id="crossfade-slider-row">
-              <div class="crossfade-slider-wrap">
-                <span class="crossfade-label-min">1s</span>
-                <div class="crossfade-slider" id="crossfade-slider">
-                  <div class="crossfade-fill" id="crossfade-fill">
-                    <div class="crossfade-handle" id="crossfade-handle"></div>
-                  </div>
-                </div>
-                <span class="crossfade-label-max">12s</span>
-                <span class="crossfade-label-value" id="crossfade-value">5s</span>
-              </div>
-            </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label"><span data-i18n="settings.normalization">Loudness normalization</span> <span class="experimental-tag" data-i18n="settings.experimental">EXPERIMENTAL</span></span>
-                <span class="setting-desc" data-i18n="settings.normalizationDesc">Automatically balance volume between tracks (LUFS)</span>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-normalization" />
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-            <div class="setting-row normalization-target-row hidden" id="normalization-target-row">
-              <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.normTarget">Target loudness</span>
-                <span class="setting-desc" data-i18n="settings.normTargetDesc">Lower values = quieter but more dynamic</span>
-              </div>
-              <select class="setting-select" id="setting-normalization-target">
-                <option value="-14">-14 LUFS (Spotify)</option>
-                <option value="-16">-16 LUFS (Apple Music)</option>
-                <option value="-23">-23 LUFS (EBU R128)</option>
-              </select>
-            </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label"><span data-i18n="settings.prefetchCache">Prefetch cache</span> <span class="experimental-tag" data-i18n="settings.experimental">EXPERIMENTAL</span></span>
-                <span class="setting-desc" data-i18n="settings.prefetchCacheDesc">Pre-download upcoming tracks for uninterrupted playback</span>
-              </div>
-              <select class="setting-select" id="setting-prefetch-count">
-                <option value="0" data-i18n="settings.prefetchOff">Off</option>
-                <option value="1" data-i18n="settings.prefetch1Track">1 track</option>
-                <option value="3" data-i18n="settings.prefetch3Tracks">3 tracks</option>
-                <option value="5" data-i18n="settings.prefetch5Tracks">5 tracks</option>
-                <option value="10" data-i18n="settings.prefetch10Tracks">10 tracks</option>
-                <option value="-1" data-i18n="settings.prefetchEntireQueue">Entire queue</option>
-              </select>
-            </div>
-          </div>
-          <div class="settings-group">
-            <h3 data-i18n="settings.video">Video</h3>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.videoQuality">Video quality</span>
-                <span class="setting-desc" data-i18n="settings.videoQualityDesc">Resolution for in-app video playback</span>
-              </div>
-              <select class="setting-select" id="setting-video-quality">
-                <option value="480">480p</option>
-                <option value="720">720p</option>
-                <option value="1080">1080p</option>
-              </select>
-            </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.premuxed">Use pre-muxed videos</span>
-                <span class="setting-desc" data-i18n="settings.premuxedDesc">Faster loading, lower quality (disable for HD)</span>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-video-premuxed" checked />
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-          </div>
-          <div class="settings-group">
-            <h3 data-i18n="settings.appearance">Appearance</h3>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.theme">Theme</span>
-                <span class="setting-desc" data-i18n="settings.themeDesc">Choose a color theme for the app</span>
-              </div>
-              <select class="setting-select" id="theme-select">
-                <option value="dark">Dark</option>
-                <option value="light">Light</option>
-                <option value="ocean">Ocean</option>
-                <option value="forest">Forest</option>
-                <option value="sunset">Sunset</option>
-                <option value="rose">Rose</option>
-                <option value="midnight">Midnight</option>
-              </select>
-            </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.customThemes">Custom themes</span>
-                <span class="setting-desc" data-i18n="settings.customThemesDesc">Add custom .css files</span>
-              </div>
-              <div class="custom-theme-actions">
-                <button class="btn-setting-action" id="btn-add-theme" data-i18n-title="settings.addThemeTitle" title="Add a .css theme file" data-i18n="settings.addTheme">Add theme</button>
-                <button class="btn-setting-action" id="btn-reload-theme" data-i18n-title="settings.reloadThemeTitle" title="Reload current custom theme from disk" data-i18n="settings.reloadTheme">Reload</button>
-                <button class="btn-setting-action" id="btn-open-themes" data-i18n-title="settings.openThemesTitle" title="Open themes folder" data-i18n="settings.openThemesFolder">Open folder</button>
-                <button class="btn-setting-action btn-danger" id="btn-remove-theme" data-i18n-title="settings.removeThemeTitle" title="Remove the currently selected custom theme" data-i18n="settings.removeTheme">Remove</button>
-              </div>
-            </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.animations">Animations</span>
-                <span class="setting-desc" data-i18n="settings.animationsDesc">Enable smooth transitions and animations throughout the app</span>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-animations" checked />
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.effects">Visual effects</span>
-                <span class="setting-desc" data-i18n="settings.effectsDesc">Glow, blur and shadow effects (disable for better performance)</span>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-effects" checked />
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label" data-i18n="plugins.settingLabel">Marketplace</span>
-                <span class="setting-desc" data-i18n="plugins.settingDesc">Browse and install community plugins and themes</span>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="setting-show-plugins" />
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-          </div>
-          <div class="settings-group">
-            <h3 data-i18n="settings.data">Data</h3>
-            <div class="setting-row">
-              <div class="setting-info">
                 <span class="setting-label" data-i18n="settings.clearHistory">Clear play history</span>
                 <span class="setting-desc" data-i18n="settings.clearHistoryDesc">Remove recently played tracks from home</span>
               </div>
@@ -777,6 +594,11 @@
               <button class="btn-setting-action btn-danger" id="setting-reset-all" data-i18n="common.reset">Reset</button>
             </div>
           </div>
+
+          </div><!-- /.settings-tab-pane[data] -->
+
+          <!-- ── About tab ── -->
+          <div class="settings-tab-pane" data-tab="about">
 
           <div class="settings-group">
             <h3 data-i18n="settings.about">About</h3>
@@ -844,6 +666,65 @@
             </div>
           </div>
 
+          </div><!-- /.settings-tab-pane[about] -->
+
+          <!-- ── Marketplace tab ── -->
+          <div class="settings-tab-pane" data-tab="marketplace">
+            <div class="plugins-content">
+              <p class="plugins-desc" data-i18n="plugins.desc">Extend Snowify with community-made plugins and themes.</p>
+
+              <div class="marketplace-tabs">
+                <button class="marketplace-tab active" data-tab="plugins" data-i18n="plugins.tabPlugins">Plugins</button>
+                <button class="marketplace-tab" data-tab="themes" data-i18n="plugins.tabThemes">Themes</button>
+              </div>
+
+              <!-- Plugins Tab -->
+              <div class="marketplace-tab-content active" id="marketplace-plugins">
+                <div class="marketplace-search-row">
+                  <input class="marketplace-search" id="marketplace-search-plugins" type="text" placeholder="Search plugins…" autocomplete="off" />
+                </div>
+                <div id="plugins-installed-section" class="plugins-section" style="display:none;">
+                  <h2 data-i18n="plugins.installed">Installed</h2>
+                  <div id="plugins-installed-list" class="plugins-list"></div>
+                </div>
+
+                <div class="plugins-section">
+                  <h2 data-i18n="plugins.available">Available</h2>
+                  <div id="plugin-category-filters" class="plugin-category-filters"></div>
+                  <div id="plugins-available-grid" class="plugins-grid">
+                    <div class="loading"><div class="spinner"></div></div>
+                  </div>
+                </div>
+
+                <div class="plugins-footer">
+                  <p><span data-i18n="plugins.submitHint">Want to add your plugin?</span> <a href="https://github.com/nyakuoff/Snowify-Plugins" target="_blank" data-i18n="plugins.submitLink">Open a PR on GitHub</a></p>
+                </div>
+              </div>
+
+              <!-- Themes Tab -->
+              <div class="marketplace-tab-content" id="marketplace-themes">
+                <div class="marketplace-search-row">
+                  <input class="marketplace-search" id="marketplace-search-themes" type="text" placeholder="Search themes…" autocomplete="off" />
+                </div>
+                <div id="themes-installed-section" class="plugins-section" style="display:none;">
+                  <h2 data-i18n="plugins.installed">Installed</h2>
+                  <div id="themes-installed-list" class="plugins-list"></div>
+                </div>
+
+                <div class="plugins-section">
+                  <h2 data-i18n="plugins.available">Available</h2>
+                  <div id="themes-available-grid" class="plugins-grid">
+                    <div class="loading"><div class="spinner"></div></div>
+                  </div>
+                </div>
+
+                <div class="plugins-footer">
+                  <p><span data-i18n="plugins.submitThemeHint">Want to add your theme?</span> <a href="https://github.com/nyakuoff/Snowify-Themes" target="_blank" data-i18n="plugins.submitLink">Open a PR on GitHub</a></p>
+                </div>
+              </div>
+            </div>
+          </div><!-- /.settings-tab-pane[marketplace] -->
+
         </div>
       </section>
 
@@ -906,154 +787,7 @@
         </div>
       </section>
 
-      <!-- ── Friend Profile View ── -->
-      <section class="view" id="view-profile">
-        <div class="artist-banner" id="profile-banner" style="display:none">
-          <img class="artist-banner-img" id="profile-banner-img" src="" alt="" />
-          <div class="artist-banner-fade"></div>
-        </div>
-        <div class="artist-header">
-          <img class="artist-avatar" id="profile-avatar-img" src="" alt="" />
-          <div class="artist-header-info">
-            <span class="artist-verified" id="profile-label" data-i18n="friends.profileLabel">FRIEND</span>
-            <h1 class="artist-name" id="profile-name">User</h1>
-            <span class="artist-followers" id="profile-status" data-i18n="friends.statusOffline">Offline</span>
-            <button class="listen-along-profile-btn hidden" id="profile-listen-along">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
-              <span data-i18n="friends.requestToListen">Request to Listen</span>
-            </button>
-          </div>
-        </div>
-        <div class="artist-section" id="profile-bio-section" style="display:none;">
-          <h2 data-i18n="friends.profileAbout">About</h2>
-          <p class="artist-description" id="profile-bio-text"></p>
-        </div>
-        <div class="artist-section" id="profile-listening-section" style="display:none;">
-          <h2 data-i18n="friends.currentlyListening">Currently Listening</h2>
-          <div id="profile-listening" class="track-list"></div>
-        </div>
-        <div class="artist-section" id="profile-playlists-section" style="display:none;">
-          <h2 data-i18n="friends.publicPlaylists">Public Playlists</h2>
-          <div id="profile-playlists" class="profile-playlists-grid"></div>
-        </div>
-      </section>
 
-      <!-- ═══════ Donation View ═══════ -->
-      <section class="view" id="view-donate">
-        <div class="view-header">
-          <h1>Support Snowify</h1>
-        </div>
-        <div class="donate-content">
-          <div class="donate-section">
-            <h2 data-i18n="donation.title">Help Us Keep Growing</h2>
-            <p class="donate-description" data-i18n="donation.message">Snowify is and always will be free. But with your support, we can keep adding amazing features, maintain fast servers, and keep the app completely ad-free.</p>
-          </div>
-
-          <div class="donate-section">
-            <h2 data-i18n="donation.whyDonate">Why Your Support Matters</h2>
-            <div class="donate-benefits">
-              <div class="benefit-card">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 2v20M2 12h20"/></svg>
-                <h3 data-i18n="donation.benefit1">Complete Ad-Free</h3>
-                <p>No ads. No interruptions. Pure music.</p>
-              </div>
-              <div class="benefit-card">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
-                <h3 data-i18n="donation.benefit2">Continuous Updates</h3>
-                <p>Regular features and improvements.</p>
-              </div>
-              <div class="benefit-card">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                <h3 data-i18n="donation.benefit3">Premium Support</h3>
-                <p>Priority support from our team.</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="donate-section">
-            <h2 data-i18n="donation.donationOptions">Donation Options</h2>
-            <div class="donation-tiers">
-              <div class="donation-tier">
-                <div class="tier-amount">$5</div>
-                <p class="tier-desc" data-i18n="donation.tier1Desc">Coffee Fund</p>
-                <p class="tier-message">Keeps our developers caffeinated!</p>
-                <button class="btn-donate-tier" onclick="openDonationLink('5')">Donate $5</button>
-              </div>
-              <div class="donation-tier highlight">
-                <div class="tier-badge">Popular</div>
-                <div class="tier-amount">$10</div>
-                <p class="tier-desc" data-i18n="donation.tier2Desc">Monthly Supporter</p>
-                <p class="tier-message">Amazing ongoing support!</p>
-                <button class="btn-donate-tier" onclick="openDonationLink('10')">Donate $10</button>
-              </div>
-              <div class="donation-tier">
-                <div class="tier-amount">$25</div>
-                <p class="tier-desc" data-i18n="donation.tier3Desc">Top Supporter</p>
-                <p class="tier-message">You're our champion!</p>
-                <button class="btn-donate-tier" onclick="openDonationLink('25')">Donate $25</button>
-              </div>
-            </div>
-            <div class="custom-donation">
-              <label for="custom-amount" data-i18n="donation.customAmount">Custom Amount</label>
-              <div class="custom-input-group">
-                <span class="currency">$</span>
-                <input type="number" id="custom-amount" min="1" max="9999" placeholder="Enter amount" />
-                <button class="btn-donate-custom" onclick="donateCustomAmount()">Donate</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="donate-section">
-            <h2 data-i18n="donation.otherWays">Other Ways to Help</h2>
-            <div class="other-help">
-              <div class="help-item">
-                <h3>Share the App</h3>
-                <p>Tell your friends about Snowify. Word of mouth helps us grow!</p>
-                <button class="btn-action" onclick="navigator.share({title: 'Snowify', text: 'Check out this amazing music player!'})">Share</button>
-              </div>
-              <div class="help-item">
-                <h3>Leave a Review</h3>
-                <p>Your positive reviews inspire us to keep improving.</p>
-                <button class="btn-action" onclick="openExternal('https://github.com/cc.snowify/snowify')">Leave Feedback</button>
-              </div>
-              <div class="help-item">
-                <h3>Subscribe on GitHub</h3>
-                <p>Star our project and stay updated with the latest releases.</p>
-                <button class="btn-action" onclick="openExternal('https://github.com/cc.snowify/snowify')">Visit GitHub</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="donate-section">
-            <h2 data-i18n="donation.faq">Frequently Asked Questions</h2>
-            <div class="faq-list">
-              <details class="faq-item">
-                <summary data-i18n="donation.faqQ1">Is Snowify always free?</summary>
-                <p>Yes! Snowify will always be free to use. Donations simply help us cover our server costs and add new features faster.</p>
-              </details>
-              <details class="faq-item">
-                <summary data-i18n="donation.faqQ2">What happens to my donation?</summary>
-                <p>Your donation goes directly to server costs, development tools, and improving the app. We're transparent about how we use funds.</p>
-              </details>
-              <details class="faq-item">
-                <summary data-i18n="donation.faqQ3">Can I get a refund?</summary>
-                <p>Yes! If you'd like a refund within 30 days, please contact us at support@snowify.app</p>
-              </details>
-              <details class="faq-item">
-                <summary data-i18n="donation.faqQ4">Do donations provide exclusive features?</summary>
-                <p>No. All features are available to everyone. Donations are purely to support development, not for premium features.</p>
-              </details>
-            </div>
-          </div>
-
-          <div class="donate-footer">
-            <p data-i18n="donation.thankYou">Thank you for supporting Snowify! 🎵</p>
-          </div>
-        </div>
-      </section>
     </main>
   </div>
 
@@ -1266,7 +1000,6 @@
     </div>
   </div>
 
-  <!-- ═══════ Friend Profile Modal ═══════ -->
   <!-- ═══════ Spotify Import Modal ═══════ -->
   <div id="spotify-modal" class="modal-overlay hidden">
     <div class="modal-box spotify-modal-box">
@@ -1361,28 +1094,6 @@
     </div>
   </div>
 
-  <!-- ═══════ Listen Along Notification ═══════ -->
-  <div id="listen-along-notification" class="listen-along-notification hidden">
-    <div class="listen-along-notification-content">
-      <svg class="listen-along-notification-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
-      <div class="listen-along-notification-text">
-        <span class="listen-along-notification-title" id="listen-along-req-name">Friend</span>
-        <span class="listen-along-notification-desc" data-i18n="listenAlong.requestDesc">wants to listen along with you</span>
-      </div>
-      <div class="listen-along-notification-actions">
-        <button class="listen-along-btn listen-along-accept" id="listen-along-accept" data-i18n="listenAlong.accept">Accept</button>
-        <button class="listen-along-btn listen-along-deny" id="listen-along-deny" data-i18n="listenAlong.deny">Deny</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════ Listen Along Banner ═══════ -->
-  <div id="listen-along-banner" class="listen-along-banner hidden">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
-    <span id="listen-along-banner-text">Listening along with Friend</span>
-    <button class="listen-along-banner-end" id="listen-along-end" data-i18n="listenAlong.leave">Leave</button>
-  </div>
-
   <!-- ═══════ Notification Toast ═══════ -->
   <div id="toast" class="toast hidden"></div>
 
@@ -1415,12 +1126,31 @@
     </div>
   </div>
 
+  <!-- ═══════ Wrapped Overlay ═══════ -->
+  <div id="wrapped-overlay" class="wrapped-overlay hidden" role="dialog" aria-modal="true" aria-label="Year in Review">
+    <button class="wrapped-close-btn" id="wrapped-close" aria-label="Close">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+    <div class="wrapped-progress-bar" id="wrapped-progress-dots"></div>
+    <div class="wrapped-slides-container" id="wrapped-slides-container"></div>
+    <div class="wrapped-footer">
+      <button class="wrapped-nav-btn" id="wrapped-prev" aria-label="Previous slide">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </button>
+      <span class="wrapped-slide-counter" id="wrapped-slide-counter"></span>
+      <button class="wrapped-nav-btn" id="wrapped-next" aria-label="Next slide">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+      </button>
+    </div>
+  </div>
+
   <audio id="audio-player" preload="auto" crossorigin="anonymous"></audio>
   <audio id="audio-player-b" preload="auto" crossorigin="anonymous"></audio>
   <script src="i18n.js"></script>
   <script src="crossfade-engine.js"></script>
   <script src="loudness-normalizer.js"></script>
   <script src="prefetch-cache.js"></script>
-  <script src="app.js"></script>
+  <script src="wrapped.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

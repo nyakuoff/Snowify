@@ -5,6 +5,10 @@ bin/
 *.log
 copilot-instructions.md
 plugins/*/
+# Track official local plugins (pushed to monorepo separately)
+!plugins/soundcloud-source/
+!plugins/spotify-metadata/
 build-dir/
 builddir/
 repo/
+update_locales.py
