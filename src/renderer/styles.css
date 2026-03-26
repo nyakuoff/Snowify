@@ -5877,3 +5877,93 @@ body.i18n-switching { opacity: 0; }
   pointer-events: none;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   Mobile / Capacitor Adaptations
+   Applied when bridge.js adds .platform-mobile to <html>
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.platform-mobile {
+  /* Zero out the CSS var so all top: var(--titlebar-height) rules become 0 */
+  --titlebar-height: 0px;
+}
+
+/* Hide the desktop titlebar entirely on mobile */
+.platform-mobile #titlebar { display: none !important; }
+
+/* Push the app below the status bar on Android/iOS */
+.platform-mobile #app {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Make the player bar respect iOS home-indicator */
+.platform-mobile #player-bar {
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Larger touch targets for buttons */
+.platform-mobile .icon-btn,
+.platform-mobile .nav-btn,
+.platform-mobile .player-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Sidebar: full-width bottom nav on small screens */
+@media (max-width: 600px) {
+  .platform-mobile #app {
+    flex-direction: column-reverse;
+    overflow: hidden;
+  }
+
+  .platform-mobile #sidebar {
+    width: 100%;
+    height: 56px;
+    flex-direction: row;
+    border-right: none;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    padding: 0;
+    overflow: visible;
+  }
+
+  .platform-mobile #sidebar .sidebar-nav {
+    flex-direction: row;
+    width: 100%;
+    gap: 0;
+    padding: 0;
+  }
+
+  .platform-mobile #sidebar .nav-btn {
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 10px;
+    padding: 6px 4px;
+    height: 56px;
+    border-radius: 0;
+  }
+
+  .platform-mobile #sidebar .nav-btn span {
+    display: block;
+    font-size: 9px;
+  }
+
+  /* Hide the playlists section in the sidebar on mobile (it's scroll-nav only) */
+  .platform-mobile #sidebar .sidebar-section { display: none; }
+
+  .platform-mobile #main-content {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Momentum scrolling for all scrollable areas on iOS */
+.platform-mobile .lyrics-body,
+.platform-mobile .queue-list,
+.platform-mobile .scroll-area,
+.platform-mobile #main-content {
+  -webkit-overflow-scrolling: touch;
+}
+
+

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Snowify</string>
+    <string name="title_activity_main">Snowify</string>
+    <string name="package_name">cc.snowify.app</string>
+    <string name="custom_url_scheme">cc.snowify.app</string>
+</resources>

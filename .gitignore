@@ -12,3 +12,18 @@ build-dir/
 builddir/
 repo/
 update_locales.py
+
+# Android build artifacts
+android/.gradle/
+android/build/
+android/app/build/
+android/app/release/
+android/.idea/
+android/local.properties
+android/captures/
+
+# iOS build artifacts (future)
+ios/build/
+ios/Pods/
+ios/.xcode.env.local
+
