@@ -21,6 +21,11 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(android.os.Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // Disable WebView disk cache so reinstalls always load fresh assets.
+        getBridge().getWebView().getSettings().setCacheMode(
+            android.webkit.WebSettings.LOAD_NO_CACHE
+        );
+
         // Patch: intercept *.googlevideo.com requests from the WebView so that
         // the Web Audio API can use signed stream URLs (they lack CORS headers).
         getBridge().getWebView().setWebViewClient(new BridgeWebViewClient(getBridge()) {
