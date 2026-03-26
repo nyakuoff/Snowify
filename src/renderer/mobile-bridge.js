@@ -1146,6 +1146,18 @@ var __SnowifyMobile = (() => {
       userAgent: "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip"
     }
   };
+  var IOS_CONTEXT = {
+    client: {
+      clientName: "IOS",
+      clientVersion: "19.09.3",
+      deviceModel: "iPhone14,5",
+      osName: "iPhone",
+      osVersion: "15.6",
+      hl: "en",
+      gl: "US",
+      userAgent: "com.google.ios.youtube/19.09.3 (iPhone14,5; U; CPU iOS 15_6 like Mac OS X)"
+    }
+  };
   async function initSession() {
     if (_initDone) return;
     if (_initP) return _initP;
@@ -1930,21 +1942,20 @@ var __SnowifyMobile = (() => {
       url: `https://music.youtube.com/watch?v=${videoId}`
     };
   }
-  async function fetchPlayerData(videoId) {
+  async function fetchPlayerData(videoId, ctx = ANDROID_CONTEXT) {
     await initSession();
+    const clientNum = ctx.client.clientName === "IOS" ? "5" : "3";
     const resp = await fetch(
-      `https://music.youtube.com/youtubei/v1/player?key=${_apiKey}&prettyPrint=false`,
+      `https://www.youtube.com/youtubei/v1/player?prettyPrint=false`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "User-Agent": ANDROID_CONTEXT.client.userAgent,
-          "X-Goog-Api-Format-Version": "2",
-          "X-YouTube-Client-Name": "3",
-          "X-YouTube-Client-Version": ANDROID_CONTEXT.client.clientVersion
+          "X-YouTube-Client-Name": clientNum,
+          "X-YouTube-Client-Version": ctx.client.clientVersion
         },
         body: JSON.stringify({
-          context: ANDROID_CONTEXT,
+          context: ctx,
           videoId,
           contentCheckOk: true,
           racyCheckOk: true
@@ -1955,28 +1966,38 @@ var __SnowifyMobile = (() => {
   }
   async function getStreamUrl(videoUrl, quality = "bestaudio") {
     await initSession();
-    const videoId = videoUrl.includes("watch?v=") ? new URL(videoUrl).searchParams.get("v") : videoUrl;
-    const data = await fetchPlayerData(videoId);
-    const playabilityStatus = data?.playabilityStatus?.status;
-    if (playabilityStatus === "LOGIN_REQUIRED" || playabilityStatus === "UNPLAYABLE") {
-      throw new Error(`Video unplayable: ${playabilityStatus}`);
+    const videoId = videoUrl?.includes("watch?v=") ? new URL(videoUrl).searchParams.get("v") : videoUrl;
+    if (!videoId) throw new Error("Invalid video URL");
+    let data = await fetchPlayerData(videoId, ANDROID_CONTEXT);
+    let status = data?.playabilityStatus?.status;
+    const hasDirectAudio = (data?.streamingData?.adaptiveFormats || []).some((f2) => f2.mimeType?.startsWith("audio/") && f2.url);
+    const hasDirectMuxed = (data?.streamingData?.formats || []).some((f2) => f2.url);
+    if (status === "LOGIN_REQUIRED" || status === "UNPLAYABLE" || !hasDirectAudio && !hasDirectMuxed) {
+      data = await fetchPlayerData(videoId, IOS_CONTEXT);
+      status = data?.playabilityStatus?.status;
+    }
+    if (status === "LOGIN_REQUIRED" || status === "UNPLAYABLE") {
+      throw new Error(`Video unplayable: ${status}`);
     }
     const adaptiveFormats = data?.streamingData?.adaptiveFormats || [];
     const audioFormats = adaptiveFormats.filter(
       (f2) => f2.mimeType?.startsWith("audio/") && f2.url
     );
-    if (!audioFormats.length) {
-      const muxed = (data?.streamingData?.formats || []).filter((f2) => f2.url);
-      if (muxed.length) return muxed[0].url;
-      throw new Error("No audio stream URLs found");
+    if (audioFormats.length) {
+      const sorted = quality === "worstaudio" ? [...audioFormats].sort((a, b) => (a.bitrate || 0) - (b.bitrate || 0)) : [...audioFormats].sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+      return sorted[0].url;
     }
-    const sorted = quality === "worstaudio" ? [...audioFormats].sort((a, b) => (a.bitrate || 0) - (b.bitrate || 0)) : [...audioFormats].sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
-    return sorted[0].url;
+    const muxed = (data?.streamingData?.formats || []).filter((f2) => f2.url);
+    if (muxed.length) return muxed[0].url;
+    console.error("[YTM] Player response:", JSON.stringify(data?.playabilityStatus));
+    throw new Error("No stream URLs found");
   }
   async function getVideoStreamUrl(videoId, quality = "720", premuxed = false) {
     await initSession();
-    const data = await fetchPlayerData(videoId);
+    let data = await fetchPlayerData(videoId, ANDROID_CONTEXT);
     const height = parseInt(quality) || 720;
+    const hasVideo = (data?.streamingData?.adaptiveFormats || []).some((f2) => f2.url && f2.mimeType?.includes("video/"));
+    if (!hasVideo) data = await fetchPlayerData(videoId, IOS_CONTEXT);
     if (premuxed) {
       const muxed = (data?.streamingData?.formats || []).filter((f2) => f2.url && (f2.height || 0) <= height).sort((a, b) => (b.height || 0) - (a.height || 0));
       if (muxed.length) return { videoUrl: muxed[0].url, audioUrl: null };

@@ -5879,317 +5879,503 @@ body.i18n-switching { opacity: 0; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Mobile / Capacitor — Native-App Layout
-   Applied ONLY when bridge.js adds .platform-mobile to <html>.
-   Desktop is completely unaffected.
+   Applied ONLY when .platform-mobile is on <html> (set by mobile bridge).
+   Desktop Electron is completely unaffected — the bridge guard ensures this.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Base vars ── */
+/* ─── Design tokens ─── */
 .platform-mobile {
   --titlebar-height: 0px;
-  --np-bar-h: 58px;
-  --nav-h: 50px;
+  --bar-h: 62px;          /* mini player pill height            */
+  --bar-r: 16px;          /* mini player pill border-radius     */
+  --nav-h: 56px;          /* bottom tab bar height              */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bot: env(safe-area-inset-bottom, 0px);
+  --page-pad: 16px;       /* horizontal content padding         */
+  --card-gap: 12px;       /* gap between cards / items          */
 }
 
-/* ── Hide desktop-only chrome ── */
+/* ─── Hide desktop chrome ─── */
 .platform-mobile #titlebar,
 .platform-mobile #floating-search,
 .platform-mobile .floating-search,
-.platform-mobile #update-banner { display: none !important; }
+.platform-mobile #update-banner,
+.platform-mobile .sidebar-resize-handle { display: none !important; }
 
-/* ── Root ── */
+/* ─── Root sizing ─── */
 .platform-mobile html,
-.platform-mobile body { height: 100%; overflow: hidden; }
+.platform-mobile body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
 
-/* ── App container — fills viewport, leaves room for mini player + nav ── */
+/* ─── App shell ─── */
 .platform-mobile #app {
   position: fixed;
   top: var(--safe-top);
   left: 0; right: 0;
-  bottom: calc(var(--np-bar-h) + var(--nav-h) + var(--safe-bot));
+  bottom: calc(var(--bar-h) + var(--nav-h) + var(--safe-bot));
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--bg-base);
 }
 .platform-mobile #app.no-player {
   bottom: calc(var(--nav-h) + var(--safe-bot));
 }
 
-/* ────────────────────────────────────────────────
-   Bottom nav (was sidebar)
-   ──────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Bottom tab bar
+   ═══════════════════════════════════════════════════════════════════════════ */
 .platform-mobile #sidebar {
   position: fixed;
-  inset: auto 0 0 0;
+  bottom: 0; left: 0; right: 0; top: auto;
   width: 100% !important;
   min-width: unset !important;
   height: calc(var(--nav-h) + var(--safe-bot));
+  padding-bottom: var(--safe-bot);
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
-  background: var(--bg-surface);
+  align-items: stretch;
+  background: color-mix(in srgb, var(--bg-surface) 96%, transparent);
   border-right: none;
-  border-top: 1px solid rgba(255,255,255,0.06);
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
+  border-top: 1px solid rgba(255,255,255,0.055);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
   z-index: 99;
-  padding-bottom: var(--safe-bot);
   overflow: visible;
 }
+
 .platform-mobile .sidebar-nav {
   flex-direction: row;
-  width: 100%; height: var(--nav-h);
-  gap: 0; padding: 0;
+  width: 100%;
+  height: var(--nav-h);
+  gap: 0;
+  padding: 0;
 }
+
 .platform-mobile .sidebar-section { display: none !important; }
 
+/* Individual tab button */
 .platform-mobile .nav-btn {
   flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  padding: 6px 2px 4px;
+  gap: 4px;
+  padding: 8px 4px 6px;
   height: var(--nav-h);
   border-radius: 0;
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   color: var(--text-subdued);
-  transition: color 0.12s;
+  transition: color 0.15s;
   min-width: unset;
+  position: relative;
 }
-.platform-mobile .nav-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
-.platform-mobile .nav-btn span { display: block; font-size: 9.5px; line-height: 1; }
-.platform-mobile .nav-btn.active { color: var(--accent); background: transparent; }
+.platform-mobile .nav-btn svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.platform-mobile .nav-btn span { display: block; font-size: 10px; line-height: 1.1; }
+.platform-mobile .nav-btn.active { color: var(--accent); }
+.platform-mobile .nav-btn.active svg { transform: scale(1.08); }
 .platform-mobile .nav-btn.active::before { display: none; }
-.platform-mobile .nav-btn:hover { transform: none; }
-.platform-mobile .nav-btn:active { opacity: 0.5; }
-/* Show Search nav button */
+/* Active indicator dot */
+.platform-mobile .nav-btn.active::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.platform-mobile .nav-btn:hover { transform: none; background: transparent; }
+.platform-mobile .nav-btn:active { opacity: 0.6; }
+/* Search nav visible on mobile (hidden on desktop) */
 .platform-mobile [data-view="search"] { display: flex !important; }
 
-/* ────────────────────────────────────────────────
-   Mini now-playing bar (above bottom nav)
-   ──────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Mini now-playing pill (floats above tab bar)
+   ═══════════════════════════════════════════════════════════════════════════ */
 .platform-mobile #now-playing-bar {
   position: fixed;
-  bottom: calc(var(--nav-h) + var(--safe-bot));
-  left: 6px; right: 6px;
-  height: var(--np-bar-h);
-  padding: 0 10px 0 10px;
+  bottom: calc(var(--nav-h) + var(--safe-bot) + 8px);
+  left: 10px;
+  right: 10px;
+  height: var(--bar-h);
+  padding: 0 12px;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
-  background: color-mix(in srgb, var(--bg-elevated) 85%, rgba(var(--ambient-rgb),0.3));
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 14px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.35);
-  grid-template-columns: unset;
+  gap: 10px;
+  background: color-mix(in srgb, var(--bg-elevated) 90%, rgba(var(--ambient-rgb), 0.4));
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--bar-r);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2);
   z-index: 100;
   cursor: pointer;
-  overflow: hidden;
+  /* Override desktop 3-col grid */
+  grid-template-columns: unset;
 }
-/* Thin accent progress line at top of mini player */
-.platform-mobile #now-playing-bar::before {
+/* Thin playback progress strip along the bottom edge of the pill */
+.platform-mobile #now-playing-bar::after {
   content: '';
   position: absolute;
-  top: 0; left: 0;
-  height: 2px;
-  width: calc(var(--np-progress, 0) * 100%);
-  background: var(--accent);
-  border-radius: 2px 0 0 0;
-  transition: width 0.5s linear;
+  bottom: 0; left: 0; right: 0;
+  height: 2.5px;
+  border-radius: 0 0 var(--bar-r) var(--bar-r);
+  background: linear-gradient(to right,
+    var(--accent) calc(var(--np-progress, 0) * 100%),
+    rgba(255,255,255,0.07) calc(var(--np-progress, 0) * 100%)
+  );
   pointer-events: none;
 }
 .platform-mobile #now-playing-bar.hidden {
-  transform: translateY(calc(100% + 80px));
+  transform: translateY(140%);
   pointer-events: none;
 }
-.platform-mobile .np-track-info { flex: 1; min-width: 0; gap: 8px; padding-left: 0; }
-.platform-mobile #np-thumbnail { width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0; }
-.platform-mobile .np-title { font-size: 13px; font-weight: 600; }
-.platform-mobile .np-artist { font-size: 11px; }
+
+/* Track info inside mini player */
+.platform-mobile .np-track-info {
+  flex: 1;
+  min-width: 0;
+  gap: 10px;
+  padding-left: 0;
+}
+.platform-mobile #np-thumbnail {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.platform-mobile .np-title { font-size: 13.5px; font-weight: 600; }
+.platform-mobile .np-artist { font-size: 12px; }
+
+/* Hide desktop-only mini-player elements */
 .platform-mobile .np-progress { display: none !important; }
 .platform-mobile .np-extras { display: none !important; }
-.platform-mobile .np-like { display: none; }
+.platform-mobile .np-like { display: none !important; }
+
+/* Mini player transport — only prev / play / next */
 .platform-mobile .np-controls {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 0;
+  gap: 2px;
   flex-shrink: 0;
 }
-.platform-mobile .np-controls .icon-btn { min-width: 38px; min-height: 38px; padding: 6px; }
+.platform-mobile .np-controls .icon-btn {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 8px;
+  border-radius: 50%;
+}
 
-/* ────────────────────────────────────────────────
-   Main content
-   ──────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Main scrollable content
+   ═══════════════════════════════════════════════════════════════════════════ */
 .platform-mobile #main-content {
   flex: 1;
   width: 100%;
+  overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
 }
-.platform-mobile .view { padding-bottom: 8px; }
 
-/* ── View header ── */
-.platform-mobile .view-header { padding: 10px 14px 6px; }
-.platform-mobile .view-header h1 { font-size: clamp(20px, 5.5vw, 28px); }
+.platform-mobile .view {
+  padding-bottom: 16px;
+  min-height: 100%;
+}
 
-/* ── Cards / grids ── */
-.platform-mobile .card-row { gap: 8px; padding: 0 10px 6px; flex-wrap: wrap; }
-.platform-mobile .album-scroll { padding: 0 10px 6px; }
-.platform-mobile .section { margin-bottom: 16px; }
-.platform-mobile .section h2 { padding: 0 14px 8px; font-size: 15px; }
+/* ─── View header ─── */
+.platform-mobile .view-header {
+  padding: 16px var(--page-pad) 10px;
+}
+.platform-mobile .view-header h1 {
+  font-size: clamp(24px, 6vw, 32px);
+  font-weight: 800;
+}
 
-/* ── Track rows ── */
-.platform-mobile .track-row { padding: 8px 12px; min-height: 54px; }
-.platform-mobile .track-num { display: none; }
+/* ─── Section headings ─── */
+.platform-mobile .section {
+  margin-bottom: 24px;
+}
+.platform-mobile .section h2 {
+  padding: 0 var(--page-pad) 12px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Cards — full-width on mobile, not a horizontal scroll
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .card-row {
+  flex-direction: column;
+  gap: var(--card-gap);
+  padding: 0 var(--page-pad) 8px;
+  flex-wrap: nowrap;
+  overflow-x: unset;
+}
+/* Horizontal scroll carousels stay horizontal but are touchable */
+.platform-mobile .album-scroll {
+  padding: 0 var(--page-pad) 8px;
+  gap: var(--card-gap);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scroll-padding-left: var(--page-pad);
+}
+/* Horizontal cards in carousels */
+.platform-mobile .album-scroll .card {
+  min-width: 140px;
+  max-width: 160px;
+}
+
+/* Quick-picks grid: 2 columns */
+.platform-mobile .quick-picks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 0 var(--page-pad);
+}
+.platform-mobile .quick-pick-item {
+  max-width: none;
+  border-radius: 10px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Track rows — native list style
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .track-row {
+  padding: 10px var(--page-pad);
+  min-height: 60px;
+  border-radius: 0;
+}
 .platform-mobile .track-row:hover { background: transparent; }
-.platform-mobile .track-row:active { background: var(--bg-highlight); }
+.platform-mobile .track-row:active { background: rgba(255,255,255,0.04); }
+.platform-mobile .track-num { display: none; }
+.platform-mobile .track-art {
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
 
-/* ── Touch targets ── */
-.platform-mobile .icon-btn { min-width: 40px; min-height: 40px; }
-.platform-mobile .icon-btn:hover { transform: none; }
-.platform-mobile .icon-btn:active { opacity: 0.55; }
-.platform-mobile .play-btn { width: 40px; height: 40px; }
-
-/* ────────────────────────────────────────────────
-   Full-screen now playing
-   ──────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Full-screen now-playing
+   ═══════════════════════════════════════════════════════════════════════════ */
 .platform-mobile .max-np {
   padding-top: var(--safe-top);
-  padding-bottom: calc(var(--safe-bot) + 6px);
+  padding-bottom: calc(var(--safe-bot) + 8px);
 }
 .platform-mobile .max-np-topbar {
-  top: calc(var(--safe-top) + 8px);
+  position: relative;
+  top: calc(var(--safe-top) + 10px);
   left: 0; right: 0;
   display: flex;
   justify-content: center;
   align-items: center;
+  padding: 0 20px;
 }
-/* Drag handle hint */
+/* Swipe handle */
 .platform-mobile .max-np-topbar::before {
   content: '';
   display: block;
-  width: 32px; height: 3px;
-  background: rgba(255,255,255,0.2);
+  width: 36px;
+  height: 4px;
+  background: rgba(255,255,255,0.22);
   border-radius: 2px;
 }
-.platform-mobile .max-np-x { position: absolute; right: 16px; top: 0; }
+.platform-mobile .max-np-x {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+}
 .platform-mobile .max-np-body {
   flex-direction: column;
-  gap: 16px;
-  padding: calc(var(--safe-top) + 48px) 24px 12px;
+  gap: 20px;
+  padding: calc(var(--safe-top) + 54px) var(--page-pad) 16px;
   align-items: center;
-  justify-content: flex-start;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
-.platform-mobile .max-np-left { width: 100%; max-width: 360px; gap: 16px; }
+.platform-mobile .max-np-left {
+  width: 100%;
+  max-width: 400px;
+  gap: 20px;
+  align-items: center;
+}
 .platform-mobile .max-np-art {
-  width: min(72vw, 320px);
-  height: min(72vw, 320px);
+  width: min(78vw, 340px);
+  height: min(78vw, 340px);
+  border-radius: 16px;
   align-self: center;
 }
-.platform-mobile .max-np-info { text-align: center; }
-.platform-mobile .max-np-title { font-size: clamp(17px, 5vw, 24px); }
-.platform-mobile .max-np-artist { font-size: clamp(12px, 3.8vw, 16px); }
-.platform-mobile .max-np-controls { gap: 10px; }
-.platform-mobile .max-np-actions { gap: 14px; }
+.platform-mobile .max-np-info {
+  text-align: center;
+  width: 100%;
+}
+.platform-mobile .max-np-title { font-size: clamp(20px, 5.5vw, 28px); font-weight: 700; }
+.platform-mobile .max-np-artist { font-size: clamp(14px, 4vw, 18px); }
+.platform-mobile .max-np-controls { gap: 14px; }
+.platform-mobile .max-np-actions { gap: 20px; }
 .platform-mobile .max-np-right {
   flex: unset;
-  width: 100%; max-width: 360px;
-  max-height: 180px;
+  width: 100%;
+  max-width: 400px;
+  max-height: 220px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  border-radius: 12px;
 }
 
-/* ────────────────────────────────────────────────
-   Queue / Lyrics — slide-up sheets
-   ──────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Queue & Lyrics — slide-up sheets
+   ═══════════════════════════════════════════════════════════════════════════ */
 .platform-mobile #queue-panel,
 .platform-mobile #lyrics-panel {
   position: fixed;
   left: 0; right: 0; bottom: 0; top: auto;
-  height: 78vh;
-  border-radius: 18px 18px 0 0;
+  height: 80vh;
+  border-radius: 20px 20px 0 0;
   border-left: none;
   border-top: 1px solid rgba(255,255,255,0.07);
   transform: translateY(100%);
-  transition: transform 0.36s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.38s cubic-bezier(0.32, 0.72, 0, 1);
   z-index: 150;
   overflow: hidden;
 }
 .platform-mobile #queue-panel.visible,
 .platform-mobile #lyrics-panel.visible { transform: translateY(0); }
 .platform-mobile #queue-panel.hidden,
-.platform-mobile #lyrics-panel.hidden { transform: translateY(100%); pointer-events: none; }
+.platform-mobile #lyrics-panel.hidden {
+  transform: translateY(100%);
+  pointer-events: none;
+}
+/* Sheet handle */
+.platform-mobile #queue-panel::before,
+.platform-mobile #lyrics-panel::before {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 4px;
+  background: rgba(255,255,255,0.18);
+  border-radius: 2px;
+  margin: 10px auto 0;
+  flex-shrink: 0;
+}
 
-/* ────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════════════════
    Search view
-   ──────────────────────────────────────────────── */
+   ═══════════════════════════════════════════════════════════════════════════ */
 .platform-mobile .search-bar-container {
-  padding: 6px 10px 2px;
-  position: sticky; top: 0; z-index: 10;
+  padding: 10px var(--page-pad) 6px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
   background: var(--bg-base);
 }
 .platform-mobile .search-input-wrap input {
-  font-size: 16px; /* prevent iOS zoom */
-  padding: 10px 44px;
+  font-size: 16px; /* prevents iOS zoom on focus */
+  padding: 13px 48px;
+  border-radius: 14px;
 }
 
-/* ────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════════════════
    Settings
-   ──────────────────────────────────────────────── */
-.platform-mobile .setting-row { padding: 12px 14px; }
+   ═══════════════════════════════════════════════════════════════════════════ */
 .platform-mobile .settings-tabs {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   white-space: nowrap;
-  padding: 0 6px;
-  display: flex; gap: 2px;
+  padding: 0 10px;
+  display: flex;
+  gap: 4px;
   scrollbar-width: none;
 }
 .platform-mobile .settings-tabs::-webkit-scrollbar { display: none; }
-/* Hide desktop-only settings on mobile */
+.platform-mobile .setting-row {
+  padding: 14px var(--page-pad);
+  gap: 16px;
+}
+
+/* Desktop-only settings hidden on mobile */
 .platform-mobile #row-minimize-to-tray,
 .platform-mobile #row-launch-on-startup,
 .platform-mobile #row-discord-rpc { display: none !important; }
 
-/* ────────────────────────────────────────────────
-   Misc: context menus, playlist, artist headers
-   ──────────────────────────────────────────────── */
-.platform-mobile .context-menu { min-width: 190px; }
-.platform-mobile .context-menu-item { padding: 12px 14px; font-size: 13.5px; }
-
+/* ═══════════════════════════════════════════════════════════════════════════
+   Playlist / Album hero
+   ═══════════════════════════════════════════════════════════════════════════ */
 .platform-mobile .playlist-header {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 10px;
-  padding: 16px 14px 10px;
+  gap: 14px;
+  padding: 24px var(--page-pad) 14px;
 }
-.platform-mobile .playlist-hero-cover { width: 130px; height: 130px; }
-.platform-mobile .playlist-hero-name { font-size: clamp(17px, 5vw, 22px); }
+.platform-mobile .playlist-hero-cover {
+  width: 160px;
+  height: 160px;
+  border-radius: 16px;
+}
+.platform-mobile .playlist-hero-name { font-size: clamp(20px, 5.5vw, 26px); font-weight: 800; }
 
-.platform-mobile .artist-header { padding: 10px 14px; gap: 10px; }
-.platform-mobile .artist-avatar { width: 64px; height: 64px; }
-.platform-mobile .artist-name { font-size: clamp(18px, 5.5vw, 26px); }
+/* ═══════════════════════════════════════════════════════════════════════════
+   Artist page
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .artist-header {
+  padding: 16px var(--page-pad);
+  gap: 14px;
+  flex-direction: row;
+  align-items: center;
+}
+.platform-mobile .artist-avatar {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.platform-mobile .artist-name { font-size: clamp(22px, 6vw, 30px); font-weight: 800; }
 
-.platform-mobile .quick-picks { padding: 0 10px; gap: 6px; }
-.platform-mobile .quick-pick-item { max-width: none; flex: 1 1 calc(50% - 3px); }
+/* ═══════════════════════════════════════════════════════════════════════════
+   Context menus
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .context-menu { min-width: 200px; border-radius: 14px; }
+.platform-mobile .context-menu-item { padding: 14px 16px; font-size: 14px; }
 
-/* ── Momentum scroll everywhere ── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Touch UX fundamentals
+   ═══════════════════════════════════════════════════════════════════════════ */
+/* No hover transforms */
+.platform-mobile .icon-btn:hover,
+.platform-mobile .btn:hover,
+.platform-mobile .card:hover { transform: none !important; }
+
+/* Active press feedback */
+.platform-mobile .icon-btn:active { opacity: 0.55; }
+.platform-mobile .card:active { opacity: 0.75; }
+
+/* Minimum 44px touch targets */
+.platform-mobile .icon-btn { min-width: 44px; min-height: 44px; }
+.platform-mobile .play-btn { width: 44px; height: 44px; }
+
+/* Momentum scroll */
 .platform-mobile .lyrics-body,
+.platform-mobile #main-content,
 .platform-mobile .queue-view,
 .platform-mobile .playlist-list,
 .platform-mobile .album-scroll,
 .platform-mobile .settings-content,
 .platform-mobile #view-settings { -webkit-overflow-scrolling: touch; }
-
