@@ -1140,27 +1140,14 @@ var __SnowifyMobile = (() => {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
     return Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * 64)]).join("");
   }
-  var IOS_CONTEXT = {
+  var ANDROID_CONTEXT = {
     client: {
-      clientName: "IOS",
-      clientVersion: "19.29.1",
-      deviceMake: "Apple",
-      deviceModel: "iPhone14,5",
-      osName: "iPhone",
-      osVersion: "15.6.0.19H274",
+      clientName: "ANDROID",
+      clientVersion: "20.02.7",
+      androidSdkVersion: 34,
       hl: "en",
       gl: "US",
-      userAgent: "com.google.ios.youtube/19.29.1 (iPhone14,5; U; CPU iOS 15_6 like Mac OS X; en_US)"
-    }
-  };
-  var ANDROID_TS_CONTEXT = {
-    client: {
-      clientName: "ANDROID_TESTSUITE",
-      clientVersion: "1.9",
-      androidSdkVersion: 30,
-      hl: "en",
-      gl: "US",
-      userAgent: "com.google.android.youtube/1.9 (Linux; U; Android 11) gzip"
+      userAgent: "com.google.android.youtube/20.02.7 (Linux; U; Android 14) gzip"
     }
   };
   async function initSession() {
@@ -1947,24 +1934,22 @@ var __SnowifyMobile = (() => {
       url: `https://music.youtube.com/watch?v=${videoId}`
     };
   }
-  async function fetchPlayerData(videoId, ctx) {
-    const clientNums = { IOS: "5", ANDROID_TESTSUITE: "30" };
+  async function fetchPlayerData(videoId) {
     const resp = await fetch(
       "https://www.youtube.com/youtubei/v1/player?prettyPrint=false",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-YouTube-Client-Name": clientNums[ctx.client.clientName] || "5",
-          "X-YouTube-Client-Version": ctx.client.clientVersion,
-          "User-Agent": ctx.client.userAgent
+          "X-YouTube-Client-Name": "3",
+          "X-YouTube-Client-Version": ANDROID_CONTEXT.client.clientVersion,
+          "User-Agent": ANDROID_CONTEXT.client.userAgent
         },
         body: JSON.stringify({
-          context: ctx,
+          context: ANDROID_CONTEXT,
           videoId,
           contentCheckOk: true,
-          racyCheckOk: true,
-          cpn: generateCpn()
+          racyCheckOk: true
         })
       }
     );
@@ -1975,25 +1960,16 @@ var __SnowifyMobile = (() => {
     const videoId = videoUrl?.includes("watch?v=") ? new URL(videoUrl).searchParams.get("v") : videoUrl;
     if (!videoId) throw new Error("Invalid video URL");
     const cpn = generateCpn();
-    const hasAudio = (data2) => (data2?.streamingData?.adaptiveFormats || []).some((f2) => f2.mimeType?.startsWith("audio/") && f2.url);
-    let data = await fetchPlayerData(videoId, IOS_CONTEXT);
-    let status = data?.playabilityStatus?.status;
-    if (status !== "OK" || !hasAudio(data)) {
-      console.log("[YTM] IOS fallback \u2192 ANDROID_TESTSUITE. Status:", status);
-      data = await fetchPlayerData(videoId, ANDROID_TS_CONTEXT);
-      status = data?.playabilityStatus?.status;
-    }
+    const data = await fetchPlayerData(videoId);
+    const status = data?.playabilityStatus?.status;
     if (status === "OK") {
-      let audioFormats = (data?.streamingData?.adaptiveFormats || []).filter((f2) => f2.mimeType?.startsWith("audio/") && f2.url);
+      const af = data?.streamingData?.adaptiveFormats ?? [];
+      let audioFormats = af.filter((f2) => f2.mimeType?.startsWith("audio/") && f2.url);
       if (!audioFormats.length) {
-        console.log("[YTM] No direct URLs, trying Piped API\u2026");
+        console.log("[YTM] No direct audio URLs, trying Piped API\u2026");
         try {
           const piped = await fetch(`https://pipedapi.kavin.rocks/streams/${videoId}`).then((r) => r.json());
-          const pipedAudio = piped?.audioStreams || [];
-          audioFormats = (data?.streamingData?.adaptiveFormats || []).map((fmt) => {
-            const match = pipedAudio.find((s2) => s2.itag === fmt.itag);
-            return match ? { ...fmt, url: match.url } : fmt;
-          }).filter((f2) => f2.mimeType?.startsWith("audio/") && f2.url);
+          audioFormats = (piped?.audioStreams ?? []).filter((s2) => s2.url).map((s2) => ({ mimeType: s2.mimeType ?? "audio/webm", bitrate: s2.bitrate ?? 0, url: s2.url }));
         } catch (e) {
           console.error("[YTM] Piped API failed:", e);
         }
@@ -2002,7 +1978,7 @@ var __SnowifyMobile = (() => {
         const sorted = quality === "worstaudio" ? [...audioFormats].sort((a, b) => (a.bitrate || 0) - (b.bitrate || 0)) : [...audioFormats].sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
         return `${sorted[0].url}&cpn=${cpn}`;
       }
-      const muxed = (data?.streamingData?.formats || []).filter((f2) => f2.url);
+      const muxed = (data?.streamingData?.formats ?? []).filter((f2) => f2.url);
       if (muxed.length) return `${muxed[0].url}&cpn=${cpn}`;
     }
     console.error("[YTM] Player response:", JSON.stringify(data?.playabilityStatus));
@@ -2010,10 +1986,9 @@ var __SnowifyMobile = (() => {
   }
   async function getVideoStreamUrl(videoId, quality = "720", premuxed = false) {
     await initSession();
-    let data = await fetchPlayerData(videoId, IOS_CONTEXT);
+    let data = await fetchPlayerData(videoId);
     const height = parseInt(quality) || 720;
-    const hasVideo = (data?.streamingData?.adaptiveFormats || []).some((f2) => f2.url && f2.mimeType?.includes("video/"));
-    if (!hasVideo) data = await fetchPlayerData(videoId, ANDROID_TS_CONTEXT);
+    const hasVideo = (data?.streamingData?.adaptiveFormats ?? []).some((f2) => f2.url && f2.mimeType?.includes("video/"));
     if (premuxed) {
       const muxed = (data?.streamingData?.formats || []).filter((f2) => f2.url && (f2.height || 0) <= height).sort((a, b) => (b.height || 0) - (a.height || 0));
       if (muxed.length) return { videoUrl: muxed[0].url, audioUrl: null };

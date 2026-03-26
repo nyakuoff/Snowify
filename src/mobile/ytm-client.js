@@ -17,36 +17,22 @@ let _initDone = false;
 let _initP    = null;
 
 // Android client context — returns pre-signed stream URLs without cipher.
-// Client playback nonce — 16 random URL-safe base64 chars, appended to stream URLs
+// Client playback nonce — appended to stream URLs
 function generateCpn() {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_';
   return Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * 64)]).join('');
 }
 
-// IOS client (id=5) — always returns plain `url` fields, no cipher, actively maintained.
-const IOS_CONTEXT = {
+// ANDROID client v20 — confirmed returns plain `url` fields in adaptiveFormats.
+// Tested against both youtube.com and music.youtube.com tracks (2026-03).
+const ANDROID_CONTEXT = {
   client: {
-    clientName: 'IOS',
-    clientVersion: '19.29.1',
-    deviceMake: 'Apple',
-    deviceModel: 'iPhone14,5',
-    osName: 'iPhone',
-    osVersion: '15.6.0.19H274',
+    clientName: 'ANDROID',
+    clientVersion: '20.02.7',
+    androidSdkVersion: 34,
     hl: 'en',
     gl: 'US',
-    userAgent: 'com.google.ios.youtube/19.29.1 (iPhone14,5; U; CPU iOS 15_6 like Mac OS X; en_US)',
-  },
-};
-
-// ANDROID_TESTSUITE (id=30) — internal test client, always plain urls, no auth needed.
-const ANDROID_TS_CONTEXT = {
-  client: {
-    clientName: 'ANDROID_TESTSUITE',
-    clientVersion: '1.9',
-    androidSdkVersion: 30,
-    hl: 'en',
-    gl: 'US',
-    userAgent: 'com.google.android.youtube/1.9 (Linux; U; Android 11) gzip',
+    userAgent: 'com.google.android.youtube/20.02.7 (Linux; U; Android 14) gzip',
   },
 };
 
@@ -951,29 +937,25 @@ function parseWatchRenderer(r, videoId) {
 }
 
 // ─── Stream URL extraction ────────────────────────────────────────────────
-// Tier 1: IOS client (always plain urls, no cipher, actively maintained)
-// Tier 2: ANDROID_TESTSUITE (internal test client, plain urls, no auth)
-// Tier 3: Piped API URL substitution
-// Endpoint: www.youtube.com (no API key required for these clients)
+// ANDROID client (v20) returns plain url fields — no cipher, no po_token needed.
+// Falls back to Piped API if the primary fails.
 
-async function fetchPlayerData(videoId, ctx) {
-  const clientNums = { IOS: '5', ANDROID_TESTSUITE: '30' };
+async function fetchPlayerData(videoId) {
   const resp = await fetch(
     'https://www.youtube.com/youtubei/v1/player?prettyPrint=false',
     {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-YouTube-Client-Name': clientNums[ctx.client.clientName] || '5',
-        'X-YouTube-Client-Version': ctx.client.clientVersion,
-        'User-Agent': ctx.client.userAgent,
+        'X-YouTube-Client-Name': '3',
+        'X-YouTube-Client-Version': ANDROID_CONTEXT.client.clientVersion,
+        'User-Agent': ANDROID_CONTEXT.client.userAgent,
       },
       body: JSON.stringify({
-        context: ctx,
+        context: ANDROID_CONTEXT,
         videoId,
         contentCheckOk: true,
         racyCheckOk: true,
-        cpn: generateCpn(),
       }),
     }
   );
@@ -989,37 +971,21 @@ export async function getStreamUrl(videoUrl, quality = 'bestaudio') {
   if (!videoId) throw new Error('Invalid video URL');
 
   const cpn = generateCpn();
-
-  const hasAudio = (data) =>
-    (data?.streamingData?.adaptiveFormats || []).some(f => f.mimeType?.startsWith('audio/') && f.url);
-
-  // 1. IOS client
-  let data = await fetchPlayerData(videoId, IOS_CONTEXT);
-  let status = data?.playabilityStatus?.status;
-
-  // 2. ANDROID_TESTSUITE fallback
-  if (status !== 'OK' || !hasAudio(data)) {
-    console.log('[YTM] IOS fallback → ANDROID_TESTSUITE. Status:', status);
-    data = await fetchPlayerData(videoId, ANDROID_TS_CONTEXT);
-    status = data?.playabilityStatus?.status;
-  }
+  const data = await fetchPlayerData(videoId);
+  const status = data?.playabilityStatus?.status;
 
   if (status === 'OK') {
-    let audioFormats = (data?.streamingData?.adaptiveFormats || [])
-      .filter(f => f.mimeType?.startsWith('audio/') && f.url);
+    const af = data?.streamingData?.adaptiveFormats ?? [];
+    let audioFormats = af.filter(f => f.mimeType?.startsWith('audio/') && f.url);
 
-    // 3. Piped API URL substitution
+    // Piped fallback if ANDROID returned no direct audio URLs
     if (!audioFormats.length) {
-      console.log('[YTM] No direct URLs, trying Piped API…');
+      console.log('[YTM] No direct audio URLs, trying Piped API…');
       try {
         const piped = await fetch(`https://pipedapi.kavin.rocks/streams/${videoId}`).then(r => r.json());
-        const pipedAudio = piped?.audioStreams || [];
-        audioFormats = (data?.streamingData?.adaptiveFormats || [])
-          .map(fmt => {
-            const match = pipedAudio.find(s => s.itag === fmt.itag);
-            return match ? { ...fmt, url: match.url } : fmt;
-          })
-          .filter(f => f.mimeType?.startsWith('audio/') && f.url);
+        audioFormats = (piped?.audioStreams ?? [])
+          .filter(s => s.url)
+          .map(s => ({ mimeType: s.mimeType ?? 'audio/webm', bitrate: s.bitrate ?? 0, url: s.url }));
       } catch (e) {
         console.error('[YTM] Piped API failed:', e);
       }
@@ -1032,8 +998,8 @@ export async function getStreamUrl(videoUrl, quality = 'bestaudio') {
       return `${sorted[0].url}&cpn=${cpn}`;
     }
 
-    // Absolute fallback: muxed
-    const muxed = (data?.streamingData?.formats || []).filter(f => f.url);
+    // Muxed fallback
+    const muxed = (data?.streamingData?.formats ?? []).filter(f => f.url);
     if (muxed.length) return `${muxed[0].url}&cpn=${cpn}`;
   }
 
@@ -1046,12 +1012,10 @@ export async function getStreamUrl(videoUrl, quality = 'bestaudio') {
 export async function getVideoStreamUrl(videoId, quality = '720', premuxed = false) {
   await initSession();
 
-  let data = await fetchPlayerData(videoId, IOS_CONTEXT);
+  let data = await fetchPlayerData(videoId);
   const height = parseInt(quality) || 720;
 
-  // Check if we got usable formats; if not, try ANDROID_TESTSUITE
-  const hasVideo = (data?.streamingData?.adaptiveFormats || []).some(f => f.url && f.mimeType?.includes('video/'));
-  if (!hasVideo) data = await fetchPlayerData(videoId, ANDROID_TS_CONTEXT);
+  const hasVideo = (data?.streamingData?.adaptiveFormats ?? []).some(f => f.url && f.mimeType?.includes('video/'));
 
   if (premuxed) {
     const muxed = (data?.streamingData?.formats || [])
