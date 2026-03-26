@@ -5,25 +5,35 @@
  * - Uses raw fetch() calls to the InnerTube API for all data queries.
  *   @capacitor/http intercepts all fetch() calls at the native layer,
  *   so CORS is bypassed transparently for music.youtube.com endpoints.
- * - Uses youtubei.js for stream URL extraction (requires player decipher).
+ * - Stream URLs are fetched via the InnerTube /player endpoint using the
+ *   ANDROID_MUSIC client which returns pre-signed URLs (no cipher needed).
  */
-
-import { Innertube } from 'youtubei.js';
 
 // ─── InnerTube session state ───────────────────────────────────────────────
 
 let _apiKey   = null;
 let _context  = null;
-let _ytClient = null;        // youtubei.js Innertube instance (stream URLs)
 let _initDone = false;
 let _initP    = null;
+
+// Android Music client context — returns plain signed stream URLs
+const ANDROID_CONTEXT = {
+  client: {
+    clientName: 'ANDROID_MUSIC',
+    clientVersion: '5.01',
+    androidSdkVersion: 30,
+    hl: 'en',
+    gl: 'US',
+    userAgent: 'com.google.android.apps.youtube.music/5.01 (Linux; U; Android 11) gzip',
+  },
+};
 
 async function initSession() {
   if (_initDone) return;
   if (_initP) return _initP;
 
   _initP = (async () => {
-    // 1. Fetch music.youtube.com to extract the InnerTube key + context
+    // 1. Fetch music.youtube.com to extract the InnerTube key + WEB_REMIX context
     try {
       const resp = await fetch('https://music.youtube.com/', { cache: 'no-store' });
       const html = await resp.text();
@@ -47,16 +57,6 @@ async function initSession() {
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       },
     };
-
-    // 2. Initialize youtubei.js for stream URL deciphering
-    try {
-      _ytClient = await Innertube.create({
-        generate_session_locally: true,
-        retrieve_player: true,
-      });
-    } catch (e) {
-      console.warn('[YTM] youtubei.js init failed:', e.message);
-    }
 
     _initDone = true;
     _initP    = null;
@@ -928,68 +928,97 @@ function parseWatchRenderer(r, videoId) {
   };
 }
 
-// ─── Stream URL extraction (via youtubei.js) ──────────────────────────────
-// Returns a signed googlevideo.com URL for the best audio format.
+// ─── Stream URL extraction (InnerTube ANDROID_MUSIC client) ──────────────
+// The ANDROID_MUSIC client returns pre-signed stream URLs — no decipher needed.
+
+async function fetchPlayerData(videoId) {
+  const resp = await fetch(
+    `https://music.youtube.com/youtubei/v1/player?key=${_apiKey}&prettyPrint=false`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': ANDROID_CONTEXT.client.userAgent,
+        'X-Goog-Api-Format-Version': '2',
+        'X-YouTube-Client-Name': '21',
+        'X-YouTube-Client-Version': ANDROID_CONTEXT.client.clientVersion,
+      },
+      body: JSON.stringify({
+        context: ANDROID_CONTEXT,
+        videoId,
+        contentCheckOk: true,
+        racyCheckOk: true,
+      }),
+    }
+  );
+  return resp.json();
+}
 
 export async function getStreamUrl(videoUrl, quality = 'bestaudio') {
   await initSession();
-  if (!_ytClient) throw new Error('youtubei.js not initialized');
 
-  // Extract video ID from URL
   const videoId = videoUrl.includes('watch?v=')
     ? new URL(videoUrl).searchParams.get('v')
     : videoUrl;
 
-  const info   = await _ytClient.getInfo(videoId);
-  const formats = info.streaming_data?.adaptive_formats || [];
-  const audioFormats = formats.filter(f =>
-    f.has_audio && !f.has_video && f.mime_type?.startsWith('audio/')
+  const data = await fetchPlayerData(videoId);
+  const playabilityStatus = data?.playabilityStatus?.status;
+
+  if (playabilityStatus === 'LOGIN_REQUIRED' || playabilityStatus === 'UNPLAYABLE') {
+    throw new Error(`Video unplayable: ${playabilityStatus}`);
+  }
+
+  const adaptiveFormats = data?.streamingData?.adaptiveFormats || [];
+  const audioFormats = adaptiveFormats.filter(f =>
+    f.mimeType?.startsWith('audio/') && f.url
   );
 
-  if (!audioFormats.length) throw new Error('No audio formats found');
+  if (!audioFormats.length) {
+    // Fallback: try formats (muxed)
+    const muxed = (data?.streamingData?.formats || []).filter(f => f.url);
+    if (muxed.length) return muxed[0].url;
+    throw new Error('No audio stream URLs found');
+  }
 
   const sorted = quality === 'worstaudio'
     ? [...audioFormats].sort((a, b) => (a.bitrate || 0) - (b.bitrate || 0))
     : [...audioFormats].sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
 
-  const format = sorted[0];
-  // Decipher the signed URL using the player
-  const url = format.decipher(_ytClient.session.player);
-  if (!url) throw new Error('Failed to decipher stream URL');
-  return url;
+  return sorted[0].url;
 }
 
 // ─── Video stream URL ────────────────────────────────────────────────────
 
 export async function getVideoStreamUrl(videoId, quality = '720', premuxed = false) {
   await initSession();
-  if (!_ytClient) throw new Error('youtubei.js not initialized');
 
-  const info    = await _ytClient.getInfo(videoId);
-  const formats = info.streaming_data?.adaptive_formats || [];
-  const height  = parseInt(quality) || 720;
+  const data   = await fetchPlayerData(videoId);
+  const height = parseInt(quality) || 720;
 
   if (premuxed) {
-    const muxed = (info.streaming_data?.formats || [])
-      .filter(f => f.has_video && f.has_audio && (f.height || 0) <= height)
+    const muxed = (data?.streamingData?.formats || [])
+      .filter(f => f.url && (f.height || 0) <= height)
       .sort((a, b) => (b.height || 0) - (a.height || 0));
-    if (muxed.length) {
-      const url = muxed[0].decipher(_ytClient.session.player);
-      return { videoUrl: url, audioUrl: null };
-    }
+    if (muxed.length) return { videoUrl: muxed[0].url, audioUrl: null };
   }
 
-  const videoFmts = formats
-    .filter(f => f.has_video && !f.has_audio && (f.height || 0) <= height && f.mime_type?.includes('mp4'))
+  const adaptive = data?.streamingData?.adaptiveFormats || [];
+  const videoFmts = adaptive
+    .filter(f => f.url && f.mimeType?.includes('video/mp4') && (f.height || 0) <= height)
     .sort((a, b) => (b.height || 0) - (a.height || 0));
-  const audioFmts = formats
-    .filter(f => f.has_audio && !f.has_video)
+  const audioFmts = adaptive
+    .filter(f => f.url && f.mimeType?.startsWith('audio/'))
     .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
 
-  if (!videoFmts.length || !audioFmts.length) throw new Error('No suitable video/audio formats');
+  if (!videoFmts.length || !audioFmts.length) {
+    // Fallback to muxed
+    const muxed = (data?.streamingData?.formats || []).filter(f => f.url);
+    if (muxed.length) return { videoUrl: muxed[0].url, audioUrl: null };
+    throw new Error('No suitable video/audio formats');
+  }
 
   return {
-    videoUrl: videoFmts[0].decipher(_ytClient.session.player),
-    audioUrl: audioFmts[0].decipher(_ytClient.session.player),
+    videoUrl: videoFmts[0].url,
+    audioUrl: audioFmts[0].url,
   };
 }

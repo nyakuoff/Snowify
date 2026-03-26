@@ -4807,6 +4807,14 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   });
   document.addEventListener('mouseup', () => { _maxNPDragging = false; });
 
+  // Touch seek for max-NP progress bar (mobile)
+  maxNPProgressBar.addEventListener('touchstart', (e) => {
+    maxNPSeekTo(e.touches[0]);
+  }, { passive: true });
+  maxNPProgressBar.addEventListener('touchmove', (e) => {
+    maxNPSeekTo(e.touches[0]);
+  }, { passive: true });
+
   function maxNPSeekTo(e) {
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     const rect = maxNPProgressBar.getBoundingClientRect();
@@ -7277,5 +7285,87 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     if (view === 'library') renderLibrary();
     if (view === 'explore') renderExplore();
   });
+
+  // ─── Mobile-specific interactions ─────────────────────────────────────────
+  if (window.snowify?.platform === 'android' || window.snowify?.platform === 'ios' ||
+      document.documentElement.classList.contains('platform-mobile')) {
+
+    // Tap the mini player bar (outside the controls) → expand to full screen
+    const npBar = $('#now-playing-bar');
+    if (npBar) {
+      npBar.addEventListener('click', (e) => {
+        // Don't intercept clicks on the transport buttons
+        if (e.target.closest('.np-controls')) return;
+        if (typeof openMaxNP === 'function') openMaxNP();
+      });
+    }
+
+    // Swipe-down gesture on max-NP to dismiss
+    const maxNPEl = $('#max-np');
+    if (maxNPEl) {
+      let _touchStartY = 0;
+      let _lastTouchY  = 0;
+      let _touchActive = false;
+
+      maxNPEl.addEventListener('touchstart', (e) => {
+        _touchStartY = e.touches[0].clientY;
+        _lastTouchY  = _touchStartY;
+        _touchActive = true;
+        maxNPEl.style.transition = 'none';
+      }, { passive: true });
+
+      maxNPEl.addEventListener('touchmove', (e) => {
+        if (!_touchActive) return;
+        const dy = e.touches[0].clientY - _touchStartY;
+        _lastTouchY = e.touches[0].clientY;
+        if (dy > 0) {
+          maxNPEl.style.transform = `translateY(${dy}px)`;
+        }
+      }, { passive: true });
+
+      maxNPEl.addEventListener('touchend', () => {
+        if (!_touchActive) return;
+        _touchActive = false;
+        const dy = _lastTouchY - _touchStartY;
+        maxNPEl.style.transition = '';
+        maxNPEl.style.transform  = '';
+        if (dy > 80 && typeof closeMaxNP === 'function') {
+          closeMaxNP();
+        }
+      }, { passive: true });
+    }
+
+    // Swipe-down on queue panel to close
+    const queuePanelEl = $('#queue-panel');
+    if (queuePanelEl) {
+      let _qTouchStart = 0;
+      queuePanelEl.addEventListener('touchstart', (e) => {
+        _qTouchStart = e.touches[0].clientY;
+      }, { passive: true });
+      queuePanelEl.addEventListener('touchend', (e) => {
+        const dy = e.changedTouches[0].clientY - _qTouchStart;
+        if (dy > 80) {
+          queuePanelEl.classList.add('hidden');
+          queuePanelEl.classList.remove('visible');
+        }
+      }, { passive: true });
+    }
+
+    // Swipe-down on lyrics panel to close
+    const lyricsPanelEl = $('#lyrics-panel');
+    if (lyricsPanelEl) {
+      let _lTouchStart = 0;
+      lyricsPanelEl.addEventListener('touchstart', (e) => {
+        _lTouchStart = e.touches[0].clientY;
+      }, { passive: true });
+      lyricsPanelEl.addEventListener('touchend', (e) => {
+        const dy = e.changedTouches[0].clientY - _lTouchStart;
+        if (dy > 80) {
+          lyricsPanelEl.classList.add('hidden');
+          lyricsPanelEl.classList.remove('visible');
+        }
+      }, { passive: true });
+    }
+  }
 
   init();
