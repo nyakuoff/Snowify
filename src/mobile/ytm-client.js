@@ -11,10 +11,11 @@
 
 // ─── InnerTube session state ───────────────────────────────────────────────
 
-let _apiKey   = null;
-let _context  = null;
-let _initDone = false;
-let _initP    = null;
+let _apiKey      = null;
+let _context     = null;
+let _visitorData = null;
+let _initDone    = false;
+let _initP       = null;
 
 // Android client context — returns pre-signed stream URLs without cipher.
 // Client playback nonce — appended to stream URLs
@@ -23,16 +24,22 @@ function generateCpn() {
   return Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * 64)]).join('');
 }
 
-// ANDROID client v20 — confirmed returns plain `url` fields in adaptiveFormats.
-// Tested against both youtube.com and music.youtube.com tracks (2026-03).
+// ANDROID_VR (id=28) — Oculus Quest client.
+// Per yt-dlp wiki PO Token enforcement table: android_vr does NOT require a
+// PO Token for GVS requests. clientVersion must be <=1.65 or YouTube returns
+// SABR-only streams that the <audio> element cannot play.
 const ANDROID_CONTEXT = {
   client: {
-    clientName: 'ANDROID',
-    clientVersion: '20.02.7',
-    androidSdkVersion: 34,
+    clientName: 'ANDROID_VR',
+    clientVersion: '1.65.10',
+    deviceMake: 'Oculus',
+    deviceModel: 'Quest 3',
+    androidSdkVersion: 32,
+    osName: 'Android',
+    osVersion: '12L',
     hl: 'en',
     gl: 'US',
-    userAgent: 'com.google.android.youtube/20.02.7 (Linux; U; Android 14) gzip',
+    userAgent: 'com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip',
   },
 };
 
@@ -45,6 +52,8 @@ async function initSession() {
     try {
       const resp = await fetch('https://music.youtube.com/', { cache: 'no-store' });
       const html = await resp.text();
+      const visitorMatch = html.match(/"VISITOR_DATA"\s*:\s*"([^"]+)"/);
+      if (visitorMatch?.[1]) _visitorData = visitorMatch[1];
       const keyMatch  = html.match(/"INNERTUBE_API_KEY"\s*:\s*"([^"]+)"/);
       const ctxMatch  = html.match(/"INNERTUBE_CONTEXT"\s*:\s*(\{[\s\S]*?\})\s*,\s*"INNERTUBE_CONTEXT_CLIENT_NAME"/);
       if (keyMatch?.[1])  _apiKey  = keyMatch[1];
@@ -937,8 +946,7 @@ function parseWatchRenderer(r, videoId) {
 }
 
 // ─── Stream URL extraction ────────────────────────────────────────────────
-// ANDROID client (v20) returns plain url fields — no cipher, no po_token needed.
-// Falls back to Piped API if the primary fails.
+// ANDROID_VR (id=28) — no PO Token required per yt-dlp wiki.
 
 async function fetchPlayerData(videoId) {
   const resp = await fetch(
@@ -947,15 +955,27 @@ async function fetchPlayerData(videoId) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-YouTube-Client-Name': '3',
+        'X-YouTube-Client-Name': '28',
         'X-YouTube-Client-Version': ANDROID_CONTEXT.client.clientVersion,
         'User-Agent': ANDROID_CONTEXT.client.userAgent,
+        ...(_visitorData ? { 'X-Goog-Visitor-Id': _visitorData } : {}),
       },
       body: JSON.stringify({
-        context: ANDROID_CONTEXT,
+        context: {
+          ...ANDROID_CONTEXT,
+          client: {
+            ...ANDROID_CONTEXT.client,
+            ...(_visitorData ? { visitorData: _visitorData } : {}),
+          },
+        },
         videoId,
         contentCheckOk: true,
         racyCheckOk: true,
+        playbackContext: {
+          contentPlaybackContext: {
+            html5Preference: 'HTML5_PREF_WANTS',
+          },
+        },
       }),
     }
   );

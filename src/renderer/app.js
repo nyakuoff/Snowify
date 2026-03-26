@@ -1135,7 +1135,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       if (gen !== _playGeneration) return; // stale call
       // Ignore AbortError — happens when play() is interrupted by a new load (e.g. rapid skip)
       if (err && err.name === 'AbortError') return;
-      console.error('Playback error:', err);
+      console.error('Playback error:', err && (err.name + ': ' + err.message), 'src=', audio && audio.src && audio.src.substring(0, 120));
       const msg = typeof err === 'string' ? err : (err.message || 'unknown error');
       showToast(I18n.t('toast.playbackFailed', { error: msg }));
       state.isPlaying = false;

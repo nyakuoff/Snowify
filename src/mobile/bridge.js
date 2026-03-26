@@ -17,6 +17,10 @@
  */
 
 import * as ytm from './ytm-client.js';
+
+// Must match MainActivity.PROXY_PORT
+const PROXY_PORT = 17890;
+const proxyUrl = (url) => `http://127.0.0.1:${PROXY_PORT}/stream?url=${encodeURIComponent(url)}`;
 import { getLyrics }   from './lyrics-client.js';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -400,12 +404,183 @@ async function getRecentReleases() {
   } catch (_) { return []; }
 }
 
+// ─── Native audio shim (Android / ExoPlayer) ──────────────────────────────
+//
+// Implements the HTMLAudioElement surface used by DualAudioEngine, but
+// delegates all playback to the MobilePlayer Capacitor plugin which runs
+// ExoPlayer on the native Android side.  This bypasses WebView CORS
+// restrictions that block YouTube CDN stream URLs in the <audio> element.
+//
+// Two instances are created (shimId "a" and "b") corresponding to audio-player
+// and audio-player-b.  document.getElementById / document.querySelector are
+// patched inside installMobileBridge() so app.js transparently receives shims.
+
+class NativeAudioShim extends EventTarget {
+  constructor(shimId) {
+    super();
+    this.shimId   = shimId;
+    this.id       = shimId === 'a' ? 'audio-player' : 'audio-player-b';
+    this._src     = '';
+    this._paused  = true;
+    this._currentTime = 0;
+    this._duration    = 0;
+    this._volume      = 1;
+    this._readyState  = 0;
+    this._error       = null;
+    // Dummy properties expected by LoudnessNormalizer / CSS code
+    this.style    = {};
+    this.preload  = 'auto';
+    this.className = '';
+
+    const P = () => window.Capacitor?.Plugins?.MobilePlayer;
+
+    const attach = () => {
+      const plugin = P();
+      if (!plugin) return;
+      plugin.addListener('playerReady', d => {
+        if (d.id !== this.shimId) return;
+        this._duration   = d.durationMs > 0 ? d.durationMs / 1000 : 0;
+        this._readyState = 4;
+        this._fire('loadedmetadata');
+        this._fire('canplay');
+        this._fire('canplaythrough');
+      });
+      plugin.addListener('playerTimeUpdate', d => {
+        if (d.id !== this.shimId) return;
+        this._currentTime = d.positionMs / 1000;
+        if (d.durationMs > 0) this._duration = d.durationMs / 1000;
+        this._fire('timeupdate');
+      });
+      plugin.addListener('playerEnded', d => {
+        if (d.id !== this.shimId) return;
+        this._paused = true;
+        this._fire('ended');
+      });
+      plugin.addListener('playerError', d => {
+        if (d.id !== this.shimId) return;
+        this._paused = true;
+        this._error  = { code: 4, message: d.message };
+        this._fire('error');
+      });
+    };
+
+    // Capacitor may not be fully ready synchronously — attach as soon as possible
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', attach, { once: true });
+    } else {
+      attach();
+    }
+  }
+
+  _fire(name) {
+    this.dispatchEvent(new Event(name));
+  }
+
+  // ── src property ──────────────────────────────────────────────────────────
+  get src() { return this._src; }
+  set src(url) {
+    this._src        = url ?? '';
+    this._readyState = 0;
+    this._duration   = 0;
+    this._currentTime = 0;
+    if (this._src) {
+      window.Capacitor?.Plugins?.MobilePlayer?.load({ id: this.shimId, url: this._src });
+    }
+  }
+
+  // ── playback control ──────────────────────────────────────────────────────
+  load() {
+    if (this._src) {
+      window.Capacitor?.Plugins?.MobilePlayer?.load({ id: this.shimId, url: this._src });
+    }
+  }
+
+  play() {
+    const plugin = window.Capacitor?.Plugins?.MobilePlayer;
+    if (!plugin) return Promise.resolve();
+    this._paused = false;
+    return plugin.play({ id: this.shimId }).catch(e => { this._paused = true; throw e; });
+  }
+
+  pause() {
+    this._paused = true;
+    window.Capacitor?.Plugins?.MobilePlayer?.pause({ id: this.shimId });
+  }
+
+  // ── attributes ────────────────────────────────────────────────────────────
+  removeAttribute(attr) {
+    if (attr === 'src') {
+      this._src        = '';
+      this._readyState = 0;
+      this._paused     = true;
+      window.Capacitor?.Plugins?.MobilePlayer?.stop({ id: this.shimId });
+    }
+  }
+  setAttribute() {} // no-op
+
+  // ── volume ────────────────────────────────────────────────────────────────
+  get volume() { return this._volume; }
+  set volume(v) {
+    this._volume = Math.max(0, Math.min(1, v));
+    window.Capacitor?.Plugins?.MobilePlayer?.setVolume({ id: this.shimId, volume: this._volume });
+  }
+
+  // ── position / duration ───────────────────────────────────────────────────
+  get currentTime() { return this._currentTime; }
+  set currentTime(t) {
+    this._currentTime = t;
+    const plugin = window.Capacitor?.Plugins?.MobilePlayer;
+    if (plugin) {
+      plugin.seekTo({ id: this.shimId, positionMs: Math.round(t * 1000) })
+        .then(() => this._fire('seeked'))
+        .catch(() => {});
+    }
+  }
+
+  get duration()   { return this._duration || 0; }
+  get paused()     { return this._paused; }
+  get readyState() { return this._readyState; }
+  get error()      { return this._error; }
+}
+
 // ─── Install the bridge ───────────────────────────────────────────────────
 
 export function installMobileBridge() {
+  // The <audio> elements in index.html have crossorigin="anonymous" for the
+  // desktop loudness normalizer (Electron doesn't enforce CORS for file://).
+  // On mobile, Capacitor serves from https://localhost so Chromium enforces
+  // CORS strictly — YouTube CDN never returns ACAO headers, causing
+  // NotSupportedError before any audio plays.  Strip the attribute now so
+  // the browser makes plain (non-CORS) requests to googlevideo.com.
+  // Loudness normalization defaults to OFF, so this has no practical effect.
+  // The <script> tag is late in <body> so the audio elements already exist.
+  ['audio-player', 'audio-player-b'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.removeAttribute('crossorigin');
+  });
+
   // Detect Android vs iOS from user-agent
   const ua = navigator.userAgent || '';
   const platform = /android/i.test(ua) ? 'android' : /iphone|ipad|ipod/i.test(ua) ? 'darwin' : 'linux';
+
+  // On Android, replace the real <audio> elements with ExoPlayer-backed shims
+  // so DualAudioEngine drives native playback without WebView CORS restrictions.
+  if (platform === 'android') {
+    const shimA = new NativeAudioShim('a');
+    const shimB = new NativeAudioShim('b');
+    const _origGetById  = document.getElementById.bind(document);
+    const _origQuerySel = document.querySelector.bind(document);
+    document.getElementById = (id) => {
+      if (id === 'audio-player')   return shimA;
+      if (id === 'audio-player-b') return shimB;
+      return _origGetById(id);
+    };
+    document.querySelector = (sel) => {
+      if (sel === '#audio-player')   return shimA;
+      if (sel === '#audio-player-b') return shimB;
+      return _origQuerySel(sel);
+    };
+  }
 
   window.snowify = {
     // Platform
@@ -426,8 +601,19 @@ export function installMobileBridge() {
     searchPlaylists:    q                  => ytm.searchPlaylists(q),
     getPlaylistVideos:  id                 => ytm.getPlaylistVideos(id),
     searchSuggestions:  q                  => ytm.searchSuggestions(q),
-    getStreamUrl:       (url, q)           => ytm.getStreamUrl(url, q),
-    getVideoStreamUrl:  (id, q, premuxed)  => ytm.getVideoStreamUrl(id, q, premuxed),
+    // On Android, ExoPlayer fetches URLs directly — no local proxy needed.
+    // On iOS, keep routing through the proxy as before.
+    getStreamUrl:       async (url, q)      => {
+      const rawUrl = await ytm.getStreamUrl(url, q);
+      return platform === 'android' ? rawUrl : proxyUrl(rawUrl);
+    },
+    getVideoStreamUrl:  async (id, q, premuxed) => {
+      const r = await ytm.getVideoStreamUrl(id, q, premuxed);
+      return {
+        videoUrl: r.videoUrl ? proxyUrl(r.videoUrl) : null,
+        audioUrl: r.audioUrl ? proxyUrl(r.audioUrl) : null,
+      };
+    },
     getTrackInfo:       id                 => ytm.getTrackInfo(id),
     artistInfo:         id                 => ytm.artistInfo(id),
     albumTracks:        id                 => ytm.albumTracks(id),

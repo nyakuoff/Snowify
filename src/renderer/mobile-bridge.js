@@ -1134,6 +1134,7 @@ var __SnowifyMobile = (() => {
   // src/mobile/ytm-client.js
   var _apiKey = null;
   var _context = null;
+  var _visitorData = null;
   var _initDone = false;
   var _initP = null;
   function generateCpn() {
@@ -1142,12 +1143,16 @@ var __SnowifyMobile = (() => {
   }
   var ANDROID_CONTEXT = {
     client: {
-      clientName: "ANDROID",
-      clientVersion: "20.02.7",
-      androidSdkVersion: 34,
+      clientName: "ANDROID_VR",
+      clientVersion: "1.65.10",
+      deviceMake: "Oculus",
+      deviceModel: "Quest 3",
+      androidSdkVersion: 32,
+      osName: "Android",
+      osVersion: "12L",
       hl: "en",
       gl: "US",
-      userAgent: "com.google.android.youtube/20.02.7 (Linux; U; Android 14) gzip"
+      userAgent: "com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip"
     }
   };
   async function initSession() {
@@ -1157,6 +1162,8 @@ var __SnowifyMobile = (() => {
       try {
         const resp = await fetch("https://music.youtube.com/", { cache: "no-store" });
         const html = await resp.text();
+        const visitorMatch = html.match(/"VISITOR_DATA"\s*:\s*"([^"]+)"/);
+        if (visitorMatch?.[1]) _visitorData = visitorMatch[1];
         const keyMatch = html.match(/"INNERTUBE_API_KEY"\s*:\s*"([^"]+)"/);
         const ctxMatch = html.match(/"INNERTUBE_CONTEXT"\s*:\s*(\{[\s\S]*?\})\s*,\s*"INNERTUBE_CONTEXT_CLIENT_NAME"/);
         if (keyMatch?.[1]) _apiKey = keyMatch[1];
@@ -1941,15 +1948,27 @@ var __SnowifyMobile = (() => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-YouTube-Client-Name": "3",
+          "X-YouTube-Client-Name": "28",
           "X-YouTube-Client-Version": ANDROID_CONTEXT.client.clientVersion,
-          "User-Agent": ANDROID_CONTEXT.client.userAgent
+          "User-Agent": ANDROID_CONTEXT.client.userAgent,
+          ..._visitorData ? { "X-Goog-Visitor-Id": _visitorData } : {}
         },
         body: JSON.stringify({
-          context: ANDROID_CONTEXT,
+          context: {
+            ...ANDROID_CONTEXT,
+            client: {
+              ...ANDROID_CONTEXT.client,
+              ..._visitorData ? { visitorData: _visitorData } : {}
+            }
+          },
           videoId,
           contentCheckOk: true,
-          racyCheckOk: true
+          racyCheckOk: true,
+          playbackContext: {
+            contentPlaybackContext: {
+              html5Preference: "HTML5_PREF_WANTS"
+            }
+          }
         })
       }
     );
@@ -2142,6 +2161,8 @@ var __SnowifyMobile = (() => {
   var StatusBar = registerPlugin("StatusBar");
 
   // src/mobile/bridge.js
+  var PROXY_PORT = 17890;
+  var proxyUrl = (url) => `http://127.0.0.1:${PROXY_PORT}/stream?url=${encodeURIComponent(url)}`;
   var DATA_DIR = Directory.Data;
   async function fsRead(path) {
     try {
@@ -2488,9 +2509,160 @@ var __SnowifyMobile = (() => {
       return [];
     }
   }
+  var NativeAudioShim = class extends EventTarget {
+    constructor(shimId) {
+      super();
+      this.shimId = shimId;
+      this.id = shimId === "a" ? "audio-player" : "audio-player-b";
+      this._src = "";
+      this._paused = true;
+      this._currentTime = 0;
+      this._duration = 0;
+      this._volume = 1;
+      this._readyState = 0;
+      this._error = null;
+      this.style = {};
+      this.preload = "auto";
+      this.className = "";
+      const P = () => window.Capacitor?.Plugins?.MobilePlayer;
+      const attach = () => {
+        const plugin = P();
+        if (!plugin) return;
+        plugin.addListener("playerReady", (d) => {
+          if (d.id !== this.shimId) return;
+          this._duration = d.durationMs > 0 ? d.durationMs / 1e3 : 0;
+          this._readyState = 4;
+          this._fire("loadedmetadata");
+          this._fire("canplay");
+          this._fire("canplaythrough");
+        });
+        plugin.addListener("playerTimeUpdate", (d) => {
+          if (d.id !== this.shimId) return;
+          this._currentTime = d.positionMs / 1e3;
+          if (d.durationMs > 0) this._duration = d.durationMs / 1e3;
+          this._fire("timeupdate");
+        });
+        plugin.addListener("playerEnded", (d) => {
+          if (d.id !== this.shimId) return;
+          this._paused = true;
+          this._fire("ended");
+        });
+        plugin.addListener("playerError", (d) => {
+          if (d.id !== this.shimId) return;
+          this._paused = true;
+          this._error = { code: 4, message: d.message };
+          this._fire("error");
+        });
+      };
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", attach, { once: true });
+      } else {
+        attach();
+      }
+    }
+    _fire(name) {
+      this.dispatchEvent(new Event(name));
+    }
+    // ── src property ──────────────────────────────────────────────────────────
+    get src() {
+      return this._src;
+    }
+    set src(url) {
+      this._src = url ?? "";
+      this._readyState = 0;
+      this._duration = 0;
+      this._currentTime = 0;
+      if (this._src) {
+        window.Capacitor?.Plugins?.MobilePlayer?.load({ id: this.shimId, url: this._src });
+      }
+    }
+    // ── playback control ──────────────────────────────────────────────────────
+    load() {
+      if (this._src) {
+        window.Capacitor?.Plugins?.MobilePlayer?.load({ id: this.shimId, url: this._src });
+      }
+    }
+    play() {
+      const plugin = window.Capacitor?.Plugins?.MobilePlayer;
+      if (!plugin) return Promise.resolve();
+      this._paused = false;
+      return plugin.play({ id: this.shimId }).catch((e) => {
+        this._paused = true;
+        throw e;
+      });
+    }
+    pause() {
+      this._paused = true;
+      window.Capacitor?.Plugins?.MobilePlayer?.pause({ id: this.shimId });
+    }
+    // ── attributes ────────────────────────────────────────────────────────────
+    removeAttribute(attr) {
+      if (attr === "src") {
+        this._src = "";
+        this._readyState = 0;
+        this._paused = true;
+        window.Capacitor?.Plugins?.MobilePlayer?.stop({ id: this.shimId });
+      }
+    }
+    setAttribute() {
+    }
+    // no-op
+    // ── volume ────────────────────────────────────────────────────────────────
+    get volume() {
+      return this._volume;
+    }
+    set volume(v) {
+      this._volume = Math.max(0, Math.min(1, v));
+      window.Capacitor?.Plugins?.MobilePlayer?.setVolume({ id: this.shimId, volume: this._volume });
+    }
+    // ── position / duration ───────────────────────────────────────────────────
+    get currentTime() {
+      return this._currentTime;
+    }
+    set currentTime(t) {
+      this._currentTime = t;
+      const plugin = window.Capacitor?.Plugins?.MobilePlayer;
+      if (plugin) {
+        plugin.seekTo({ id: this.shimId, positionMs: Math.round(t * 1e3) }).then(() => this._fire("seeked")).catch(() => {
+        });
+      }
+    }
+    get duration() {
+      return this._duration || 0;
+    }
+    get paused() {
+      return this._paused;
+    }
+    get readyState() {
+      return this._readyState;
+    }
+    get error() {
+      return this._error;
+    }
+  };
   function installMobileBridge() {
+    ["audio-player", "audio-player-b"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.removeAttribute("crossorigin");
+    });
     const ua = navigator.userAgent || "";
     const platform = /android/i.test(ua) ? "android" : /iphone|ipad|ipod/i.test(ua) ? "darwin" : "linux";
+    if (platform === "android") {
+      const shimA = new NativeAudioShim("a");
+      const shimB = new NativeAudioShim("b");
+      const _origGetById = document.getElementById.bind(document);
+      const _origQuerySel = document.querySelector.bind(document);
+      document.getElementById = (id) => {
+        if (id === "audio-player") return shimA;
+        if (id === "audio-player-b") return shimB;
+        return _origGetById(id);
+      };
+      document.querySelector = (sel) => {
+        if (sel === "#audio-player") return shimA;
+        if (sel === "#audio-player-b") return shimB;
+        return _origQuerySel(sel);
+      };
+    }
     window.snowify = {
       // Platform
       platform,
@@ -2513,8 +2685,19 @@ var __SnowifyMobile = (() => {
       searchPlaylists: (q) => searchPlaylists(q),
       getPlaylistVideos: (id) => getPlaylistVideos(id),
       searchSuggestions: (q) => searchSuggestions(q),
-      getStreamUrl: (url, q) => getStreamUrl(url, q),
-      getVideoStreamUrl: (id, q, premuxed) => getVideoStreamUrl(id, q, premuxed),
+      // On Android, ExoPlayer fetches URLs directly — no local proxy needed.
+      // On iOS, keep routing through the proxy as before.
+      getStreamUrl: async (url, q) => {
+        const rawUrl = await getStreamUrl(url, q);
+        return platform === "android" ? rawUrl : proxyUrl(rawUrl);
+      },
+      getVideoStreamUrl: async (id, q, premuxed) => {
+        const r = await getVideoStreamUrl(id, q, premuxed);
+        return {
+          videoUrl: r.videoUrl ? proxyUrl(r.videoUrl) : null,
+          audioUrl: r.audioUrl ? proxyUrl(r.audioUrl) : null
+        };
+      },
       getTrackInfo: (id) => getTrackInfo(id),
       artistInfo: (id) => artistInfo(id),
       albumTracks: (id) => albumTracks(id),
