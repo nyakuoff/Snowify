@@ -2620,6 +2620,7 @@ var __SnowifyMobile = (() => {
     document.documentElement.classList.add("platform-mobile");
     document.documentElement.classList.add(`platform-${platform}`);
   }
+  installMobileBridge();
   return __toCommonJS(bridge_exports);
 })();
 /*! Bundled license information:

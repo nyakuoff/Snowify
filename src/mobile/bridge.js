@@ -549,3 +549,6 @@ export function installMobileBridge() {
   document.documentElement.classList.add('platform-mobile');
   document.documentElement.classList.add(`platform-${platform}`);
 }
+
+// Auto-invoke immediately when this script loads.
+installMobileBridge();
