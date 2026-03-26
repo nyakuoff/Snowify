@@ -289,7 +289,7 @@
                 <span class="toggle-slider"></span>
               </label>
             </div>
-            <div class="setting-row">
+            <div class="setting-row" id="row-discord-rpc">
               <div class="setting-info">
                 <span class="setting-label" data-i18n="settings.discordRpc">Discord Rich Presence</span>
                 <span class="setting-desc" data-i18n="settings.discordRpcDesc">Show what you're listening to on Discord</span>
@@ -421,6 +421,26 @@
             <h3 data-i18n="settings.appearance">Appearance</h3>
             <div class="setting-row">
               <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.language">Language</span>
+                <span class="setting-desc" data-i18n="settings.languageDesc">App display language</span>
+              </div>
+              <select class="setting-select" id="setting-language">
+                <option value="" data-i18n="settings.langAuto">System default</option>
+                <option value="en">English</option>
+                <option value="es">Español</option>
+                <option value="pt">Português</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="ja">日本語</option>
+                <option value="ko">한국어</option>
+                <option value="zh">中文</option>
+                <option value="it">Italiano</option>
+                <option value="tr">Türkçe</option>
+                <option value="ru">Русский</option>
+                <option value="hi">हिन्दी</option>
+              </select>
+            </div>
+              <div class="setting-info">
                 <span class="setting-label" data-i18n="settings.theme">Theme</span>
                 <span class="setting-desc" data-i18n="settings.themeDesc">Choose a color theme for the app</span>
               </div>
@@ -466,7 +486,7 @@
                 <span class="toggle-slider"></span>
               </label>
             </div>
-            <div class="setting-row">
+            <div class="setting-row" id="row-minimize-to-tray">
               <div class="setting-info">
                 <span class="setting-label" data-i18n="settings.minimizeToTray">Minimize to tray</span>
                 <span class="setting-desc" data-i18n="settings.minimizeToTrayDesc">Closing the app minimizes it to the system tray instead of quitting</span>
@@ -476,7 +496,7 @@
                 <span class="toggle-slider"></span>
               </label>
             </div>
-            <div class="setting-row">
+            <div class="setting-row" id="row-launch-on-startup">
               <div class="setting-info">
                 <span class="setting-label" data-i18n="settings.launchOnStartup">Launch on startup</span>
                 <span class="setting-desc" data-i18n="settings.launchOnStartupDesc">Automatically start Snowify when you log in</span>

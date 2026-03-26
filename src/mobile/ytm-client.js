@@ -16,15 +16,17 @@ let _context  = null;
 let _initDone = false;
 let _initP    = null;
 
-// Android Music client context — returns plain signed stream URLs
+// Android client context — returns pre-signed stream URLs without cipher.
+// Using the ANDROID client (not ANDROID_MUSIC) as it is more reliably
+// returns direct `url` fields rather than `signatureCipher`.
 const ANDROID_CONTEXT = {
   client: {
-    clientName: 'ANDROID_MUSIC',
-    clientVersion: '5.01',
+    clientName: 'ANDROID',
+    clientVersion: '19.09.37',
     androidSdkVersion: 30,
     hl: 'en',
     gl: 'US',
-    userAgent: 'com.google.android.apps.youtube.music/5.01 (Linux; U; Android 11) gzip',
+    userAgent: 'com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip',
   },
 };
 
@@ -932,6 +934,7 @@ function parseWatchRenderer(r, videoId) {
 // The ANDROID_MUSIC client returns pre-signed stream URLs — no decipher needed.
 
 async function fetchPlayerData(videoId) {
+  await initSession();
   const resp = await fetch(
     `https://music.youtube.com/youtubei/v1/player?key=${_apiKey}&prettyPrint=false`,
     {
@@ -940,7 +943,7 @@ async function fetchPlayerData(videoId) {
         'Content-Type': 'application/json',
         'User-Agent': ANDROID_CONTEXT.client.userAgent,
         'X-Goog-Api-Format-Version': '2',
-        'X-YouTube-Client-Name': '21',
+        'X-YouTube-Client-Name': '3',
         'X-YouTube-Client-Version': ANDROID_CONTEXT.client.clientVersion,
       },
       body: JSON.stringify({

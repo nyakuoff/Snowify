@@ -1138,12 +1138,12 @@ var __SnowifyMobile = (() => {
   var _initP = null;
   var ANDROID_CONTEXT = {
     client: {
-      clientName: "ANDROID_MUSIC",
-      clientVersion: "5.01",
+      clientName: "ANDROID",
+      clientVersion: "19.09.37",
       androidSdkVersion: 30,
       hl: "en",
       gl: "US",
-      userAgent: "com.google.android.apps.youtube.music/5.01 (Linux; U; Android 11) gzip"
+      userAgent: "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip"
     }
   };
   async function initSession() {
@@ -1931,6 +1931,7 @@ var __SnowifyMobile = (() => {
     };
   }
   async function fetchPlayerData(videoId) {
+    await initSession();
     const resp = await fetch(
       `https://music.youtube.com/youtubei/v1/player?key=${_apiKey}&prettyPrint=false`,
       {
@@ -1939,7 +1940,7 @@ var __SnowifyMobile = (() => {
           "Content-Type": "application/json",
           "User-Agent": ANDROID_CONTEXT.client.userAgent,
           "X-Goog-Api-Format-Version": "2",
-          "X-YouTube-Client-Name": "21",
+          "X-YouTube-Client-Name": "3",
           "X-YouTube-Client-Version": ANDROID_CONTEXT.client.clientVersion
         },
         body: JSON.stringify({
@@ -2620,7 +2621,9 @@ var __SnowifyMobile = (() => {
     document.documentElement.classList.add("platform-mobile");
     document.documentElement.classList.add(`platform-${platform}`);
   }
-  installMobileBridge();
+  if (!window.snowify) {
+    installMobileBridge();
+  }
   return __toCommonJS(bridge_exports);
 })();
 /*! Bundled license information:

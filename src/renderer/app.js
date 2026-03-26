@@ -6033,6 +6033,22 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     // Apply theme
     applyTheme(state.theme);
 
+    // Language dropdown
+    const languageSelect = $('#setting-language');
+    if (languageSelect) {
+      const savedLocale = localStorage.getItem('snowify_locale') || '';
+      languageSelect.value = savedLocale;
+      languageSelect.addEventListener('change', () => {
+        const lang = languageSelect.value;
+        if (lang) {
+          I18n.changeLanguage(lang);
+        } else {
+          localStorage.removeItem('snowify_locale');
+          I18n.changeLanguage(navigator.language || 'en');
+        }
+      });
+    }
+
     // Theme dropdown
     const themeSelect = $('#theme-select');
     await populateCustomThemes(themeSelect, state.theme);

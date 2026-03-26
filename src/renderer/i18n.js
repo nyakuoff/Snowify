@@ -19,7 +19,7 @@ window.I18n = (function () {
 
     _pluralRules = new Intl.PluralRules(_locale);
 
-    const base = '../locales/';
+    const base = 'locales/';
     try {
       const [trans, fb] = await Promise.all([
         fetch(base + _locale + '.json').then(r => r.json()),

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build:mobile": "esbuild src/mobile/bridge.js --bundle --format=iife --global-name=__SnowifyMobile --outfile=src/renderer/mobile-bridge.js --platform=browser",
+    "build:mobile": "esbuild src/mobile/bridge.js --bundle --format=iife --global-name=__SnowifyMobile --outfile=src/renderer/mobile-bridge.js --platform=browser && cp src/locales/*.json src/renderer/locales/",
     "build": "electron-builder --linux",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",

@@ -550,5 +550,9 @@ export function installMobileBridge() {
   document.documentElement.classList.add(`platform-${platform}`);
 }
 
-// Auto-invoke immediately when this script loads.
-installMobileBridge();
+// Auto-invoke when this script loads, but only in Capacitor/mobile environments.
+// On Electron desktop, window.snowify is already set by contextBridge (preload.js)
+// before any renderer scripts run, so we skip to avoid stomping it.
+if (!window.snowify) {
+  installMobileBridge();
+}

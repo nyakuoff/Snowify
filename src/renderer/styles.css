@@ -5878,78 +5878,70 @@ body.i18n-switching { opacity: 0; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Mobile / Capacitor — Full Native-App Layout
-   Applied when bridge.js adds .platform-mobile to <html>
+   Mobile / Capacitor — Native-App Layout
+   Applied ONLY when bridge.js adds .platform-mobile to <html>.
+   Desktop is completely unaffected.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── CSS variable overrides ── */
+/* ── Base vars ── */
 .platform-mobile {
   --titlebar-height: 0px;
-  --now-playing-height: 64px;   /* slimmer mini-player bar */
-  --mobile-nav-height: 56px;    /* bottom nav */
-  --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
-  --mobile-safe-top: env(safe-area-inset-top, 0px);
+  --np-bar-h: 58px;
+  --nav-h: 50px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
 }
 
-/* ── Hide desktop chrome ── */
-.platform-mobile #titlebar { display: none !important; }
-.platform-mobile #floating-search { display: none !important; }
-.platform-mobile .floating-search { display: none !important; }
+/* ── Hide desktop-only chrome ── */
+.platform-mobile #titlebar,
+.platform-mobile #floating-search,
+.platform-mobile .floating-search,
 .platform-mobile #update-banner { display: none !important; }
 
-/* ── Root layout: status bar safe area ── */
-.platform-mobile body {
-  overflow: hidden;
-  height: 100%;
-}
+/* ── Root ── */
+.platform-mobile html,
+.platform-mobile body { height: 100%; overflow: hidden; }
 
-/* ── App container: fills screen below status bar ── */
+/* ── App container — fills viewport, leaves room for mini player + nav ── */
 .platform-mobile #app {
   position: fixed;
-  top: var(--mobile-safe-top);
-  left: 0;
-  right: 0;
-  /* bottom of content area: above mini-player + nav + home indicator */
-  bottom: calc(var(--now-playing-height) + var(--mobile-nav-height) + var(--mobile-safe-bottom));
+  top: var(--safe-top);
+  left: 0; right: 0;
+  bottom: calc(var(--np-bar-h) + var(--nav-h) + var(--safe-bot));
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   overflow: hidden;
 }
 .platform-mobile #app.no-player {
-  bottom: calc(var(--mobile-nav-height) + var(--mobile-safe-bottom));
+  bottom: calc(var(--nav-h) + var(--safe-bot));
 }
 
-/* ── Sidebar → Bottom navigation bar ── */
+/* ────────────────────────────────────────────────
+   Bottom nav (was sidebar)
+   ──────────────────────────────────────────────── */
 .platform-mobile #sidebar {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  top: auto;
+  inset: auto 0 0 0;
   width: 100% !important;
   min-width: unset !important;
-  height: calc(var(--mobile-nav-height) + var(--mobile-safe-bottom));
+  height: calc(var(--nav-h) + var(--safe-bot));
   display: flex;
   flex-direction: row;
   align-items: flex-start;
   background: var(--bg-surface);
   border-right: none;
-  border-top: 1px solid rgba(255,255,255,0.07);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
   z-index: 99;
-  padding-bottom: var(--mobile-safe-bottom);
+  padding-bottom: var(--safe-bot);
   overflow: visible;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
 }
-
 .platform-mobile .sidebar-nav {
   flex-direction: row;
-  width: 100%;
-  gap: 0;
-  padding: 0;
-  height: var(--mobile-nav-height);
+  width: 100%; height: var(--nav-h);
+  gap: 0; padding: 0;
 }
-
 .platform-mobile .sidebar-section { display: none !important; }
 
 .platform-mobile .nav-btn {
@@ -5957,169 +5949,85 @@ body.i18n-switching { opacity: 0; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 8px 4px 6px;
-  height: var(--mobile-nav-height);
+  gap: 2px;
+  padding: 6px 2px 4px;
+  height: var(--nav-h);
   border-radius: 0;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
   color: var(--text-subdued);
-  transition: color 0.15s;
+  transition: color 0.12s;
   min-width: unset;
 }
-.platform-mobile .nav-btn svg {
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-}
-.platform-mobile .nav-btn span {
-  display: block;
-  font-size: 10px;
-  line-height: 1;
-}
-.platform-mobile .nav-btn.active {
-  color: var(--accent);
-  background: transparent;
-}
+.platform-mobile .nav-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+.platform-mobile .nav-btn span { display: block; font-size: 9.5px; line-height: 1; }
+.platform-mobile .nav-btn.active { color: var(--accent); background: transparent; }
 .platform-mobile .nav-btn.active::before { display: none; }
-
-/* Show Search nav button (hidden on desktop) */
+.platform-mobile .nav-btn:hover { transform: none; }
+.platform-mobile .nav-btn:active { opacity: 0.5; }
+/* Show Search nav button */
 .platform-mobile [data-view="search"] { display: flex !important; }
 
-/* ── Mini now-playing bar ── */
+/* ────────────────────────────────────────────────
+   Mini now-playing bar (above bottom nav)
+   ──────────────────────────────────────────────── */
 .platform-mobile #now-playing-bar {
   position: fixed;
-  bottom: calc(var(--mobile-nav-height) + var(--mobile-safe-bottom));
-  left: 0;
-  right: 0;
-  height: var(--now-playing-height);
-  padding: 0 12px;
+  bottom: calc(var(--nav-h) + var(--safe-bot));
+  left: 6px; right: 6px;
+  height: var(--np-bar-h);
+  padding: 0 10px 0 10px;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 10px;
-  background: color-mix(in srgb, rgba(var(--ambient-rgb), 0.15) 30%, var(--bg-elevated));
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-top: 1px solid rgba(var(--ambient-rgb), 0.18);
-  box-shadow: none;
+  gap: 8px;
+  background: color-mix(in srgb, var(--bg-elevated) 85%, rgba(var(--ambient-rgb),0.3));
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.35);
   grid-template-columns: unset;
   z-index: 100;
   cursor: pointer;
+  overflow: hidden;
+}
+/* Thin accent progress line at top of mini player */
+.platform-mobile #now-playing-bar::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  height: 2px;
+  width: calc(var(--np-progress, 0) * 100%);
+  background: var(--accent);
+  border-radius: 2px 0 0 0;
+  transition: width 0.5s linear;
+  pointer-events: none;
 }
 .platform-mobile #now-playing-bar.hidden {
-  transform: translateY(calc(100% + var(--mobile-nav-height)));
+  transform: translateY(calc(100% + 80px));
+  pointer-events: none;
 }
-
-/* Mini player: track info expands */
-.platform-mobile .np-track-info {
-  flex: 1;
-  min-width: 0;
-  gap: 10px;
-  padding-left: 0;
-}
-.platform-mobile #np-thumbnail {
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  flex-shrink: 0;
-}
-.platform-mobile .np-title { font-size: 13px; }
+.platform-mobile .np-track-info { flex: 1; min-width: 0; gap: 8px; padding-left: 0; }
+.platform-mobile #np-thumbnail { width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0; }
+.platform-mobile .np-title { font-size: 13px; font-weight: 600; }
 .platform-mobile .np-artist { font-size: 11px; }
-
-/* Hide the complex desktop controls in the mini bar — show only prev/play/next */
+.platform-mobile .np-progress { display: none !important; }
+.platform-mobile .np-extras { display: none !important; }
+.platform-mobile .np-like { display: none; }
 .platform-mobile .np-controls {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 4px;
+  gap: 0;
   flex-shrink: 0;
 }
-.platform-mobile .np-progress { display: none !important; }
-.platform-mobile .np-extras { display: none !important; }
+.platform-mobile .np-controls .icon-btn { min-width: 38px; min-height: 38px; padding: 6px; }
 
-/* Compact icon buttons in mini player */
-.platform-mobile .np-controls .icon-btn {
-  min-width: 36px;
-  min-height: 36px;
-  padding: 6px;
-}
-.platform-mobile .np-like { display: none; }
-
-/* ── Max NP (full-screen player) — mobile layout ── */
-.platform-mobile .max-np {
-  padding-top: var(--mobile-safe-top);
-  padding-bottom: calc(var(--mobile-safe-bottom) + 8px);
-}
-
-.platform-mobile .max-np-topbar {
-  top: calc(var(--mobile-safe-top) + 10px);
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-/* Drag handle for dismiss gesture hint */
-.platform-mobile .max-np-topbar::before {
-  content: '';
-  display: block;
-  width: 36px;
-  height: 4px;
-  background: rgba(255,255,255,0.25);
-  border-radius: 2px;
-}
-.platform-mobile .max-np-x {
-  position: absolute;
-  right: 20px;
-  top: 0;
-}
-
-.platform-mobile .max-np-body {
-  flex-direction: column;
-  gap: 20px;
-  padding: calc(var(--mobile-safe-top) + 52px) 28px 16px;
-  align-items: center;
-  justify-content: flex-start;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.platform-mobile .max-np-left {
-  width: 100%;
-  max-width: 380px;
-  gap: 20px;
-}
-
-.platform-mobile .max-np-art {
-  width: min(76vw, 340px);
-  height: min(76vw, 340px);
-  align-self: center;
-}
-
-.platform-mobile .max-np-info {
-  text-align: center;
-}
-
-.platform-mobile .max-np-title { font-size: clamp(18px, 5.5vw, 26px); }
-.platform-mobile .max-np-artist { font-size: clamp(13px, 4vw, 18px); }
-
-.platform-mobile .max-np-controls { gap: 12px; }
-.platform-mobile .max-np-actions { gap: 16px; }
-
-.platform-mobile .max-np-right {
-  /* On mobile: lyrics show as a panel below the controls */
-  flex: unset;
-  width: 100%;
-  max-width: 380px;
-  max-height: 200px;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* ── Main content area ── */
+/* ────────────────────────────────────────────────
+   Main content
+   ──────────────────────────────────────────────── */
 .platform-mobile #main-content {
   flex: 1;
   width: 100%;
@@ -6127,188 +6035,161 @@ body.i18n-switching { opacity: 0; }
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
 }
+.platform-mobile .view { padding-bottom: 8px; }
 
-/* Scroll to top on each view switch — smooth */
-.platform-mobile .view {
-  padding-bottom: 12px;
+/* ── View header ── */
+.platform-mobile .view-header { padding: 10px 14px 6px; }
+.platform-mobile .view-header h1 { font-size: clamp(20px, 5.5vw, 28px); }
+
+/* ── Cards / grids ── */
+.platform-mobile .card-row { gap: 8px; padding: 0 10px 6px; flex-wrap: wrap; }
+.platform-mobile .album-scroll { padding: 0 10px 6px; }
+.platform-mobile .section { margin-bottom: 16px; }
+.platform-mobile .section h2 { padding: 0 14px 8px; font-size: 15px; }
+
+/* ── Track rows ── */
+.platform-mobile .track-row { padding: 8px 12px; min-height: 54px; }
+.platform-mobile .track-num { display: none; }
+.platform-mobile .track-row:hover { background: transparent; }
+.platform-mobile .track-row:active { background: var(--bg-highlight); }
+
+/* ── Touch targets ── */
+.platform-mobile .icon-btn { min-width: 40px; min-height: 40px; }
+.platform-mobile .icon-btn:hover { transform: none; }
+.platform-mobile .icon-btn:active { opacity: 0.55; }
+.platform-mobile .play-btn { width: 40px; height: 40px; }
+
+/* ────────────────────────────────────────────────
+   Full-screen now playing
+   ──────────────────────────────────────────────── */
+.platform-mobile .max-np {
+  padding-top: var(--safe-top);
+  padding-bottom: calc(var(--safe-bot) + 6px);
+}
+.platform-mobile .max-np-topbar {
+  top: calc(var(--safe-top) + 8px);
+  left: 0; right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+/* Drag handle hint */
+.platform-mobile .max-np-topbar::before {
+  content: '';
+  display: block;
+  width: 32px; height: 3px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 2px;
+}
+.platform-mobile .max-np-x { position: absolute; right: 16px; top: 0; }
+.platform-mobile .max-np-body {
+  flex-direction: column;
+  gap: 16px;
+  padding: calc(var(--safe-top) + 48px) 24px 12px;
+  align-items: center;
+  justify-content: flex-start;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.platform-mobile .max-np-left { width: 100%; max-width: 360px; gap: 16px; }
+.platform-mobile .max-np-art {
+  width: min(72vw, 320px);
+  height: min(72vw, 320px);
+  align-self: center;
+}
+.platform-mobile .max-np-info { text-align: center; }
+.platform-mobile .max-np-title { font-size: clamp(17px, 5vw, 24px); }
+.platform-mobile .max-np-artist { font-size: clamp(12px, 3.8vw, 16px); }
+.platform-mobile .max-np-controls { gap: 10px; }
+.platform-mobile .max-np-actions { gap: 14px; }
+.platform-mobile .max-np-right {
+  flex: unset;
+  width: 100%; max-width: 360px;
+  max-height: 180px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* ── View header: compact on mobile ── */
-.platform-mobile .view-header h1 {
-  font-size: clamp(22px, 6vw, 32px);
-}
-.platform-mobile .view-header {
-  padding: 12px 16px 8px;
-}
-
-/* ── Cards / grids: tighter on mobile ── */
-.platform-mobile .card-row {
-  gap: 10px;
-  padding: 0 12px 8px;
-  flex-wrap: wrap;
-}
-.platform-mobile .album-scroll {
-  padding: 0 12px 8px;
-}
-.platform-mobile .section {
-  margin-bottom: 20px;
-}
-.platform-mobile .section h2 {
-  padding: 0 16px 10px;
-  font-size: 16px;
-}
-
-/* ── Track rows: bigger tap target, remove hover ── */
-.platform-mobile .track-row {
-  padding: 10px 14px;
-  min-height: 60px;
-}
-.platform-mobile .track-num {
-  display: none;
-}
-
-/* ── Queue panel → slide-up sheet ── */
-.platform-mobile #queue-panel {
-  position: fixed;
-  inset: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  top: auto;
-  height: 75vh;
-  border-radius: 20px 20px 0 0;
-  border-left: none;
-  border-top: 1px solid rgba(255,255,255,0.08);
-  transform: translateY(100%);
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 150;
-  overflow: hidden;
-}
-.platform-mobile #queue-panel.visible {
-  transform: translateY(0);
-}
-.platform-mobile #queue-panel.hidden {
-  transform: translateY(100%);
-  pointer-events: none;
-}
-
-/* ── Lyrics panel → slide-up sheet ── */
+/* ────────────────────────────────────────────────
+   Queue / Lyrics — slide-up sheets
+   ──────────────────────────────────────────────── */
+.platform-mobile #queue-panel,
 .platform-mobile #lyrics-panel {
   position: fixed;
-  inset: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  top: auto;
-  height: 75vh;
-  border-radius: 20px 20px 0 0;
+  left: 0; right: 0; bottom: 0; top: auto;
+  height: 78vh;
+  border-radius: 18px 18px 0 0;
   border-left: none;
-  border-top: 1px solid rgba(255,255,255,0.08);
+  border-top: 1px solid rgba(255,255,255,0.07);
   transform: translateY(100%);
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.36s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 150;
   overflow: hidden;
 }
-.platform-mobile #lyrics-panel.visible {
-  transform: translateY(0);
-}
-.platform-mobile #lyrics-panel.hidden {
-  transform: translateY(100%);
-  pointer-events: none;
-}
+.platform-mobile #queue-panel.visible,
+.platform-mobile #lyrics-panel.visible { transform: translateY(0); }
+.platform-mobile #queue-panel.hidden,
+.platform-mobile #lyrics-panel.hidden { transform: translateY(100%); pointer-events: none; }
 
-/* ── Search view: input always has focus affordance ── */
+/* ────────────────────────────────────────────────
+   Search view
+   ──────────────────────────────────────────────── */
 .platform-mobile .search-bar-container {
-  padding: 8px 12px 4px;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  padding: 6px 10px 2px;
+  position: sticky; top: 0; z-index: 10;
   background: var(--bg-base);
 }
 .platform-mobile .search-input-wrap input {
-  font-size: 16px; /* prevent iOS zoom on focus */
-  padding: 12px 48px;
+  font-size: 16px; /* prevent iOS zoom */
+  padding: 10px 44px;
 }
 
-/* ── Settings: bigger rows ── */
-.platform-mobile .setting-row {
-  padding: 14px 16px;
-}
+/* ────────────────────────────────────────────────
+   Settings
+   ──────────────────────────────────────────────── */
+.platform-mobile .setting-row { padding: 12px 14px; }
 .platform-mobile .settings-tabs {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   white-space: nowrap;
-  padding: 0 8px;
-  display: flex;
-  gap: 4px;
+  padding: 0 6px;
+  display: flex; gap: 2px;
   scrollbar-width: none;
 }
 .platform-mobile .settings-tabs::-webkit-scrollbar { display: none; }
+/* Hide desktop-only settings on mobile */
+.platform-mobile #row-minimize-to-tray,
+.platform-mobile #row-launch-on-startup,
+.platform-mobile #row-discord-rpc { display: none !important; }
 
-/* ── Touch: disable hover transforms globally on mobile ── */
-.platform-mobile .icon-btn:hover { transform: none; }
-.platform-mobile .nav-btn:hover { transform: none; }
-.platform-mobile .nav-btn:active { opacity: 0.6; }
-.platform-mobile .icon-btn:active { opacity: 0.6; }
-.platform-mobile .track-row:active { background: var(--bg-highlight); }
+/* ────────────────────────────────────────────────
+   Misc: context menus, playlist, artist headers
+   ──────────────────────────────────────────────── */
+.platform-mobile .context-menu { min-width: 190px; }
+.platform-mobile .context-menu-item { padding: 12px 14px; font-size: 13.5px; }
 
-/* ── All touch targets minimum 44px ── */
-.platform-mobile .icon-btn { min-width: 40px; min-height: 40px; }
-.platform-mobile .play-btn { width: 42px; height: 42px; }
-
-/* ── Momentum scrolling everywhere ── */
-.platform-mobile .lyrics-body,
-.platform-mobile #main-content,
-.platform-mobile .queue-view,
-.platform-mobile .playlist-list,
-.platform-mobile .album-scroll,
-.platform-mobile .settings-content,
-.platform-mobile #view-settings {
-  -webkit-overflow-scrolling: touch;
-}
-
-/* ── Context menus: wider and taller on mobile ── */
-.platform-mobile .context-menu {
-  min-width: 200px;
-}
-.platform-mobile .context-menu-item {
-  padding: 13px 16px;
-  font-size: 14px;
-}
-
-/* ── Playlist / Album hero: compact on narrow screens ── */
 .platform-mobile .playlist-header {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 12px;
-  padding: 20px 16px 12px;
+  gap: 10px;
+  padding: 16px 14px 10px;
 }
-.platform-mobile .playlist-hero-cover {
-  width: 140px;
-  height: 140px;
-}
-.platform-mobile .playlist-hero-name { font-size: clamp(18px, 5vw, 24px); }
+.platform-mobile .playlist-hero-cover { width: 130px; height: 130px; }
+.platform-mobile .playlist-hero-name { font-size: clamp(17px, 5vw, 22px); }
 
-/* ── Artist page: compact ── */
-.platform-mobile .artist-header {
-  padding: 12px 16px;
-  gap: 12px;
-}
-.platform-mobile .artist-avatar {
-  width: 72px;
-  height: 72px;
-}
-.platform-mobile .artist-name { font-size: clamp(20px, 5.5vw, 28px); }
+.platform-mobile .artist-header { padding: 10px 14px; gap: 10px; }
+.platform-mobile .artist-avatar { width: 64px; height: 64px; }
+.platform-mobile .artist-name { font-size: clamp(18px, 5.5vw, 26px); }
 
-/* ── "Liked songs" style quick picks ── */
-.platform-mobile .quick-picks {
-  padding: 0 12px;
-  gap: 8px;
-}
-.platform-mobile .quick-pick-item {
-  max-width: none;
-  flex: 1 1 calc(50% - 4px);
-}
+.platform-mobile .quick-picks { padding: 0 10px; gap: 6px; }
+.platform-mobile .quick-pick-item { max-width: none; flex: 1 1 calc(50% - 3px); }
 
+/* ── Momentum scroll everywhere ── */
+.platform-mobile .lyrics-body,
+.platform-mobile .queue-view,
+.platform-mobile .playlist-list,
+.platform-mobile .album-scroll,
+.platform-mobile .settings-content,
+.platform-mobile #view-settings { -webkit-overflow-scrolling: touch; }
 
