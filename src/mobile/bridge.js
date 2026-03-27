@@ -28,7 +28,7 @@ import {
   updateProfile as fbUpdateProfile,
 } from 'firebase/auth';
 import {
-  getFirestore,
+  initializeFirestore,
   doc,
   getDoc,
   setDoc,
@@ -50,7 +50,12 @@ const firebaseConfig = {
 
 const firebaseApp = initializeApp(firebaseConfig);
 const firebaseAuth = getAuth(firebaseApp);
-const firebaseDb = getFirestore(firebaseApp);
+// Capacitor WebViews are more reliable with Firestore long-polling than the
+// default streaming transport.
+const firebaseDb = initializeFirestore(firebaseApp, {
+  experimentalForceLongPolling: true,
+  useFetchStreams: false,
+});
 
 async function getUserInfo(user) {
   const info = {

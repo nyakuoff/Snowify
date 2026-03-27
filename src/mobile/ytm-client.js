@@ -2,12 +2,14 @@
  * src/mobile/ytm-client.js
  *
  * YouTube Music client for mobile (Capacitor).
- * - Uses raw fetch() calls to the InnerTube API for all data queries.
- *   @capacitor/http intercepts all fetch() calls at the native layer,
- *   so CORS is bypassed transparently for music.youtube.com endpoints.
+ * - Uses explicit Capacitor native HTTP calls for YouTube endpoints.
+ *   This avoids CORS while keeping Firebase on the normal browser fetch/XHR
+ *   stack, which Firestore expects.
  * - Stream URLs are fetched via the InnerTube /player endpoint using the
  *   ANDROID_MUSIC client which returns pre-signed URLs (no cipher needed).
  */
+
+import { nativeGetJson, nativeGetText, nativeRequestJson } from './native-http.js';
 
 // ─── InnerTube session state ───────────────────────────────────────────────
 
@@ -50,8 +52,7 @@ async function initSession() {
   _initP = (async () => {
     // 1. Fetch music.youtube.com to extract the InnerTube key + WEB_REMIX context
     try {
-      const resp = await fetch('https://music.youtube.com/', { cache: 'no-store' });
-      const html = await resp.text();
+      const html = await nativeGetText('https://music.youtube.com/');
       const visitorMatch = html.match(/"VISITOR_DATA"\s*:\s*"([^"]+)"/);
       if (visitorMatch?.[1]) _visitorData = visitorMatch[1];
       const keyMatch  = html.match(/"INNERTUBE_API_KEY"\s*:\s*"([^"]+)"/);
@@ -83,7 +84,7 @@ async function initSession() {
 
 async function musicRequest(endpoint, body) {
   await initSession();
-  const resp = await fetch(
+  return nativeRequestJson(
     `https://music.youtube.com/youtubei/v1/${endpoint}?key=${_apiKey}&prettyPrint=false`,
     {
       method: 'POST',
@@ -91,7 +92,6 @@ async function musicRequest(endpoint, body) {
       body: JSON.stringify({ context: _context, ...body }),
     }
   );
-  return resp.json();
 }
 
 // ─── Helpers (ported directly from src/main/ytmusic.js) ──────────────────
@@ -949,7 +949,7 @@ function parseWatchRenderer(r, videoId) {
 // ANDROID_VR (id=28) — no PO Token required per yt-dlp wiki.
 
 async function fetchPlayerData(videoId) {
-  const resp = await fetch(
+  return nativeRequestJson(
     'https://www.youtube.com/youtubei/v1/player?prettyPrint=false',
     {
       method: 'POST',
@@ -979,7 +979,15 @@ async function fetchPlayerData(videoId) {
       }),
     }
   );
-  return resp.json();
+}
+
+async function fetchPipedStreams(videoId) {
+  try {
+    return await nativeGetJson(`https://pipedapi.kavin.rocks/streams/${videoId}`);
+  } catch (error) {
+    console.error('[YTM] Piped API failed:', error);
+    return null;
+  }
 }
 
 export async function getStreamUrl(videoUrl, quality = 'bestaudio') {
@@ -994,6 +1002,12 @@ export async function getStreamUrl(videoUrl, quality = 'bestaudio') {
   const data = await fetchPlayerData(videoId);
   const status = data?.playabilityStatus?.status;
 
+  let piped = null;
+  if (status !== 'OK') {
+    console.warn('[YTM] Player status not OK, trying Piped fallback:', status);
+    piped = await fetchPipedStreams(videoId);
+  }
+
   if (status === 'OK') {
     const af = data?.streamingData?.adaptiveFormats ?? [];
     let audioFormats = af.filter(f => f.mimeType?.startsWith('audio/') && f.url);
@@ -1001,14 +1015,10 @@ export async function getStreamUrl(videoUrl, quality = 'bestaudio') {
     // Piped fallback if ANDROID returned no direct audio URLs
     if (!audioFormats.length) {
       console.log('[YTM] No direct audio URLs, trying Piped API…');
-      try {
-        const piped = await fetch(`https://pipedapi.kavin.rocks/streams/${videoId}`).then(r => r.json());
-        audioFormats = (piped?.audioStreams ?? [])
-          .filter(s => s.url)
-          .map(s => ({ mimeType: s.mimeType ?? 'audio/webm', bitrate: s.bitrate ?? 0, url: s.url }));
-      } catch (e) {
-        console.error('[YTM] Piped API failed:', e);
-      }
+      piped = piped || await fetchPipedStreams(videoId);
+      audioFormats = (piped?.audioStreams ?? [])
+        .filter(s => s.url)
+        .map(s => ({ mimeType: s.mimeType ?? 'audio/webm', bitrate: s.bitrate ?? 0, url: s.url }));
     }
 
     if (audioFormats.length) {
@@ -1021,6 +1031,16 @@ export async function getStreamUrl(videoUrl, quality = 'bestaudio') {
     // Muxed fallback
     const muxed = (data?.streamingData?.formats ?? []).filter(f => f.url);
     if (muxed.length) return `${muxed[0].url}&cpn=${cpn}`;
+  }
+
+  const pipedAudioFormats = (piped?.audioStreams ?? [])
+    .filter(s => s.url)
+    .map(s => ({ mimeType: s.mimeType ?? 'audio/webm', bitrate: s.bitrate ?? 0, url: s.url }));
+  if (pipedAudioFormats.length) {
+    const sorted = quality === 'worstaudio'
+      ? [...pipedAudioFormats].sort((a, b) => (a.bitrate || 0) - (b.bitrate || 0))
+      : [...pipedAudioFormats].sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+    return `${sorted[0].url}&cpn=${cpn}`;
   }
 
   console.error('[YTM] Player response:', JSON.stringify(data?.playabilityStatus));

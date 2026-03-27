@@ -9,9 +9,9 @@ const config: CapacitorConfig = {
   },
   plugins: {
     CapacitorHttp: {
-      // Patch the global fetch() to route through native OkHttp.
-      // This bypasses CORS for music.youtube.com and all API requests.
-      enabled: true,
+      // Keep Firebase/Auth/Firestore on the normal browser networking stack.
+      // Specific mobile endpoints that need native HTTP use CapacitorHttp directly.
+      enabled: false,
     },
   },
 };

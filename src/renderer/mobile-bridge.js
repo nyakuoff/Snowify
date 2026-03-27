@@ -645,14 +645,14 @@ var __SnowifyMobile = (() => {
             throw this.unavailable("This browser doesn't support IndexedDB");
           }
           return new Promise((resolve2, reject) => {
-            const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
-            request.onupgradeneeded = _FilesystemWeb.doUpgrade;
-            request.onsuccess = () => {
-              this._db = request.result;
-              resolve2(request.result);
+            const request2 = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+            request2.onupgradeneeded = _FilesystemWeb.doUpgrade;
+            request2.onsuccess = () => {
+              this._db = request2.result;
+              resolve2(request2.result);
             };
-            request.onerror = () => reject(request.error);
-            request.onblocked = () => {
+            request2.onerror = () => reject(request2.error);
+            request2.onblocked = () => {
               console.warn("db blocked");
             };
           });
@@ -1131,6 +1131,54 @@ var __SnowifyMobile = (() => {
     installMobileBridge: () => installMobileBridge
   });
 
+  // src/mobile/native-http.js
+  init_dist();
+  function normalizeHeaders(headers) {
+    return headers && typeof headers === "object" ? headers : {};
+  }
+  function normalizeData(data, headers) {
+    if (data == null) return void 0;
+    const contentType = String(headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
+    if (typeof data === "string") {
+      if (contentType.includes("application/json")) {
+        try {
+          return JSON.parse(data);
+        } catch {
+          return data;
+        }
+      }
+      return data;
+    }
+    return data;
+  }
+  async function request(url, options = {}) {
+    const headers = normalizeHeaders(options.headers || {});
+    return CapacitorHttp.request({
+      url,
+      method: options.method || "GET",
+      headers,
+      data: normalizeData(options.body, headers),
+      responseType: options.responseType || "text",
+      connectTimeout: options.connectTimeout || 3e4,
+      readTimeout: options.readTimeout || 3e4,
+      shouldEncodeUrlParams: options.shouldEncodeUrlParams
+    });
+  }
+  async function nativeGetText(url, options = {}) {
+    const response = await request(url, { ...options, method: "GET", responseType: "text" });
+    return typeof response.data === "string" ? response.data : String(response.data ?? "");
+  }
+  async function nativeGetJson(url, options = {}) {
+    const response = await request(url, { ...options, method: "GET", responseType: "json" });
+    if (typeof response.data === "string") return JSON.parse(response.data);
+    return response.data;
+  }
+  async function nativeRequestJson(url, options = {}) {
+    const response = await request(url, { ...options, responseType: "json" });
+    if (typeof response.data === "string") return JSON.parse(response.data);
+    return response.data;
+  }
+
   // src/mobile/ytm-client.js
   var _apiKey = null;
   var _context = null;
@@ -1160,8 +1208,7 @@ var __SnowifyMobile = (() => {
     if (_initP) return _initP;
     _initP = (async () => {
       try {
-        const resp = await fetch("https://music.youtube.com/", { cache: "no-store" });
-        const html = await resp.text();
+        const html = await nativeGetText("https://music.youtube.com/");
         const visitorMatch = html.match(/"VISITOR_DATA"\s*:\s*"([^"]+)"/);
         if (visitorMatch?.[1]) _visitorData = visitorMatch[1];
         const keyMatch = html.match(/"INNERTUBE_API_KEY"\s*:\s*"([^"]+)"/);
@@ -1193,7 +1240,7 @@ var __SnowifyMobile = (() => {
   }
   async function musicRequest(endpoint, body) {
     await initSession();
-    const resp = await fetch(
+    return nativeRequestJson(
       `https://music.youtube.com/youtubei/v1/${endpoint}?key=${_apiKey}&prettyPrint=false`,
       {
         method: "POST",
@@ -1201,7 +1248,6 @@ var __SnowifyMobile = (() => {
         body: JSON.stringify({ context: _context, ...body })
       }
     );
-    return resp.json();
   }
   function getBestThumbnail(thumbnails) {
     if (!thumbnails?.length) return "";
@@ -1942,7 +1988,7 @@ var __SnowifyMobile = (() => {
     };
   }
   async function fetchPlayerData(videoId) {
-    const resp = await fetch(
+    return nativeRequestJson(
       "https://www.youtube.com/youtubei/v1/player?prettyPrint=false",
       {
         method: "POST",
@@ -1972,7 +2018,14 @@ var __SnowifyMobile = (() => {
         })
       }
     );
-    return resp.json();
+  }
+  async function fetchPipedStreams(videoId) {
+    try {
+      return await nativeGetJson(`https://pipedapi.kavin.rocks/streams/${videoId}`);
+    } catch (error) {
+      console.error("[YTM] Piped API failed:", error);
+      return null;
+    }
   }
   async function getStreamUrl(videoUrl, quality = "bestaudio") {
     await initSession();
@@ -1981,17 +2034,18 @@ var __SnowifyMobile = (() => {
     const cpn = generateCpn();
     const data = await fetchPlayerData(videoId);
     const status = data?.playabilityStatus?.status;
+    let piped = null;
+    if (status !== "OK") {
+      console.warn("[YTM] Player status not OK, trying Piped fallback:", status);
+      piped = await fetchPipedStreams(videoId);
+    }
     if (status === "OK") {
       const af = data?.streamingData?.adaptiveFormats ?? [];
       let audioFormats = af.filter((f2) => f2.mimeType?.startsWith("audio/") && f2.url);
       if (!audioFormats.length) {
         console.log("[YTM] No direct audio URLs, trying Piped API\u2026");
-        try {
-          const piped = await fetch(`https://pipedapi.kavin.rocks/streams/${videoId}`).then((r) => r.json());
-          audioFormats = (piped?.audioStreams ?? []).filter((s2) => s2.url).map((s2) => ({ mimeType: s2.mimeType ?? "audio/webm", bitrate: s2.bitrate ?? 0, url: s2.url }));
-        } catch (e) {
-          console.error("[YTM] Piped API failed:", e);
-        }
+        piped = piped || await fetchPipedStreams(videoId);
+        audioFormats = (piped?.audioStreams ?? []).filter((s2) => s2.url).map((s2) => ({ mimeType: s2.mimeType ?? "audio/webm", bitrate: s2.bitrate ?? 0, url: s2.url }));
       }
       if (audioFormats.length) {
         const sorted = quality === "worstaudio" ? [...audioFormats].sort((a, b2) => (a.bitrate || 0) - (b2.bitrate || 0)) : [...audioFormats].sort((a, b2) => (b2.bitrate || 0) - (a.bitrate || 0));
@@ -1999,6 +2053,11 @@ var __SnowifyMobile = (() => {
       }
       const muxed = (data?.streamingData?.formats ?? []).filter((f2) => f2.url);
       if (muxed.length) return `${muxed[0].url}&cpn=${cpn}`;
+    }
+    const pipedAudioFormats = (piped?.audioStreams ?? []).filter((s2) => s2.url).map((s2) => ({ mimeType: s2.mimeType ?? "audio/webm", bitrate: s2.bitrate ?? 0, url: s2.url }));
+    if (pipedAudioFormats.length) {
+      const sorted = quality === "worstaudio" ? [...pipedAudioFormats].sort((a, b2) => (a.bitrate || 0) - (b2.bitrate || 0)) : [...pipedAudioFormats].sort((a, b2) => (b2.bitrate || 0) - (a.bitrate || 0));
+      return `${sorted[0].url}&cpn=${cpn}`;
     }
     console.error("[YTM] Player response:", JSON.stringify(data?.playabilityStatus));
     throw new Error(`No stream URLs found (status: ${data?.playabilityStatus?.status})`);
@@ -2322,22 +2381,6 @@ var __SnowifyMobile = (() => {
     }
   };
   var getDefaultEmulatorHost = (productName) => getDefaults()?.emulatorHosts?.[productName];
-  var getDefaultEmulatorHostnameAndPort = (productName) => {
-    const host = getDefaultEmulatorHost(productName);
-    if (!host) {
-      return void 0;
-    }
-    const separatorIndex = host.lastIndexOf(":");
-    if (separatorIndex <= 0 || separatorIndex + 1 === host.length) {
-      throw new Error(`Invalid host ${host} with no separate hostname and port!`);
-    }
-    const port = parseInt(host.substring(separatorIndex + 1), 10);
-    if (host[0] === "[") {
-      return [host.substring(1, separatorIndex - 1), port];
-    } else {
-      return [host.substring(0, separatorIndex), port];
-    }
-  };
   var getDefaultAppConfig = () => getDefaults()?.config;
   var getExperimentalSetting = (name4) => getDefaults()?.[`_${name4}`];
   var Deferred = class {
@@ -2375,43 +2418,6 @@ var __SnowifyMobile = (() => {
       };
     }
   };
-  function createMockUserToken(token, projectId) {
-    if (token.uid) {
-      throw new Error('The "uid" field is no longer supported by mockUserToken. Please use "sub" instead for Firebase Auth User ID.');
-    }
-    const header = {
-      alg: "none",
-      type: "JWT"
-    };
-    const project = projectId || "demo-project";
-    const iat = token.iat || 0;
-    const sub = token.sub || token.user_id;
-    if (!sub) {
-      throw new Error("mockUserToken must contain 'sub' or 'user_id' field!");
-    }
-    const payload = {
-      // Set all required fields to decent defaults
-      iss: `https://securetoken.google.com/${project}`,
-      aud: project,
-      iat,
-      exp: iat + 3600,
-      auth_time: iat,
-      sub,
-      user_id: sub,
-      firebase: {
-        sign_in_provider: "custom",
-        identities: {}
-      },
-      // Override with user options
-      ...token
-    };
-    const signature = "";
-    return [
-      base64urlEncodeWithoutPadding(JSON.stringify(header)),
-      base64urlEncodeWithoutPadding(JSON.stringify(payload)),
-      signature
-    ].join(".");
-  }
   function getUA() {
     if (typeof navigator !== "undefined" && typeof navigator["userAgent"] === "string") {
       return navigator["userAgent"];
@@ -2466,19 +2472,19 @@ var __SnowifyMobile = (() => {
       try {
         let preExist = true;
         const DB_CHECK_NAME = "validate-browser-context-for-indexeddb-analytics-module";
-        const request = self.indexedDB.open(DB_CHECK_NAME);
-        request.onsuccess = () => {
-          request.result.close();
+        const request2 = self.indexedDB.open(DB_CHECK_NAME);
+        request2.onsuccess = () => {
+          request2.result.close();
           if (!preExist) {
             self.indexedDB.deleteDatabase(DB_CHECK_NAME);
           }
           resolve2(true);
         };
-        request.onupgradeneeded = () => {
+        request2.onupgradeneeded = () => {
           preExist = false;
         };
-        request.onerror = () => {
-          reject(request.error?.message || "");
+        request2.onerror = () => {
+          reject(request2.error?.message || "");
         };
       } catch (error) {
         reject(error);
@@ -3185,30 +3191,30 @@ var __SnowifyMobile = (() => {
   var transactionStoreNamesMap = /* @__PURE__ */ new WeakMap();
   var transformCache = /* @__PURE__ */ new WeakMap();
   var reverseTransformCache = /* @__PURE__ */ new WeakMap();
-  function promisifyRequest(request) {
+  function promisifyRequest(request2) {
     const promise = new Promise((resolve2, reject) => {
       const unlisten = () => {
-        request.removeEventListener("success", success);
-        request.removeEventListener("error", error);
+        request2.removeEventListener("success", success);
+        request2.removeEventListener("error", error);
       };
       const success = () => {
-        resolve2(wrap(request.result));
+        resolve2(wrap(request2.result));
         unlisten();
       };
       const error = () => {
-        reject(request.error);
+        reject(request2.error);
         unlisten();
       };
-      request.addEventListener("success", success);
-      request.addEventListener("error", error);
+      request2.addEventListener("success", success);
+      request2.addEventListener("error", error);
     });
     promise.then((value) => {
       if (value instanceof IDBCursor) {
-        cursorRequestMap.set(value, request);
+        cursorRequestMap.set(value, request2);
       }
     }).catch(() => {
     });
-    reverseTransformCache.set(promise, request);
+    reverseTransformCache.set(promise, request2);
     return promise;
   }
   function cacheDonePromiseForTransaction(tx) {
@@ -3305,15 +3311,15 @@ var __SnowifyMobile = (() => {
 
   // node_modules/idb/build/index.js
   function openDB(name4, version4, { blocked, upgrade, blocking, terminated } = {}) {
-    const request = indexedDB.open(name4, version4);
-    const openPromise = wrap(request);
+    const request2 = indexedDB.open(name4, version4);
+    const openPromise = wrap(request2);
     if (upgrade) {
-      request.addEventListener("upgradeneeded", (event) => {
-        upgrade(wrap(request.result), event.oldVersion, event.newVersion, wrap(request.transaction), event);
+      request2.addEventListener("upgradeneeded", (event) => {
+        upgrade(wrap(request2.result), event.oldVersion, event.newVersion, wrap(request2.transaction), event);
       });
     }
     if (blocked) {
-      request.addEventListener("blocked", (event) => blocked(
+      request2.addEventListener("blocked", (event) => blocked(
         // Casting due to https://github.com/microsoft/TypeScript-DOM-lib-generator/pull/1405
         event.oldVersion,
         event.newVersion,
@@ -4367,25 +4373,25 @@ var __SnowifyMobile = (() => {
     /* Endpoint.TOKEN */
   ];
   var DEFAULT_API_TIMEOUT_MS = new Delay(3e4, 6e4);
-  function _addTidIfNecessary(auth, request) {
-    if (auth.tenantId && !request.tenantId) {
+  function _addTidIfNecessary(auth, request2) {
+    if (auth.tenantId && !request2.tenantId) {
       return {
-        ...request,
+        ...request2,
         tenantId: auth.tenantId
       };
     }
-    return request;
+    return request2;
   }
-  async function _performApiRequest(auth, method, path, request, customErrorMap = {}) {
+  async function _performApiRequest(auth, method, path, request2, customErrorMap = {}) {
     return _performFetchWithErrorHandling(auth, customErrorMap, async () => {
       let body = {};
       let params = {};
-      if (request) {
+      if (request2) {
         if (method === "GET") {
-          params = request;
+          params = request2;
         } else {
           body = {
-            body: JSON.stringify(request)
+            body: JSON.stringify(request2)
           };
         }
       }
@@ -4458,8 +4464,8 @@ var __SnowifyMobile = (() => {
       _fail(auth, "network-request-failed", { "message": String(e) });
     }
   }
-  async function _performSignInRequest(auth, method, path, request, customErrorMap = {}) {
-    const serverResponse = await _performApiRequest(auth, method, path, request, customErrorMap);
+  async function _performSignInRequest(auth, method, path, request2, customErrorMap = {}) {
+    const serverResponse = await _performApiRequest(auth, method, path, request2, customErrorMap);
     if ("mfaPendingCredential" in serverResponse) {
       _fail(auth, "multi-factor-auth-required", {
         _serverResponse: serverResponse
@@ -4579,14 +4585,14 @@ var __SnowifyMobile = (() => {
       );
     }
   };
-  async function getRecaptchaConfig(auth, request) {
-    return _performApiRequest(auth, "GET", "/v2/recaptchaConfig", _addTidIfNecessary(auth, request));
+  async function getRecaptchaConfig(auth, request2) {
+    return _performApiRequest(auth, "GET", "/v2/recaptchaConfig", _addTidIfNecessary(auth, request2));
   }
-  async function deleteAccount(auth, request) {
-    return _performApiRequest(auth, "POST", "/v1/accounts:delete", request);
+  async function deleteAccount(auth, request2) {
+    return _performApiRequest(auth, "POST", "/v1/accounts:delete", request2);
   }
-  async function getAccountInfo(auth, request) {
-    return _performApiRequest(auth, "POST", "/v1/accounts:lookup", request);
+  async function getAccountInfo(auth, request2) {
+    return _performApiRequest(auth, "POST", "/v1/accounts:lookup", request2);
   }
   function utcTimestampToDateString(utcTimestamp) {
     if (!utcTimestamp) {
@@ -4848,8 +4854,8 @@ var __SnowifyMobile = (() => {
       refreshToken: response.refresh_token
     };
   }
-  async function revokeToken(auth, request) {
-    return _performApiRequest(auth, "POST", "/v2/accounts:revokeToken", _addTidIfNecessary(auth, request));
+  async function revokeToken(auth, request2) {
+    return _performApiRequest(auth, "POST", "/v2/accounts:revokeToken", _addTidIfNecessary(auth, request2));
   }
   var StsTokenManager = class _StsTokenManager {
     constructor() {
@@ -5503,8 +5509,8 @@ var __SnowifyMobile = (() => {
       }
     }
   };
-  async function _getPasswordPolicy(auth, request = {}) {
-    return _performApiRequest(auth, "GET", "/v2/passwordPolicy", _addTidIfNecessary(auth, request));
+  async function _getPasswordPolicy(auth, request2 = {}) {
+    return _performApiRequest(auth, "GET", "/v2/passwordPolicy", _addTidIfNecessary(auth, request2));
   }
   var MINIMUM_MIN_PASSWORD_LENGTH = 6;
   var PasswordPolicyImpl = class {
@@ -5926,16 +5932,16 @@ var __SnowifyMobile = (() => {
     async revokeAccessToken(token) {
       if (this.currentUser) {
         const idToken = await this.currentUser.getIdToken();
-        const request = {
+        const request2 = {
           providerId: "apple.com",
           tokenType: "ACCESS_TOKEN",
           token,
           idToken
         };
         if (this.tenantId != null) {
-          request.tenantId = this.tenantId;
+          request2.tenantId = this.tenantId;
         }
-        await revokeToken(this, request);
+        await revokeToken(this, request2);
       }
     }
     toJSON() {
@@ -6301,7 +6307,7 @@ var __SnowifyMobile = (() => {
       });
     }
   };
-  async function injectRecaptchaFields(auth, request, action, isCaptchaResp = false, isFakeToken = false) {
+  async function injectRecaptchaFields(auth, request2, action, isCaptchaResp = false, isFakeToken = false) {
     const verifier = new RecaptchaEnterpriseVerifier(auth);
     let captchaResponse;
     if (isFakeToken) {
@@ -6313,7 +6319,7 @@ var __SnowifyMobile = (() => {
         captchaResponse = await verifier.verify(action, true);
       }
     }
-    const newRequest = { ...request };
+    const newRequest = { ...request2 };
     if (action === "mfaSmsEnrollment" || action === "mfaSmsSignIn") {
       if ("phoneEnrollmentInfo" in newRequest) {
         const phoneNumber = newRequest.phoneEnrollmentInfo.phoneNumber;
@@ -6357,7 +6363,7 @@ var __SnowifyMobile = (() => {
     });
     return newRequest;
   }
-  async function handleRecaptchaFlow(authInstance, request, actionName, actionMethod, recaptchaAuthProvider) {
+  async function handleRecaptchaFlow(authInstance, request2, actionName, actionMethod, recaptchaAuthProvider) {
     if (recaptchaAuthProvider === "EMAIL_PASSWORD_PROVIDER") {
       if (authInstance._getRecaptchaConfig()?.isProviderEnabled(
         "EMAIL_PASSWORD_PROVIDER"
@@ -6365,19 +6371,19 @@ var __SnowifyMobile = (() => {
       )) {
         const requestWithRecaptcha = await injectRecaptchaFields(
           authInstance,
-          request,
+          request2,
           actionName,
           actionName === "getOobCode"
           /* RecaptchaActionName.GET_OOB_CODE */
         );
         return actionMethod(authInstance, requestWithRecaptcha);
       } else {
-        return actionMethod(authInstance, request).catch(async (error) => {
+        return actionMethod(authInstance, request2).catch(async (error) => {
           if (error.code === `auth/${"missing-recaptcha-token"}`) {
             console.log(`${actionName} is protected by reCAPTCHA Enterprise for this project. Automatically triggering the reCAPTCHA flow and restarting the flow.`);
             const requestWithRecaptcha = await injectRecaptchaFields(
               authInstance,
-              request,
+              request2,
               actionName,
               actionName === "getOobCode"
               /* RecaptchaActionName.GET_OOB_CODE */
@@ -6393,7 +6399,7 @@ var __SnowifyMobile = (() => {
         "PHONE_PROVIDER"
         /* RecaptchaAuthProvider.PHONE_PROVIDER */
       )) {
-        const requestWithRecaptcha = await injectRecaptchaFields(authInstance, request, actionName);
+        const requestWithRecaptcha = await injectRecaptchaFields(authInstance, request2, actionName);
         return actionMethod(authInstance, requestWithRecaptcha).catch(async (error) => {
           if (authInstance._getRecaptchaConfig()?.getProviderEnforcementState(
             "PHONE_PROVIDER"
@@ -6403,7 +6409,7 @@ var __SnowifyMobile = (() => {
               console.log(`Failed to verify with reCAPTCHA Enterprise. Automatically triggering the reCAPTCHA v2 flow to complete the ${actionName} flow.`);
               const requestWithRecaptchaFields = await injectRecaptchaFields(
                 authInstance,
-                request,
+                request2,
                 actionName,
                 false,
                 // isCaptchaResp
@@ -6418,7 +6424,7 @@ var __SnowifyMobile = (() => {
       } else {
         const requestWithRecaptchaFields = await injectRecaptchaFields(
           authInstance,
-          request,
+          request2,
           actionName,
           false,
           // isCaptchaResp
@@ -6604,23 +6610,23 @@ var __SnowifyMobile = (() => {
       return debugFail("not implemented");
     }
   };
-  async function linkEmailPassword(auth, request) {
-    return _performApiRequest(auth, "POST", "/v1/accounts:signUp", request);
+  async function linkEmailPassword(auth, request2) {
+    return _performApiRequest(auth, "POST", "/v1/accounts:signUp", request2);
   }
-  async function signInWithPassword(auth, request) {
-    return _performSignInRequest(auth, "POST", "/v1/accounts:signInWithPassword", _addTidIfNecessary(auth, request));
+  async function signInWithPassword(auth, request2) {
+    return _performSignInRequest(auth, "POST", "/v1/accounts:signInWithPassword", _addTidIfNecessary(auth, request2));
   }
-  async function sendOobCode(auth, request) {
-    return _performApiRequest(auth, "POST", "/v1/accounts:sendOobCode", _addTidIfNecessary(auth, request));
+  async function sendOobCode(auth, request2) {
+    return _performApiRequest(auth, "POST", "/v1/accounts:sendOobCode", _addTidIfNecessary(auth, request2));
   }
-  async function sendPasswordResetEmail$1(auth, request) {
-    return sendOobCode(auth, request);
+  async function sendPasswordResetEmail$1(auth, request2) {
+    return sendOobCode(auth, request2);
   }
-  async function signInWithEmailLink$1(auth, request) {
-    return _performSignInRequest(auth, "POST", "/v1/accounts:signInWithEmailLink", _addTidIfNecessary(auth, request));
+  async function signInWithEmailLink$1(auth, request2) {
+    return _performSignInRequest(auth, "POST", "/v1/accounts:signInWithEmailLink", _addTidIfNecessary(auth, request2));
   }
-  async function signInWithEmailLinkForLinking(auth, request) {
-    return _performSignInRequest(auth, "POST", "/v1/accounts:signInWithEmailLink", _addTidIfNecessary(auth, request));
+  async function signInWithEmailLinkForLinking(auth, request2) {
+    return _performSignInRequest(auth, "POST", "/v1/accounts:signInWithEmailLink", _addTidIfNecessary(auth, request2));
   }
   var EmailAuthCredential = class _EmailAuthCredential extends AuthCredential {
     /** @internal */
@@ -6675,7 +6681,7 @@ var __SnowifyMobile = (() => {
     async _getIdTokenResponse(auth) {
       switch (this.signInMethod) {
         case "password":
-          const request = {
+          const request2 = {
             returnSecureToken: true,
             email: this._email,
             password: this._password,
@@ -6684,7 +6690,7 @@ var __SnowifyMobile = (() => {
           };
           return handleRecaptchaFlow(
             auth,
-            request,
+            request2,
             "signInWithPassword",
             signInWithPassword,
             "EMAIL_PASSWORD_PROVIDER"
@@ -6707,7 +6713,7 @@ var __SnowifyMobile = (() => {
     async _linkToIdToken(auth, idToken) {
       switch (this.signInMethod) {
         case "password":
-          const request = {
+          const request2 = {
             idToken,
             returnSecureToken: true,
             email: this._email,
@@ -6717,7 +6723,7 @@ var __SnowifyMobile = (() => {
           };
           return handleRecaptchaFlow(
             auth,
-            request,
+            request2,
             "signUpPassword",
             linkEmailPassword,
             "EMAIL_PASSWORD_PROVIDER"
@@ -6742,8 +6748,8 @@ var __SnowifyMobile = (() => {
       return this._getIdTokenResponse(auth);
     }
   };
-  async function signInWithIdp(auth, request) {
-    return _performSignInRequest(auth, "POST", "/v1/accounts:signInWithIdp", _addTidIfNecessary(auth, request));
+  async function signInWithIdp(auth, request2) {
+    return _performSignInRequest(auth, "POST", "/v1/accounts:signInWithIdp", _addTidIfNecessary(auth, request2));
   }
   var IDP_REQUEST_URI$1 = "http://localhost";
   var OAuthCredential = class _OAuthCredential extends AuthCredential {
@@ -6815,28 +6821,28 @@ var __SnowifyMobile = (() => {
     }
     /** @internal */
     _getIdTokenResponse(auth) {
-      const request = this.buildRequest();
-      return signInWithIdp(auth, request);
+      const request2 = this.buildRequest();
+      return signInWithIdp(auth, request2);
     }
     /** @internal */
     _linkToIdToken(auth, idToken) {
-      const request = this.buildRequest();
-      request.idToken = idToken;
-      return signInWithIdp(auth, request);
+      const request2 = this.buildRequest();
+      request2.idToken = idToken;
+      return signInWithIdp(auth, request2);
     }
     /** @internal */
     _getReauthenticationResolver(auth) {
-      const request = this.buildRequest();
-      request.autoCreate = false;
-      return signInWithIdp(auth, request);
+      const request2 = this.buildRequest();
+      request2.autoCreate = false;
+      return signInWithIdp(auth, request2);
     }
     buildRequest() {
-      const request = {
+      const request2 = {
         requestUri: IDP_REQUEST_URI$1,
         returnSecureToken: true
       };
       if (this.pendingToken) {
-        request.pendingToken = this.pendingToken;
+        request2.pendingToken = this.pendingToken;
       } else {
         const postBody = {};
         if (this.idToken) {
@@ -6852,19 +6858,19 @@ var __SnowifyMobile = (() => {
         if (this.nonce && !this.pendingToken) {
           postBody["nonce"] = this.nonce;
         }
-        request.postBody = querystring(postBody);
+        request2.postBody = querystring(postBody);
       }
-      return request;
+      return request2;
     }
   };
-  async function sendPhoneVerificationCode(auth, request) {
-    return _performApiRequest(auth, "POST", "/v1/accounts:sendVerificationCode", _addTidIfNecessary(auth, request));
+  async function sendPhoneVerificationCode(auth, request2) {
+    return _performApiRequest(auth, "POST", "/v1/accounts:sendVerificationCode", _addTidIfNecessary(auth, request2));
   }
-  async function signInWithPhoneNumber$1(auth, request) {
-    return _performSignInRequest(auth, "POST", "/v1/accounts:signInWithPhoneNumber", _addTidIfNecessary(auth, request));
+  async function signInWithPhoneNumber$1(auth, request2) {
+    return _performSignInRequest(auth, "POST", "/v1/accounts:signInWithPhoneNumber", _addTidIfNecessary(auth, request2));
   }
-  async function linkWithPhoneNumber$1(auth, request) {
-    const response = await _performSignInRequest(auth, "POST", "/v1/accounts:signInWithPhoneNumber", _addTidIfNecessary(auth, request));
+  async function linkWithPhoneNumber$1(auth, request2) {
+    const response = await _performSignInRequest(auth, "POST", "/v1/accounts:signInWithPhoneNumber", _addTidIfNecessary(auth, request2));
     if (response.temporaryProof) {
       throw _makeTaggedError(auth, "account-exists-with-different-credential", response);
     }
@@ -6877,9 +6883,9 @@ var __SnowifyMobile = (() => {
     ]: "user-not-found"
     /* AuthErrorCode.USER_DELETED */
   };
-  async function verifyPhoneNumberForExisting(auth, request) {
+  async function verifyPhoneNumberForExisting(auth, request2) {
     const apiRequest = {
-      ...request,
+      ...request2,
       operation: "REAUTH"
     };
     return _performSignInRequest(auth, "POST", "/v1/accounts:signInWithPhoneNumber", _addTidIfNecessary(auth, apiRequest), VERIFY_PHONE_NUMBER_FOR_EXISTING_ERROR_MAP_);
@@ -7400,8 +7406,8 @@ var __SnowifyMobile = (() => {
   };
   TwitterAuthProvider.TWITTER_SIGN_IN_METHOD = "twitter.com";
   TwitterAuthProvider.PROVIDER_ID = "twitter.com";
-  async function signUp(auth, request) {
-    return _performSignInRequest(auth, "POST", "/v1/accounts:signUp", _addTidIfNecessary(auth, request));
+  async function signUp(auth, request2) {
+    return _performSignInRequest(auth, "POST", "/v1/accounts:signUp", _addTidIfNecessary(auth, request2));
   }
   var UserCredentialImpl = class _UserCredentialImpl {
     constructor(params) {
@@ -7530,7 +7536,7 @@ var __SnowifyMobile = (() => {
   async function signInWithCredential(auth, credential) {
     return _signInWithCredential(_castAuth(auth), credential);
   }
-  function _setActionCodeSettingsOnRequest(auth, request, actionCodeSettings) {
+  function _setActionCodeSettingsOnRequest(auth, request2, actionCodeSettings) {
     _assert(
       actionCodeSettings.url?.length > 0,
       auth,
@@ -7549,10 +7555,10 @@ var __SnowifyMobile = (() => {
       "invalid-hosting-link-domain"
       /* AuthErrorCode.INVALID_HOSTING_LINK_DOMAIN */
     );
-    request.continueUrl = actionCodeSettings.url;
-    request.dynamicLinkDomain = actionCodeSettings.dynamicLinkDomain;
-    request.linkDomain = actionCodeSettings.linkDomain;
-    request.canHandleCodeInApp = actionCodeSettings.handleCodeInApp;
+    request2.continueUrl = actionCodeSettings.url;
+    request2.dynamicLinkDomain = actionCodeSettings.dynamicLinkDomain;
+    request2.linkDomain = actionCodeSettings.linkDomain;
+    request2.canHandleCodeInApp = actionCodeSettings.handleCodeInApp;
     if (actionCodeSettings.iOS) {
       _assert(
         actionCodeSettings.iOS.bundleId.length > 0,
@@ -7560,7 +7566,7 @@ var __SnowifyMobile = (() => {
         "missing-ios-bundle-id"
         /* AuthErrorCode.MISSING_IOS_BUNDLE_ID */
       );
-      request.iOSBundleId = actionCodeSettings.iOS.bundleId;
+      request2.iOSBundleId = actionCodeSettings.iOS.bundleId;
     }
     if (actionCodeSettings.android) {
       _assert(
@@ -7569,9 +7575,9 @@ var __SnowifyMobile = (() => {
         "missing-android-pkg-name"
         /* AuthErrorCode.MISSING_ANDROID_PACKAGE_NAME */
       );
-      request.androidInstallApp = actionCodeSettings.android.installApp;
-      request.androidMinimumVersionCode = actionCodeSettings.android.minimumVersion;
-      request.androidPackageName = actionCodeSettings.android.packageName;
+      request2.androidInstallApp = actionCodeSettings.android.installApp;
+      request2.androidMinimumVersionCode = actionCodeSettings.android.minimumVersion;
+      request2.androidPackageName = actionCodeSettings.android.packageName;
     }
   }
   async function recachePasswordPolicy(auth) {
@@ -7582,18 +7588,18 @@ var __SnowifyMobile = (() => {
   }
   async function sendPasswordResetEmail(auth, email, actionCodeSettings) {
     const authInternal = _castAuth(auth);
-    const request = {
+    const request2 = {
       requestType: "PASSWORD_RESET",
       email,
       clientType: "CLIENT_TYPE_WEB"
       /* RecaptchaClientType.WEB */
     };
     if (actionCodeSettings) {
-      _setActionCodeSettingsOnRequest(authInternal, request, actionCodeSettings);
+      _setActionCodeSettingsOnRequest(authInternal, request2, actionCodeSettings);
     }
     await handleRecaptchaFlow(
       authInternal,
-      request,
+      request2,
       "getOobCode",
       sendPasswordResetEmail$1,
       "EMAIL_PASSWORD_PROVIDER"
@@ -7605,7 +7611,7 @@ var __SnowifyMobile = (() => {
       return Promise.reject(_serverAppCurrentUserOperationNotSupportedError(auth));
     }
     const authInternal = _castAuth(auth);
-    const request = {
+    const request2 = {
       returnSecureToken: true,
       email,
       password,
@@ -7614,7 +7620,7 @@ var __SnowifyMobile = (() => {
     };
     const signUpResponse = handleRecaptchaFlow(
       authInternal,
-      request,
+      request2,
       "signUpPassword",
       signUp,
       "EMAIL_PASSWORD_PROVIDER"
@@ -7641,8 +7647,8 @@ var __SnowifyMobile = (() => {
       throw error;
     });
   }
-  async function updateProfile$1(auth, request) {
-    return _performApiRequest(auth, "POST", "/v1/accounts:update", request);
+  async function updateProfile$1(auth, request2) {
+    return _performApiRequest(auth, "POST", "/v1/accounts:update", request2);
   }
   async function updateProfile(user, { displayName, photoURL: photoUrl }) {
     if (displayName === void 0 && photoUrl === void 0) {
@@ -7681,17 +7687,17 @@ var __SnowifyMobile = (() => {
   function signOut(auth) {
     return getModularInstance(auth).signOut();
   }
-  function startEnrollPhoneMfa(auth, request) {
-    return _performApiRequest(auth, "POST", "/v2/accounts/mfaEnrollment:start", _addTidIfNecessary(auth, request));
+  function startEnrollPhoneMfa(auth, request2) {
+    return _performApiRequest(auth, "POST", "/v2/accounts/mfaEnrollment:start", _addTidIfNecessary(auth, request2));
   }
-  function finalizeEnrollPhoneMfa(auth, request) {
-    return _performApiRequest(auth, "POST", "/v2/accounts/mfaEnrollment:finalize", _addTidIfNecessary(auth, request));
+  function finalizeEnrollPhoneMfa(auth, request2) {
+    return _performApiRequest(auth, "POST", "/v2/accounts/mfaEnrollment:finalize", _addTidIfNecessary(auth, request2));
   }
-  function startEnrollTotpMfa(auth, request) {
-    return _performApiRequest(auth, "POST", "/v2/accounts/mfaEnrollment:start", _addTidIfNecessary(auth, request));
+  function startEnrollTotpMfa(auth, request2) {
+    return _performApiRequest(auth, "POST", "/v2/accounts/mfaEnrollment:start", _addTidIfNecessary(auth, request2));
   }
-  function finalizeEnrollTotpMfa(auth, request) {
-    return _performApiRequest(auth, "POST", "/v2/accounts/mfaEnrollment:finalize", _addTidIfNecessary(auth, request));
+  function finalizeEnrollTotpMfa(auth, request2) {
+    return _performApiRequest(auth, "POST", "/v2/accounts/mfaEnrollment:finalize", _addTidIfNecessary(auth, request2));
   }
   var STORAGE_AVAILABLE_KEY = "__sak";
   var BrowserPersistenceClass = class {
@@ -8227,8 +8233,8 @@ var __SnowifyMobile = (() => {
   var DB_OBJECTSTORE_NAME = "firebaseLocalStorage";
   var DB_DATA_KEYPATH = "fbase_key";
   var DBPromise = class {
-    constructor(request) {
-      this.request = request;
+    constructor(request2) {
+      this.request = request2;
     }
     toPromise() {
       return new Promise((resolve2, reject) => {
@@ -8245,25 +8251,25 @@ var __SnowifyMobile = (() => {
     return db.transaction([DB_OBJECTSTORE_NAME], isReadWrite ? "readwrite" : "readonly").objectStore(DB_OBJECTSTORE_NAME);
   }
   function _deleteDatabase() {
-    const request = indexedDB.deleteDatabase(DB_NAME2);
-    return new DBPromise(request).toPromise();
+    const request2 = indexedDB.deleteDatabase(DB_NAME2);
+    return new DBPromise(request2).toPromise();
   }
   function _openDatabase() {
-    const request = indexedDB.open(DB_NAME2, DB_VERSION2);
+    const request2 = indexedDB.open(DB_NAME2, DB_VERSION2);
     return new Promise((resolve2, reject) => {
-      request.addEventListener("error", () => {
-        reject(request.error);
+      request2.addEventListener("error", () => {
+        reject(request2.error);
       });
-      request.addEventListener("upgradeneeded", () => {
-        const db = request.result;
+      request2.addEventListener("upgradeneeded", () => {
+        const db = request2.result;
         try {
           db.createObjectStore(DB_OBJECTSTORE_NAME, { keyPath: DB_DATA_KEYPATH });
         } catch (e) {
           reject(e);
         }
       });
-      request.addEventListener("success", async () => {
-        const db = request.result;
+      request2.addEventListener("success", async () => {
+        const db = request2.result;
         if (!db.objectStoreNames.contains(DB_OBJECTSTORE_NAME)) {
           db.close();
           await _deleteDatabase();
@@ -8275,20 +8281,20 @@ var __SnowifyMobile = (() => {
     });
   }
   async function _putObject(db, key, value) {
-    const request = getObjectStore(db, true).put({
+    const request2 = getObjectStore(db, true).put({
       [DB_DATA_KEYPATH]: key,
       value
     });
-    return new DBPromise(request).toPromise();
+    return new DBPromise(request2).toPromise();
   }
   async function getObject(db, key) {
-    const request = getObjectStore(db, false).get(key);
-    const data = await new DBPromise(request).toPromise();
+    const request2 = getObjectStore(db, false).get(key);
+    const data = await new DBPromise(request2).toPromise();
     return data === void 0 ? null : data.value;
   }
   function _deleteObject(db, key) {
-    const request = getObjectStore(db, true).delete(key);
-    return new DBPromise(request).toPromise();
+    const request2 = getObjectStore(db, true).delete(key);
+    return new DBPromise(request2).toPromise();
   }
   var _POLLING_INTERVAL_MS = 800;
   var _TRANSACTION_RETRY_COUNT = 3;
@@ -8523,14 +8529,14 @@ var __SnowifyMobile = (() => {
   };
   IndexedDBLocalPersistence.type = "LOCAL";
   var indexedDBLocalPersistence = IndexedDBLocalPersistence;
-  function startSignInPhoneMfa(auth, request) {
-    return _performApiRequest(auth, "POST", "/v2/accounts/mfaSignIn:start", _addTidIfNecessary(auth, request));
+  function startSignInPhoneMfa(auth, request2) {
+    return _performApiRequest(auth, "POST", "/v2/accounts/mfaSignIn:start", _addTidIfNecessary(auth, request2));
   }
-  function finalizeSignInPhoneMfa(auth, request) {
-    return _performApiRequest(auth, "POST", "/v2/accounts/mfaSignIn:finalize", _addTidIfNecessary(auth, request));
+  function finalizeSignInPhoneMfa(auth, request2) {
+    return _performApiRequest(auth, "POST", "/v2/accounts/mfaSignIn:finalize", _addTidIfNecessary(auth, request2));
   }
-  function finalizeSignInTotpMfa(auth, request) {
-    return _performApiRequest(auth, "POST", "/v2/accounts/mfaSignIn:finalize", _addTidIfNecessary(auth, request));
+  function finalizeSignInTotpMfa(auth, request2) {
+    return _performApiRequest(auth, "POST", "/v2/accounts/mfaSignIn:finalize", _addTidIfNecessary(auth, request2));
   }
   var _JSLOAD_CALLBACK = _generateCallbackName("rcb");
   var NETWORK_TIMEOUT_DELAY = new Delay(3e4, 6e4);
@@ -8569,18 +8575,18 @@ var __SnowifyMobile = (() => {
               /* RecaptchaClientType.WEB */
             }
           };
-          const startEnrollPhoneMfaActionCallback = async (authInstance, request) => {
-            if (request.phoneEnrollmentInfo.captchaResponse === FAKE_TOKEN) {
+          const startEnrollPhoneMfaActionCallback = async (authInstance, request2) => {
+            if (request2.phoneEnrollmentInfo.captchaResponse === FAKE_TOKEN) {
               _assert(
                 verifier?.type === RECAPTCHA_VERIFIER_TYPE,
                 authInstance,
                 "argument-error"
                 /* AuthErrorCode.ARGUMENT_ERROR */
               );
-              const requestWithRecaptchaV2 = await injectRecaptchaV2Token(authInstance, request, verifier);
+              const requestWithRecaptchaV2 = await injectRecaptchaV2Token(authInstance, request2, verifier);
               return startEnrollPhoneMfa(authInstance, requestWithRecaptchaV2);
             }
-            return startEnrollPhoneMfa(authInstance, request);
+            return startEnrollPhoneMfa(authInstance, request2);
           };
           const startPhoneMfaEnrollmentResponse = handleRecaptchaFlow(
             auth,
@@ -8616,18 +8622,18 @@ var __SnowifyMobile = (() => {
               /* RecaptchaClientType.WEB */
             }
           };
-          const startSignInPhoneMfaActionCallback = async (authInstance, request) => {
-            if (request.phoneSignInInfo.captchaResponse === FAKE_TOKEN) {
+          const startSignInPhoneMfaActionCallback = async (authInstance, request2) => {
+            if (request2.phoneSignInInfo.captchaResponse === FAKE_TOKEN) {
               _assert(
                 verifier?.type === RECAPTCHA_VERIFIER_TYPE,
                 authInstance,
                 "argument-error"
                 /* AuthErrorCode.ARGUMENT_ERROR */
               );
-              const requestWithRecaptchaV2 = await injectRecaptchaV2Token(authInstance, request, verifier);
+              const requestWithRecaptchaV2 = await injectRecaptchaV2Token(authInstance, request2, verifier);
               return startSignInPhoneMfa(authInstance, requestWithRecaptchaV2);
             }
-            return startSignInPhoneMfa(authInstance, request);
+            return startSignInPhoneMfa(authInstance, request2);
           };
           const startPhoneMfaSignInResponse = handleRecaptchaFlow(
             auth,
@@ -8648,18 +8654,18 @@ var __SnowifyMobile = (() => {
           clientType: "CLIENT_TYPE_WEB"
           /* RecaptchaClientType.WEB */
         };
-        const sendPhoneVerificationCodeActionCallback = async (authInstance, request) => {
-          if (request.captchaResponse === FAKE_TOKEN) {
+        const sendPhoneVerificationCodeActionCallback = async (authInstance, request2) => {
+          if (request2.captchaResponse === FAKE_TOKEN) {
             _assert(
               verifier?.type === RECAPTCHA_VERIFIER_TYPE,
               authInstance,
               "argument-error"
               /* AuthErrorCode.ARGUMENT_ERROR */
             );
-            const requestWithRecaptchaV2 = await injectRecaptchaV2Token(authInstance, request, verifier);
+            const requestWithRecaptchaV2 = await injectRecaptchaV2Token(authInstance, request2, verifier);
             return sendPhoneVerificationCode(authInstance, requestWithRecaptchaV2);
           }
-          return sendPhoneVerificationCode(authInstance, request);
+          return sendPhoneVerificationCode(authInstance, request2);
         };
         const sendPhoneVerificationCodeResponse = handleRecaptchaFlow(
           auth,
@@ -8678,7 +8684,7 @@ var __SnowifyMobile = (() => {
       verifier?._reset();
     }
   }
-  async function injectRecaptchaV2Token(auth, request, recaptchaV2Verifier) {
+  async function injectRecaptchaV2Token(auth, request2, recaptchaV2Verifier) {
     _assert(
       recaptchaV2Verifier.type === RECAPTCHA_VERIFIER_TYPE,
       auth,
@@ -8692,7 +8698,7 @@ var __SnowifyMobile = (() => {
       "argument-error"
       /* AuthErrorCode.ARGUMENT_ERROR */
     );
-    const newRequest = { ...request };
+    const newRequest = { ...request2 };
     if ("phoneEnrollmentInfo" in newRequest) {
       const phoneNumber = newRequest.phoneEnrollmentInfo.phoneNumber;
       const captchaResponse = newRequest.phoneEnrollmentInfo.captchaResponse;
@@ -8888,7 +8894,7 @@ var __SnowifyMobile = (() => {
       return signInWithIdp(auth, this._buildIdpRequest());
     }
     _buildIdpRequest(idToken) {
-      const request = {
+      const request2 = {
         requestUri: this.params.requestUri,
         sessionId: this.params.sessionId,
         postBody: this.params.postBody,
@@ -8898,9 +8904,9 @@ var __SnowifyMobile = (() => {
         returnIdpCredential: true
       };
       if (idToken) {
-        request.idToken = idToken;
+        request2.idToken = idToken;
       }
-      return request;
+      return request2;
     }
   };
   function _signIn(params) {
@@ -9274,8 +9280,8 @@ var __SnowifyMobile = (() => {
         return false;
     }
   }
-  async function _getProjectConfig(auth, request = {}) {
-    return _performApiRequest(auth, "GET", "/v1/projects", request);
+  async function _getProjectConfig(auth, request2 = {}) {
+    return _performApiRequest(auth, "GET", "/v1/projects", request2);
   }
   var IP_ADDRESS_REGEX = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
   var HTTP_REGEX = /^https?/;
@@ -12806,28 +12812,6 @@ var __SnowifyMobile = (() => {
       e.enqueueRetryable((() => t(User.UNAUTHENTICATED)));
     }
     shutdown() {
-    }
-  };
-  var __PRIVATE_EmulatorAuthCredentialsProvider = class {
-    constructor(e) {
-      this.token = e, /**
-       * Stores the listener registered with setChangeListener()
-       * This isn't actually necessary since the UID never changes, but we use this
-       * to verify the listen contract is adhered to in tests.
-       */
-      this.changeListener = null;
-    }
-    getToken() {
-      return Promise.resolve(this.token);
-    }
-    invalidateToken() {
-    }
-    start(e, t) {
-      this.changeListener = t, // Fire with initial user.
-      e.enqueueRetryable((() => t(this.token.user)));
-    }
-    shutdown() {
-      this.changeListener = null;
     }
   };
   var __PRIVATE_FirebaseAuthCredentialsProvider = class {
@@ -20984,31 +20968,6 @@ This typically indicates that your device does not have a healthy Internet conne
       })(this), Promise.resolve();
     }
   };
-  function connectFirestoreEmulator(e, t, n, r = {}) {
-    e = __PRIVATE_cast(e, Firestore$1);
-    const i = isCloudWorkstation(t), s2 = e._getSettings(), o = {
-      ...s2,
-      emulatorOptions: e._getEmulatorOptions()
-    }, _ = `${t}:${n}`;
-    i && pingServer(`https://${_}`), s2.host !== tn && s2.host !== _ && __PRIVATE_logWarn("Host has been set in both settings() and connectFirestoreEmulator(), emulator host will be used.");
-    const a = {
-      ...s2,
-      host: _,
-      ssl: i,
-      emulatorOptions: r
-    };
-    if (!deepEqual(a, o) && (e._setSettings(a), r.mockUserToken)) {
-      let t2, n2;
-      if ("string" == typeof r.mockUserToken) t2 = r.mockUserToken, n2 = User.MOCK_USER;
-      else {
-        t2 = createMockUserToken(r.mockUserToken, e._app?.options.projectId);
-        const i2 = r.mockUserToken.sub || r.mockUserToken.user_id;
-        if (!i2) throw new FirestoreError(D.INVALID_ARGUMENT, "mockUserToken must contain 'sub' or 'user_id' field!");
-        n2 = new User(i2);
-      }
-      e._authCredentials = new __PRIVATE_EmulatorAuthCredentialsProvider(new __PRIVATE_OAuthToken(t2, n2));
-    }
-  }
   var Query = class _Query {
     // This is the lite version of the Query class in the main SDK.
     /** @hideconstructor protected */
@@ -21288,15 +21247,22 @@ This typically indicates that your device does not have a healthy Internet conne
       }
     }
   };
-  function getFirestore(e, n) {
-    const r = "object" == typeof e ? e : getApp(), i = "string" == typeof e ? e : n || it, s2 = _getProvider(r, "firestore").getImmediate({
-      identifier: i
-    });
-    if (!s2._initialized) {
-      const e2 = getDefaultEmulatorHostnameAndPort("firestore");
-      e2 && connectFirestoreEmulator(s2, ...e2);
+  function initializeFirestore(e, t, n) {
+    n || (n = it);
+    const r = _getProvider(e, "firestore");
+    if (r.isInitialized(n)) {
+      const e2 = r.getImmediate({
+        identifier: n
+      }), i = r.getOptions(n);
+      if (deepEqual(i, t)) return e2;
+      throw new FirestoreError(D.FAILED_PRECONDITION, "initializeFirestore() has already been called with different options. To avoid this error, call initializeFirestore() with the same options as when it was originally called, or call getFirestore() to return the already initialized instance.");
     }
-    return s2;
+    if (void 0 !== t.cacheSizeBytes && void 0 !== t.localCache) throw new FirestoreError(D.INVALID_ARGUMENT, "cache and cacheSizeBytes cannot be specified at the same time as cacheSizeBytes willbe deprecated. Instead, specify the cache size in the cache object");
+    if (void 0 !== t.cacheSizeBytes && -1 !== t.cacheSizeBytes && t.cacheSizeBytes < Ct) throw new FirestoreError(D.INVALID_ARGUMENT, "cacheSizeBytes must be at least 1048576");
+    return t.host && isCloudWorkstation(t.host) && pingServer(t.host), r.initialize({
+      options: t,
+      instanceIdentifier: n
+    });
   }
   function ensureFirestoreConfigured(e) {
     if (e._terminated) throw new FirestoreError(D.FAILED_PRECONDITION, "The client has already been terminated.");
@@ -22522,7 +22488,10 @@ This typically indicates that your device does not have a healthy Internet conne
   };
   var firebaseApp = initializeApp(firebaseConfig);
   var firebaseAuth = getAuth(firebaseApp);
-  var firebaseDb = getFirestore(firebaseApp);
+  var firebaseDb = initializeFirestore(firebaseApp, {
+    experimentalForceLongPolling: true,
+    useFetchStreams: false
+  });
   async function getUserInfo(user) {
     const info = {
       uid: user.uid,
@@ -23348,6 +23317,7 @@ This typically indicates that your device does not have a healthy Internet conne
 @firebase/util/dist/index.esm.js:
 @firebase/util/dist/index.esm.js:
 @firebase/util/dist/index.esm.js:
+@firebase/util/dist/index.esm.js:
 @firebase/logger/dist/esm/index.esm.js:
 @firebase/firestore/dist/common-edb5d170.esm.js:
 @firebase/firestore/dist/common-edb5d170.esm.js:
@@ -23383,6 +23353,16 @@ This typically indicates that your device does not have a healthy Internet conne
    *)
 
 @firebase/util/dist/index.esm.js:
+@firebase/util/dist/index.esm.js:
+@firebase/firestore/dist/common-edb5d170.esm.js:
+@firebase/firestore/dist/common-edb5d170.esm.js:
+@firebase/firestore/dist/common-edb5d170.esm.js:
+@firebase/firestore/dist/common-edb5d170.esm.js:
+@firebase/firestore/dist/common-edb5d170.esm.js:
+@firebase/firestore/dist/index.esm.js:
+@firebase/firestore/dist/index.esm.js:
+@firebase/firestore/dist/index.esm.js:
+@firebase/firestore/dist/index.esm.js:
   (**
    * @license
    * Copyright 2022 Google LLC
@@ -23399,6 +23379,8 @@ This typically indicates that your device does not have a healthy Internet conne
    * See the License for the specific language governing permissions and
    * limitations under the License.
    *)
+
+@firebase/util/dist/index.esm.js:
   (**
    * @license
    * Copyright 2017 Google LLC
@@ -23418,33 +23400,6 @@ This typically indicates that your device does not have a healthy Internet conne
   (**
    * @license
    * Copyright 2021 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/util/dist/index.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/index.esm.js:
-@firebase/firestore/dist/index.esm.js:
-@firebase/firestore/dist/index.esm.js:
-@firebase/firestore/dist/index.esm.js:
-  (**
-   * @license
-   * Copyright 2022 Google LLC
    *
    * Licensed under the Apache License, Version 2.0 (the "License");
    * you may not use this file except in compliance with the License.
@@ -23518,6 +23473,7 @@ firebase/app/dist/esm/index.esm.js:
 @firebase/auth/dist/esm/index-dfb5c973.js:
 @firebase/auth/dist/esm/index-dfb5c973.js:
 @firebase/auth/dist/esm/index-dfb5c973.js:
+@firebase/firestore/dist/common-edb5d170.esm.js:
 @firebase/firestore/dist/common-edb5d170.esm.js:
 @firebase/firestore/dist/common-edb5d170.esm.js:
 @firebase/firestore/dist/common-edb5d170.esm.js:
