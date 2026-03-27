@@ -6,18 +6,26 @@ import { BUILTIN_THEMES, isCustomTheme, customThemeId, applyCustomThemeCss, remo
 
 const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
+const IS_MOBILE_RUNTIME =
+  window.snowify?.platform === 'android' ||
+  window.snowify?.platform === 'ios' ||
+  document.documentElement.classList.contains('platform-mobile') ||
+  /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
 
 // ─── Throttled image loader — prevents 429 from simultaneous thumbnail requests ───
 // Images use `data-src` in templates; a MutationObserver feeds them into this queue.
 const _imgQ = (() => {
-  const CONCURRENCY = 2;                    // max 2 parallel thumbnail loads
-  const RETRY_MS = [2500, 7000, 18000];     // back-off delays between retries
-  const START_GAP = 80;                     // ms gap between consecutive queue starts
+  const CONCURRENCY = IS_MOBILE_RUNTIME ? 1 : 2; // mobile is more aggressive with per-host throttling
+  const RETRY_MS = IS_MOBILE_RUNTIME ? [4000, 11000, 22000] : [2500, 7000, 18000];
+  const START_GAP = IS_MOBILE_RUNTIME ? 180 : 80;
   let _active = 0;
   let _drainPending = false;
   const _queue = [];
+  const _queued = new Set();
   const _loaded = new Set();                // URLs known to be loaded successfully
   const _inFlight = new Map();              // src -> { els:Set<HTMLImageElement>, attempt:number }
+  let _errorStreak = 0;
+  let _resumeAt = 0;
 
   const _jitter = ms => ms * (0.75 + Math.random() * 0.5); // ±25% jitter
 
@@ -25,13 +33,25 @@ const _imgQ = (() => {
     if (!el || !el.isConnected) return;
     if (el.dataset.src === src) el.removeAttribute('data-src');
     if (el.getAttribute('src') === src || el.currentSrc === src) return;
+    el.loading = 'lazy';
+    el.decoding = 'async';
     el.src = src;
   }
 
   function _drain() {
     _drainPending = false;
+    if (_resumeAt > Date.now()) {
+      if (!_drainPending) {
+        _drainPending = true;
+        setTimeout(_drain, Math.max(40, _resumeAt - Date.now()));
+      }
+      return;
+    }
     if (_active >= CONCURRENCY || !_queue.length) return;
-    _start(_queue.shift());
+    const next = _queue.shift();
+    if (!next) return;
+    _queued.delete(next.src);
+    _start(next);
     // Schedule the next slot after a small gap to prevent simultaneous burst
     if (!_drainPending && _queue.length && _active < CONCURRENCY) {
       _drainPending = true;
@@ -45,6 +65,8 @@ const _imgQ = (() => {
     probe.decoding = 'async';
     probe.onload = () => {
       _active--;
+      _errorStreak = 0;
+      _resumeAt = 0;
       _loaded.add(src);
       const entry = _inFlight.get(src);
       _inFlight.delete(src);
@@ -53,6 +75,12 @@ const _imgQ = (() => {
     };
     probe.onerror = () => {
       _active--;
+      _errorStreak = Math.min(10, _errorStreak + 1);
+      if (IS_MOBILE_RUNTIME) {
+        // Brief global cooldown helps avoid repeated host throttling bursts.
+        const cooldown = Math.min(12000, 1200 + (_errorStreak * 900));
+        _resumeAt = Math.max(_resumeAt, Date.now() + cooldown);
+      }
       const entry = _inFlight.get(src);
       _inFlight.delete(src);
       const liveEls = [...(entry?.els || [])].filter(el => el && el.isConnected);
@@ -60,7 +88,10 @@ const _imgQ = (() => {
         setTimeout(() => {
           if (!liveEls.some(el => el.isConnected)) return;
           _inFlight.set(src, { els: new Set(liveEls.filter(el => el.isConnected)), attempt: attempt + 1 });
-          _queue.push({ src, attempt: attempt + 1 });
+          if (!_queued.has(src)) {
+            _queued.add(src);
+            _queue.push({ src, attempt: attempt + 1 });
+          }
           _drain();
         }, _jitter(RETRY_MS[attempt]));
       } else if (liveEls.length) {
@@ -70,7 +101,10 @@ const _imgQ = (() => {
           if (!stillLive.length) return;
           if (_loaded.has(src)) { stillLive.forEach(el => _applySrc(el, src)); return; }
           _inFlight.set(src, { els: new Set(stillLive), attempt: RETRY_MS.length - 1 });
-          _queue.push({ src, attempt: RETRY_MS.length - 1 });
+          if (!_queued.has(src)) {
+            _queued.add(src);
+            _queue.push({ src, attempt: RETRY_MS.length - 1 });
+          }
           _drain();
         }, _jitter(RETRY_MS[RETRY_MS.length - 1]));
       }
@@ -106,7 +140,10 @@ const _imgQ = (() => {
       }
       el.removeAttribute('data-src');
       _inFlight.set(src, { els: new Set([el]), attempt: 0 });
-      _queue.push({ src, attempt: 0 });
+      if (!_queued.has(src)) {
+        _queued.add(src);
+        _queue.push({ src, attempt: 0 });
+      }
       _drain();
     }
   }, { rootMargin: '300px 0px' });
@@ -126,6 +163,10 @@ const _imgQ = (() => {
         el.removeAttribute('data-src');
         return;
       }
+      if (_queued.has(src)) {
+        _io.observe(el);
+        return;
+      }
       _io.observe(el); // defer until near viewport
     }
   };
@@ -140,6 +181,94 @@ new MutationObserver(muts => {
       else n.querySelectorAll?.('img[data-src]').forEach(e => _imgQ.enqueue(e));
     }
 }).observe(document.documentElement, { childList: true, subtree: true });
+
+// ─── Auto marquee for truncated titles/artists ───
+const _MARQUEE_SELECTORS = [
+  '.np-title',
+  '.np-artist',
+  '.max-np-title',
+  '.max-np-artist',
+  '.max-np-topbar-title',
+  '.max-np-topbar-artist',
+  '.track-title',
+  '.track-artist-col',
+  '.card-title',
+  '.card-artist',
+  '.queue-item-title',
+  '.queue-item-artist',
+  '.suggestion-title',
+  '.suggestion-subtitle',
+  '.search-suggestion-text',
+  '.playlist-name',
+  '.album-card-name',
+  '.album-card-meta',
+  '.lib-card-name',
+  '.video-card-name',
+  '.top-song-title',
+  '.top-song-artist',
+  '.similar-artist-name'
+].join(', ');
+
+let _marqueeRefreshRAF = 0;
+
+function _applyAutoMarquee(el) {
+  if (!el || !el.isConnected) return;
+  el.classList.add('auto-marquee-target');
+
+  let inner = el.querySelector(':scope > .auto-marquee-inner');
+  if (!inner) {
+    inner = document.createElement('span');
+    inner.className = 'auto-marquee-inner';
+    while (el.firstChild) inner.appendChild(el.firstChild);
+    el.appendChild(inner);
+  }
+
+  // Hidden/collapsed elements should not animate.
+  if (el.offsetParent === null || el.clientWidth <= 0) {
+    el.classList.remove('auto-marquee-active');
+    return;
+  }
+
+  const overflowPx = Math.ceil(inner.scrollWidth - el.clientWidth);
+  if (overflowPx > 12) {
+    const distance = Math.min(overflowPx + 18, 680);
+    const duration = Math.max(6, Math.min(18, distance / 22));
+    el.style.setProperty('--marquee-distance', `${distance}px`);
+    el.style.setProperty('--marquee-duration', `${duration}s`);
+    el.classList.add('auto-marquee-active');
+  } else {
+    el.classList.remove('auto-marquee-active');
+    el.style.removeProperty('--marquee-distance');
+    el.style.removeProperty('--marquee-duration');
+  }
+}
+
+function refreshAutoMarquee() {
+  _marqueeRefreshRAF = 0;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.querySelectorAll('.auto-marquee-active').forEach(el => el.classList.remove('auto-marquee-active'));
+    return;
+  }
+  document.querySelectorAll(_MARQUEE_SELECTORS).forEach(_applyAutoMarquee);
+}
+
+function scheduleAutoMarqueeRefresh() {
+  if (_marqueeRefreshRAF) return;
+  _marqueeRefreshRAF = requestAnimationFrame(refreshAutoMarquee);
+}
+
+new MutationObserver(() => {
+  scheduleAutoMarqueeRefresh();
+}).observe(document.documentElement, {
+  childList: true,
+  subtree: true,
+  characterData: true
+});
+
+window.addEventListener('resize', scheduleAutoMarqueeRefresh);
+window.addEventListener('orientationchange', scheduleAutoMarqueeRefresh);
+setInterval(scheduleAutoMarqueeRefresh, 4000);
+setTimeout(scheduleAutoMarqueeRefresh, 250);
 
   const audioA = $('#audio-player');
   const audioB = $('#audio-player-b');
@@ -274,6 +403,9 @@ new MutationObserver(muts => {
         state.songSources = saved.songSources || ['youtube'];
         state.metadataSources = saved.metadataSources || ['youtube'];
         state.wrappedShownYear = saved.wrappedShownYear ?? null;
+      }
+      if (IS_MOBILE_RUNTIME) {
+        state.normalization = false;
       }
       // Restore queue (local-only, separate from cloud sync)
       const savedQueue = JSON.parse(localStorage.getItem('snowify_queue'));
@@ -1677,8 +1809,22 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   audio = engine.getActiveAudio();
 
   // ─── Initialize loudness normalizer ───
-  const normalizer = window.LoudnessNormalizer(audioA, audioB);
-  if (state.normalization) {
+  const normalizer = IS_MOBILE_RUNTIME
+    ? {
+        setEnabled() {},
+        setTarget() {},
+        initAudioContext: async () => {},
+        isWorkletReady: () => true,
+        analyzeAndApply() {},
+        finalizeMeasurement() {},
+        applyGain() {},
+        preAnalyze() {},
+        getCachedLUFS: () => null,
+        startMeasurement() {},
+        updateVolumeCompensation() {}
+      }
+    : window.LoudnessNormalizer(audioA, audioB);
+  if (!IS_MOBILE_RUNTIME && state.normalization) {
     normalizer.setEnabled(true);
     normalizer.setTarget(state.normalizationTarget);
     normalizer.initAudioContext(); // async — resolves before first playTrack
@@ -3827,6 +3973,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     switchView('artist');
 
     const avatar = $('#artist-avatar');
+    const artistView = $('#view-artist');
     const bannerEl = $('#artist-banner');
     const bannerImg = $('#artist-banner-img');
     const nameEl = $('#artist-name');
@@ -3880,19 +4027,14 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     nameEl.textContent = info.name;
     followersEl.textContent = info.monthlyListeners || '';
 
-    if (info.avatar) {
-      avatar.addEventListener('load', () => {
-        avatar.classList.remove('shimmer');
-        avatar.classList.add('loaded');
-      }, { once: true });
-      avatar.src = info.avatar;
-    }
-
-    if (info.banner) {
-      bannerImg.src = info.banner;
+    const heroImage = info.banner || info.avatar || '';
+    if (heroImage) {
+      bannerImg.src = heroImage;
       bannerEl.style.display = '';
+      artistView?.classList.add('has-hero');
     } else {
       bannerEl.style.display = 'none';
+      artistView?.classList.remove('has-hero');
     }
 
     aboutSection.style.display = 'none';
@@ -3900,18 +4042,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     // ── Plugin metadata overlay (non-blocking — patches in artist art/genres when ready) ──
     resolvePluginArtistMeta(info.name).then(overlay => {
       if (!overlay) return;
-      if (overlay.avatar) {
-        avatar.addEventListener('load', () => {
-          avatar.classList.remove('shimmer');
-          avatar.classList.add('loaded');
-        }, { once: true });
-        avatar.classList.add('shimmer');
-        avatar.classList.remove('loaded');
-        avatar.src = overlay.avatar;
-      }
-      if (overlay.banner) {
-        bannerImg.src = overlay.banner;
+      if (overlay.banner || overlay.avatar) {
+        bannerImg.src = overlay.banner || overlay.avatar;
         bannerEl.style.display = '';
+        artistView?.classList.add('has-hero');
       }
       if (overlay.genres?.length) {
         tagsEl.innerHTML = overlay.genres.map(g => `<span class="artist-tag">${escapeHtml(g)}</span>`).join('');
@@ -6412,12 +6546,23 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const normToggle = $('#setting-normalization');
     const normTargetRow = $('#normalization-target-row');
     const normTargetSelect = $('#setting-normalization-target');
+    const normRow = normToggle?.closest('.setting-row');
+
+    if (IS_MOBILE_RUNTIME) {
+      state.normalization = false;
+      normToggle.checked = false;
+      normToggle.disabled = true;
+      normTargetRow.classList.add('hidden');
+      normRow?.classList.add('hidden');
+      saveState();
+    }
 
     normToggle.checked = state.normalization;
     normTargetRow.classList.toggle('hidden', !state.normalization);
     normTargetSelect.value = String(state.normalizationTarget);
 
     normToggle.addEventListener('change', async () => {
+      if (IS_MOBILE_RUNTIME) return;
       state.normalization = normToggle.checked;
       normalizer.setEnabled(state.normalization);
       normTargetRow.classList.toggle('hidden', !state.normalization);
@@ -6435,6 +6580,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     });
 
     normTargetSelect.addEventListener('change', () => {
+      if (IS_MOBILE_RUNTIME) return;
       state.normalizationTarget = parseInt(normTargetSelect.value, 10);
       normalizer.setTarget(state.normalizationTarget);
       // Re-apply gain to current track

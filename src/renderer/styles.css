@@ -895,6 +895,42 @@ html, body {
   transform: scale(1.08);
 }
 
+/* ═══════ Auto Marquee For Truncated Text ═══════ */
+.auto-marquee-target {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.auto-marquee-target > .auto-marquee-inner {
+  display: inline-block;
+  min-width: 100%;
+  transform: translateX(0);
+}
+.auto-marquee-target.auto-marquee-active {
+  text-overflow: clip !important;
+}
+.auto-marquee-target.auto-marquee-active > .auto-marquee-inner {
+  animation: autoMarqueeSweep var(--marquee-duration, 9s) ease-in-out infinite;
+  will-change: transform;
+}
+.auto-marquee-target.auto-marquee-active:hover > .auto-marquee-inner {
+  animation-play-state: paused;
+}
+@keyframes autoMarqueeSweep {
+  0%, 12% {
+    transform: translateX(0);
+  }
+  50%, 62% {
+    transform: translateX(calc(-1 * var(--marquee-distance, 0px)));
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
 /* ═══════ Search ═══════ */
 .search-bar-container {
   position: sticky;
@@ -6365,48 +6401,84 @@ body.i18n-switching { opacity: 0; }
    ═══════════════════════════════════════════════════════════════════════════ */
 .platform-mobile .artist-header {
   padding: 0 var(--page-pad) 12px;
+  margin-top: 0;
   gap: 0;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-.platform-mobile .artist-header-info {
-  align-items: center;
-  text-align: center;
-  width: min(100%, 32rem);
-  max-width: calc(100vw - (var(--page-pad) * 2));
-  padding-top: 10px;
-}
-.platform-mobile .artist-actions {
-  justify-content: center;
-  padding: 0 var(--page-pad) 8px;
-}
-.platform-mobile .artist-avatar {
-  width: 130px;
-  height: 130px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  border: 3px solid var(--bg-base);
-  margin-top: -50px;
+  align-items: flex-start;
+  text-align: left;
   position: relative;
   z-index: 2;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+}
+.platform-mobile #view-artist.has-hero .artist-header {
+  margin-top: -106px;
+}
+.platform-mobile .artist-header-info {
+  align-items: flex-start;
+  text-align: left;
+  width: 100%;
+  max-width: 100%;
+  padding-top: 0;
+}
+.platform-mobile .artist-actions {
+  justify-content: flex-start;
+  display: grid;
+  grid-template-columns: auto auto auto;
+  gap: 8px;
+  padding: 0 var(--page-pad) 10px;
+  margin-top: 4px;
+}
+.platform-mobile .artist-avatar {
+  display: none;
 }
 .platform-mobile .artist-banner {
-  height: 220px;
+  height: 340px;
   width: 100%;
   margin-left: 0;
   margin-top: 0;
   margin-bottom: 0;
 }
 .platform-mobile .artist-banner-fade {
-  height: 120px;
-  background: linear-gradient(to bottom, transparent, var(--bg-base));
+  height: 200px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.72) 58%, var(--bg-base) 100%);
+}
+.platform-mobile .artist-verified {
+  color: rgba(255,255,255,0.82);
+  letter-spacing: 1.3px;
+  margin-bottom: 4px;
 }
 .platform-mobile .artist-name {
-  font-size: clamp(22px, 6vw, 30px);
+  font-size: clamp(42px, 14vw, 60px);
   font-weight: 800;
   max-width: 100%;
+  line-height: 0.95;
+  color: #fff;
+  background: none;
+  -webkit-text-fill-color: initial;
+}
+.platform-mobile .artist-followers {
+  margin-top: 8px;
+  font-size: 16px;
+  color: rgba(255,255,255,0.9);
+}
+.platform-mobile #btn-artist-play-all {
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.platform-mobile #btn-artist-follow {
+  width: auto;
+  min-height: 42px;
+  padding: 0 14px;
+  font-size: 13px;
+  border-radius: 999px;
+}
+.platform-mobile #btn-artist-share {
+  width: 42px;
+  min-height: 42px;
+  padding: 0;
+  border-radius: 50%;
 }
 .platform-mobile .artist-section h2 { padding-left: var(--page-pad); border-left: none; font-size: 17px; }
 

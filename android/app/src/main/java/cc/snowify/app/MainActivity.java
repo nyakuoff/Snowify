@@ -25,9 +25,10 @@ public class MainActivity extends BridgeActivity {
         // Enable Chrome remote debugging via chrome://inspect.
         android.webkit.WebView.setWebContentsDebuggingEnabled(true);
 
-        // Disable WebView disk cache so reinstalls always load fresh assets.
+        // Use normal WebView caching so frequently reused thumbnails do not
+        // hammer remote hosts on mobile.
         getBridge().getWebView().getSettings().setCacheMode(
-            android.webkit.WebSettings.LOAD_NO_CACHE
+            android.webkit.WebSettings.LOAD_DEFAULT
         );
 
         // Allow http://127.0.0.1:17890 (local audio proxy) from https://localhost.
