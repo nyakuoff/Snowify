@@ -12,14 +12,23 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 const _imgQ = (() => {
   const CONCURRENCY = 2;                    // max 2 parallel thumbnail loads
   const RETRY_MS = [2500, 7000, 18000];     // back-off delays between retries
+  const START_GAP = 80;                     // ms gap between consecutive queue starts
   let _active = 0;
+  let _drainPending = false;
   const _queue = [];
   const _seen = new Set();                  // URL dedup — skip already-loaded URLs
 
   const _jitter = ms => ms * (0.75 + Math.random() * 0.5); // ±25% jitter
 
   function _drain() {
-    while (_active < CONCURRENCY && _queue.length) _start(_queue.shift());
+    _drainPending = false;
+    if (_active >= CONCURRENCY || !_queue.length) return;
+    _start(_queue.shift());
+    // Schedule the next slot after a small gap to prevent simultaneous burst
+    if (!_drainPending && _queue.length && _active < CONCURRENCY) {
+      _drainPending = true;
+      setTimeout(_drain, START_GAP);
+    }
   }
 
   function _start({ el, src, attempt }) {
@@ -187,7 +196,7 @@ new MutationObserver(muts => {
         state.shuffle = saved.shuffle ?? false;
         state.repeat = saved.repeat || 'off';
         state.musicOnly = saved.musicOnly ?? true;
-        state.autoplay = saved.autoplay ?? false;
+        state.autoplay = saved.autoplay ?? true;
         state.audioQuality = saved.audioQuality || 'bestaudio';
         state.videoQuality = saved.videoQuality || '720';
         state.videoPremuxed = saved.videoPremuxed ?? true;
@@ -4351,14 +4360,17 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
   // Trigger lyrics fetch on track change
   function onTrackChanged(track) {
+    // Reset all lyrics state for the new track so there's no stale data
     _lastActiveLyricIdx = -1;
+    _maxLastActiveLyricIdx = -1;
+    _cachedLyricEls = null;
+    _cachedMaxLyricEls = null;
+    _lyricsTrackId = null; // cancel any in-flight fetch guard for old track
     if (_lyricsVisible) {
       fetchAndShowLyrics(track);
     } else if (_maxNPOpen && _maxNPLyricsVisible) {
       // Lyrics panel not open but maximized view with lyrics is — fetch for it
       fetchMaxNPLyrics(track);
-    } else {
-      _lyricsTrackId = null;
     }
     updateMaxNP(track);
   }
@@ -4446,6 +4458,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   const maxNPArt = $('#max-np-art');
   const maxNPTitle = $('#max-np-title');
   const maxNPArtist = $('#max-np-artist');
+  const maxNPTopbarArt = $('#max-np-topbar-art');
+  const maxNPTopbarTitle = $('#max-np-topbar-title');
+  const maxNPTopbarArtist = $('#max-np-topbar-artist');
   const maxNPLike = $('#max-np-like');
   const maxNPLyricsToggle = $('#max-np-lyrics-toggle');
   const maxNPRight = $('#max-np-right');
@@ -4509,6 +4524,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const thumbUrl = track.thumbnail ? track.thumbnail.replace(/=w\d+-h\d+/, '=w800-h800') : '';
     const imgSrc = thumbUrl || track.thumbnail;
     maxNPArt.src = imgSrc;
+    // Topbar mini cover: use original (small) thumbnail, not the 800×800 upscaled one
+    maxNPTopbarArt.src = track.thumbnail || imgSrc;
 
     // Extract dominant color from cover for lyrics tinting
     extractDominantColor(maxNPArt).then(applyMaxNPLyricsColor);
@@ -4546,6 +4563,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     maxNPTitle.textContent = track.title;
     maxNPArtist.innerHTML = renderArtistLinks(track);
     bindArtistLinks(maxNPArtist);
+    maxNPTopbarTitle.textContent = track.title;
+    maxNPTopbarArtist.textContent = track.artist || '';
 
     const isLiked = state.likedSongs.some(t => t.id === track.id);
     maxNPLike.classList.toggle('liked', isLiked);
