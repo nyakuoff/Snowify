@@ -1293,11 +1293,11 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     updatePlaylistHighlight();
   }
 
-  function playNext() {
+  function playNext({ respectRepeatOne = false } = {}) {
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     if (!state.queue.length) return;
 
-    if (state.repeat === 'one') {
+    if (respectRepeatOne && state.repeat === 'one') {
       engine.clearPreload();
       audio.currentTime = 0;
       audio.play();
@@ -1331,9 +1331,13 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     renderQueue();
   }
 
+  let _smartQueueFillInFlight = false;
+
   async function smartQueueFill({ silent = false } = {}) {
+    if (_smartQueueFillInFlight) return;
     const current = state.queue[state.queueIndex];
     if (!current || current.isLocal) return;
+    _smartQueueFillInFlight = true;
 
     try {
       const queueIds = new Set(state.queue.map(t => t.id));
@@ -1401,6 +1405,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         state.isPlaying = false;
         updatePlayButton();
       }
+    } finally {
+      _smartQueueFillInFlight = false;
     }
   }
 
@@ -1556,7 +1562,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         break;
       case 'ended-no-preload':
         normalizer.finalizeMeasurement(audio, false);
-        playNext();
+        playNext({ respectRepeatOne: true });
         break;
       case 'seeked':
         updatePositionState();
@@ -4196,13 +4202,34 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
     lyricsBody.innerHTML = `<div class="lyrics-loading"><div class="spinner"></div><p>${I18n.t('lyrics.searching')}</p></div>`;
 
-    // Parse duration: try audio.duration first, then the track string "m:ss"
+    // Resolve duration: try audio.duration first, then track.durationMs, then parse track.duration string.
+    // If audio hasn't loaded metadata yet, wait for it (up to 4 s).
     let durationSec = null;
-    if (audio.duration && !isNaN(audio.duration) && audio.duration > 0) {
-      durationSec = Math.round(audio.duration);
-    } else if (track.duration) {
-      const parts = track.duration.split(':');
-      if (parts.length === 2) durationSec = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    const resolveDuration = () => {
+      if (audio.duration && !isNaN(audio.duration) && audio.duration > 0) {
+        return Math.round(audio.duration);
+      }
+      if (track.durationMs && track.durationMs > 0) {
+        return Math.round(track.durationMs / 1000);
+      }
+      if (track.duration) {
+        const parts = track.duration.split(':');
+        if (parts.length === 2) return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+        if (parts.length === 3) return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]);
+      }
+      return null;
+    };
+    durationSec = resolveDuration();
+    if (!durationSec) {
+      // Audio not loaded yet — wait for loadedmetadata (max 4 s)
+      await new Promise(resolve => {
+        const done = () => { durationSec = resolveDuration(); resolve(); };
+        if (audio.readyState >= 1) { done(); return; }
+        const onMeta = () => { audio.removeEventListener('loadedmetadata', onMeta); done(); };
+        audio.addEventListener('loadedmetadata', onMeta, { once: true });
+        setTimeout(() => { audio.removeEventListener('loadedmetadata', onMeta); resolve(); }, 4000);
+      });
+      if (_lyricsTrackId !== track.id) return; // track changed while waiting
     }
 
     try {
@@ -4635,12 +4662,26 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
     maxNPLyrics.innerHTML = `<div class="lyrics-loading"><div class="spinner"></div><p>${I18n.t('lyrics.searching')}</p></div>`;
 
-    let durationSec = null;
-    if (audio.duration && !isNaN(audio.duration) && audio.duration > 0) {
-      durationSec = Math.round(audio.duration);
-    } else if (track.duration) {
-      const parts = track.duration.split(':');
-      if (parts.length === 2) durationSec = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    // Resolve duration: audio.duration → track.durationMs → track.duration string
+    const resolveDuration = () => {
+      if (audio.duration && !isNaN(audio.duration) && audio.duration > 0) return Math.round(audio.duration);
+      if (track.durationMs && track.durationMs > 0) return Math.round(track.durationMs / 1000);
+      if (track.duration) {
+        const parts = track.duration.split(':');
+        if (parts.length === 2) return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+        if (parts.length === 3) return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]);
+      }
+      return null;
+    };
+    let durationSec = resolveDuration();
+    if (!durationSec) {
+      await new Promise(resolve => {
+        if (audio.readyState >= 1) { durationSec = resolveDuration(); resolve(); return; }
+        const onMeta = () => { audio.removeEventListener('loadedmetadata', onMeta); durationSec = resolveDuration(); resolve(); };
+        audio.addEventListener('loadedmetadata', onMeta, { once: true });
+        setTimeout(() => { audio.removeEventListener('loadedmetadata', onMeta); resolve(); }, 4000);
+      });
+      if (_lyricsTrackId !== track.id) return;
     }
 
     try {
@@ -7412,8 +7453,15 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       let _touchStartY = 0;
       let _lastTouchY  = 0;
       let _touchActive = false;
+      let _touchFromHandle = false;
 
       maxNPEl.addEventListener('touchstart', (e) => {
+        const target = e.target;
+        _touchFromHandle = !!(target && target.closest && target.closest('.max-np-topbar'));
+        if (!_touchFromHandle) {
+          _touchActive = false;
+          return;
+        }
         _touchStartY = e.touches[0].clientY;
         _lastTouchY  = _touchStartY;
         _touchActive = true;
@@ -7421,7 +7469,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       }, { passive: true });
 
       maxNPEl.addEventListener('touchmove', (e) => {
-        if (!_touchActive) return;
+        if (!_touchActive || !_touchFromHandle) return;
         const dy = e.touches[0].clientY - _touchStartY;
         _lastTouchY = e.touches[0].clientY;
         if (dy > 0) {
@@ -7430,8 +7478,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       }, { passive: true });
 
       maxNPEl.addEventListener('touchend', () => {
-        if (!_touchActive) return;
+        if (!_touchActive || !_touchFromHandle) return;
         _touchActive = false;
+        _touchFromHandle = false;
         const dy = _lastTouchY - _touchStartY;
         maxNPEl.style.transition = '';
         maxNPEl.style.transform  = '';

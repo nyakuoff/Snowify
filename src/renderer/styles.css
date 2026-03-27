@@ -5896,7 +5896,7 @@ body.i18n-switching { opacity: 0; }
   --safe-bot: env(safe-area-inset-bottom, 0px);
   --page-pad: 16px;       /* horizontal content padding         */
   --card-gap: 12px;       /* gap between cards / items          */
-  --section-mb: 28px;     /* section bottom margin              */
+  --section-mb: 20px;     /* section bottom margin              */
 }
 
 /* ─── Hide desktop chrome ─── */
@@ -5945,8 +5945,8 @@ body.i18n-switching { opacity: 0; }
   background: color-mix(in srgb, var(--bg-surface) 97%, transparent);
   border-right: none;
   border-top: 1px solid rgba(255,255,255,0.05);
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   z-index: 99;
   overflow: visible;
 }
@@ -6021,8 +6021,8 @@ body.i18n-switching { opacity: 0; }
   align-items: center;
   gap: 8px;
   background: color-mix(in srgb, var(--bg-elevated) 92%, rgba(var(--ambient-rgb), 0.45));
-  backdrop-filter: blur(44px);
-  -webkit-backdrop-filter: blur(44px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: var(--bar-r);
   box-shadow: 0 10px 36px rgba(0,0,0,0.48), 0 2px 8px rgba(0,0,0,0.22);
@@ -6145,7 +6145,7 @@ body.i18n-switching { opacity: 0; }
   margin-bottom: var(--section-mb);
 }
 .platform-mobile .section h2 {
-  padding: 18px var(--page-pad) 10px;
+  padding: 14px var(--page-pad) 10px;
   margin-bottom: 0; /* kill desktop margin-bottom, use padding instead */
   font-size: 17px;
   font-weight: 700;
@@ -6161,7 +6161,7 @@ body.i18n-switching { opacity: 0; }
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   padding: 0 var(--page-pad) 4px;
-  margin-bottom: 0;
+  margin-bottom: 20px; /* consistent gap between quick picks and first section */
 }
 .platform-mobile .quick-pick-card {
   border-radius: 8px;
@@ -6513,7 +6513,6 @@ body.i18n-switching { opacity: 0; }
 /* Lyrics — mobile performance: strip expensive GPU effects, tighten animation */
 .platform-mobile .lyrics-line {
   transition: opacity 0.18s ease;
-  will-change: opacity;
 }
 .platform-mobile .lyrics-line.active {
   transform: none !important;
@@ -6521,7 +6520,6 @@ body.i18n-switching { opacity: 0; }
 }
 .platform-mobile .max-np-lyrics .lyrics-line {
   transition: opacity 0.18s ease;
-  will-change: opacity;
 }
 .platform-mobile .max-np-lyrics .lyrics-line.active {
   transform: none !important;
