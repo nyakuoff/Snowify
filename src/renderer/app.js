@@ -12,6 +12,11 @@ const IS_MOBILE_RUNTIME =
   document.documentElement.classList.contains('platform-mobile') ||
   /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
 
+function resolveImageUrl(url) {
+  if (!url) return url;
+  return window.snowify?.resolveImageUrl?.(url) || url;
+}
+
 // ─── Throttled image loader — prevents 429 from simultaneous thumbnail requests ───
 // Images use `data-src` in templates; a MutationObserver feeds them into this queue.
 const _imgQ = (() => {
@@ -32,10 +37,11 @@ const _imgQ = (() => {
   function _applySrc(el, src) {
     if (!el || !el.isConnected) return;
     if (el.dataset.src === src) el.removeAttribute('data-src');
-    if (el.getAttribute('src') === src || el.currentSrc === src) return;
+    const resolvedSrc = resolveImageUrl(src);
+    if (el.getAttribute('src') === resolvedSrc || el.currentSrc === resolvedSrc) return;
     el.loading = 'lazy';
     el.decoding = 'async';
-    el.src = src;
+    el.src = resolvedSrc;
   }
 
   function _drain() {
@@ -63,6 +69,7 @@ const _imgQ = (() => {
     _active++;
     const probe = new Image();
     probe.decoding = 'async';
+    const resolvedSrc = resolveImageUrl(src);
     probe.onload = () => {
       _active--;
       _errorStreak = 0;
@@ -110,7 +117,7 @@ const _imgQ = (() => {
       }
       _drain();
     };
-    probe.src = src;
+    probe.src = resolvedSrc;
   }
 
   // IntersectionObserver: only enqueue when image enters extended viewport.
@@ -2291,9 +2298,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     bar.dataset.trackArtist = track.artist || '';
     appEl.classList.remove('no-player');
 
-    $('#np-thumbnail').src = track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : '');
+    $('#np-thumbnail').src = resolveImageUrl(track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : ''));
     // Extract dominant color from album art and push as ambient CSS variable
-    const _ambientSrc = track.thumbnail;
+    const _ambientSrc = resolveImageUrl(track.thumbnail);
     if (_ambientSrc) {
       extractDominantColor({ src: _ambientSrc }).then(color => {
         const rgb = color ? `${color.r}, ${color.g}, ${color.b}` : '170, 85, 230';
@@ -5004,10 +5011,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   function updateMaxNP(track) {
     if (!track || !_maxNPOpen) return;
     const thumbUrl = track.thumbnail ? track.thumbnail.replace(/=w\d+-h\d+/, '=w800-h800') : '';
-    const imgSrc = thumbUrl || track.thumbnail;
+    const imgSrc = resolveImageUrl(thumbUrl || track.thumbnail);
     maxNPArt.src = imgSrc;
     // Topbar mini cover: use original (small) thumbnail, not the 800×800 upscaled one
-    maxNPTopbarArt.src = track.thumbnail || imgSrc;
+    maxNPTopbarArt.src = resolveImageUrl(track.thumbnail || imgSrc);
 
     // Extract dominant color from cover for lyrics tinting
     extractDominantColor(maxNPArt).then(applyMaxNPLyricsColor);
@@ -5946,7 +5953,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const cached = state.trackGenreCache[track.id];
     if (!cached?.albumArt) return;
     const thumb = $('#np-thumbnail');
-    if (thumb && thumb.src !== cached.albumArt) {
+    const resolvedAlbumArt = resolveImageUrl(cached.albumArt);
+    if (thumb && thumb.src !== resolvedAlbumArt) {
       const originalSrc = thumb.src;
       const onError = () => {
         thumb.src = originalSrc; // restore original thumbnail if cached art fails
@@ -5954,8 +5962,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       };
       thumb.addEventListener('error', onError);
       thumb.addEventListener('load', () => thumb.removeEventListener('error', onError), { once: true });
-      thumb.src = cached.albumArt;
-      extractDominantColor({ src: cached.albumArt }).then(color => {
+      thumb.src = resolvedAlbumArt;
+      extractDominantColor({ src: resolvedAlbumArt }).then(color => {
         const rgb = color ? `${color.r}, ${color.g}, ${color.b}` : '170, 85, 230';
         document.documentElement.style.setProperty('--ambient-rgb', rgb);
       }).catch(() => {});

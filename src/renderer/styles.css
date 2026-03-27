@@ -6389,6 +6389,14 @@ body.i18n-switching { opacity: 0; }
   padding: 0 var(--page-pad) 12px;
   scrollbar-width: none;
 }
+.platform-mobile #view-home .card-row {
+  scroll-padding-left: var(--page-pad);
+  scroll-padding-right: var(--page-pad);
+}
+.platform-mobile #recent-tracks {
+  padding-left: var(--page-pad);
+  padding-right: var(--page-pad);
+}
 .platform-mobile .card-row::-webkit-scrollbar { display: none; }
 
 /* Track cards inside carousels */
@@ -6944,6 +6952,42 @@ body.i18n-switching { opacity: 0; }
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 32px;
+}
+/* Account tab custom content is not built from .setting-row blocks, so add
+   explicit horizontal gutters to prevent edge collisions on mobile. */
+.platform-mobile #account-section,
+.platform-mobile #account-signed-out,
+.platform-mobile #account-signed-in {
+  padding-left: var(--page-pad);
+  padding-right: var(--page-pad);
+  box-sizing: border-box;
+}
+.platform-mobile #account-signed-out,
+.platform-mobile #account-signed-in,
+.platform-mobile .profile-extras {
+  padding-left: 0;
+  padding-right: 0;
+}
+.platform-mobile .profile-section,
+.platform-mobile .account-info {
+  width: 100%;
+  min-width: 0;
+}
+.platform-mobile .account-actions {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+.platform-mobile .profile-extras {
+  margin-top: 12px;
+}
+.platform-mobile .profile-banner-preview {
+  width: 100%;
+  max-width: 100%;
+}
+.platform-mobile .profile-bio-wrap,
+.platform-mobile .profile-bio-input {
+  width: 100%;
+  box-sizing: border-box;
 }
 /* Section groups: flat, no desktop card style */
 .platform-mobile .settings-group {

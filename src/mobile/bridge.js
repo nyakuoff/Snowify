@@ -38,6 +38,37 @@ import {
 // Must match MainActivity.PROXY_PORT
 const PROXY_PORT = 17890;
 const proxyUrl = (url) => `http://127.0.0.1:${PROXY_PORT}/stream?url=${encodeURIComponent(url)}`;
+const PROXY_PREFIX = `http://127.0.0.1:${PROXY_PORT}/stream?url=`;
+
+function isHttpUrl(value) {
+  return typeof value === 'string' && /^https?:\/\//i.test(value);
+}
+
+function isProxyAssetUrl(value) {
+  return typeof value === 'string' && value.startsWith(PROXY_PREFIX);
+}
+
+function resolveImageUrl(url) {
+  if (!isHttpUrl(url) || isProxyAssetUrl(url)) return url;
+  return proxyUrl(url);
+}
+
+function proxifyArtworkUrls(value, key = '') {
+  if (Array.isArray(value)) {
+    return value.map((entry) => proxifyArtworkUrls(entry));
+  }
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [entryKey, entryValue] of Object.entries(value)) {
+      out[entryKey] = proxifyArtworkUrls(entryValue, entryKey);
+    }
+    return out;
+  }
+  if (typeof value === 'string' && /^(thumbnail|avatar|banner|photoURL|logoUrl|albumArt|artwork)$/i.test(key)) {
+    return resolveImageUrl(value);
+  }
+  return value;
+}
 
 const firebaseConfig = {
   apiKey: 'AIzaSyCNuw8kqgbULTLjC890BzKWvnmdvFCX0og',
@@ -74,7 +105,7 @@ async function getUserInfo(user) {
     }
   } catch (_) {}
 
-  return info;
+  return proxifyArtworkUrls(info);
 }
 
 let _authSub = null;
@@ -661,14 +692,16 @@ export function installMobileBridge() {
     setMinimizeToTray: () => {},
     setOpenAtLogin:    () => {},
 
+    resolveImageUrl,
+
     // YouTube Music
-    search:             (q, musicOnly)     => ytm.search(q, musicOnly),
-    searchArtists:      q                  => ytm.searchArtists(q),
-    searchAlbums:       q                  => ytm.searchAlbums(q),
-    searchVideos:       q                  => ytm.searchVideos(q),
-    searchPlaylists:    q                  => ytm.searchPlaylists(q),
-    getPlaylistVideos:  id                 => ytm.getPlaylistVideos(id),
-    searchSuggestions:  q                  => ytm.searchSuggestions(q),
+    search:             async (q, musicOnly) => proxifyArtworkUrls(await ytm.search(q, musicOnly)),
+    searchArtists:      async q            => proxifyArtworkUrls(await ytm.searchArtists(q)),
+    searchAlbums:       async q            => proxifyArtworkUrls(await ytm.searchAlbums(q)),
+    searchVideos:       async q            => proxifyArtworkUrls(await ytm.searchVideos(q)),
+    searchPlaylists:    async q            => proxifyArtworkUrls(await ytm.searchPlaylists(q)),
+    getPlaylistVideos:  async id           => proxifyArtworkUrls(await ytm.getPlaylistVideos(id)),
+    searchSuggestions:  async q            => proxifyArtworkUrls(await ytm.searchSuggestions(q)),
     // On Android, ExoPlayer fetches URLs directly — no local proxy needed.
     // On iOS, keep routing through the proxy as before.
     getStreamUrl:       async (url, q)      => {
@@ -682,13 +715,13 @@ export function installMobileBridge() {
         audioUrl: r.audioUrl ? proxyUrl(r.audioUrl) : null,
       };
     },
-    getTrackInfo:       id                 => ytm.getTrackInfo(id),
-    artistInfo:         id                 => ytm.artistInfo(id),
-    albumTracks:        id                 => ytm.albumTracks(id),
-    getUpNexts:         id                 => ytm.getUpNexts(id),
-    explore:            ()                 => ytm.explore(),
-    charts:             ()                 => ytm.charts(),
-    browseMood:         (bid, params)      => ytm.browseMood(bid, params),
+    getTrackInfo:       async id           => proxifyArtworkUrls(await ytm.getTrackInfo(id)),
+    artistInfo:         async id           => proxifyArtworkUrls(await ytm.artistInfo(id)),
+    albumTracks:        async id           => proxifyArtworkUrls(await ytm.albumTracks(id)),
+    getUpNexts:         async id           => proxifyArtworkUrls(await ytm.getUpNexts(id)),
+    explore:            async ()           => proxifyArtworkUrls(await ytm.explore()),
+    charts:             async ()           => proxifyArtworkUrls(await ytm.charts()),
+    browseMood:         async (bid, params) => proxifyArtworkUrls(await ytm.browseMood(bid, params)),
     setCountry:         () => Promise.resolve(true),
 
     // Caching: no-ops (no yt-dlp cache on mobile)
@@ -781,12 +814,12 @@ export function installMobileBridge() {
         const profileData = { displayName: user.displayName || '' };
         if (photoURL !== undefined) profileData.photoURL = photoURL;
         await setDoc(doc(firebaseDb, 'users', user.uid), { profile: profileData }, { merge: true });
-        return {
+        return proxifyArtworkUrls({
           uid: user.uid,
           email: user.email,
           displayName: user.displayName,
           photoURL: photoURL !== undefined ? photoURL : user.photoURL,
-        };
+        });
       } catch (err) {
         return { error: err.message };
       }
@@ -820,7 +853,7 @@ export function installMobileBridge() {
         const profile = data.profile || {};
         if (data['profile.banner'] && !profile.banner) profile.banner = data['profile.banner'];
         if (data['profile.bio'] && !profile.bio) profile.bio = data['profile.bio'];
-        return profile;
+        return proxifyArtworkUrls(profile);
       } catch (_) {
         return null;
       }
@@ -844,7 +877,7 @@ export function installMobileBridge() {
       if (!user) return null;
       try {
         const snap = await getDoc(doc(firebaseDb, 'users', user.uid));
-        return snap.exists() ? snap.data() : null;
+        return snap.exists() ? proxifyArtworkUrls(snap.data()) : null;
       } catch (_) {
         return null;
       }

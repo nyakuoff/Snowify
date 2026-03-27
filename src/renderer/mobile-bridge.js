@@ -22587,6 +22587,33 @@ This typically indicates that your device does not have a healthy Internet conne
   // src/mobile/bridge.js
   var PROXY_PORT = 17890;
   var proxyUrl = (url) => `http://127.0.0.1:${PROXY_PORT}/stream?url=${encodeURIComponent(url)}`;
+  var PROXY_PREFIX = `http://127.0.0.1:${PROXY_PORT}/stream?url=`;
+  function isHttpUrl(value) {
+    return typeof value === "string" && /^https?:\/\//i.test(value);
+  }
+  function isProxyAssetUrl(value) {
+    return typeof value === "string" && value.startsWith(PROXY_PREFIX);
+  }
+  function resolveImageUrl(url) {
+    if (!isHttpUrl(url) || isProxyAssetUrl(url)) return url;
+    return proxyUrl(url);
+  }
+  function proxifyArtworkUrls(value, key = "") {
+    if (Array.isArray(value)) {
+      return value.map((entry) => proxifyArtworkUrls(entry));
+    }
+    if (value && typeof value === "object") {
+      const out = {};
+      for (const [entryKey, entryValue] of Object.entries(value)) {
+        out[entryKey] = proxifyArtworkUrls(entryValue, entryKey);
+      }
+      return out;
+    }
+    if (typeof value === "string" && /^(thumbnail|avatar|banner|photoURL|logoUrl|albumArt|artwork)$/i.test(key)) {
+      return resolveImageUrl(value);
+    }
+    return value;
+  }
   var firebaseConfig = {
     apiKey: "AIzaSyCNuw8kqgbULTLjC890BzKWvnmdvFCX0og",
     authDomain: "snowify-dcda0.firebaseapp.com",
@@ -22617,7 +22644,7 @@ This typically indicates that your device does not have a healthy Internet conne
       }
     } catch (_) {
     }
-    return info;
+    return proxifyArtworkUrls(info);
   }
   var _authSub = null;
   var _authListeners = /* @__PURE__ */ new Set();
@@ -23147,14 +23174,15 @@ This typically indicates that your device does not have a healthy Internet conne
       },
       setOpenAtLogin: () => {
       },
+      resolveImageUrl,
       // YouTube Music
-      search: (q2, musicOnly) => search(q2, musicOnly),
-      searchArtists: (q2) => searchArtists(q2),
-      searchAlbums: (q2) => searchAlbums(q2),
-      searchVideos: (q2) => searchVideos(q2),
-      searchPlaylists: (q2) => searchPlaylists(q2),
-      getPlaylistVideos: (id) => getPlaylistVideos(id),
-      searchSuggestions: (q2) => searchSuggestions(q2),
+      search: async (q2, musicOnly) => proxifyArtworkUrls(await search(q2, musicOnly)),
+      searchArtists: async (q2) => proxifyArtworkUrls(await searchArtists(q2)),
+      searchAlbums: async (q2) => proxifyArtworkUrls(await searchAlbums(q2)),
+      searchVideos: async (q2) => proxifyArtworkUrls(await searchVideos(q2)),
+      searchPlaylists: async (q2) => proxifyArtworkUrls(await searchPlaylists(q2)),
+      getPlaylistVideos: async (id) => proxifyArtworkUrls(await getPlaylistVideos(id)),
+      searchSuggestions: async (q2) => proxifyArtworkUrls(await searchSuggestions(q2)),
       // On Android, ExoPlayer fetches URLs directly — no local proxy needed.
       // On iOS, keep routing through the proxy as before.
       getStreamUrl: async (url, q2) => {
@@ -23168,13 +23196,13 @@ This typically indicates that your device does not have a healthy Internet conne
           audioUrl: r.audioUrl ? proxyUrl(r.audioUrl) : null
         };
       },
-      getTrackInfo: (id) => getTrackInfo(id),
-      artistInfo: (id) => artistInfo(id),
-      albumTracks: (id) => albumTracks(id),
-      getUpNexts: (id) => getUpNexts(id),
-      explore: () => explore(),
-      charts: () => charts(),
-      browseMood: (bid, params) => browseMood(bid, params),
+      getTrackInfo: async (id) => proxifyArtworkUrls(await getTrackInfo(id)),
+      artistInfo: async (id) => proxifyArtworkUrls(await artistInfo(id)),
+      albumTracks: async (id) => proxifyArtworkUrls(await albumTracks(id)),
+      getUpNexts: async (id) => proxifyArtworkUrls(await getUpNexts(id)),
+      explore: async () => proxifyArtworkUrls(await explore()),
+      charts: async () => proxifyArtworkUrls(await charts()),
+      browseMood: async (bid, params) => proxifyArtworkUrls(await browseMood(bid, params)),
       setCountry: () => Promise.resolve(true),
       // Caching: no-ops (no yt-dlp cache on mobile)
       downloadAudio: () => Promise.resolve(null),
@@ -23265,12 +23293,12 @@ This typically indicates that your device does not have a healthy Internet conne
           const profileData = { displayName: user.displayName || "" };
           if (photoURL !== void 0) profileData.photoURL = photoURL;
           await setDoc(doc(firebaseDb, "users", user.uid), { profile: profileData }, { merge: true });
-          return {
+          return proxifyArtworkUrls({
             uid: user.uid,
             email: user.email,
             displayName: user.displayName,
             photoURL: photoURL !== void 0 ? photoURL : user.photoURL
-          };
+          });
         } catch (err) {
           return { error: err.message };
         }
@@ -23304,7 +23332,7 @@ This typically indicates that your device does not have a healthy Internet conne
           const profile = data.profile || {};
           if (data["profile.banner"] && !profile.banner) profile.banner = data["profile.banner"];
           if (data["profile.bio"] && !profile.bio) profile.bio = data["profile.bio"];
-          return profile;
+          return proxifyArtworkUrls(profile);
         } catch (_) {
           return null;
         }
@@ -23328,7 +23356,7 @@ This typically indicates that your device does not have a healthy Internet conne
         if (!user) return null;
         try {
           const snap = await getDoc(doc(firebaseDb, "users", user.uid));
-          return snap.exists() ? snap.data() : null;
+          return snap.exists() ? proxifyArtworkUrls(snap.data()) : null;
         } catch (_) {
           return null;
         }
