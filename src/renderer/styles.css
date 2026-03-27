@@ -6386,12 +6386,16 @@ body.i18n-switching { opacity: 0; }
    ═══════════════════════════════════════════════════════════════════════════ */
 /* Safe-top is handled here so topbar items never land inside the notch */
 .platform-mobile .max-np {
-  padding-top: var(--safe-top);
+  padding-top: 0;
   padding-bottom: 0;
 }
 .platform-mobile .max-np-topbar {
-  position: relative;
-  padding: 16px 16px 8px; /* 16px top leaves room for swipe pill */
+  position: absolute;
+  top: calc(var(--safe-top) + 6px);
+  left: 0;
+  right: 0;
+  z-index: 4;
+  padding: 14px 16px 8px;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -6455,7 +6459,7 @@ body.i18n-switching { opacity: 0; }
   min-height: 0;
   flex-direction: column;
   gap: 0;
-  padding: 8px var(--page-pad) calc(var(--safe-bot) + 16px);
+  padding: calc(var(--safe-top) + 78px) var(--page-pad) calc(var(--safe-bot) + 16px);
   align-items: center;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;

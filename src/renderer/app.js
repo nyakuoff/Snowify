@@ -16,9 +16,17 @@ const _imgQ = (() => {
   let _active = 0;
   let _drainPending = false;
   const _queue = [];
-  const _seen = new Set();                  // URL dedup — skip already-loaded URLs
+  const _loaded = new Set();                // URLs known to be loaded successfully
+  const _inFlight = new Map();              // src -> { els:Set<HTMLImageElement>, attempt:number }
 
   const _jitter = ms => ms * (0.75 + Math.random() * 0.5); // ±25% jitter
+
+  function _applySrc(el, src) {
+    if (!el || !el.isConnected) return;
+    if (el.dataset.src === src) el.removeAttribute('data-src');
+    if (el.getAttribute('src') === src || el.currentSrc === src) return;
+    el.src = src;
+  }
 
   function _drain() {
     _drainPending = false;
@@ -31,20 +39,36 @@ const _imgQ = (() => {
     }
   }
 
-  function _start({ el, src, attempt }) {
+  function _start({ src, attempt }) {
     _active++;
-    el.onload = () => { el.onload = el.onerror = null; _seen.add(src); _active--; _drain(); };
-    el.onerror = () => {
-      el.onload = el.onerror = null;
+    const probe = new Image();
+    probe.decoding = 'async';
+    probe.onload = () => {
       _active--;
-      if (attempt < RETRY_MS.length && el.isConnected) {
-        setTimeout(() => { _queue.push({ el, src, attempt: attempt + 1 }); _drain(); }, _jitter(RETRY_MS[attempt]));
+      _loaded.add(src);
+      const entry = _inFlight.get(src);
+      _inFlight.delete(src);
+      entry?.els.forEach(el => _applySrc(el, src));
+      _drain();
+    };
+    probe.onerror = () => {
+      _active--;
+      const entry = _inFlight.get(src);
+      _inFlight.delete(src);
+      const liveEls = [...(entry?.els || [])].filter(el => el && el.isConnected);
+      if (attempt < RETRY_MS.length && liveEls.length) {
+        setTimeout(() => {
+          if (!liveEls.some(el => el.isConnected)) return;
+          _inFlight.set(src, { els: new Set(liveEls.filter(el => el.isConnected)), attempt: attempt + 1 });
+          _queue.push({ src, attempt: attempt + 1 });
+          _drain();
+        }, _jitter(RETRY_MS[attempt]));
       } else {
-        el.classList.add('cover-error');
+        liveEls.forEach(el => el.classList.add('cover-error'));
       }
       _drain();
     };
-    el.src = src;
+    probe.src = src;
   }
 
   // IntersectionObserver: only enqueue when image enters extended viewport.
@@ -57,9 +81,24 @@ const _imgQ = (() => {
       _io.unobserve(el);
       const src = el.dataset.src;
       if (!src) continue;
+      if (el.getAttribute('src') === src || el.currentSrc === src) {
+        el.removeAttribute('data-src');
+        _loaded.add(src);
+        continue;
+      }
+      if (_loaded.has(src)) {
+        _applySrc(el, src);
+        continue;
+      }
+      const existing = _inFlight.get(src);
+      if (existing) {
+        existing.els.add(el);
+        el.removeAttribute('data-src');
+        continue;
+      }
       el.removeAttribute('data-src');
-      if (_seen.has(src)) { el.src = src; continue; } // browser cache, instant
-      _queue.push({ el, src, attempt: 0 });
+      _inFlight.set(src, { els: new Set([el]), attempt: 0 });
+      _queue.push({ src, attempt: 0 });
       _drain();
     }
   }, { rootMargin: '300px 0px' });
@@ -67,6 +106,18 @@ const _imgQ = (() => {
   return {
     enqueue(el) {
       if (!el.dataset.src) return;
+      const src = el.dataset.src;
+      if (!src) return;
+      if (el.getAttribute('src') === src || el.currentSrc === src || _loaded.has(src)) {
+        _applySrc(el, src);
+        return;
+      }
+      const existing = _inFlight.get(src);
+      if (existing) {
+        existing.els.add(el);
+        el.removeAttribute('data-src');
+        return;
+      }
       _io.observe(el); // defer until near viewport
     }
   };
