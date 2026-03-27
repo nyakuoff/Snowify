@@ -1170,12 +1170,20 @@ var __SnowifyMobile = (() => {
   }
   async function nativeGetJson(url, options = {}) {
     const response = await request(url, { ...options, method: "GET", responseType: "json" });
-    if (typeof response.data === "string") return JSON.parse(response.data);
+    if (typeof response.data === "string") {
+      const text = response.data.trim();
+      if (!text) throw new Error(`Empty JSON response from ${url}`);
+      return JSON.parse(text);
+    }
     return response.data;
   }
   async function nativeRequestJson(url, options = {}) {
     const response = await request(url, { ...options, responseType: "json" });
-    if (typeof response.data === "string") return JSON.parse(response.data);
+    if (typeof response.data === "string") {
+      const text = response.data.trim();
+      if (!text) throw new Error(`Empty JSON response from ${url}`);
+      return JSON.parse(text);
+    }
     return response.data;
   }
 
@@ -1189,20 +1197,57 @@ var __SnowifyMobile = (() => {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
     return Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * 64)]).join("");
   }
-  var ANDROID_CONTEXT = {
-    client: {
-      clientName: "ANDROID_VR",
-      clientVersion: "1.65.10",
-      deviceMake: "Oculus",
-      deviceModel: "Quest 3",
-      androidSdkVersion: 32,
-      osName: "Android",
-      osVersion: "12L",
-      hl: "en",
-      gl: "US",
-      userAgent: "com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip"
+  var PLAYER_CLIENTS = [
+    {
+      name: "ANDROID",
+      clientNameId: "3",
+      apiUrl: "https://www.youtube.com/youtubei/v1/player?prettyPrint=false",
+      client: {
+        clientName: "ANDROID",
+        clientVersion: "21.03.36",
+        clientFormFactor: "SMALL_FORM_FACTOR",
+        androidSdkVersion: 36,
+        osName: "Android",
+        osVersion: "16",
+        hl: "en",
+        gl: "US",
+        userAgent: "com.google.android.youtube/21.03.36(Linux; U; Android 16; en_US; SM-S908E Build/TP1A.220624.014) gzip"
+      }
+    },
+    {
+      name: "IOS",
+      clientNameId: "5",
+      apiUrl: "https://www.youtube.com/youtubei/v1/player?prettyPrint=false",
+      client: {
+        clientName: "iOS",
+        clientVersion: "21.01.04",
+        deviceMake: "Apple",
+        deviceModel: "iPhone16,2",
+        osName: "iPhone",
+        osVersion: "18.2.1",
+        hl: "en",
+        gl: "US",
+        userAgent: "com.google.ios.youtube/21.01.04 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X)"
+      }
+    },
+    {
+      name: "ANDROID_VR",
+      clientNameId: "28",
+      apiUrl: "https://www.youtube.com/youtubei/v1/player?prettyPrint=false",
+      client: {
+        clientName: "ANDROID_VR",
+        clientVersion: "1.65.10",
+        deviceMake: "Oculus",
+        deviceModel: "Quest 3",
+        androidSdkVersion: 32,
+        osName: "Android",
+        osVersion: "12L",
+        hl: "en",
+        gl: "US",
+        userAgent: "com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip"
+      }
     }
-  };
+  ];
   async function initSession() {
     if (_initDone) return;
     if (_initP) return _initP;
@@ -1987,37 +2032,70 @@ var __SnowifyMobile = (() => {
       url: `https://music.youtube.com/watch?v=${videoId}`
     };
   }
-  async function fetchPlayerData(videoId) {
-    return nativeRequestJson(
-      "https://www.youtube.com/youtubei/v1/player?prettyPrint=false",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-YouTube-Client-Name": "28",
-          "X-YouTube-Client-Version": ANDROID_CONTEXT.client.clientVersion,
-          "User-Agent": ANDROID_CONTEXT.client.userAgent,
-          ..._visitorData ? { "X-Goog-Visitor-Id": _visitorData } : {}
-        },
-        body: JSON.stringify({
-          context: {
-            ...ANDROID_CONTEXT,
-            client: {
-              ...ANDROID_CONTEXT.client,
-              ..._visitorData ? { visitorData: _visitorData } : {}
-            }
-          },
-          videoId,
-          contentCheckOk: true,
-          racyCheckOk: true,
-          playbackContext: {
-            contentPlaybackContext: {
-              html5Preference: "HTML5_PREF_WANTS"
-            }
+  async function requestPlayerData(playerClient, videoId) {
+    return nativeRequestJson(playerClient.apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-YouTube-Client-Name": playerClient.clientNameId,
+        "X-YouTube-Client-Version": playerClient.client.clientVersion,
+        "User-Agent": playerClient.client.userAgent,
+        ..._visitorData ? { "X-Goog-Visitor-Id": _visitorData } : {}
+      },
+      body: JSON.stringify({
+        context: {
+          client: {
+            ...playerClient.client,
+            ..._visitorData ? { visitorData: _visitorData } : {}
           }
-        })
+        },
+        videoId,
+        contentCheckOk: true,
+        racyCheckOk: true,
+        playbackContext: {
+          contentPlaybackContext: {
+            html5Preference: "HTML5_PREF_WANTS"
+          }
+        }
+      })
+    });
+  }
+  async function fetchPlayerData(videoId) {
+    let lastData = null;
+    let lastError = null;
+    for (const playerClient of PLAYER_CLIENTS) {
+      try {
+        const data = await requestPlayerData(playerClient, videoId);
+        const status = data?.playabilityStatus?.status;
+        const hasStreams = Boolean(
+          data?.streamingData?.hlsManifestUrl || data?.streamingData?.adaptiveFormats?.length || data?.streamingData?.formats?.length
+        );
+        if (status === "OK" && hasStreams) {
+          return data;
+        }
+        if (!lastData || status === "OK") {
+          lastData = data;
+        }
+      } catch (error) {
+        lastError = error;
+        console.warn(`[YTM] ${playerClient.name} player request failed:`, error?.message || error);
       }
-    );
+    }
+    if (lastData) return lastData;
+    throw lastError || new Error("Failed to fetch player data");
+  }
+  async function fetchMusicWebPlayerData(videoId) {
+    await initSession();
+    return musicRequest("player", {
+      videoId,
+      contentCheckOk: true,
+      racyCheckOk: true,
+      playbackContext: {
+        contentPlaybackContext: {
+          html5Preference: "HTML5_PREF_WANTS"
+        }
+      }
+    });
   }
   async function fetchPipedStreams(videoId) {
     try {
@@ -2027,21 +2105,54 @@ var __SnowifyMobile = (() => {
       return null;
     }
   }
+  function extractAudioFormats(playerData) {
+    const adaptive = playerData?.streamingData?.adaptiveFormats ?? [];
+    const directAudio = adaptive.filter((format) => format.mimeType?.startsWith("audio/") && format.url).map((format) => ({
+      mimeType: format.mimeType,
+      bitrate: format.bitrate || 0,
+      url: format.url
+    }));
+    if (directAudio.length) return directAudio;
+    const muxed = (playerData?.streamingData?.formats ?? []).filter((format) => format.url).map((format) => ({
+      mimeType: format.mimeType,
+      bitrate: format.bitrate || 0,
+      url: format.url
+    }));
+    if (muxed.length) return muxed;
+    const hlsManifestUrl = playerData?.streamingData?.hlsManifestUrl;
+    if (hlsManifestUrl) {
+      return [{ mimeType: "application/x-mpegURL", bitrate: 0, url: hlsManifestUrl }];
+    }
+    return [];
+  }
   async function getStreamUrl(videoUrl, quality = "bestaudio") {
     await initSession();
     const videoId = videoUrl?.includes("watch?v=") ? new URL(videoUrl).searchParams.get("v") : videoUrl;
     if (!videoId) throw new Error("Invalid video URL");
     const cpn = generateCpn();
-    const data = await fetchPlayerData(videoId);
-    const status = data?.playabilityStatus?.status;
+    let data = await fetchPlayerData(videoId);
+    let status = data?.playabilityStatus?.status;
+    let audioFormats = extractAudioFormats(data);
     let piped = null;
-    if (status !== "OK") {
+    if (status !== "OK" || !audioFormats.length) {
+      try {
+        const webData = await fetchMusicWebPlayerData(videoId);
+        const webStatus = webData?.playabilityStatus?.status;
+        const webFormats = extractAudioFormats(webData);
+        if (webStatus === "OK" && webFormats.length) {
+          data = webData;
+          status = webStatus;
+          audioFormats = webFormats;
+        }
+      } catch (error) {
+        console.warn("[YTM] Music web player fallback failed:", error?.message || error);
+      }
+    }
+    if (status !== "OK" || !audioFormats.length) {
       console.warn("[YTM] Player status not OK, trying Piped fallback:", status);
       piped = await fetchPipedStreams(videoId);
     }
     if (status === "OK") {
-      const af = data?.streamingData?.adaptiveFormats ?? [];
-      let audioFormats = af.filter((f2) => f2.mimeType?.startsWith("audio/") && f2.url);
       if (!audioFormats.length) {
         console.log("[YTM] No direct audio URLs, trying Piped API\u2026");
         piped = piped || await fetchPipedStreams(videoId);
@@ -2051,8 +2162,6 @@ var __SnowifyMobile = (() => {
         const sorted = quality === "worstaudio" ? [...audioFormats].sort((a, b2) => (a.bitrate || 0) - (b2.bitrate || 0)) : [...audioFormats].sort((a, b2) => (b2.bitrate || 0) - (a.bitrate || 0));
         return `${sorted[0].url}&cpn=${cpn}`;
       }
-      const muxed = (data?.streamingData?.formats ?? []).filter((f2) => f2.url);
-      if (muxed.length) return `${muxed[0].url}&cpn=${cpn}`;
     }
     const pipedAudioFormats = (piped?.audioStreams ?? []).filter((s2) => s2.url).map((s2) => ({ mimeType: s2.mimeType ?? "audio/webm", bitrate: s2.bitrate ?? 0, url: s2.url }));
     if (pipedAudioFormats.length) {

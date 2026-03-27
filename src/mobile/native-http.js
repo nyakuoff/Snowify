@@ -41,12 +41,20 @@ export async function nativeGetText(url, options = {}) {
 
 export async function nativeGetJson(url, options = {}) {
   const response = await request(url, { ...options, method: 'GET', responseType: 'json' });
-  if (typeof response.data === 'string') return JSON.parse(response.data);
+  if (typeof response.data === 'string') {
+    const text = response.data.trim();
+    if (!text) throw new Error(`Empty JSON response from ${url}`);
+    return JSON.parse(text);
+  }
   return response.data;
 }
 
 export async function nativeRequestJson(url, options = {}) {
   const response = await request(url, { ...options, responseType: 'json' });
-  if (typeof response.data === 'string') return JSON.parse(response.data);
+  if (typeof response.data === 'string') {
+    const text = response.data.trim();
+    if (!text) throw new Error(`Empty JSON response from ${url}`);
+    return JSON.parse(text);
+  }
   return response.data;
 }
