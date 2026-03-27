@@ -6073,7 +6073,13 @@ body.i18n-switching { opacity: 0; }
 
 /* Hide desktop-only mini-player elements */
 .platform-mobile .np-progress { display: none !important; }
-.platform-mobile .np-extras { display: none !important; }
+.platform-mobile .np-extras {
+  display: flex !important;
+  align-items: center;
+  flex-shrink: 0;
+}
+.platform-mobile .np-extras #btn-lyrics,
+.platform-mobile .np-extras .volume-control { display: none !important; }
 .platform-mobile .np-like { display: none !important; }
 
 /* Mini player transport — prev / play / next only */
@@ -6366,6 +6372,8 @@ body.i18n-switching { opacity: 0; }
 .platform-mobile .artist-header-info {
   align-items: center;
   text-align: center;
+  width: min(100%, 32rem);
+  max-width: calc(100vw - (var(--page-pad) * 2));
 }
 .platform-mobile .artist-actions {
   justify-content: center;
@@ -6378,7 +6386,11 @@ body.i18n-switching { opacity: 0; }
   flex-shrink: 0;
 }
 .platform-mobile .artist-banner { height: 180px; }
-.platform-mobile .artist-name { font-size: clamp(22px, 6vw, 30px); font-weight: 800; }
+.platform-mobile .artist-name {
+  font-size: clamp(22px, 6vw, 30px);
+  font-weight: 800;
+  max-width: 100%;
+}
 .platform-mobile .artist-section h2 { padding-left: var(--page-pad); border-left: none; font-size: 17px; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -6401,6 +6413,7 @@ body.i18n-switching { opacity: 0; }
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+  justify-content: flex-end;
 }
 /* Swipe-down handle — sits in the 16px top padding */
 .platform-mobile .max-np-topbar::before {
@@ -6416,7 +6429,7 @@ body.i18n-switching { opacity: 0; }
 }
 /* Mini cover in topbar */
 .platform-mobile .max-np-topbar-art {
-  display: block;
+  display: none;
   width: 44px;
   height: 44px;
   border-radius: 8px;
@@ -6425,7 +6438,7 @@ body.i18n-switching { opacity: 0; }
 }
 /* Track info in topbar */
 .platform-mobile .max-np-topbar-info {
-  display: flex;
+  display: none;
   flex-direction: column;
   flex: 1;
   min-width: 0;
@@ -6452,18 +6465,36 @@ body.i18n-switching { opacity: 0; }
   transform: none;
   flex-shrink: 0;
 }
-/* Hide the duplicate info block inside max-np-left on mobile */
-.platform-mobile .max-np-info { display: none; }
+/* Show the original info block by default; the compact topbar info is lyrics-only */
+.platform-mobile .max-np-info {
+  display: flex;
+  text-align: center;
+}
 .platform-mobile .max-np-body {
   flex: 1;
   min-height: 0;
   flex-direction: column;
   gap: 0;
-  padding: calc(var(--safe-top) + 78px) var(--page-pad) calc(var(--safe-bot) + 16px);
+  padding: calc(var(--safe-top) + 24px) var(--page-pad) calc(var(--safe-bot) + 16px);
   align-items: center;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   justify-content: center;
+}
+.platform-mobile .max-np.lyrics-active .max-np-topbar {
+  justify-content: flex-start;
+}
+.platform-mobile .max-np.lyrics-active .max-np-topbar-art {
+  display: block;
+}
+.platform-mobile .max-np.lyrics-active .max-np-topbar-info {
+  display: flex;
+}
+.platform-mobile .max-np.lyrics-active .max-np-info {
+  display: none;
+}
+.platform-mobile .max-np.lyrics-active .max-np-body {
+  padding-top: calc(var(--safe-top) + 78px);
 }
 .platform-mobile .max-np-left {
   width: 100%;
@@ -6514,6 +6545,23 @@ body.i18n-switching { opacity: 0; }
    Queue & Lyrics — slide-up bottom sheets
    ═══════════════════════════════════════════════════════════════════════════ */
 .platform-mobile #queue-panel,
+.platform-mobile #lyrics-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: auto;
+  height: 82vh;
+  border-radius: 22px 22px 0 0;
+  border-left: none;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  transform: translateY(100%);
+  transition: transform 0.38s cubic-bezier(0.32, 0.72, 0, 1);
+  overflow: hidden;
+}
+.platform-mobile #queue-panel {
+  z-index: 220;
+}
 /* Lyrics — mobile performance: strip expensive GPU effects, tighten animation */
 .platform-mobile .lyrics-line {
   transition: opacity 0.18s ease;
@@ -6530,18 +6578,7 @@ body.i18n-switching { opacity: 0; }
   text-shadow: none !important;
 }
 
-.platform-mobile #lyrics-panel {
-  position: fixed;
-  left: 0; right: 0; bottom: 0; top: auto;
-  height: 82vh;
-  border-radius: 22px 22px 0 0;
-  border-left: none;
-  border-top: 1px solid rgba(255,255,255,0.07);
-  transform: translateY(100%);
-  transition: transform 0.38s cubic-bezier(0.32, 0.72, 0, 1);
-  z-index: 150;
-  overflow: hidden;
-}
+.platform-mobile #lyrics-panel { z-index: 150; }
 .platform-mobile #queue-panel.visible,
 .platform-mobile #lyrics-panel.visible { transform: translateY(0); }
 .platform-mobile #queue-panel.hidden,

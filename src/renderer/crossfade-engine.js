@@ -40,7 +40,7 @@ window.DualAudioEngine = function DualAudioEngine(audioA, audioB, opts) {
   function getNextTrack() {
     const s = getState();
     if (!s.queue.length) return null;
-    if (s.repeat === 'one') return null;
+    if (s.repeat === 'one') return s.queue[s.queueIndex] || null;
     if (s.repeat === 'all') {
       let nextIdx = s.queueIndex + 1;
       if (nextIdx >= s.queue.length) nextIdx = 0;
@@ -119,6 +119,9 @@ window.DualAudioEngine = function DualAudioEngine(audioA, audioB, opts) {
 
   function advanceQueueIndex() {
     const s = getState();
+    if (s.repeat === 'one') {
+      return;
+    }
     if (s.repeat === 'all') {
       s.queueIndex = (s.queueIndex + 1) % s.queue.length;
     } else {
@@ -339,8 +342,7 @@ window.DualAudioEngine = function DualAudioEngine(audioA, audioB, opts) {
 
   function onAudioEnded() {
     if (crossfadeInProgress) return;
-    const s = getState();
-    if (preloadedTrack && s.repeat !== 'one') {
+    if (preloadedTrack) {
       doGaplessSwap();
     } else {
       onTransition({ type: 'ended-no-preload' });
@@ -360,8 +362,15 @@ window.DualAudioEngine = function DualAudioEngine(audioA, audioB, opts) {
 
   function onAudioError() {
     const s = getState();
-    const nextIdx = s.queueIndex + 1;
-    const hasNext = nextIdx < s.queue.length;
+    let nextIdx = s.queueIndex + 1;
+    let hasNext = nextIdx < s.queue.length;
+    if (s.repeat === 'one') {
+      nextIdx = s.queueIndex;
+      hasNext = s.queue.length > 0;
+    } else if (s.repeat === 'all' && s.queue.length > 0) {
+      nextIdx = (s.queueIndex + 1) % s.queue.length;
+      hasNext = true;
+    }
     onTransition({ type: 'error', hasNext, nextIndex: nextIdx });
   }
 

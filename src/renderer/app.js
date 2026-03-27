@@ -1908,10 +1908,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     }
 
     const npArtist = $('#np-artist');
-    npArtist.innerHTML = renderArtistLinks(track);
+    npArtist.textContent = track.artist || '';
     npArtist.classList.remove('clickable');
     npArtist.onclick = null;
-    bindArtistLinks(npArtist);
 
     const isLiked = state.likedSongs.some(t => t.id === track.id);
     $('#np-like').classList.toggle('liked', isLiked);
@@ -4541,6 +4540,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   const maxNPTopbarArtist = $('#max-np-topbar-artist');
   const maxNPLike = $('#max-np-like');
   const maxNPLyricsToggle = $('#max-np-lyrics-toggle');
+  const maxNPQueueBtn = $('#max-np-queue');
   const maxNPRight = $('#max-np-right');
   const maxNPLyrics = $('#max-np-lyrics');
   const maxNPPlay = $('#max-np-play');
@@ -4554,6 +4554,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   let _maxNPLyricsVisible = false;
   let _maxLastActiveLyricIdx = -1;
   let _cachedMaxLyricEls = null;
+
+  function syncMaxNPLayout() {
+    maxNP.classList.toggle('lyrics-active', _maxNPLyricsVisible);
+  }
 
   function openMaxNP() {
     const current = state.queue[state.queueIndex];
@@ -4573,6 +4577,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     // Force reflow before adding visible class for transition
     void maxNP.offsetHeight;
     maxNP.classList.add('visible');
+    syncMaxNPLayout();
     updateMaxNP(current);
     syncMaxNPControls();
     // Sync volume slider
@@ -4854,13 +4859,21 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     maxNPRight.classList.toggle('hidden', !_maxNPLyricsVisible);
     maxNPRight.classList.toggle('visible', _maxNPLyricsVisible);
     maxNPLyricsToggle.classList.toggle('active', _maxNPLyricsVisible);
-    maxNP.classList.toggle('lyrics-active', _maxNPLyricsVisible);
+    syncMaxNPLayout();
     if (_maxNPLyricsVisible) {
       renderMaxNPLyrics();
       startMaxLyricsSync();
     } else {
       stopMaxLyricsSync();
     }
+  });
+
+  maxNPQueueBtn.addEventListener('click', () => {
+    queuePanel.classList.remove('hidden');
+    queuePanel.classList.add('visible');
+    _queueActiveTab = 'queue';
+    switchQueueTab('queue');
+    renderQueue();
   });
 
   // Like button in maximized view
