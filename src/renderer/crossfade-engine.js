@@ -371,7 +371,9 @@ window.DualAudioEngine = function DualAudioEngine(audioA, audioB, opts) {
       nextIdx = (s.queueIndex + 1) % s.queue.length;
       hasNext = true;
     }
-    onTransition({ type: 'error', hasNext, nextIndex: nextIdx });
+    const errMsg = audio.error?.message || (audio.error?.code != null ? `code ${audio.error.code}` : undefined);
+    console.error('[Engine] Audio error:', errMsg, '| src:', audio.src?.substring(0, 100));
+    onTransition({ type: 'error', hasNext, nextIndex: nextIdx, errorMsg: errMsg });
   }
 
   function onAudioCanPlayThrough() {
@@ -404,9 +406,9 @@ window.DualAudioEngine = function DualAudioEngine(audioA, audioB, opts) {
       return;
     }
     const ct = audio.currentTime;
-    if (_watchdogLastTime >= 0 && ct === _watchdogLastTime && ct > 0) {
+    if (_watchdogLastTime >= 0 && ct === _watchdogLastTime) {
       _watchdogStallTicks++;
-      if (_watchdogStallTicks >= 4) {
+      if (_watchdogStallTicks >= 5) {
         console.warn('Watchdog: playback stalled at', ct, '— advancing');
         _watchdogStallTicks = 0;
         _watchdogLastTime = -1;

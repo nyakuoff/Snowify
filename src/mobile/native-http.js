@@ -34,6 +34,10 @@ async function request(url, options = {}) {
   });
 }
 
+export async function nativeRequest(url, options = {}) {
+  return request(url, options);
+}
+
 export async function nativeGetText(url, options = {}) {
   const response = await request(url, { ...options, method: 'GET', responseType: 'text' });
   return typeof response.data === 'string' ? response.data : String(response.data ?? '');

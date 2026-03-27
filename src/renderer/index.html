@@ -14,7 +14,7 @@
   <div id="titlebar">
     <div class="titlebar-drag">
       <div class="app-logo">
-        <img class="app-logo-icon" src="../../assets/logo.png" alt="Snowify" width="24" height="24" draggable="false" />
+        <img class="app-logo-icon" src="assets/logo.png" alt="Snowify" width="24" height="24" draggable="false" />
         <span>Snowify</span>
       </div>
     </div>
@@ -28,6 +28,27 @@
       <button class="tb-btn tb-close" id="btn-close" data-i18n-aria="common.close" aria-label="Close">
         <svg width="12" height="12" viewBox="0 0 12 12"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       </button>
+    </div>
+  </div>
+
+  <!-- ═══════ First-Open Welcome / Login ═══════ -->
+  <div id="welcome-overlay" class="welcome-overlay hidden" role="dialog" aria-modal="true" aria-label="Welcome">
+    <div class="welcome-card">
+      <img class="welcome-logo" src="assets/logo.png" alt="Snowify" width="72" height="72" draggable="false" />
+      <h2 class="welcome-title" data-i18n="welcome.title">Welcome to Snowify</h2>
+      <p class="welcome-desc" data-i18n="welcome.desc">Sign in to sync your playlists, liked songs, and settings across all your devices.</p>
+      <div class="auth-form" id="welcome-auth-form">
+        <input type="email" id="welcome-auth-email" class="auth-input" placeholder="Email" data-i18n-placeholder="common.email" spellcheck="false" autocomplete="email" />
+        <input type="password" id="welcome-auth-password" class="auth-input" placeholder="Password" data-i18n-placeholder="common.password" autocomplete="current-password" />
+        <div class="auth-buttons">
+          <button class="btn-setting-action" id="btn-welcome-sign-in" data-i18n="welcome.signIn">Sign In</button>
+          <button class="btn-setting-action" id="btn-welcome-sign-up" data-i18n="welcome.createAccount">Create Account</button>
+          <button class="btn-welcome-forgot" id="btn-welcome-forgot" data-i18n="welcome.forgotPassword">Forgot password?</button>
+        </div>
+        <p class="auth-error hidden" id="welcome-auth-error"></p>
+      </div>
+      <p class="welcome-desc welcome-warning" data-i18n="welcome.warning">Without an account, your data is stored locally and can't be recovered if lost.</p>
+      <button class="btn-welcome-skip" id="btn-welcome-skip" data-i18n="welcome.skip">Continue without an account</button>
     </div>
   </div>
 

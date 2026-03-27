@@ -1164,6 +1164,9 @@ var __SnowifyMobile = (() => {
       shouldEncodeUrlParams: options.shouldEncodeUrlParams
     });
   }
+  async function nativeRequest(url, options = {}) {
+    return request(url, options);
+  }
   async function nativeGetText(url, options = {}) {
     const response = await request(url, { ...options, method: "GET", responseType: "text" });
     return typeof response.data === "string" ? response.data : String(response.data ?? "");
@@ -1248,6 +1251,7 @@ var __SnowifyMobile = (() => {
       }
     }
   ];
+  var ANDROID_STREAM_USER_AGENT = "com.google.android.youtube/21.03.36 (Linux; U; Android 16; en_US; SM-S908E Build/TP1A.220624.014) gzip";
   async function initSession() {
     if (_initDone) return;
     if (_initP) return _initP;
@@ -2108,12 +2112,14 @@ var __SnowifyMobile = (() => {
   function extractAudioFormats(playerData) {
     const adaptive = playerData?.streamingData?.adaptiveFormats ?? [];
     const directAudio = adaptive.filter((format) => format.mimeType?.startsWith("audio/") && format.url).map((format) => ({
+      itag: format.itag,
       mimeType: format.mimeType,
       bitrate: format.bitrate || 0,
       url: format.url
     }));
     if (directAudio.length) return directAudio;
     const muxed = (playerData?.streamingData?.formats ?? []).filter((format) => format.url).map((format) => ({
+      itag: format.itag,
       mimeType: format.mimeType,
       bitrate: format.bitrate || 0,
       url: format.url
@@ -2124,6 +2130,61 @@ var __SnowifyMobile = (() => {
       return [{ mimeType: "application/x-mpegURL", bitrate: 0, url: hlsManifestUrl }];
     }
     return [];
+  }
+  function scoreAudioFormat(format, quality = "bestaudio") {
+    const mime = String(format?.mimeType || "").toLowerCase();
+    const url = String(format?.url || "");
+    const bitrate = Number(format?.bitrate || 0);
+    let score = 0;
+    if (mime.includes("audio/mp4")) score += 100;
+    else if (mime.includes("audio/webm")) score += 70;
+    else if (mime.includes("application/x-mpegurl")) score += 20;
+    if (/([?&])source=yt_otf([&=]|$)/i.test(url) || /([?&])otf=1([&=]|$)/i.test(url)) score -= 200;
+    if (mime.startsWith("audio/")) score += 15;
+    const bitrateDelta = Math.floor(bitrate / 1e3);
+    score += quality === "worstaudio" ? -bitrateDelta : bitrateDelta;
+    return score;
+  }
+  async function probeStreamUrl(url) {
+    try {
+      const resp = await nativeRequest(url, {
+        method: "GET",
+        responseType: "text",
+        headers: {
+          "User-Agent": ANDROID_STREAM_USER_AGENT,
+          "Range": "bytes=0-1"
+        },
+        connectTimeout: 12e3,
+        readTimeout: 12e3,
+        shouldEncodeUrlParams: false
+      });
+      const status = Number(resp?.status || 0);
+      return status >= 200 && status < 400;
+    } catch {
+      return false;
+    }
+  }
+  async function pickReachableStreamUrl(formats, cpn, quality = "bestaudio", { allowUnprobedFallback = false } = {}) {
+    if (!Array.isArray(formats) || !formats.length) return null;
+    const ranked = [...formats].sort((a, b2) => scoreAudioFormat(b2, quality) - scoreAudioFormat(a, quality));
+    const maxChecks = Math.min(6, ranked.length);
+    for (let i = 0; i < maxChecks; i++) {
+      const candidate = appendCpn(ranked[i].url, cpn);
+      if (await probeStreamUrl(candidate)) return candidate;
+    }
+    if (!allowUnprobedFallback) return null;
+    return appendCpn(ranked[0].url, cpn);
+  }
+  function appendCpn(streamUrl, cpn) {
+    if (!streamUrl) return streamUrl;
+    try {
+      const u2 = new URL(streamUrl);
+      u2.searchParams.set("cpn", cpn);
+      return u2.toString();
+    } catch {
+      const sep = streamUrl.includes("?") ? "&" : "?";
+      return `${streamUrl}${sep}cpn=${encodeURIComponent(cpn)}`;
+    }
   }
   async function getStreamUrl(videoUrl, quality = "bestaudio") {
     await initSession();
@@ -2159,14 +2220,14 @@ var __SnowifyMobile = (() => {
         audioFormats = (piped?.audioStreams ?? []).filter((s2) => s2.url).map((s2) => ({ mimeType: s2.mimeType ?? "audio/webm", bitrate: s2.bitrate ?? 0, url: s2.url }));
       }
       if (audioFormats.length) {
-        const sorted = quality === "worstaudio" ? [...audioFormats].sort((a, b2) => (a.bitrate || 0) - (b2.bitrate || 0)) : [...audioFormats].sort((a, b2) => (b2.bitrate || 0) - (a.bitrate || 0));
-        return `${sorted[0].url}&cpn=${cpn}`;
+        const picked = await pickReachableStreamUrl(audioFormats, cpn, quality);
+        if (picked) return picked;
       }
     }
     const pipedAudioFormats = (piped?.audioStreams ?? []).filter((s2) => s2.url).map((s2) => ({ mimeType: s2.mimeType ?? "audio/webm", bitrate: s2.bitrate ?? 0, url: s2.url }));
     if (pipedAudioFormats.length) {
-      const sorted = quality === "worstaudio" ? [...pipedAudioFormats].sort((a, b2) => (a.bitrate || 0) - (b2.bitrate || 0)) : [...pipedAudioFormats].sort((a, b2) => (b2.bitrate || 0) - (a.bitrate || 0));
-      return `${sorted[0].url}&cpn=${cpn}`;
+      const picked = await pickReachableStreamUrl(pipedAudioFormats, cpn, quality, { allowUnprobedFallback: true });
+      if (picked) return picked;
     }
     console.error("[YTM] Player response:", JSON.stringify(data?.playabilityStatus));
     throw new Error(`No stream URLs found (status: ${data?.playabilityStatus?.status})`);
@@ -22594,8 +22655,43 @@ This typically indicates that your device does not have a healthy Internet conne
   function isProxyAssetUrl(value) {
     return typeof value === "string" && value.startsWith(PROXY_PREFIX);
   }
+  function getRawUrlFromProxy(value) {
+    if (!isProxyAssetUrl(value)) return null;
+    try {
+      const u2 = new URL(value);
+      return u2.searchParams.get("url");
+    } catch {
+      return null;
+    }
+  }
+  function deproxyUrl(value) {
+    const raw = getRawUrlFromProxy(value);
+    return raw || value;
+  }
+  function normalizeForStorage(value, key = "") {
+    if (Array.isArray(value)) {
+      return value.map((entry) => normalizeForStorage(entry));
+    }
+    if (value && typeof value === "object") {
+      const out = {};
+      for (const [entryKey, entryValue] of Object.entries(value)) {
+        out[entryKey] = normalizeForStorage(entryValue, entryKey);
+      }
+      return out;
+    }
+    if (typeof value === "string") {
+      if (isProxyAssetUrl(value)) return deproxyUrl(value);
+      if (/^(thumbnail|avatar|banner|photoURL|logoUrl|albumArt|artwork)$/i.test(key)) return value;
+    }
+    return value;
+  }
   function resolveImageUrl(url) {
     if (!isHttpUrl(url) || isProxyAssetUrl(url)) return url;
+    return proxyUrl(url);
+  }
+  function resolveStreamUrl(url, platform) {
+    if (!isHttpUrl(url)) return url;
+    if (platform === "android") return url;
     return proxyUrl(url);
   }
   function proxifyArtworkUrls(value, key = "") {
@@ -22628,6 +22724,85 @@ This typically indicates that your device does not have a healthy Internet conne
     experimentalForceLongPolling: true,
     useFetchStreams: false
   });
+  var SYNC_COLLECTION_V2 = "users_v2";
+  var SYNC_COLLECTION_LEGACY = "users";
+  var syncReadyUsers = /* @__PURE__ */ new Set();
+  function isPlainObject(value) {
+    return !!value && typeof value === "object" && !Array.isArray(value);
+  }
+  function mergeForBackfill(v2Data = {}, legacyData = {}) {
+    const merged = { ...v2Data };
+    let changed = false;
+    for (const [key, legacyValue] of Object.entries(legacyData || {})) {
+      const v2Value = merged[key];
+      if (v2Value === void 0 || v2Value === null) {
+        merged[key] = legacyValue;
+        changed = true;
+        continue;
+      }
+      if (Array.isArray(legacyValue) && Array.isArray(v2Value) && v2Value.length === 0 && legacyValue.length > 0) {
+        merged[key] = legacyValue;
+        changed = true;
+        continue;
+      }
+      if (isPlainObject(legacyValue) && isPlainObject(v2Value)) {
+        const nested = mergeForBackfill(v2Value, legacyValue);
+        if (nested.changed) {
+          merged[key] = nested.merged;
+          changed = true;
+        }
+      }
+    }
+    return { merged, changed };
+  }
+  function syncDocRef(uid, useLegacy = false) {
+    return doc(firebaseDb, useLegacy ? SYNC_COLLECTION_LEGACY : SYNC_COLLECTION_V2, uid);
+  }
+  async function migrateLegacyDocIfNeeded(uid) {
+    if (syncReadyUsers.has(uid)) return null;
+    try {
+      const v2Snap = await getDoc(syncDocRef(uid));
+      const v2Data = v2Snap.exists() ? v2Snap.data() || {} : null;
+      const legacySnap = await getDoc(syncDocRef(uid, true));
+      if (!legacySnap.exists()) {
+        if (v2Data) syncReadyUsers.add(uid);
+        return v2Data;
+      }
+      const legacyData = legacySnap.data() || {};
+      if (!v2Data) {
+        await setDoc(syncDocRef(uid), {
+          ...legacyData,
+          migratedFrom: SYNC_COLLECTION_LEGACY,
+          migratedAt: Date.now()
+        }, { merge: true });
+        syncReadyUsers.add(uid);
+        return legacyData;
+      }
+      const { merged, changed } = mergeForBackfill(v2Data, legacyData);
+      if (changed) {
+        await setDoc(syncDocRef(uid), {
+          ...merged,
+          migratedFrom: SYNC_COLLECTION_LEGACY,
+          migratedAt: Date.now()
+        }, { merge: true });
+      }
+      syncReadyUsers.add(uid);
+      return changed ? merged : v2Data;
+    } catch (_) {
+      return null;
+    }
+  }
+  async function readUserData(uid) {
+    try {
+      const v2Snap = await getDoc(syncDocRef(uid));
+      if (v2Snap.exists()) {
+        syncReadyUsers.add(uid);
+        return v2Snap.data();
+      }
+    } catch (_) {
+    }
+    return migrateLegacyDocIfNeeded(uid);
+  }
   async function getUserInfo(user) {
     const info = {
       uid: user.uid,
@@ -22636,9 +22811,9 @@ This typically indicates that your device does not have a healthy Internet conne
       photoURL: user.photoURL || null
     };
     try {
-      const snap = await getDoc(doc(firebaseDb, "users", user.uid));
-      if (snap.exists()) {
-        const profile = snap.data()?.profile;
+      const data = await readUserData(user.uid);
+      if (data) {
+        const profile = data.profile;
         if (profile?.photoURL) info.photoURL = profile.photoURL;
         if (profile?.displayName && !info.displayName) info.displayName = profile.displayName;
       }
@@ -23018,6 +23193,7 @@ This typically indicates that your device does not have a healthy Internet conne
       this._volume = 1;
       this._readyState = 0;
       this._error = null;
+      this._srcDirty = false;
       this.style = {};
       this.preload = "auto";
       this.className = "";
@@ -23041,13 +23217,25 @@ This typically indicates that your device does not have a healthy Internet conne
         });
         plugin.addListener("playerEnded", (d) => {
           if (d.id !== this.shimId) return;
+          if (!this._src) return;
           this._paused = true;
           this._fire("ended");
         });
         plugin.addListener("playerError", (d) => {
           if (d.id !== this.shimId) return;
+          if (d.message === "Source error" && !this._retriedRawSrc) {
+            const rawSrc = getRawUrlFromProxy(this._src);
+            if (rawSrc) {
+              this._retriedRawSrc = true;
+              this._src = rawSrc;
+              plugin.load({ id: this.shimId, url: rawSrc }).then(() => plugin.play({ id: this.shimId })).catch(() => {
+              });
+              return;
+            }
+          }
           this._paused = true;
           this._error = { code: 4, message: d.message };
+          console.error("[NativeAudio] playerError:", d.message, "| src:", this._src?.substring(0, 100));
           this._fire("error");
         });
       };
@@ -23065,17 +23253,23 @@ This typically indicates that your device does not have a healthy Internet conne
       return this._src;
     }
     set src(url) {
-      this._src = url ?? "";
+      const incoming = url ?? "";
+      this._src = deproxyUrl(incoming);
       this._readyState = 0;
       this._duration = 0;
       this._currentTime = 0;
-      if (this._src) {
-        window.Capacitor?.Plugins?.MobilePlayer?.load({ id: this.shimId, url: this._src });
+      this._retriedRawSrc = false;
+      this._srcDirty = true;
+      if (!this._src) {
+        this._srcDirty = false;
       }
     }
     // ── playback control ──────────────────────────────────────────────────────
     load() {
-      if (this._src) {
+      if (this._srcDirty && this._src) {
+        this._srcDirty = false;
+        window.Capacitor?.Plugins?.MobilePlayer?.load({ id: this.shimId, url: this._src });
+      } else if (!this._srcDirty && this._src) {
         window.Capacitor?.Plugins?.MobilePlayer?.load({ id: this.shimId, url: this._src });
       }
     }
@@ -23142,8 +23336,9 @@ This typically indicates that your device does not have a healthy Internet conne
       const el = document.getElementById(id);
       if (el) el.removeAttribute("crossorigin");
     });
+    const capPlatform = typeof window.Capacitor?.getPlatform === "function" ? window.Capacitor.getPlatform() : null;
     const ua = navigator.userAgent || "";
-    const platform = /android/i.test(ua) ? "android" : /iphone|ipad|ipod/i.test(ua) ? "darwin" : "linux";
+    const platform = capPlatform === "android" ? "android" : capPlatform === "ios" ? "darwin" : /android/i.test(ua) ? "android" : /iphone|ipad|ipod/i.test(ua) ? "darwin" : "linux";
     if (platform === "android") {
       const shimA = new NativeAudioShim("a");
       const shimB = new NativeAudioShim("b");
@@ -23183,17 +23378,17 @@ This typically indicates that your device does not have a healthy Internet conne
       searchPlaylists: async (q2) => proxifyArtworkUrls(await searchPlaylists(q2)),
       getPlaylistVideos: async (id) => proxifyArtworkUrls(await getPlaylistVideos(id)),
       searchSuggestions: async (q2) => proxifyArtworkUrls(await searchSuggestions(q2)),
-      // On Android, ExoPlayer fetches URLs directly — no local proxy needed.
-      // On iOS, keep routing through the proxy as before.
+      // iOS uses proxied stream URLs; Android uses direct URLs because playback
+      // is handled by native ExoPlayer and does not need WebView proxying.
       getStreamUrl: async (url, q2) => {
         const rawUrl = await getStreamUrl(url, q2);
-        return platform === "android" ? rawUrl : proxyUrl(rawUrl);
+        return resolveStreamUrl(rawUrl, platform);
       },
       getVideoStreamUrl: async (id, q2, premuxed) => {
         const r = await getVideoStreamUrl(id, q2, premuxed);
         return {
-          videoUrl: r.videoUrl ? proxyUrl(r.videoUrl) : null,
-          audioUrl: r.audioUrl ? proxyUrl(r.audioUrl) : null
+          videoUrl: r.videoUrl ? resolveStreamUrl(r.videoUrl, platform) : null,
+          audioUrl: r.audioUrl ? resolveStreamUrl(r.audioUrl, platform) : null
         };
       },
       getTrackInfo: async (id) => proxifyArtworkUrls(await getTrackInfo(id)),
@@ -23291,8 +23486,9 @@ This typically indicates that your device does not have a healthy Internet conne
             await updateProfile(user, { displayName });
           }
           const profileData = { displayName: user.displayName || "" };
-          if (photoURL !== void 0) profileData.photoURL = photoURL;
-          await setDoc(doc(firebaseDb, "users", user.uid), { profile: profileData }, { merge: true });
+          if (photoURL !== void 0) profileData.photoURL = deproxyUrl(photoURL);
+          await migrateLegacyDocIfNeeded(user.uid);
+          await setDoc(syncDocRef(user.uid), { profile: profileData }, { merge: true });
           return proxifyArtworkUrls({
             uid: user.uid,
             email: user.email,
@@ -23307,15 +23503,16 @@ This typically indicates that your device does not have a healthy Internet conne
         const user = firebaseAuth.currentUser;
         if (!user) return { error: "Not signed in" };
         try {
-          const docRef = doc(firebaseDb, "users", user.uid);
+          await migrateLegacyDocIfNeeded(user.uid);
+          const docRef = syncDocRef(user.uid);
           const updateData = {};
-          if (banner !== void 0) updateData["profile.banner"] = banner;
+          if (banner !== void 0) updateData["profile.banner"] = deproxyUrl(banner);
           if (bio !== void 0) updateData["profile.bio"] = String(bio).slice(0, 200);
           try {
             await updateDoc(docRef, updateData);
           } catch (_) {
             const profile = {};
-            if (banner !== void 0) profile.banner = banner;
+            if (banner !== void 0) profile.banner = deproxyUrl(banner);
             if (bio !== void 0) profile.bio = String(bio).slice(0, 200);
             await setDoc(docRef, { profile }, { merge: true });
           }
@@ -23326,9 +23523,8 @@ This typically indicates that your device does not have a healthy Internet conne
       },
       getProfile: async (uid) => {
         try {
-          const snap = await getDoc(doc(firebaseDb, "users", uid));
-          if (!snap.exists()) return null;
-          const data = snap.data();
+          const data = await readUserData(uid);
+          if (!data) return null;
           const profile = data.profile || {};
           if (data["profile.banner"] && !profile.banner) profile.banner = data["profile.banner"];
           if (data["profile.bio"] && !profile.bio) profile.bio = data["profile.bio"];
@@ -23345,7 +23541,9 @@ This typically indicates that your device does not have a healthy Internet conne
         const user = firebaseAuth.currentUser;
         if (!user) return { error: "Not signed in" };
         try {
-          await setDoc(doc(firebaseDb, "users", user.uid), { ...data, updatedAt: Date.now() }, { merge: true });
+          await migrateLegacyDocIfNeeded(user.uid);
+          const cleanData = normalizeForStorage(data);
+          await setDoc(syncDocRef(user.uid), { ...cleanData, updatedAt: Date.now() }, { merge: true });
           return true;
         } catch (err) {
           return { error: err.message };
@@ -23355,8 +23553,8 @@ This typically indicates that your device does not have a healthy Internet conne
         const user = firebaseAuth.currentUser;
         if (!user) return null;
         try {
-          const snap = await getDoc(doc(firebaseDb, "users", user.uid));
-          return snap.exists() ? proxifyArtworkUrls(snap.data()) : null;
+          const data = await readUserData(user.uid);
+          return data ? proxifyArtworkUrls(data) : null;
         } catch (_) {
           return null;
         }

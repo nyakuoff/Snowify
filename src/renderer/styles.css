@@ -1557,6 +1557,14 @@ body.audio-playing #np-thumbnail {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color var(--transition);
+}
+.np-artist.clickable {
+  cursor: pointer;
+}
+.np-artist.clickable:hover {
+  color: var(--accent);
+  text-decoration: underline;
 }
 .np-like {
   flex-shrink: 0;
@@ -3367,8 +3375,12 @@ body.audio-playing .play-btn {
   margin: 0 0 24px;
   max-width: 340px;
 }
+.welcome-warning {
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
 .btn-welcome-skip {
-  margin-top: 24px;
+  margin-top: 8px;
   background: none;
   border: none;
   color: var(--text-subdued);
@@ -6410,15 +6422,9 @@ body.i18n-switching { opacity: 0; }
 .platform-mobile .card-row .track-card .card-thumb {
   margin-bottom: 8px;
 }
-/* Always-visible play button on touch */
+/* Hide song-card play buttons on mobile; desktop keeps hover play buttons. */
 .platform-mobile .card-row .track-card .card-play {
-  opacity: 1;
-  transform: none;
-  transition: none;
-  bottom: 48px;
-  right: 10px;
-  width: 38px;
-  height: 38px;
+  display: none !important;
 }
 .platform-mobile .card-row .track-card:hover { transform: none; box-shadow: none; }
 .platform-mobile .card-row .track-card:active { opacity: 0.75; transform: scale(0.97); }

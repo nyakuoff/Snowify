@@ -10,7 +10,7 @@
  *   on plain ANDROID or iOS without any public proxy fallback.
  */
 
-import { nativeGetJson, nativeGetText, nativeRequestJson } from './native-http.js';
+import { nativeGetJson, nativeGetText, nativeRequest, nativeRequestJson } from './native-http.js';
 
 // ─── InnerTube session state ───────────────────────────────────────────────
 
@@ -78,6 +78,9 @@ const PLAYER_CLIENTS = [
     },
   },
 ];
+
+const ANDROID_STREAM_USER_AGENT =
+  'com.google.android.youtube/21.03.36 (Linux; U; Android 16; en_US; SM-S908E Build/TP1A.220624.014) gzip';
 
 async function initSession() {
   if (_initDone) return;
@@ -1069,6 +1072,7 @@ function extractAudioFormats(playerData) {
   const directAudio = adaptive
     .filter((format) => format.mimeType?.startsWith('audio/') && format.url)
     .map((format) => ({
+      itag: format.itag,
       mimeType: format.mimeType,
       bitrate: format.bitrate || 0,
       url: format.url,
@@ -1079,6 +1083,7 @@ function extractAudioFormats(playerData) {
   const muxed = (playerData?.streamingData?.formats ?? [])
     .filter((format) => format.url)
     .map((format) => ({
+      itag: format.itag,
       mimeType: format.mimeType,
       bitrate: format.bitrate || 0,
       url: format.url,
@@ -1091,6 +1096,76 @@ function extractAudioFormats(playerData) {
   }
 
   return [];
+}
+
+function scoreAudioFormat(format, quality = 'bestaudio') {
+  const mime = String(format?.mimeType || '').toLowerCase();
+  const url = String(format?.url || '');
+  const bitrate = Number(format?.bitrate || 0);
+
+  let score = 0;
+  // Prefer mp4/aac on Android for widest compatibility.
+  if (mime.includes('audio/mp4')) score += 100;
+  else if (mime.includes('audio/webm')) score += 70;
+  else if (mime.includes('application/x-mpegurl')) score += 20;
+
+  // OTF streams are less reliable for ExoPlayer direct playback.
+  if (/([?&])source=yt_otf([&=]|$)/i.test(url) || /([?&])otf=1([&=]|$)/i.test(url)) score -= 200;
+
+  // Prefer explicit audio tracks over muxed fallbacks.
+  if (mime.startsWith('audio/')) score += 15;
+
+  const bitrateDelta = Math.floor(bitrate / 1000);
+  score += quality === 'worstaudio' ? -bitrateDelta : bitrateDelta;
+  return score;
+}
+
+async function probeStreamUrl(url) {
+  try {
+    const resp = await nativeRequest(url, {
+      method: 'GET',
+      responseType: 'text',
+      headers: {
+        'User-Agent': ANDROID_STREAM_USER_AGENT,
+        'Range': 'bytes=0-1',
+      },
+      connectTimeout: 12000,
+      readTimeout: 12000,
+      shouldEncodeUrlParams: false,
+    });
+    const status = Number(resp?.status || 0);
+    return status >= 200 && status < 400;
+  } catch {
+    return false;
+  }
+}
+
+async function pickReachableStreamUrl(formats, cpn, quality = 'bestaudio', { allowUnprobedFallback = false } = {}) {
+  if (!Array.isArray(formats) || !formats.length) return null;
+  const ranked = [...formats]
+    .sort((a, b) => scoreAudioFormat(b, quality) - scoreAudioFormat(a, quality));
+
+  const maxChecks = Math.min(6, ranked.length);
+  for (let i = 0; i < maxChecks; i++) {
+    const candidate = appendCpn(ranked[i].url, cpn);
+    if (await probeStreamUrl(candidate)) return candidate;
+  }
+
+  if (!allowUnprobedFallback) return null;
+  // Last-resort fallback: return top ranked candidate even if probe failed.
+  return appendCpn(ranked[0].url, cpn);
+}
+
+function appendCpn(streamUrl, cpn) {
+  if (!streamUrl) return streamUrl;
+  try {
+    const u = new URL(streamUrl);
+    u.searchParams.set('cpn', cpn);
+    return u.toString();
+  } catch {
+    const sep = streamUrl.includes('?') ? '&' : '?';
+    return `${streamUrl}${sep}cpn=${encodeURIComponent(cpn)}`;
+  }
 }
 
 export async function getStreamUrl(videoUrl, quality = 'bestaudio') {
@@ -1138,10 +1213,8 @@ export async function getStreamUrl(videoUrl, quality = 'bestaudio') {
     }
 
     if (audioFormats.length) {
-      const sorted = quality === 'worstaudio'
-        ? [...audioFormats].sort((a, b) => (a.bitrate || 0) - (b.bitrate || 0))
-        : [...audioFormats].sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
-      return `${sorted[0].url}&cpn=${cpn}`;
+      const picked = await pickReachableStreamUrl(audioFormats, cpn, quality);
+      if (picked) return picked;
     }
   }
 
@@ -1149,10 +1222,8 @@ export async function getStreamUrl(videoUrl, quality = 'bestaudio') {
     .filter(s => s.url)
     .map(s => ({ mimeType: s.mimeType ?? 'audio/webm', bitrate: s.bitrate ?? 0, url: s.url }));
   if (pipedAudioFormats.length) {
-    const sorted = quality === 'worstaudio'
-      ? [...pipedAudioFormats].sort((a, b) => (a.bitrate || 0) - (b.bitrate || 0))
-      : [...pipedAudioFormats].sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
-    return `${sorted[0].url}&cpn=${cpn}`;
+    const picked = await pickReachableStreamUrl(pipedAudioFormats, cpn, quality, { allowUnprobedFallback: true });
+    if (picked) return picked;
   }
 
   console.error('[YTM] Player response:', JSON.stringify(data?.playabilityStatus));

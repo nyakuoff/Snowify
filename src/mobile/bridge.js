@@ -48,8 +48,49 @@ function isProxyAssetUrl(value) {
   return typeof value === 'string' && value.startsWith(PROXY_PREFIX);
 }
 
+function getRawUrlFromProxy(value) {
+  if (!isProxyAssetUrl(value)) return null;
+  try {
+    const u = new URL(value);
+    return u.searchParams.get('url');
+  } catch {
+    return null;
+  }
+}
+
+function deproxyUrl(value) {
+  const raw = getRawUrlFromProxy(value);
+  return raw || value;
+}
+
+function normalizeForStorage(value, key = '') {
+  if (Array.isArray(value)) {
+    return value.map((entry) => normalizeForStorage(entry));
+  }
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [entryKey, entryValue] of Object.entries(value)) {
+      out[entryKey] = normalizeForStorage(entryValue, entryKey);
+    }
+    return out;
+  }
+  if (typeof value === 'string') {
+    if (isProxyAssetUrl(value)) return deproxyUrl(value);
+    if (/^(thumbnail|avatar|banner|photoURL|logoUrl|albumArt|artwork)$/i.test(key)) return value;
+  }
+  return value;
+}
+
 function resolveImageUrl(url) {
   if (!isHttpUrl(url) || isProxyAssetUrl(url)) return url;
+  return proxyUrl(url);
+}
+
+function resolveStreamUrl(url, platform) {
+  if (!isHttpUrl(url)) return url;
+  // Android uses native ExoPlayer via MobilePlayerPlugin, so it can consume
+  // remote stream URLs directly without WebView CORS constraints.
+  if (platform === 'android') return url;
   return proxyUrl(url);
 }
 
@@ -88,6 +129,103 @@ const firebaseDb = initializeFirestore(firebaseApp, {
   useFetchStreams: false,
 });
 
+const SYNC_COLLECTION_V2 = 'users_v2';
+const SYNC_COLLECTION_LEGACY = 'users';
+const syncReadyUsers = new Set();
+
+function isPlainObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function mergeForBackfill(v2Data = {}, legacyData = {}) {
+  const merged = { ...v2Data };
+  let changed = false;
+
+  for (const [key, legacyValue] of Object.entries(legacyData || {})) {
+    const v2Value = merged[key];
+
+    if (v2Value === undefined || v2Value === null) {
+      merged[key] = legacyValue;
+      changed = true;
+      continue;
+    }
+
+    if (Array.isArray(legacyValue) && Array.isArray(v2Value) && v2Value.length === 0 && legacyValue.length > 0) {
+      merged[key] = legacyValue;
+      changed = true;
+      continue;
+    }
+
+    if (isPlainObject(legacyValue) && isPlainObject(v2Value)) {
+      const nested = mergeForBackfill(v2Value, legacyValue);
+      if (nested.changed) {
+        merged[key] = nested.merged;
+        changed = true;
+      }
+    }
+  }
+
+  return { merged, changed };
+}
+
+function syncDocRef(uid, useLegacy = false) {
+  return doc(firebaseDb, useLegacy ? SYNC_COLLECTION_LEGACY : SYNC_COLLECTION_V2, uid);
+}
+
+async function migrateLegacyDocIfNeeded(uid) {
+  if (syncReadyUsers.has(uid)) return null;
+  try {
+    const v2Snap = await getDoc(syncDocRef(uid));
+    const v2Data = v2Snap.exists() ? (v2Snap.data() || {}) : null;
+
+    const legacySnap = await getDoc(syncDocRef(uid, true));
+    if (!legacySnap.exists()) {
+      if (v2Data) syncReadyUsers.add(uid);
+      return v2Data;
+    }
+
+    const legacyData = legacySnap.data() || {};
+    if (!v2Data) {
+      await setDoc(syncDocRef(uid), {
+        ...legacyData,
+        migratedFrom: SYNC_COLLECTION_LEGACY,
+        migratedAt: Date.now(),
+      }, { merge: true });
+
+      syncReadyUsers.add(uid);
+      return legacyData;
+    }
+
+    const { merged, changed } = mergeForBackfill(v2Data, legacyData);
+    if (changed) {
+      await setDoc(syncDocRef(uid), {
+        ...merged,
+        migratedFrom: SYNC_COLLECTION_LEGACY,
+        migratedAt: Date.now(),
+      }, { merge: true });
+    }
+
+    syncReadyUsers.add(uid);
+    return changed ? merged : v2Data;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function readUserData(uid) {
+  try {
+    const v2Snap = await getDoc(syncDocRef(uid));
+    if (v2Snap.exists()) {
+      syncReadyUsers.add(uid);
+      return v2Snap.data();
+    }
+  } catch (_) {
+    // Fall through to legacy migration path.
+  }
+
+  return migrateLegacyDocIfNeeded(uid);
+}
+
 async function getUserInfo(user) {
   const info = {
     uid: user.uid,
@@ -97,9 +235,9 @@ async function getUserInfo(user) {
   };
 
   try {
-    const snap = await getDoc(doc(firebaseDb, 'users', user.uid));
-    if (snap.exists()) {
-      const profile = snap.data()?.profile;
+    const data = await readUserData(user.uid);
+    if (data) {
+      const profile = data.profile;
       if (profile?.photoURL) info.photoURL = profile.photoURL;
       if (profile?.displayName && !info.displayName) info.displayName = profile.displayName;
     }
@@ -526,6 +664,7 @@ class NativeAudioShim extends EventTarget {
     this._volume      = 1;
     this._readyState  = 0;
     this._error       = null;
+    this._srcDirty    = false;
     // Dummy properties expected by LoudnessNormalizer / CSS code
     this.style    = {};
     this.preload  = 'auto';
@@ -552,13 +691,30 @@ class NativeAudioShim extends EventTarget {
       });
       plugin.addListener('playerEnded', d => {
         if (d.id !== this.shimId) return;
+        // Ignore spurious ended events when this shim has no loaded source
+        // (can fire after stop() clears the player between tracks).
+        if (!this._src) return;
         this._paused = true;
         this._fire('ended');
       });
       plugin.addListener('playerError', d => {
         if (d.id !== this.shimId) return;
+        // If the localhost proxy fails on Android, retry once with the raw
+        // upstream googlevideo URL before surfacing an error.
+        if (d.message === 'Source error' && !this._retriedRawSrc) {
+          const rawSrc = getRawUrlFromProxy(this._src);
+          if (rawSrc) {
+            this._retriedRawSrc = true;
+            this._src = rawSrc;
+            plugin.load({ id: this.shimId, url: rawSrc })
+              .then(() => plugin.play({ id: this.shimId }))
+              .catch(() => {});
+            return;
+          }
+        }
         this._paused = true;
         this._error  = { code: 4, message: d.message };
+        console.error('[NativeAudio] playerError:', d.message, '| src:', this._src?.substring(0, 100));
         this._fire('error');
       });
     };
@@ -578,18 +734,29 @@ class NativeAudioShim extends EventTarget {
   // ── src property ──────────────────────────────────────────────────────────
   get src() { return this._src; }
   set src(url) {
-    this._src        = url ?? '';
+    const incoming = url ?? '';
+    // Android native player can consume remote URLs directly; avoid feeding it
+    // localhost-proxied stream URLs, which can fail with generic Source error.
+    this._src        = deproxyUrl(incoming);
     this._readyState = 0;
     this._duration   = 0;
     this._currentTime = 0;
-    if (this._src) {
-      window.Capacitor?.Plugins?.MobilePlayer?.load({ id: this.shimId, url: this._src });
+    this._retriedRawSrc = false;
+    this._srcDirty   = true; // load() will handle the actual plugin.load() call
+    if (!this._src) {
+      // Clearing the source — nothing to load
+      this._srcDirty = false;
     }
   }
 
   // ── playback control ──────────────────────────────────────────────────────
   load() {
-    if (this._src) {
+    if (this._srcDirty && this._src) {
+      // First load() after src was set — trigger the native load exactly once
+      this._srcDirty = false;
+      window.Capacitor?.Plugins?.MobilePlayer?.load({ id: this.shimId, url: this._src });
+    } else if (!this._srcDirty && this._src) {
+      // Explicit reload request (e.g. after seeking back to start)
       window.Capacitor?.Plugins?.MobilePlayer?.load({ id: this.shimId, url: this._src });
     }
   }
@@ -658,9 +825,17 @@ export function installMobileBridge() {
     if (el) el.removeAttribute('crossorigin');
   });
 
-  // Detect Android vs iOS from user-agent
+  // Detect Android/iOS primarily from Capacitor runtime, fallback to UA.
+  const capPlatform = typeof window.Capacitor?.getPlatform === 'function'
+    ? window.Capacitor.getPlatform()
+    : null;
   const ua = navigator.userAgent || '';
-  const platform = /android/i.test(ua) ? 'android' : /iphone|ipad|ipod/i.test(ua) ? 'darwin' : 'linux';
+  const platform =
+    capPlatform === 'android' ? 'android'
+      : capPlatform === 'ios' ? 'darwin'
+      : /android/i.test(ua) ? 'android'
+        : /iphone|ipad|ipod/i.test(ua) ? 'darwin'
+          : 'linux';
 
   // On Android, replace the real <audio> elements with ExoPlayer-backed shims
   // so DualAudioEngine drives native playback without WebView CORS restrictions.
@@ -702,17 +877,17 @@ export function installMobileBridge() {
     searchPlaylists:    async q            => proxifyArtworkUrls(await ytm.searchPlaylists(q)),
     getPlaylistVideos:  async id           => proxifyArtworkUrls(await ytm.getPlaylistVideos(id)),
     searchSuggestions:  async q            => proxifyArtworkUrls(await ytm.searchSuggestions(q)),
-    // On Android, ExoPlayer fetches URLs directly — no local proxy needed.
-    // On iOS, keep routing through the proxy as before.
+    // iOS uses proxied stream URLs; Android uses direct URLs because playback
+    // is handled by native ExoPlayer and does not need WebView proxying.
     getStreamUrl:       async (url, q)      => {
       const rawUrl = await ytm.getStreamUrl(url, q);
-      return platform === 'android' ? rawUrl : proxyUrl(rawUrl);
+      return resolveStreamUrl(rawUrl, platform);
     },
     getVideoStreamUrl:  async (id, q, premuxed) => {
       const r = await ytm.getVideoStreamUrl(id, q, premuxed);
       return {
-        videoUrl: r.videoUrl ? proxyUrl(r.videoUrl) : null,
-        audioUrl: r.audioUrl ? proxyUrl(r.audioUrl) : null,
+        videoUrl: r.videoUrl ? resolveStreamUrl(r.videoUrl, platform) : null,
+        audioUrl: r.audioUrl ? resolveStreamUrl(r.audioUrl, platform) : null,
       };
     },
     getTrackInfo:       async id           => proxifyArtworkUrls(await ytm.getTrackInfo(id)),
@@ -812,8 +987,9 @@ export function installMobileBridge() {
           await fbUpdateProfile(user, { displayName });
         }
         const profileData = { displayName: user.displayName || '' };
-        if (photoURL !== undefined) profileData.photoURL = photoURL;
-        await setDoc(doc(firebaseDb, 'users', user.uid), { profile: profileData }, { merge: true });
+        if (photoURL !== undefined) profileData.photoURL = deproxyUrl(photoURL);
+        await migrateLegacyDocIfNeeded(user.uid);
+        await setDoc(syncDocRef(user.uid), { profile: profileData }, { merge: true });
         return proxifyArtworkUrls({
           uid: user.uid,
           email: user.email,
@@ -828,15 +1004,16 @@ export function installMobileBridge() {
       const user = firebaseAuth.currentUser;
       if (!user) return { error: 'Not signed in' };
       try {
-        const docRef = doc(firebaseDb, 'users', user.uid);
+        await migrateLegacyDocIfNeeded(user.uid);
+        const docRef = syncDocRef(user.uid);
         const updateData = {};
-        if (banner !== undefined) updateData['profile.banner'] = banner;
+        if (banner !== undefined) updateData['profile.banner'] = deproxyUrl(banner);
         if (bio !== undefined) updateData['profile.bio'] = String(bio).slice(0, 200);
         try {
           await updateDoc(docRef, updateData);
         } catch (_) {
           const profile = {};
-          if (banner !== undefined) profile.banner = banner;
+          if (banner !== undefined) profile.banner = deproxyUrl(banner);
           if (bio !== undefined) profile.bio = String(bio).slice(0, 200);
           await setDoc(docRef, { profile }, { merge: true });
         }
@@ -847,9 +1024,8 @@ export function installMobileBridge() {
     },
     getProfile: async (uid) => {
       try {
-        const snap = await getDoc(doc(firebaseDb, 'users', uid));
-        if (!snap.exists()) return null;
-        const data = snap.data();
+        const data = await readUserData(uid);
+        if (!data) return null;
         const profile = data.profile || {};
         if (data['profile.banner'] && !profile.banner) profile.banner = data['profile.banner'];
         if (data['profile.bio'] && !profile.bio) profile.bio = data['profile.bio'];
@@ -866,7 +1042,9 @@ export function installMobileBridge() {
       const user = firebaseAuth.currentUser;
       if (!user) return { error: 'Not signed in' };
       try {
-        await setDoc(doc(firebaseDb, 'users', user.uid), { ...data, updatedAt: Date.now() }, { merge: true });
+        await migrateLegacyDocIfNeeded(user.uid);
+        const cleanData = normalizeForStorage(data);
+        await setDoc(syncDocRef(user.uid), { ...cleanData, updatedAt: Date.now() }, { merge: true });
         return true;
       } catch (err) {
         return { error: err.message };
@@ -876,8 +1054,8 @@ export function installMobileBridge() {
       const user = firebaseAuth.currentUser;
       if (!user) return null;
       try {
-        const snap = await getDoc(doc(firebaseDb, 'users', user.uid));
-        return snap.exists() ? proxifyArtworkUrls(snap.data()) : null;
+        const data = await readUserData(user.uid);
+        return data ? proxifyArtworkUrls(data) : null;
       } catch (_) {
         return null;
       }

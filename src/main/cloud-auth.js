@@ -4,6 +4,102 @@ const { mt } = require('./i18n');
 const firebase = require('../firebase');
 
 let _wiredAuthState = false;
+const SYNC_COLLECTION_V2 = 'users_v2';
+const SYNC_COLLECTION_LEGACY = 'users';
+const _syncReadyUsers = new Set();
+
+function _isPlainObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function _mergeForBackfill(v2Data = {}, legacyData = {}) {
+  const merged = { ...v2Data };
+  let changed = false;
+
+  for (const [key, legacyValue] of Object.entries(legacyData || {})) {
+    const v2Value = merged[key];
+
+    if (v2Value === undefined || v2Value === null) {
+      merged[key] = legacyValue;
+      changed = true;
+      continue;
+    }
+
+    if (Array.isArray(legacyValue) && Array.isArray(v2Value) && v2Value.length === 0 && legacyValue.length > 0) {
+      merged[key] = legacyValue;
+      changed = true;
+      continue;
+    }
+
+    if (_isPlainObject(legacyValue) && _isPlainObject(v2Value)) {
+      const nested = _mergeForBackfill(v2Value, legacyValue);
+      if (nested.changed) {
+        merged[key] = nested.merged;
+        changed = true;
+      }
+    }
+  }
+
+  return { merged, changed };
+}
+
+function _docRef(uid, useLegacy = false) {
+  return firebase.doc(firebase.db, useLegacy ? SYNC_COLLECTION_LEGACY : SYNC_COLLECTION_V2, uid);
+}
+
+async function _migrateLegacyDocIfNeeded(uid) {
+  if (_syncReadyUsers.has(uid)) return null;
+  try {
+    const v2Snap = await firebase.getDoc(_docRef(uid));
+    const v2Data = v2Snap.exists() ? (v2Snap.data() || {}) : null;
+
+    const legacySnap = await firebase.getDoc(_docRef(uid, true));
+    if (!legacySnap.exists()) {
+      if (v2Data) _syncReadyUsers.add(uid);
+      return v2Data;
+    }
+
+    const legacyData = legacySnap.data() || {};
+    if (!v2Data) {
+      await firebase.setDoc(_docRef(uid), {
+        ...legacyData,
+        migratedFrom: SYNC_COLLECTION_LEGACY,
+        migratedAt: Date.now(),
+      }, { merge: true });
+
+      _syncReadyUsers.add(uid);
+      return legacyData;
+    }
+
+    const { merged, changed } = _mergeForBackfill(v2Data, legacyData);
+    if (changed) {
+      await firebase.setDoc(_docRef(uid), {
+        ...merged,
+        migratedFrom: SYNC_COLLECTION_LEGACY,
+        migratedAt: Date.now(),
+      }, { merge: true });
+    }
+
+    _syncReadyUsers.add(uid);
+    return changed ? merged : v2Data;
+  } catch {
+    return null;
+  }
+}
+
+async function _readUserData(uid) {
+  try {
+    const v2Snap = await firebase.getDoc(_docRef(uid));
+    if (v2Snap.exists()) {
+      _syncReadyUsers.add(uid);
+      return v2Snap.data();
+    }
+  } catch {
+    // Fall through to legacy read path.
+  }
+
+  return _migrateLegacyDocIfNeeded(uid);
+}
 
 function _getCredentialsPath() {
   const { app } = require('electron');
@@ -46,10 +142,9 @@ async function _getUserInfo(user) {
   };
 
   try {
-    const docRef = firebase.doc(firebase.db, 'users', user.uid);
-    const snap = await firebase.getDoc(docRef);
-    if (snap.exists()) {
-      const profile = snap.data()?.profile;
+    const data = await _readUserData(user.uid);
+    if (data) {
+      const profile = data.profile;
       if (profile?.photoURL) info.photoURL = profile.photoURL;
       if (profile?.displayName && !info.displayName) info.displayName = profile.displayName;
     }
@@ -147,7 +242,8 @@ function register(ipcMain, ctx) {
       const profileData = { displayName: user.displayName || '' };
       if (photoURL !== undefined) profileData.photoURL = photoURL;
 
-      const docRef = firebase.doc(firebase.db, 'users', user.uid);
+      await _migrateLegacyDocIfNeeded(user.uid);
+      const docRef = _docRef(user.uid);
       await firebase.setDoc(docRef, { profile: profileData }, { merge: true });
 
       return {
@@ -185,7 +281,8 @@ function register(ipcMain, ctx) {
         return { error: 'Banner image is too large. Please use a smaller image.' };
       }
 
-      const docRef = firebase.doc(firebase.db, 'users', user.uid);
+      await _migrateLegacyDocIfNeeded(user.uid);
+      const docRef = _docRef(user.uid);
       const updateData = {};
       if (banner !== undefined) updateData['profile.banner'] = banner;
       if (bio !== undefined) updateData['profile.bio'] = String(bio).slice(0, 200);
@@ -207,10 +304,8 @@ function register(ipcMain, ctx) {
 
   ipcMain.handle('profile:get', async (_event, uid) => {
     try {
-      const docRef = firebase.doc(firebase.db, 'users', uid);
-      const snap = await firebase.getDoc(docRef);
-      if (!snap.exists()) return null;
-      const data = snap.data();
+      const data = await _readUserData(uid);
+      if (!data) return null;
       const profile = data.profile || {};
       if (data['profile.banner'] && !profile.banner) profile.banner = data['profile.banner'];
       if (data['profile.bio'] && !profile.bio) profile.bio = data['profile.bio'];
@@ -225,7 +320,8 @@ function register(ipcMain, ctx) {
     if (!user) return { error: mt('auth.notSignedIn') };
 
     try {
-      const docRef = firebase.doc(firebase.db, 'users', user.uid);
+      await _migrateLegacyDocIfNeeded(user.uid);
+      const docRef = _docRef(user.uid);
       await firebase.setDoc(docRef, {
         ...data,
         updatedAt: Date.now(),
@@ -241,10 +337,8 @@ function register(ipcMain, ctx) {
     if (!user) return null;
 
     try {
-      const docRef = firebase.doc(firebase.db, 'users', user.uid);
-      const snap = await firebase.getDoc(docRef);
-      if (!snap.exists()) return null;
-      return snap.data();
+      const data = await _readUserData(user.uid);
+      return data || null;
     } catch {
       return null;
     }

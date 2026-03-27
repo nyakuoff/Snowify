@@ -27,3 +27,4 @@ ios/build/
 ios/Pods/
 ios/.xcode.env.local
 
+FIRESTORE_RULES_2_0.rules

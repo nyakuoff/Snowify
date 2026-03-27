@@ -17,6 +17,29 @@ function resolveImageUrl(url) {
   return window.snowify?.resolveImageUrl?.(url) || url;
 }
 
+const MOBILE_PROXY_PREFIX = 'http://127.0.0.1:17890/stream?url=';
+
+function deproxyUrl(url) {
+  if (typeof url !== 'string' || !url.startsWith(MOBILE_PROXY_PREFIX)) return url;
+  try {
+    const parsed = new URL(url);
+    return parsed.searchParams.get('url') || url;
+  } catch {
+    return url;
+  }
+}
+
+function normalizeForCloud(value) {
+  if (Array.isArray(value)) return value.map(normalizeForCloud);
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) out[k] = normalizeForCloud(v);
+    return out;
+  }
+  if (typeof value === 'string') return deproxyUrl(value);
+  return value;
+}
+
 // ─── Throttled image loader — prevents 429 from simultaneous thumbnail requests ───
 // Images use `data-src` in templates; a MutationObserver feeds them into this queue.
 const _imgQ = (() => {
@@ -299,10 +322,56 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
   let _cloudSyncPaused = false;
   let _cloudLastPayloadHash = null;
   let _cloudLastSentAt = 0;
+  let _cloudLastErrorToastAt = 0;
   let _resetEmailLastSent = 0;
+  let _welcomeDismissed = false;
   const RESET_COOLDOWN_MS = 60000;
   const CLOUD_SAVE_DEBOUNCE_MS = 12000;
   const CLOUD_SAVE_MIN_INTERVAL_MS = 30000;
+  const WELCOME_SEEN_KEY = 'snowify_welcome_seen_v2';
+
+  function shouldShowWelcome() {
+    if (_welcomeDismissed || _cloudUser) return false;
+    try {
+      return localStorage.getItem(WELCOME_SEEN_KEY) !== '1';
+    } catch {
+      return true;
+    }
+  }
+
+  function hideWelcomeOverlay({ remember = true } = {}) {
+    const overlay = $('#welcome-overlay');
+    if (!overlay) return;
+    _welcomeDismissed = true;
+    if (remember) {
+      try { localStorage.setItem(WELCOME_SEEN_KEY, '1'); } catch {}
+    }
+    overlay.classList.add('fade-out');
+    setTimeout(() => {
+      overlay.classList.add('hidden');
+      overlay.classList.remove('fade-out');
+    }, 380);
+  }
+
+  function showWelcomeOverlay() {
+    const overlay = $('#welcome-overlay');
+    if (!overlay || !shouldShowWelcome()) return;
+    const errorEl = $('#welcome-auth-error');
+    if (errorEl) {
+      errorEl.style.color = '';
+      errorEl.classList.add('hidden');
+      errorEl.textContent = '';
+    }
+    overlay.classList.remove('hidden');
+  }
+
+  function setWelcomeError(message, isAccent = false) {
+    const errorEl = $('#welcome-auth-error');
+    if (!errorEl) return;
+    errorEl.style.color = isAccent ? 'var(--accent)' : '';
+    errorEl.textContent = message;
+    errorEl.classList.remove('hidden');
+  }
 
   function updateSyncStatus(text) {
     const el = $('#account-sync-status');
@@ -311,7 +380,7 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
 
   function _buildCloudPayload() {
     const stripLocal = (tracks = []) => tracks.filter(t => !t?.isLocal);
-    return {
+    return normalizeForCloud({
       playlists: state.playlists.map(p => ({ ...p, tracks: stripLocal(p.tracks) })),
       likedSongs: stripLocal(state.likedSongs),
       followedArtists: state.followedArtists,
@@ -337,7 +406,7 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
       showListeningActivity: state.showListeningActivity,
       minimizeToTray: state.minimizeToTray,
       launchOnStartup: state.launchOnStartup,
-    };
+    });
   }
 
   function _hashPayload(payload) {
@@ -361,6 +430,11 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
     const result = await window.snowify.cloudSave(payload);
     if (result?.error) {
       console.error('Cloud save failed:', result.error);
+      const nowTs = Date.now();
+      if (nowTs - _cloudLastErrorToastAt > 15000) {
+        _cloudLastErrorToastAt = nowTs;
+        showToast(`Cloud sync failed: ${result.error}`);
+      }
       return false;
     }
 
@@ -388,8 +462,9 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
   }
 
   async function cloudLoadAndMerge({ forceCloud = false } = {}) {
-    const cloud = await window.snowify.cloudLoad();
-    if (!cloud) return false;
+    const cloudRaw = await window.snowify.cloudLoad();
+    if (!cloudRaw) return false;
+    const cloud = normalizeForCloud(cloudRaw);
 
     const localTime = parseInt(localStorage.getItem('snowify_lastSave') || '0', 10);
     const shouldApply = forceCloud || (cloud.updatedAt && cloud.updatedAt > localTime);
@@ -523,6 +598,7 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
     const profileAvatar = $('#profile-avatar');
 
     if (user) {
+      hideWelcomeOverlay({ remember: true });
       signedOut?.classList.add('hidden');
       signedIn?.classList.remove('hidden');
       if (profileName) profileName.textContent = user.displayName || I18n.t('common.user');
@@ -539,6 +615,7 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
       if (profileName) profileName.textContent = I18n.t('common.user');
       if (profileAvatar) profileAvatar.src = '';
       updateSyncStatus('');
+      showWelcomeOverlay();
     }
   }
 
@@ -2025,7 +2102,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         state.isLoading = false;
         updatePlayButton();
         clearDiscordPresence();
-        showToast(I18n.t('toast.audioError'));
+        showToast(evt.errorMsg ? `Audio error: ${evt.errorMsg}` : I18n.t('toast.audioError'));
         if (evt.hasNext) {
           state.queueIndex = evt.nextIndex;
           playTrack(state.queue[evt.nextIndex]);
@@ -2321,8 +2398,13 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
     const npArtist = $('#np-artist');
     npArtist.textContent = track.artist || '';
-    npArtist.classList.remove('clickable');
-    npArtist.onclick = null;
+    if (!IS_MOBILE_RUNTIME && track.artistId) {
+      npArtist.classList.add('clickable');
+      npArtist.onclick = () => openArtistPage(track.artistId);
+    } else {
+      npArtist.classList.remove('clickable');
+      npArtist.onclick = null;
+    }
 
     const isLiked = state.likedSongs.some(t => t.id === track.id);
     $('#np-like').classList.toggle('liked', isLiked);
@@ -3631,6 +3713,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     container.innerHTML = state.recentTracks.slice(0, 8).map(track => `
       <div class="track-card" data-track-id="${track.id}" draggable="true">
         <img class="card-thumb" data-src="${escapeHtml(track.thumbnail)}" alt="" />
+        <button class="card-play" title="${I18n.t('player.play')}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
+        </button>
         <div class="card-title">${escapeHtml(track.title)}</div>
         <div class="card-artist">${renderArtistLinks(track)}</div>
       </div>
@@ -3650,6 +3735,13 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       card.addEventListener('dragstart', (e) => {
         const track = state.recentTracks.find(t => t.id === card.dataset.trackId);
         if (track) startTrackDrag(e, track);
+      });
+
+      card.querySelector('.card-play')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const track = state.recentTracks.find(t => t.id === card.dataset.trackId);
+        if (track) playFromList([track], 0);
       });
     });
   }
@@ -3740,6 +3832,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       songsContainer.innerHTML = recommendedSongs.map(track => `
         <div class="track-card" data-track-id="${track.id}" draggable="true">
           <img class="card-thumb" data-src="${escapeHtml(track.thumbnail)}" alt="" />
+          <button class="card-play" title="${I18n.t('player.play')}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
+          </button>
           <div class="card-title">${escapeHtml(track.title)}</div>
           <div class="card-artist">${renderArtistLinks(track)}</div>
         </div>
@@ -3759,6 +3854,13 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         card.addEventListener('dragstart', (e) => {
           const track = recommendedSongs.find(t => t.id === card.dataset.trackId);
           if (track) startTrackDrag(e, track);
+        });
+
+        card.querySelector('.card-play')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const track = recommendedSongs.find(t => t.id === card.dataset.trackId);
+          if (track) playFromList([track], 0);
         });
       });
     } else {
@@ -4248,6 +4350,26 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const featuredSection = $('#artist-featured-section');
     const featuredContainer = $('#artist-featured');
 
+    function setArtistAvatar(url) {
+      const src = resolveImageUrl(url || '');
+      if (!src) {
+        avatar.classList.remove('loaded');
+        avatar.classList.remove('shimmer');
+        avatar.src = '';
+        return;
+      }
+      avatar.classList.add('shimmer');
+      avatar.onload = () => {
+        avatar.classList.remove('shimmer');
+        avatar.classList.add('loaded');
+      };
+      avatar.onerror = () => {
+        avatar.classList.remove('shimmer');
+        avatar.classList.remove('loaded');
+      };
+      avatar.src = src;
+    }
+
     avatar.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     avatar.classList.remove('loaded');
     avatar.classList.add('shimmer');
@@ -4283,7 +4405,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     nameEl.textContent = info.name;
     followersEl.textContent = info.monthlyListeners || '';
 
-    const heroImage = info.banner || info.avatar || '';
+    const heroImage = resolveImageUrl(info.banner || info.avatar || '');
     if (heroImage) {
       bannerImg.src = heroImage;
       bannerEl.style.display = '';
@@ -4293,15 +4415,20 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       artistView?.classList.remove('has-hero');
     }
 
+    setArtistAvatar(info.avatar || info.banner || '');
+
     aboutSection.style.display = 'none';
 
     // ── Plugin metadata overlay (non-blocking — patches in artist art/genres when ready) ──
     resolvePluginArtistMeta(info.name).then(overlay => {
       if (!overlay) return;
       if (overlay.banner || overlay.avatar) {
-        bannerImg.src = overlay.banner || overlay.avatar;
+        bannerImg.src = resolveImageUrl(overlay.banner || overlay.avatar);
         bannerEl.style.display = '';
         artistView?.classList.add('has-hero');
+      }
+      if (overlay.avatar || overlay.banner) {
+        setArtistAvatar(overlay.avatar || overlay.banner);
       }
       if (overlay.genres?.length) {
         tagsEl.innerHTML = overlay.genres.map(g => `<span class="artist-tag">${escapeHtml(g)}</span>`).join('');
@@ -6327,6 +6454,12 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     });
   }
 
+  window.snowify.getUser?.().then((user) => {
+    if (!user) showWelcomeOverlay();
+  }).catch(() => {
+    showWelcomeOverlay();
+  });
+
   // Flush any pending saves before the window closes
   window.snowify.onBeforeClose(async () => {
     prefetchCache.destroy();
@@ -6925,6 +7058,71 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const btnSignOut = $('#btn-sign-out');
     const btnForgot = $('#btn-forgot-settings');
     const btnSyncNow = $('#btn-sync-now');
+    const btnWelcomeSignIn = $('#btn-welcome-sign-in');
+    const btnWelcomeSignUp = $('#btn-welcome-sign-up');
+    const btnWelcomeForgot = $('#btn-welcome-forgot');
+    const btnWelcomeSkip = $('#btn-welcome-skip');
+
+    btnWelcomeSignIn?.addEventListener('click', async () => {
+      const email = $('#welcome-auth-email')?.value.trim();
+      const password = $('#welcome-auth-password')?.value;
+      if (!email || !password) {
+        setWelcomeError(I18n.t('welcome.enterEmailPassword'));
+        return;
+      }
+      const result = await window.snowify.signInWithEmail(email, password);
+      if (result?.error) {
+        setWelcomeError(result.error);
+      } else {
+        hideWelcomeOverlay({ remember: true });
+        showToast(I18n.t('toast.signedIn'));
+      }
+    });
+
+    btnWelcomeSignUp?.addEventListener('click', async () => {
+      const email = $('#welcome-auth-email')?.value.trim();
+      const password = $('#welcome-auth-password')?.value;
+      if (!email || !password) {
+        setWelcomeError(I18n.t('welcome.enterEmailPassword'));
+        return;
+      }
+      if (password.length < 6) {
+        setWelcomeError(I18n.t('welcome.passwordMinLength'));
+        return;
+      }
+      const result = await window.snowify.signUpWithEmail(email, password);
+      if (result?.error) {
+        setWelcomeError(result.error);
+      } else {
+        hideWelcomeOverlay({ remember: true });
+        showToast(I18n.t('toast.accountCreated'));
+      }
+    });
+
+    btnWelcomeForgot?.addEventListener('click', async () => {
+      const email = $('#welcome-auth-email')?.value.trim();
+      if (!email) {
+        setWelcomeError(I18n.t('welcome.enterEmailForReset'));
+        return;
+      }
+      const now = Date.now();
+      const remaining = Math.ceil((RESET_COOLDOWN_MS - (now - _resetEmailLastSent)) / 1000);
+      if (remaining > 0) {
+        setWelcomeError(`Please wait ${remaining}s before sending another reset email.`);
+        return;
+      }
+      const result = await window.snowify.sendPasswordReset(email);
+      if (result?.error) {
+        setWelcomeError(result.error);
+        return;
+      }
+      _resetEmailLastSent = Date.now();
+      setWelcomeError(I18n.t('welcome.resetEmailSent'), true);
+    });
+
+    btnWelcomeSkip?.addEventListener('click', () => {
+      hideWelcomeOverlay({ remember: true });
+    });
 
     btnSignIn?.addEventListener('click', async () => {
       const email = $('#auth-email')?.value.trim();
@@ -6980,8 +7178,18 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     });
 
     btnSignOut?.addEventListener('click', async () => {
-      await forceCloudSave();
+      _cloudSyncPaused = true;
+      if (_cloudSaveTimeout) {
+        clearTimeout(_cloudSaveTimeout);
+        _cloudSaveTimeout = null;
+      }
+      try {
+        await forceCloudSave();
+      } catch (_) {
+        // Ignore final save errors during sign-out shutdown sequence.
+      }
       await window.snowify.authSignOut();
+      _cloudSyncPaused = false;
       showToast(I18n.t('toast.signedOut'));
     });
 
