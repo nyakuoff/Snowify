@@ -567,7 +567,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
     scroll.className = 'similar-artists-scroll';
     scroll.innerHTML = artists.map((a, i) => `
       <div class="search-artist-card${i === 0 ? ' search-artist-top' : ''}" data-artist-id="${escapeHtml(a.artistId)}">
-        <img class="search-artist-avatar" src="${escapeHtml(a.thumbnail || '')}" alt="" loading="lazy" />
+        <img class="search-artist-avatar" src="${escapeHtml(a.thumbnail || '')}" alt="" loading="eager" />
         <div class="search-artist-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
         <div class="search-artist-label">${I18n.t('artist.type')}</div>
       </div>
@@ -593,7 +593,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
     scroll.className = 'album-scroll';
     scroll.innerHTML = albums.map(a => `
       <div class="album-card" data-album-id="${escapeHtml(a.albumId)}">
-        <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
+        <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="eager" />
         <button class="album-card-play" title="${I18n.t('player.play')}">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
@@ -628,7 +628,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
     scroll.className = 'album-scroll';
     scroll.innerHTML = playlists.map(p => `
       <div class="album-card" data-playlist-id="${escapeHtml(p.playlistId)}">
-        <img class="album-card-cover" src="${escapeHtml(p.thumbnail)}" alt="" loading="lazy" />
+        <img class="album-card-cover" src="${escapeHtml(p.thumbnail)}" alt="" loading="eager" />
         <button class="album-card-play" title="${I18n.t('player.play')}">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
@@ -663,7 +663,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
     scroll.className = 'album-scroll';
     scroll.innerHTML = videos.map(v => `
       <div class="video-card" data-video-id="${escapeHtml(v.id)}">
-        <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
+        <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="eager" />
         <button class="video-card-play" title="${I18n.t('video.watch')}">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
@@ -727,7 +727,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
             </span>
           </div>
           <div class="track-main">
-            <img class="track-thumb" src="${escapeHtml(track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : ''))}" alt="" loading="lazy" />
+            <img class="track-thumb" src="${escapeHtml(track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : ''))}" alt="" loading="eager" onerror="this.onerror=null;this.classList.add('cover-error')" />
             <div class="track-details">
               <div class="track-title">${escapeHtml(track.title)}${track.isLocal ? '<span class="local-badge">LOCAL</span>' : ''}</div>
             </div>
@@ -3045,7 +3045,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     addScrollArrows(container);
     container.innerHTML = releases.map(a => `
       <div class="album-card" data-album-id="${a.albumId}">
-        <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
+        <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="eager" />
         <button class="album-card-play" title="${I18n.t('player.play')}">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
@@ -3087,12 +3087,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
     container.innerHTML = state.recentTracks.slice(0, 8).map(track => `
       <div class="track-card" data-track-id="${track.id}" draggable="true">
-        <img class="card-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" />
+        <img class="card-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="eager" onerror="this.onerror=null;this.classList.add('cover-error')" />
         <div class="card-title">${escapeHtml(track.title)}</div>
         <div class="card-artist">${renderArtistLinks(track)}</div>
-        <button class="card-play" title="${I18n.t('player.play')}">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
-        </button>
       </div>
     `).join('');
 
@@ -3123,11 +3120,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     }
     container.innerHTML = picks.map(track => `
       <div class="quick-pick-card" data-track-id="${track.id}" draggable="true">
-        <img src="${escapeHtml(track.thumbnail)}" alt="" />
+        <img src="${escapeHtml(track.thumbnail)}" alt="" onerror="this.onerror=null;this.classList.add('cover-error')" />
         <span>${escapeHtml(track.title)}</span>
-        <button class="qp-play" title="${I18n.t('player.play')}">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
-        </button>
       </div>
     `).join('');
 
@@ -3202,12 +3196,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       songsSection.style.display = '';
       songsContainer.innerHTML = recommendedSongs.map(track => `
         <div class="track-card" data-track-id="${track.id}" draggable="true">
-          <img class="card-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" />
+          <img class="card-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="eager" onerror="this.onerror=null;this.classList.add('cover-error')" />
           <div class="card-title">${escapeHtml(track.title)}</div>
           <div class="card-artist">${renderArtistLinks(track)}</div>
-          <button class="card-play" title="${I18n.t('player.play')}">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
-          </button>
         </div>
       `).join('');
 
@@ -3303,7 +3294,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       html += `<div class="explore-section"><h2>${I18n.t('explore.newAlbums')}</h2><div class="scroll-container"><button class="scroll-arrow scroll-arrow-left" data-dir="left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="album-scroll">`;
       html += exploreData.newAlbums.map(a => `
         <div class="album-card" data-album-id="${escapeHtml(a.albumId)}">
-          <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
+          <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="eager" />
           <button class="album-card-play" title="${I18n.t('player.play')}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
@@ -3321,7 +3312,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         <div class="top-song-item" data-track-id="${escapeHtml(track.id)}">
           <div class="top-song-rank">${track.rank || i + 1}</div>
           <div class="top-song-thumb-wrap">
-            <img class="top-song-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" />
+            <img class="top-song-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="eager" />
             <div class="top-song-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg></div>
           </div>
           <div class="top-song-info">
@@ -3338,7 +3329,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       html += `<div class="explore-section"><h2>${I18n.t('explore.topArtists')}</h2><div class="scroll-container"><button class="scroll-arrow scroll-arrow-left" data-dir="left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="album-scroll top-artists-scroll">`;
       html += chartsData.topArtists.map((a, i) => `
         <div class="top-artist-card" data-artist-id="${escapeHtml(a.artistId)}">
-          <img class="top-artist-avatar" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
+          <img class="top-artist-avatar" src="${escapeHtml(a.thumbnail)}" alt="" loading="eager" />
           <div class="top-artist-name">${escapeHtml(a.name)}</div>
           <div class="top-artist-rank">#${i + 1}</div>
         </div>
@@ -3351,7 +3342,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       html += `<div class="explore-section"><h2>${I18n.t('explore.newMusicVideos')}</h2><div class="scroll-container"><button class="scroll-arrow scroll-arrow-left" data-dir="left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="album-scroll music-video-scroll">`;
       html += exploreData.newMusicVideos.slice(0, 15).map(v => `
         <div class="video-card" data-video-id="${escapeHtml(v.id)}">
-          <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
+          <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="eager" />
           <button class="video-card-play" title="${I18n.t('video.watch')}">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
@@ -3456,7 +3447,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         moodHtml += `<div class="album-scroll">`;
         moodHtml += playlists.map(p => `
           <div class="album-card" data-playlist-id="${escapeHtml(p.playlistId)}">
-            <img class="album-card-cover" src="${escapeHtml(p.thumbnail)}" alt="" loading="lazy" />
+            <img class="album-card-cover" src="${escapeHtml(p.thumbnail)}" alt="" loading="eager" />
             <div class="album-card-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
             <div class="album-card-meta">${escapeHtml(p.subtitle || '')}</div>
           </div>
@@ -3842,7 +3833,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       }
       discographyContainer.innerHTML = items.map(a => `
         <div class="album-card" data-album-id="${a.albumId}">
-          <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
+          <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="eager" />
           <button class="album-card-play" title="${I18n.t('player.play')}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
@@ -3890,7 +3881,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       videosSection.style.display = '';
       videosContainer.innerHTML = topVideos.map(v => `
         <div class="video-card" data-video-id="${escapeHtml(v.videoId)}">
-          <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
+          <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="eager" />
           <button class="video-card-play" title="${I18n.t('video.watch')}">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
@@ -3919,7 +3910,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       liveSection.style.display = '';
       liveContainer.innerHTML = livePerfs.map(v => `
         <div class="video-card" data-video-id="${escapeHtml(v.videoId)}">
-          <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
+          <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="eager" />
           <button class="video-card-play" title="${I18n.t('video.watch')}">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
@@ -3947,7 +3938,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       fansSection.style.display = '';
       fansContainer.innerHTML = fansAlsoLike.map(a => `
         <div class="similar-artist-card" data-artist-id="${escapeHtml(a.artistId)}">
-          <img class="similar-artist-avatar" src="${escapeHtml(a.thumbnail || '')}" alt="" loading="lazy" />
+          <img class="similar-artist-avatar" src="${escapeHtml(a.thumbnail || '')}" alt="" loading="eager" />
           <div class="similar-artist-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
         </div>
       `).join('');
@@ -3980,7 +3971,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       featuredSection.style.display = '';
       featuredContainer.innerHTML = allPlaylists.map(p => `
         <div class="album-card" data-playlist-id="${escapeHtml(p.playlistId)}">
-          <img class="album-card-cover" src="${escapeHtml(p.thumbnail)}" alt="" loading="lazy" />
+          <img class="album-card-cover" src="${escapeHtml(p.thumbnail)}" alt="" loading="eager" />
           <button class="album-card-play" title="${I18n.t('player.play')}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
@@ -4434,7 +4425,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
   function closeMaxNP() {
     _maxNPOpen = false;
-    maxNP.classList.remove('visible');
+    _maxNPLyricsVisible = false;
+    maxNP.classList.remove('visible', 'lyrics-active');
+    maxNPRight.classList.add('hidden');
+    maxNPRight.classList.remove('visible');
     stopMaxLyricsSync();
     setTimeout(() => {
       if (!_maxNPOpen) maxNP.classList.add('hidden');
@@ -4680,6 +4674,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     maxNPRight.classList.toggle('hidden', !_maxNPLyricsVisible);
     maxNPRight.classList.toggle('visible', _maxNPLyricsVisible);
     maxNPLyricsToggle.classList.toggle('active', _maxNPLyricsVisible);
+    maxNP.classList.toggle('lyrics-active', _maxNPLyricsVisible);
     if (_maxNPLyricsVisible) {
       renderMaxNPLyrics();
       startMaxLyricsSync();
@@ -5373,6 +5368,13 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     if (!cached?.albumArt) return;
     const thumb = $('#np-thumbnail');
     if (thumb && thumb.src !== cached.albumArt) {
+      const originalSrc = thumb.src;
+      const onError = () => {
+        thumb.src = originalSrc; // restore original thumbnail if cached art fails
+        thumb.removeEventListener('error', onError);
+      };
+      thumb.addEventListener('error', onError);
+      thumb.addEventListener('load', () => thumb.removeEventListener('error', onError), { once: true });
       thumb.src = cached.albumArt;
       extractDominantColor({ src: cached.albumArt }).then(color => {
         const rgb = color ? `${color.r}, ${color.g}, ${color.b}` : '170, 85, 230';

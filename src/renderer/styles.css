@@ -5886,13 +5886,14 @@ body.i18n-switching { opacity: 0; }
 /* ─── Design tokens ─── */
 .platform-mobile {
   --titlebar-height: 0px;
-  --bar-h: 62px;          /* mini player pill height            */
-  --bar-r: 16px;          /* mini player pill border-radius     */
-  --nav-h: 56px;          /* bottom tab bar height              */
+  --bar-h: 66px;          /* mini player pill height            */
+  --bar-r: 18px;          /* mini player pill border-radius     */
+  --nav-h: 60px;          /* bottom tab bar height              */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bot: env(safe-area-inset-bottom, 0px);
   --page-pad: 16px;       /* horizontal content padding         */
   --card-gap: 12px;       /* gap between cards / items          */
+  --section-mb: 28px;     /* section bottom margin              */
 }
 
 /* ─── Hide desktop chrome ─── */
@@ -5938,11 +5939,11 @@ body.i18n-switching { opacity: 0; }
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  background: color-mix(in srgb, var(--bg-surface) 96%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 97%, transparent);
   border-right: none;
-  border-top: 1px solid rgba(255,255,255,0.055);
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
+  border-top: 1px solid rgba(255,255,255,0.05);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
   z-index: 99;
   overflow: visible;
 }
@@ -5976,29 +5977,29 @@ body.i18n-switching { opacity: 0; }
   position: relative;
 }
 .platform-mobile .nav-btn svg {
-  width: 22px;
-  height: 22px;
+  width: 23px;
+  height: 23px;
   flex-shrink: 0;
-  transition: transform 0.15s;
+  transition: transform 0.18s;
 }
-.platform-mobile .nav-btn span { display: block; font-size: 10px; line-height: 1.1; }
+.platform-mobile .nav-btn span { display: block; font-size: 10px; line-height: 1.15; }
 .platform-mobile .nav-btn.active { color: var(--accent); }
-.platform-mobile .nav-btn.active svg { transform: scale(1.08); }
+.platform-mobile .nav-btn.active svg { transform: scale(1.12); }
 .platform-mobile .nav-btn.active::before { display: none; }
-/* Active indicator dot */
+/* Active indicator pill above icon */
 .platform-mobile .nav-btn.active::after {
   content: '';
   position: absolute;
-  top: 4px;
+  top: 5px;
   left: 50%;
   transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
+  width: 26px;
+  height: 3px;
+  border-radius: 2px;
   background: var(--accent);
 }
 .platform-mobile .nav-btn:hover { transform: none; background: transparent; }
-.platform-mobile .nav-btn:active { opacity: 0.6; }
+.platform-mobile .nav-btn:active { opacity: 0.55; transform: scale(0.92); }
 /* Search nav visible on mobile (hidden on desktop) */
 .platform-mobile [data-view="search"] { display: flex !important; }
 
@@ -6007,32 +6008,33 @@ body.i18n-switching { opacity: 0; }
    ═══════════════════════════════════════════════════════════════════════════ */
 .platform-mobile #now-playing-bar {
   position: fixed;
-  bottom: calc(var(--nav-h) + var(--safe-bot) + 8px);
-  left: 10px;
-  right: 10px;
+  bottom: calc(var(--nav-h) + var(--safe-bot) + 10px);
+  left: 12px;
+  right: 12px;
   height: var(--bar-h);
-  padding: 0 12px;
+  padding: 0 6px 0 8px;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 10px;
-  background: color-mix(in srgb, var(--bg-elevated) 90%, rgba(var(--ambient-rgb), 0.4));
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
+  gap: 8px;
+  background: color-mix(in srgb, var(--bg-elevated) 92%, rgba(var(--ambient-rgb), 0.45));
+  backdrop-filter: blur(44px);
+  -webkit-backdrop-filter: blur(44px);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: var(--bar-r);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2);
+  box-shadow: 0 10px 36px rgba(0,0,0,0.48), 0 2px 8px rgba(0,0,0,0.22);
   z-index: 100;
   cursor: pointer;
   /* Override desktop 3-col grid */
   grid-template-columns: unset;
+  transition: transform 0.38s cubic-bezier(0.32,0.72,0,1), opacity 0.25s;
 }
-/* Thin playback progress strip along the bottom edge of the pill */
+/* Playback progress bar along bottom edge */
 .platform-mobile #now-playing-bar::after {
   content: '';
   position: absolute;
-  bottom: 0; left: 0; right: 0;
-  height: 2.5px;
+  bottom: 0; left: 10px; right: 10px;
+  height: 3px;
   border-radius: 0 0 var(--bar-r) var(--bar-r);
   background: linear-gradient(to right,
     var(--accent) calc(var(--np-progress, 0) * 100%),
@@ -6041,7 +6043,8 @@ body.i18n-switching { opacity: 0; }
   pointer-events: none;
 }
 .platform-mobile #now-playing-bar.hidden {
-  transform: translateY(140%);
+  transform: translateY(170%);
+  opacity: 0;
   pointer-events: none;
 }
 
@@ -6049,16 +6052,20 @@ body.i18n-switching { opacity: 0; }
 .platform-mobile .np-track-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
   gap: 10px;
-  padding-left: 0;
+  padding-left: 4px;
 }
 .platform-mobile #np-thumbnail {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
+  width: 48px;
+  height: 48px;
+  border-radius: 13px;
   flex-shrink: 0;
+  object-fit: cover;
 }
-.platform-mobile .np-title { font-size: 13.5px; font-weight: 600; }
+.platform-mobile .np-title { font-size: 14px; font-weight: 600; }
 .platform-mobile .np-artist { font-size: 12px; }
 
 /* Hide desktop-only mini-player elements */
@@ -6066,20 +6073,24 @@ body.i18n-switching { opacity: 0; }
 .platform-mobile .np-extras { display: none !important; }
 .platform-mobile .np-like { display: none !important; }
 
-/* Mini player transport — only prev / play / next */
+/* Mini player transport — prev / play / next only */
 .platform-mobile .np-controls {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 2px;
+  gap: 0;
   flex-shrink: 0;
 }
 .platform-mobile .np-controls .icon-btn {
-  min-width: 40px;
-  min-height: 40px;
-  padding: 8px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px;
   border-radius: 50%;
 }
+/* Hide shuffle + repeat in mini-player */
+.platform-mobile .np-controls #btn-shuffle,
+.platform-mobile .np-controls #btn-repeat { display: none; }
+.platform-mobile .np-buttons { display: flex; flex-direction: row; align-items: center; gap: 0; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Main scrollable content
@@ -6093,64 +6104,154 @@ body.i18n-switching { opacity: 0; }
   overscroll-behavior-y: contain;
 }
 
+/* Keep views in layout tree so Android WebView never drops image memory.
+   display:none removes elements from the render tree; height:0+visibility:hidden keeps
+   them but makes them invisible, preventing cover/thumbnail unloading. */
 .platform-mobile .view {
-  padding-bottom: 16px;
+  display: block !important;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+  padding: 0;
+  min-height: 0;
+  animation: none !important;
+}
+.platform-mobile .view.active {
+  height: auto;
   min-height: 100%;
+  overflow: visible;
+  visibility: visible;
+  pointer-events: auto;
+  padding: 0 0 16px;
+  animation: viewEnter 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ─── View header ─── */
 .platform-mobile .view-header {
-  padding: 16px var(--page-pad) 10px;
+  padding: calc(var(--safe-top) + 22px) var(--page-pad) 12px;
 }
 .platform-mobile .view-header h1 {
-  font-size: clamp(24px, 6vw, 32px);
+  font-size: clamp(26px, 7vw, 36px);
   font-weight: 800;
+  letter-spacing: -0.5px;
 }
 
 /* ─── Section headings ─── */
 .platform-mobile .section {
-  margin-bottom: 24px;
+  margin-bottom: var(--section-mb);
 }
 .platform-mobile .section h2 {
-  padding: 0 var(--page-pad) 12px;
+  padding: 18px var(--page-pad) 10px;
+  margin-bottom: 0; /* kill desktop margin-bottom, use padding instead */
   font-size: 17px;
   font-weight: 700;
+  border-left: none;
+  letter-spacing: -0.3px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Cards — full-width on mobile, not a horizontal scroll
+   Quick picks — 2-column grid with always-visible play button
    ═══════════════════════════════════════════════════════════════════════════ */
-.platform-mobile .card-row {
-  flex-direction: column;
-  gap: var(--card-gap);
-  padding: 0 var(--page-pad) 8px;
-  flex-wrap: nowrap;
-  overflow-x: unset;
-}
-/* Horizontal scroll carousels stay horizontal but are touchable */
-.platform-mobile .album-scroll {
-  padding: 0 var(--page-pad) 8px;
-  gap: var(--card-gap);
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-x: contain;
-  scroll-padding-left: var(--page-pad);
-}
-/* Horizontal cards in carousels */
-.platform-mobile .album-scroll .card {
-  min-width: 140px;
-  max-width: 160px;
-}
-
-/* Quick-picks grid: 2 columns */
 .platform-mobile .quick-picks {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-  padding: 0 var(--page-pad);
+  padding: 0 var(--page-pad) 4px;
+  margin-bottom: 0;
 }
-.platform-mobile .quick-pick-item {
+.platform-mobile .quick-pick-card {
+  border-radius: 8px;
+  background: rgba(255,255,255,0.07);
   max-width: none;
-  border-radius: 10px;
+  height: 52px;
+}
+.platform-mobile .quick-pick-card img {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 8px 0 0 8px;
+}
+.platform-mobile .quick-pick-card span {
+  flex: 1;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+}
+/* Always show play button on touch (no hover needed) */
+.platform-mobile .quick-pick-card .qp-play {
+  opacity: 1;
+  transform: none;
+  transition: none;
+  position: static;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+.platform-mobile .quick-pick-card:active { opacity: 0.7; transform: scale(0.97); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Card rows — horizontal scroll carousels (NOT vertical stacking)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .card-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  gap: var(--card-gap);
+  padding: 0 var(--page-pad) 12px;
+  scrollbar-width: none;
+}
+.platform-mobile .card-row::-webkit-scrollbar { display: none; }
+
+/* Track cards inside carousels */
+.platform-mobile .card-row .track-card {
+  min-width: 148px;
+  max-width: 164px;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  padding: 10px;
+}
+.platform-mobile .card-row .track-card .card-thumb {
+  margin-bottom: 8px;
+}
+/* Always-visible play button on touch */
+.platform-mobile .card-row .track-card .card-play {
+  opacity: 1;
+  transform: none;
+  transition: none;
+  bottom: 48px;
+  right: 10px;
+  width: 38px;
+  height: 38px;
+}
+.platform-mobile .card-row .track-card:hover { transform: none; box-shadow: none; }
+.platform-mobile .card-row .track-card:active { opacity: 0.75; transform: scale(0.97); }
+
+/* Horizontal scroll carousels (album-scroll) */
+.platform-mobile .album-scroll {
+  padding: 0 var(--page-pad) 12px;
+  gap: var(--card-gap);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-left: var(--page-pad);
+  scrollbar-width: none;
+}
+.platform-mobile .album-scroll::-webkit-scrollbar { display: none; }
+.platform-mobile .album-scroll .card {
+  min-width: 148px;
+  max-width: 160px;
+  scroll-snap-align: start;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -6158,39 +6259,140 @@ body.i18n-switching { opacity: 0; }
    ═══════════════════════════════════════════════════════════════════════════ */
 .platform-mobile .track-row {
   padding: 10px var(--page-pad);
-  min-height: 60px;
+  min-height: 64px;
   border-radius: 0;
+  gap: 8px;
+  grid-template-columns: 1fr auto 32px; /* title left, artist auto-width right */
 }
 .platform-mobile .track-row:hover { background: transparent; }
-.platform-mobile .track-row:active { background: rgba(255,255,255,0.04); }
+.platform-mobile .track-row:active { background: rgba(255,255,255,0.05); }
 .platform-mobile .track-num { display: none; }
-.platform-mobile .track-art {
+.platform-mobile .track-list-header { display: none; }
+.platform-mobile .track-artist-col {
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-subdued);
+  max-width: 110px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  align-self: center;
+}
+.platform-mobile .track-thumb {
   width: 46px;
   height: 46px;
   border-radius: 8px;
   flex-shrink: 0;
 }
+.platform-mobile .track-info { flex: 1; min-width: 0; }
+.platform-mobile .track-title { font-size: 14px; font-weight: 600; }
+.platform-mobile .track-meta { font-size: 12px; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Full-screen now-playing
+   Library — 2-column playlist grid
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .library-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 0 var(--page-pad) 12px;
+}
+.platform-mobile .lib-card {
+  padding: 0;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.platform-mobile .lib-card:hover { transform: none; box-shadow: none; }
+.platform-mobile .lib-card:active { opacity: 0.75; transform: scale(0.97); }
+.platform-mobile .lib-card-cover {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 0;
+  margin-bottom: 0;
+  box-shadow: none;
+}
+.platform-mobile .lib-card:hover .lib-card-cover { transform: none; }
+.platform-mobile .lib-card-name {
+  padding: 8px 10px 2px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.platform-mobile .lib-card-meta {
+  padding: 0 10px 10px;
+  font-size: 11px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Playlist / Album hero — full-width cover art
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .playlist-header {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  padding: 0 0 14px;
+}
+.platform-mobile .playlist-hero-cover {
+  width: 100%;
+  max-height: 240px;
+  border-radius: 0;
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+.platform-mobile .playlist-hero-cover img,
+.platform-mobile .playlist-hero-cover .liked-cover,
+.platform-mobile .playlist-hero-cover .playlist-cover-grid { border-radius: 0; width: 100%; height: 100%; }
+.platform-mobile .playlist-hero-info {
+  padding: 0 var(--page-pad);
+  width: 100%;
+  text-align: center;
+}
+.platform-mobile .playlist-hero-name { font-size: clamp(22px, 6vw, 28px); font-weight: 800; letter-spacing: -0.3px; }
+.platform-mobile .playlist-actions { padding: 6px var(--page-pad) 6px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Artist page
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .artist-header {
+  padding: 16px var(--page-pad);
+  gap: 14px;
+  flex-direction: row;
+  align-items: center;
+}
+.platform-mobile .artist-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.platform-mobile .artist-banner { height: 180px; }
+.platform-mobile .artist-name { font-size: clamp(22px, 6vw, 30px); font-weight: 800; }
+.platform-mobile .artist-section h2 { padding-left: var(--page-pad); border-left: none; font-size: 17px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Full-screen now-playing — tall phone layout
    ═══════════════════════════════════════════════════════════════════════════ */
 .platform-mobile .max-np {
-  padding-top: var(--safe-top);
-  padding-bottom: calc(var(--safe-bot) + 8px);
+  padding-top: 0;
+  padding-bottom: 0;
 }
 .platform-mobile .max-np-topbar {
   position: relative;
-  top: calc(var(--safe-top) + 10px);
-  left: 0; right: 0;
+  top: 0;
+  padding: calc(var(--safe-top) + 14px) 20px 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 0 20px;
+  height: calc(var(--safe-top) + 52px);
+  flex-shrink: 0;
 }
-/* Swipe handle */
+/* Swipe-down handle */
 .platform-mobile .max-np-topbar::before {
   content: '';
-  display: block;
+  position: absolute;
+  top: calc(var(--safe-top) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
   width: 36px;
   height: 4px;
   background: rgba(255,255,255,0.22);
@@ -6198,57 +6400,81 @@ body.i18n-switching { opacity: 0; }
 }
 .platform-mobile .max-np-x {
   position: absolute;
-  right: 16px;
+  right: 26px;
   top: 50%;
   transform: translateY(-50%);
 }
 .platform-mobile .max-np-body {
   flex-direction: column;
-  gap: 20px;
-  padding: calc(var(--safe-top) + 54px) var(--page-pad) 16px;
+  gap: 0;
+  padding: 4px var(--page-pad) calc(var(--safe-bot) + 16px);
   align-items: center;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  justify-content: center;
+  height: calc(100% - var(--safe-top) - 52px);
 }
 .platform-mobile .max-np-left {
   width: 100%;
-  max-width: 400px;
-  gap: 20px;
+  max-width: none;
+  gap: 12px;
   align-items: center;
+  flex: 0 0 auto;
+  justify-content: center;
 }
+/* Album art — centered, with shadow */
 .platform-mobile .max-np-art {
-  width: min(78vw, 340px);
-  height: min(78vw, 340px);
-  border-radius: 16px;
+  width: min(48vw, 190px);
+  height: min(48vw, 190px);
+  border-radius: 20px;
   align-self: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.60);
+  flex-shrink: 0;
+}
+/* Override the desktop :has rule that sets 400px when lyrics are hidden */
+.platform-mobile .max-np-body:has(.max-np-right.hidden) .max-np-art {
+  width: min(48vw, 190px) !important;
+  height: min(48vw, 190px) !important;
 }
 .platform-mobile .max-np-info {
   text-align: center;
   width: 100%;
+  padding: 0 6px;
 }
-.platform-mobile .max-np-title { font-size: clamp(20px, 5.5vw, 28px); font-weight: 700; }
-.platform-mobile .max-np-artist { font-size: clamp(14px, 4vw, 18px); }
-.platform-mobile .max-np-controls { gap: 14px; }
-.platform-mobile .max-np-actions { gap: 20px; }
+.platform-mobile .max-np-title { font-size: clamp(20px, 6vw, 28px); font-weight: 700; letter-spacing: -0.3px; }
+.platform-mobile .max-np-artist { font-size: clamp(14px, 4vw, 18px); margin-top: 4px; }
+/* Progress bar */
+.platform-mobile .max-np-progress { width: 100%; padding: 0 4px; }
+.platform-mobile .max-np-progress-bar { height: 4px; border-radius: 2px; }
+/* Controls */
+.platform-mobile .max-np-controls { gap: 16px; justify-content: center; width: 100%; }
+.platform-mobile .max-np-play-btn { width: 66px; height: 66px; }
+.platform-mobile .max-np-play-btn svg { width: 30px; height: 30px; }
+.platform-mobile .max-np-btn svg { width: 26px; height: 26px; }
+/* Actions row */
+.platform-mobile .max-np-actions { gap: 24px; justify-content: center; width: 100%; }
+/* Hide volume slider on mobile — use system volume */
+.platform-mobile .max-np-volume .max-np-vol-slider { display: none !important; }
+/* Lyrics panel inside NP (normal mode: compact at bottom) */
 .platform-mobile .max-np-right {
   flex: unset;
   width: 100%;
-  max-width: 400px;
-  max-height: 220px;
+  max-width: none;
+  flex-shrink: 0;
+  max-height: 180px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  border-radius: 12px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Queue & Lyrics — slide-up sheets
+   Queue & Lyrics — slide-up bottom sheets
    ═══════════════════════════════════════════════════════════════════════════ */
 .platform-mobile #queue-panel,
 .platform-mobile #lyrics-panel {
   position: fixed;
   left: 0; right: 0; bottom: 0; top: auto;
-  height: 80vh;
-  border-radius: 20px 20px 0 0;
+  height: 82vh;
+  border-radius: 22px 22px 0 0;
   border-left: none;
   border-top: 1px solid rgba(255,255,255,0.07);
   transform: translateY(100%);
@@ -6263,7 +6489,7 @@ body.i18n-switching { opacity: 0; }
   transform: translateY(100%);
   pointer-events: none;
 }
-/* Sheet handle */
+/* Sheet drag handle */
 .platform-mobile #queue-panel::before,
 .platform-mobile #lyrics-panel::before {
   content: '';
@@ -6272,7 +6498,7 @@ body.i18n-switching { opacity: 0; }
   height: 4px;
   background: rgba(255,255,255,0.18);
   border-radius: 2px;
-  margin: 10px auto 0;
+  margin: 12px auto 0;
   flex-shrink: 0;
 }
 
@@ -6280,102 +6506,419 @@ body.i18n-switching { opacity: 0; }
    Search view
    ═══════════════════════════════════════════════════════════════════════════ */
 .platform-mobile .search-bar-container {
-  padding: 10px var(--page-pad) 6px;
+  padding: calc(var(--safe-top) + 12px) 52px 8px;
   position: sticky;
   top: 0;
   z-index: 10;
   background: var(--bg-base);
 }
+/* Hide keyboard shortcut hint on mobile */
+.platform-mobile .search-shortcut-hint { display: none !important; }
 .platform-mobile .search-input-wrap input {
   font-size: 16px; /* prevents iOS zoom on focus */
-  padding: 13px 48px;
+  padding: 13px 44px;
   border-radius: 14px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Settings
+   Settings — scrollable tab bar + bigger rows + proper scrolling
    ═══════════════════════════════════════════════════════════════════════════ */
 .platform-mobile .settings-tabs {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   white-space: nowrap;
-  padding: 0 10px;
+  padding: 4px 10px;
   display: flex;
   gap: 4px;
   scrollbar-width: none;
+  flex-shrink: 0;
 }
 .platform-mobile .settings-tabs::-webkit-scrollbar { display: none; }
-.platform-mobile .setting-row {
-  padding: 14px var(--page-pad);
-  gap: 16px;
-}
 
-/* Desktop-only settings hidden on mobile */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Settings — complete mobile rewrite
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* View container: flex column, fills screen, overrides the .view.active block */
+.platform-mobile #view-settings.active {
+  display: flex !important;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 0;
+}
+/* Outer wrapper: break desktop max-width:680px centering */
+.platform-mobile .settings-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-width: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+/* Static header at the top, safe-area aware */
+.platform-mobile .settings-content .view-header {
+  position: static;
+  flex-shrink: 0;
+  padding: calc(var(--safe-top) + 14px) var(--page-pad) 6px;
+  margin: 0;
+}
+/* Tab bar: horizontal scroll row */
+.platform-mobile .settings-tabs {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: 6px;
+  padding: 6px var(--page-pad) 10px;
+  flex-shrink: 0;
+  background: transparent;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  margin-bottom: 0;
+}
+/* Tab pill buttons — NOT flex:1, required for container overflow-x to work */
+.platform-mobile .settings-tab-btn {
+  flex: 0 0 auto !important;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.07);
+  color: var(--text-subdued);
+  border: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.platform-mobile .settings-tab-btn.active {
+  background: var(--accent) !important;
+  color: #000 !important;
+}
+/* Panes: only active is visible + scrollable */
+.platform-mobile .settings-tab-pane { display: none !important; }
+.platform-mobile .settings-tab-pane.active {
+  display: flex !important;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 32px;
+}
+/* Section groups: flat, no desktop card style */
+.platform-mobile .settings-group {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  margin-bottom: 0 !important;
+}
+.platform-mobile .settings-group h3 {
+  padding: 18px var(--page-pad) 5px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--accent);
+  border: none;
+  margin: 0;
+}
+/* Rows: label left, control right, never overflow screen */
+.platform-mobile .setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px var(--page-pad);
+  gap: 12px;
+  min-height: 52px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  box-sizing: border-box;
+  width: 100%;
+  flex-wrap: nowrap;
+}
+.platform-mobile .settings-group .setting-row:last-child { border-bottom: none; }
+/* Label side: fill space, ellipsis on overflow */
+.platform-mobile .setting-info { flex: 1; min-width: 0; }
+.platform-mobile .setting-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Descriptions: hidden on mobile */
+.platform-mobile .setting-row .setting-desc { display: none !important; }
+/* Exception: version / update status uses setting-desc for its text content */
+.platform-mobile #app-version-label,
+.platform-mobile #update-status-desc {
+  display: block !important;
+  font-size: 12px;
+  color: var(--text-subdued);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Selects: bounded width so they never push label off screen */
+.platform-mobile .setting-select {
+  flex-shrink: 0;
+  max-width: 140px;
+  font-size: 13px;
+}
+/* Action buttons: stay on row, small enough */
+.platform-mobile .btn-setting-action {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 10px;
+}
+/* Theme button group: wrap when needed */
+.platform-mobile .custom-theme-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 1;
+}
+/* Source list */
+.platform-mobile .source-list { padding: 0 var(--page-pad); }
+.platform-mobile .source-item { padding: 10px var(--page-pad) 10px 0; }
+/* Hide: Marketplace tab + pane entirely */
+.platform-mobile .settings-tab-btn[data-settings-tab="marketplace"] { display: none !important; }
+.platform-mobile .settings-tab-pane[data-tab="marketplace"] { display: none !important; }
+/* Hide: desktop-only rows */
 .platform-mobile #row-minimize-to-tray,
 .platform-mobile #row-launch-on-startup,
 .platform-mobile #row-discord-rpc { display: none !important; }
+/* Hide: desktop filesystem-dependent buttons */
+.platform-mobile #btn-add-theme,
+.platform-mobile #btn-reload-theme,
+.platform-mobile #btn-open-themes,
+.platform-mobile #btn-open-changelog,
+.platform-mobile #btn-check-update { display: none !important; }
+
+/* Broken cover placeholder */
+.cover-error {
+  background: rgba(255,255,255,0.07) !important;
+  opacity: 0.4 !important;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Playlist / Album hero
+   Context menus — larger touch targets, sheet-style bottom position
    ═══════════════════════════════════════════════════════════════════════════ */
-.platform-mobile .playlist-header {
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 14px;
-  padding: 24px var(--page-pad) 14px;
+.platform-mobile .context-menu {
+  min-width: 210px;
+  border-radius: 18px;
+  max-height: 60vh;
+  overflow-y: auto;
 }
-.platform-mobile .playlist-hero-cover {
-  width: 160px;
-  height: 160px;
-  border-radius: 16px;
+.platform-mobile .context-menu-item {
+  padding: 14px 18px;
+  font-size: 14.5px;
 }
-.platform-mobile .playlist-hero-name { font-size: clamp(20px, 5.5vw, 26px); font-weight: 800; }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   Artist page
-   ═══════════════════════════════════════════════════════════════════════════ */
-.platform-mobile .artist-header {
-  padding: 16px var(--page-pad);
-  gap: 14px;
-  flex-direction: row;
-  align-items: center;
-}
-.platform-mobile .artist-avatar {
-  width: 76px;
-  height: 76px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.platform-mobile .artist-name { font-size: clamp(22px, 6vw, 30px); font-weight: 800; }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   Context menus
-   ═══════════════════════════════════════════════════════════════════════════ */
-.platform-mobile .context-menu { min-width: 200px; border-radius: 14px; }
-.platform-mobile .context-menu-item { padding: 14px 16px; font-size: 14px; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Touch UX fundamentals
    ═══════════════════════════════════════════════════════════════════════════ */
-/* No hover transforms */
+/* Disable hover transforms — touch devices don't hover */
 .platform-mobile .icon-btn:hover,
 .platform-mobile .btn:hover,
 .platform-mobile .card:hover { transform: none !important; }
 
-/* Active press feedback */
+/* Press feedback instead */
 .platform-mobile .icon-btn:active { opacity: 0.55; }
-.platform-mobile .card:active { opacity: 0.75; }
+.platform-mobile .card:active { opacity: 0.7; }
 
-/* Minimum 44px touch targets */
+/* Minimum 44×44px touch targets (Apple HIG / Material) */
 .platform-mobile .icon-btn { min-width: 44px; min-height: 44px; }
-.platform-mobile .play-btn { width: 44px; height: 44px; }
+.platform-mobile .play-btn { width: 48px; height: 48px; }
 
-/* Momentum scroll */
+/* Momentum scroll on all scrollable containers */
 .platform-mobile .lyrics-body,
 .platform-mobile #main-content,
 .platform-mobile .queue-view,
-.platform-mobile .playlist-list,
 .platform-mobile .album-scroll,
 .platform-mobile .settings-content,
 .platform-mobile #view-settings { -webkit-overflow-scrolling: touch; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Lyrics active mode — Spotify-style full-screen lyrics
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile #max-np.lyrics-active .max-np-art { display: none; }
+
+.platform-mobile #max-np.lyrics-active .max-np-info {
+  position: absolute;
+  left: 0; right: 0;
+  top: calc(var(--safe-top) + 52px);
+  z-index: 4;
+  text-align: left;
+  padding: 8px var(--page-pad) 20px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.82) 55%, transparent);
+  pointer-events: none;
+}
+.platform-mobile #max-np.lyrics-active .max-np-title {
+  font-size: 15px; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.platform-mobile #max-np.lyrics-active .max-np-artist {
+  font-size: 13px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.platform-mobile #max-np.lyrics-active .max-np-right {
+  position: absolute;
+  left: 0; right: 0;
+  top: calc(var(--safe-top) + 52px);
+  bottom: 0;
+  z-index: 2;
+  max-height: none;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 72px var(--page-pad) 230px;
+}
+.platform-mobile #max-np.lyrics-active .max-np-progress {
+  position: absolute;
+  left: var(--page-pad); right: var(--page-pad);
+  bottom: calc(var(--safe-bot) + 148px);
+  z-index: 5;
+  padding: 0; width: auto;
+}
+.platform-mobile #max-np.lyrics-active .max-np-controls {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: calc(var(--safe-bot) + 78px);
+  z-index: 5;
+  justify-content: center;
+}
+.platform-mobile #max-np.lyrics-active .max-np-actions {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: calc(var(--safe-bot) + 28px);
+  z-index: 5;
+  justify-content: center;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Scroll arrows — hidden on mobile (swipe to scroll)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .scroll-arrow { display: none !important; }
+.platform-mobile .scroll-container {
+  display: block;
+  overflow: visible;
+}
+.platform-mobile .scroll-container .album-scroll {
+  padding-left: var(--page-pad);
+  padding-right: var(--page-pad);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Card carousels — smaller cards for recent/recommended
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .card-row .track-card {
+  min-width: 118px;
+  max-width: 130px;
+  display: grid;
+  grid-template-areas:
+    "thumb thumb"
+    "title artist";
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  align-items: start;
+}
+/* Remove play button from cards on mobile */
+.platform-mobile .card-play,
+.platform-mobile .qp-play { display: none !important; }
+.platform-mobile .card-row .track-card .card-thumb {
+  grid-area: thumb;
+  margin-bottom: 6px;
+}
+.platform-mobile .card-row .track-card .card-title {
+  grid-area: title;
+  font-size: 12px;
+  white-space: normal;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  padding-right: 4px;
+}
+.platform-mobile .card-row .track-card .card-artist {
+  grid-area: artist;
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+  max-width: 52px;
+  align-self: end;
+  margin-bottom: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Explore: trending songs — compact single-column list
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .top-songs-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.platform-mobile .top-song-item {
+  padding: 8px var(--page-pad);
+  border-radius: 0;
+  grid-template-columns: 26px 40px 1fr;
+  gap: 8px;
+}
+.platform-mobile .top-song-title { font-size: 13px; }
+.platform-mobile .top-song-artist { font-size: 11px; }
+.platform-mobile .top-song-thumb,
+.platform-mobile .top-song-thumb-wrap { width: 40px; height: 40px; }
+.platform-mobile .top-song-rank { font-size: 13px; }
+
+/* Moods — 2-column grid */
+.platform-mobile .mood-grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 0 var(--page-pad) 8px;
+}
+.platform-mobile .mood-card {
+  padding: 14px 12px;
+  font-size: 12px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Search: artists smaller, section headings compact
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .similar-artists-scroll {
+  padding: 4px var(--page-pad) 8px;
+}
+.platform-mobile .search-artist-card {
+  flex: 0 0 74px;
+  width: 74px;
+  padding: 8px 4px;
+  gap: 5px;
+}
+.platform-mobile .search-artist-avatar {
+  width: 58px; height: 58px;
+}
+.platform-mobile .search-artist-name { font-size: 11px; }
+.platform-mobile .search-artist-label { font-size: 10px; }
+.platform-mobile .search-artist-top { flex: 0 0 86px; width: 86px; }
+.platform-mobile .search-artist-top .search-artist-avatar { width: 68px; height: 68px; }
+.platform-mobile .search-artist-top .search-artist-name { font-size: 12px; }
+.platform-mobile .search-section-header {
+  font-size: 16px;
+  margin: 12px 0 6px;
+  padding: 0 var(--page-pad);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Explore section wrapper padding
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .explore-section { padding: 0; }
+.platform-mobile .explore-section > h2 { padding: 0 var(--page-pad) 10px; }
+

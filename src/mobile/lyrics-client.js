@@ -43,19 +43,9 @@ export async function getLyrics(trackName, artistName, albumName, durationSec) {
 
     const data = await resp.json();
 
-    let synced = null;
-    if (data.syncedLyrics) {
-      // Parse "[mm:ss.xx] lyric line" into the format the app expects:
-      // [{ time: number (ms), text: string }]
-      const lines = [];
-      for (const raw of data.syncedLyrics.split('\n')) {
-        const m = raw.match(/^\[(\d{1,2}):(\d{2})\.(\d{1,3})\]\s*(.*)/);
-        if (!m) continue;
-        const timeMs = (parseInt(m[1]) * 60 + parseFloat(`${m[2]}.${m[3]}`)) * 1000;
-        lines.push({ time: timeMs, text: m[4] });
-      }
-      if (lines.length) synced = lines;
-    }
+    // Return the raw LRC string — app.js's parseLRC() handles parsing into
+    // { time: seconds, text } objects. Pre-parsing here caused a format mismatch.
+    const synced = data.syncedLyrics || null;
 
     const plain = data.plainLyrics || null;
     if (!synced && !plain) {
