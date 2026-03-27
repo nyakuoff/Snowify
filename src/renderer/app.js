@@ -10,10 +10,13 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 // ─── Throttled image loader — prevents 429 from simultaneous thumbnail requests ───
 // Images use `data-src` in templates; a MutationObserver feeds them into this queue.
 const _imgQ = (() => {
-  const CONCURRENCY = 4;              // max parallel loads
-  const RETRY_MS = [1500, 4000, 10000]; // back-off before each retry
+  const CONCURRENCY = 2;                    // max 2 parallel thumbnail loads
+  const RETRY_MS = [2500, 7000, 18000];     // back-off delays between retries
   let _active = 0;
   const _queue = [];
+  const _seen = new Set();                  // URL dedup — skip already-loaded URLs
+
+  const _jitter = ms => ms * (0.75 + Math.random() * 0.5); // ±25% jitter
 
   function _drain() {
     while (_active < CONCURRENCY && _queue.length) _start(_queue.shift());
@@ -21,12 +24,12 @@ const _imgQ = (() => {
 
   function _start({ el, src, attempt }) {
     _active++;
-    el.onload = () => { el.onload = el.onerror = null; _active--; _drain(); };
+    el.onload = () => { el.onload = el.onerror = null; _seen.add(src); _active--; _drain(); };
     el.onerror = () => {
       el.onload = el.onerror = null;
       _active--;
-      if (attempt < RETRY_MS.length) {
-        setTimeout(() => { _queue.push({ el, src, attempt: attempt + 1 }); _drain(); }, RETRY_MS[attempt]);
+      if (attempt < RETRY_MS.length && el.isConnected) {
+        setTimeout(() => { _queue.push({ el, src, attempt: attempt + 1 }); _drain(); }, _jitter(RETRY_MS[attempt]));
       } else {
         el.classList.add('cover-error');
       }
@@ -35,13 +38,27 @@ const _imgQ = (() => {
     el.src = src;
   }
 
-  return {
-    enqueue(el) {
+  // IntersectionObserver: only enqueue when image enters extended viewport.
+  // 300px root margin means images start loading just before scrolling into view.
+  // This prevents the burst of 40+ simultaneous requests on track list renders.
+  const _io = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      const el = entry.target;
+      _io.unobserve(el);
       const src = el.dataset.src;
-      if (!src) return;
+      if (!src) continue;
       el.removeAttribute('data-src');
+      if (_seen.has(src)) { el.src = src; continue; } // browser cache, instant
       _queue.push({ el, src, attempt: 0 });
       _drain();
+    }
+  }, { rootMargin: '300px 0px' });
+
+  return {
+    enqueue(el) {
+      if (!el.dataset.src) return;
+      _io.observe(el); // defer until near viewport
     }
   };
 })();
