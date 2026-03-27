@@ -2,12 +2,15 @@
  * src/mobile/ytm-client.js
  *
  * YouTube Music client for mobile (Capacitor).
- * - Uses raw fetch() calls to the InnerTube API for all data queries.
- *   @capacitor/http intercepts all fetch() calls at the native layer,
- *   so CORS is bypassed transparently for music.youtube.com endpoints.
- * - Stream URLs are fetched via the InnerTube /player endpoint using the
- *   ANDROID_MUSIC client which returns pre-signed URLs (no cipher needed).
+ * - Uses explicit Capacitor native HTTP calls for YouTube endpoints.
+ *   This avoids CORS while keeping Firebase on the normal browser fetch/XHR
+ *   stack, which Firestore expects.
+ * - Stream URLs are fetched via the InnerTube /player endpoint using a small
+ *   client fallback chain. Some videos now fail on ANDROID_VR but still work
+ *   on plain ANDROID or iOS without any public proxy fallback.
  */
+
+import { nativeGetJson, nativeGetText, nativeRequestJson } from './native-http.js';
 
 // ─── InnerTube session state ───────────────────────────────────────────────
 
@@ -24,24 +27,57 @@ function generateCpn() {
   return Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * 64)]).join('');
 }
 
-// ANDROID_VR (id=28) — Oculus Quest client.
-// Per yt-dlp wiki PO Token enforcement table: android_vr does NOT require a
-// PO Token for GVS requests. clientVersion must be <=1.65 or YouTube returns
-// SABR-only streams that the <audio> element cannot play.
-const ANDROID_CONTEXT = {
-  client: {
-    clientName: 'ANDROID_VR',
-    clientVersion: '1.65.10',
-    deviceMake: 'Oculus',
-    deviceModel: 'Quest 3',
-    androidSdkVersion: 32,
-    osName: 'Android',
-    osVersion: '12L',
-    hl: 'en',
-    gl: 'US',
-    userAgent: 'com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip',
+const PLAYER_CLIENTS = [
+  {
+    name: 'ANDROID',
+    clientNameId: '3',
+    apiUrl: 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false',
+    client: {
+      clientName: 'ANDROID',
+      clientVersion: '21.03.36',
+      clientFormFactor: 'SMALL_FORM_FACTOR',
+      androidSdkVersion: 36,
+      osName: 'Android',
+      osVersion: '16',
+      hl: 'en',
+      gl: 'US',
+      userAgent: 'com.google.android.youtube/21.03.36(Linux; U; Android 16; en_US; SM-S908E Build/TP1A.220624.014) gzip',
+    },
   },
-};
+  {
+    name: 'IOS',
+    clientNameId: '5',
+    apiUrl: 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false',
+    client: {
+      clientName: 'iOS',
+      clientVersion: '21.01.04',
+      deviceMake: 'Apple',
+      deviceModel: 'iPhone16,2',
+      osName: 'iPhone',
+      osVersion: '18.2.1',
+      hl: 'en',
+      gl: 'US',
+      userAgent: 'com.google.ios.youtube/21.01.04 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X)',
+    },
+  },
+  {
+    name: 'ANDROID_VR',
+    clientNameId: '28',
+    apiUrl: 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false',
+    client: {
+      clientName: 'ANDROID_VR',
+      clientVersion: '1.65.10',
+      deviceMake: 'Oculus',
+      deviceModel: 'Quest 3',
+      androidSdkVersion: 32,
+      osName: 'Android',
+      osVersion: '12L',
+      hl: 'en',
+      gl: 'US',
+      userAgent: 'com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip',
+    },
+  },
+];
 
 async function initSession() {
   if (_initDone) return;
@@ -50,8 +86,7 @@ async function initSession() {
   _initP = (async () => {
     // 1. Fetch music.youtube.com to extract the InnerTube key + WEB_REMIX context
     try {
-      const resp = await fetch('https://music.youtube.com/', { cache: 'no-store' });
-      const html = await resp.text();
+      const html = await nativeGetText('https://music.youtube.com/');
       const visitorMatch = html.match(/"VISITOR_DATA"\s*:\s*"([^"]+)"/);
       if (visitorMatch?.[1]) _visitorData = visitorMatch[1];
       const keyMatch  = html.match(/"INNERTUBE_API_KEY"\s*:\s*"([^"]+)"/);
@@ -83,7 +118,7 @@ async function initSession() {
 
 async function musicRequest(endpoint, body) {
   await initSession();
-  const resp = await fetch(
+  return nativeRequestJson(
     `https://music.youtube.com/youtubei/v1/${endpoint}?key=${_apiKey}&prettyPrint=false`,
     {
       method: 'POST',
@@ -91,7 +126,6 @@ async function musicRequest(endpoint, body) {
       body: JSON.stringify({ context: _context, ...body }),
     }
   );
-  return resp.json();
 }
 
 // ─── Helpers (ported directly from src/main/ytmusic.js) ──────────────────
@@ -946,40 +980,117 @@ function parseWatchRenderer(r, videoId) {
 }
 
 // ─── Stream URL extraction ────────────────────────────────────────────────
-// ANDROID_VR (id=28) — no PO Token required per yt-dlp wiki.
+
+async function requestPlayerData(playerClient, videoId) {
+  return nativeRequestJson(playerClient.apiUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-YouTube-Client-Name': playerClient.clientNameId,
+      'X-YouTube-Client-Version': playerClient.client.clientVersion,
+      'User-Agent': playerClient.client.userAgent,
+      ...(_visitorData ? { 'X-Goog-Visitor-Id': _visitorData } : {}),
+    },
+    body: JSON.stringify({
+      context: {
+        client: {
+          ...playerClient.client,
+          ...(_visitorData ? { visitorData: _visitorData } : {}),
+        },
+      },
+      videoId,
+      contentCheckOk: true,
+      racyCheckOk: true,
+      playbackContext: {
+        contentPlaybackContext: {
+          html5Preference: 'HTML5_PREF_WANTS',
+        },
+      },
+    }),
+  });
+}
 
 async function fetchPlayerData(videoId) {
-  const resp = await fetch(
-    'https://www.youtube.com/youtubei/v1/player?prettyPrint=false',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-YouTube-Client-Name': '28',
-        'X-YouTube-Client-Version': ANDROID_CONTEXT.client.clientVersion,
-        'User-Agent': ANDROID_CONTEXT.client.userAgent,
-        ...(_visitorData ? { 'X-Goog-Visitor-Id': _visitorData } : {}),
-      },
-      body: JSON.stringify({
-        context: {
-          ...ANDROID_CONTEXT,
-          client: {
-            ...ANDROID_CONTEXT.client,
-            ...(_visitorData ? { visitorData: _visitorData } : {}),
-          },
-        },
-        videoId,
-        contentCheckOk: true,
-        racyCheckOk: true,
-        playbackContext: {
-          contentPlaybackContext: {
-            html5Preference: 'HTML5_PREF_WANTS',
-          },
-        },
-      }),
+  let lastData = null;
+  let lastError = null;
+
+  for (const playerClient of PLAYER_CLIENTS) {
+    try {
+      const data = await requestPlayerData(playerClient, videoId);
+      const status = data?.playabilityStatus?.status;
+      const hasStreams = Boolean(
+        data?.streamingData?.hlsManifestUrl ||
+        data?.streamingData?.adaptiveFormats?.length ||
+        data?.streamingData?.formats?.length
+      );
+
+      if (status === 'OK' && hasStreams) {
+        return data;
+      }
+
+      if (!lastData || status === 'OK') {
+        lastData = data;
+      }
+    } catch (error) {
+      lastError = error;
+      console.warn(`[YTM] ${playerClient.name} player request failed:`, error?.message || error);
     }
-  );
-  return resp.json();
+  }
+
+  if (lastData) return lastData;
+  throw lastError || new Error('Failed to fetch player data');
+}
+
+async function fetchMusicWebPlayerData(videoId) {
+  await initSession();
+  return musicRequest('player', {
+    videoId,
+    contentCheckOk: true,
+    racyCheckOk: true,
+    playbackContext: {
+      contentPlaybackContext: {
+        html5Preference: 'HTML5_PREF_WANTS',
+      },
+    },
+  });
+}
+
+async function fetchPipedStreams(videoId) {
+  try {
+    return await nativeGetJson(`https://pipedapi.kavin.rocks/streams/${videoId}`);
+  } catch (error) {
+    console.error('[YTM] Piped API failed:', error);
+    return null;
+  }
+}
+
+function extractAudioFormats(playerData) {
+  const adaptive = playerData?.streamingData?.adaptiveFormats ?? [];
+  const directAudio = adaptive
+    .filter((format) => format.mimeType?.startsWith('audio/') && format.url)
+    .map((format) => ({
+      mimeType: format.mimeType,
+      bitrate: format.bitrate || 0,
+      url: format.url,
+    }));
+
+  if (directAudio.length) return directAudio;
+
+  const muxed = (playerData?.streamingData?.formats ?? [])
+    .filter((format) => format.url)
+    .map((format) => ({
+      mimeType: format.mimeType,
+      bitrate: format.bitrate || 0,
+      url: format.url,
+    }));
+  if (muxed.length) return muxed;
+
+  const hlsManifestUrl = playerData?.streamingData?.hlsManifestUrl;
+  if (hlsManifestUrl) {
+    return [{ mimeType: 'application/x-mpegURL', bitrate: 0, url: hlsManifestUrl }];
+  }
+
+  return [];
 }
 
 export async function getStreamUrl(videoUrl, quality = 'bestaudio') {
@@ -991,24 +1102,39 @@ export async function getStreamUrl(videoUrl, quality = 'bestaudio') {
   if (!videoId) throw new Error('Invalid video URL');
 
   const cpn = generateCpn();
-  const data = await fetchPlayerData(videoId);
-  const status = data?.playabilityStatus?.status;
+  let data = await fetchPlayerData(videoId);
+  let status = data?.playabilityStatus?.status;
+  let audioFormats = extractAudioFormats(data);
+
+  let piped = null;
+  if (status !== 'OK' || !audioFormats.length) {
+    try {
+      const webData = await fetchMusicWebPlayerData(videoId);
+      const webStatus = webData?.playabilityStatus?.status;
+      const webFormats = extractAudioFormats(webData);
+      if (webStatus === 'OK' && webFormats.length) {
+        data = webData;
+        status = webStatus;
+        audioFormats = webFormats;
+      }
+    } catch (error) {
+      console.warn('[YTM] Music web player fallback failed:', error?.message || error);
+    }
+  }
+
+  if ((status !== 'OK' || !audioFormats.length)) {
+    console.warn('[YTM] Player status not OK, trying Piped fallback:', status);
+    piped = await fetchPipedStreams(videoId);
+  }
 
   if (status === 'OK') {
-    const af = data?.streamingData?.adaptiveFormats ?? [];
-    let audioFormats = af.filter(f => f.mimeType?.startsWith('audio/') && f.url);
-
     // Piped fallback if ANDROID returned no direct audio URLs
     if (!audioFormats.length) {
       console.log('[YTM] No direct audio URLs, trying Piped API…');
-      try {
-        const piped = await fetch(`https://pipedapi.kavin.rocks/streams/${videoId}`).then(r => r.json());
-        audioFormats = (piped?.audioStreams ?? [])
-          .filter(s => s.url)
-          .map(s => ({ mimeType: s.mimeType ?? 'audio/webm', bitrate: s.bitrate ?? 0, url: s.url }));
-      } catch (e) {
-        console.error('[YTM] Piped API failed:', e);
-      }
+      piped = piped || await fetchPipedStreams(videoId);
+      audioFormats = (piped?.audioStreams ?? [])
+        .filter(s => s.url)
+        .map(s => ({ mimeType: s.mimeType ?? 'audio/webm', bitrate: s.bitrate ?? 0, url: s.url }));
     }
 
     if (audioFormats.length) {
@@ -1017,10 +1143,16 @@ export async function getStreamUrl(videoUrl, quality = 'bestaudio') {
         : [...audioFormats].sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
       return `${sorted[0].url}&cpn=${cpn}`;
     }
+  }
 
-    // Muxed fallback
-    const muxed = (data?.streamingData?.formats ?? []).filter(f => f.url);
-    if (muxed.length) return `${muxed[0].url}&cpn=${cpn}`;
+  const pipedAudioFormats = (piped?.audioStreams ?? [])
+    .filter(s => s.url)
+    .map(s => ({ mimeType: s.mimeType ?? 'audio/webm', bitrate: s.bitrate ?? 0, url: s.url }));
+  if (pipedAudioFormats.length) {
+    const sorted = quality === 'worstaudio'
+      ? [...pipedAudioFormats].sort((a, b) => (a.bitrate || 0) - (b.bitrate || 0))
+      : [...pipedAudioFormats].sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+    return `${sorted[0].url}&cpn=${cpn}`;
   }
 
   console.error('[YTM] Player response:', JSON.stringify(data?.playabilityStatus));

@@ -17,10 +17,109 @@
  */
 
 import * as ytm from './ytm-client.js';
+import { initializeApp } from 'firebase/app';
+import {
+  getAuth,
+  onAuthStateChanged as fbOnAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signOut as fbSignOut,
+  updateProfile as fbUpdateProfile,
+} from 'firebase/auth';
+import {
+  initializeFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+} from 'firebase/firestore';
 
 // Must match MainActivity.PROXY_PORT
 const PROXY_PORT = 17890;
 const proxyUrl = (url) => `http://127.0.0.1:${PROXY_PORT}/stream?url=${encodeURIComponent(url)}`;
+const PROXY_PREFIX = `http://127.0.0.1:${PROXY_PORT}/stream?url=`;
+
+function isHttpUrl(value) {
+  return typeof value === 'string' && /^https?:\/\//i.test(value);
+}
+
+function isProxyAssetUrl(value) {
+  return typeof value === 'string' && value.startsWith(PROXY_PREFIX);
+}
+
+function resolveImageUrl(url) {
+  if (!isHttpUrl(url) || isProxyAssetUrl(url)) return url;
+  return proxyUrl(url);
+}
+
+function proxifyArtworkUrls(value, key = '') {
+  if (Array.isArray(value)) {
+    return value.map((entry) => proxifyArtworkUrls(entry));
+  }
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [entryKey, entryValue] of Object.entries(value)) {
+      out[entryKey] = proxifyArtworkUrls(entryValue, entryKey);
+    }
+    return out;
+  }
+  if (typeof value === 'string' && /^(thumbnail|avatar|banner|photoURL|logoUrl|albumArt|artwork)$/i.test(key)) {
+    return resolveImageUrl(value);
+  }
+  return value;
+}
+
+const firebaseConfig = {
+  apiKey: 'AIzaSyCNuw8kqgbULTLjC890BzKWvnmdvFCX0og',
+  authDomain: 'snowify-dcda0.firebaseapp.com',
+  projectId: 'snowify-dcda0',
+  storageBucket: 'snowify-dcda0.firebasestorage.app',
+  messagingSenderId: '925903561467',
+  appId: '1:925903561467:web:c4298e4f47ac80d1c9c65e'
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const firebaseAuth = getAuth(firebaseApp);
+// Capacitor WebViews are more reliable with Firestore long-polling than the
+// default streaming transport.
+const firebaseDb = initializeFirestore(firebaseApp, {
+  experimentalForceLongPolling: true,
+  useFetchStreams: false,
+});
+
+async function getUserInfo(user) {
+  const info = {
+    uid: user.uid,
+    email: user.email,
+    displayName: user.displayName,
+    photoURL: user.photoURL || null,
+  };
+
+  try {
+    const snap = await getDoc(doc(firebaseDb, 'users', user.uid));
+    if (snap.exists()) {
+      const profile = snap.data()?.profile;
+      if (profile?.photoURL) info.photoURL = profile.photoURL;
+      if (profile?.displayName && !info.displayName) info.displayName = profile.displayName;
+    }
+  } catch (_) {}
+
+  return proxifyArtworkUrls(info);
+}
+
+let _authSub = null;
+const _authListeners = new Set();
+
+function ensureAuthSubscription() {
+  if (_authSub) return;
+  _authSub = fbOnAuthStateChanged(firebaseAuth, async (user) => {
+    const payload = user ? await getUserInfo(user) : null;
+    _authListeners.forEach((cb) => {
+      try { cb(payload); } catch (_) {}
+    });
+  });
+}
 import { getLyrics }   from './lyrics-client.js';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -593,14 +692,16 @@ export function installMobileBridge() {
     setMinimizeToTray: () => {},
     setOpenAtLogin:    () => {},
 
+    resolveImageUrl,
+
     // YouTube Music
-    search:             (q, musicOnly)     => ytm.search(q, musicOnly),
-    searchArtists:      q                  => ytm.searchArtists(q),
-    searchAlbums:       q                  => ytm.searchAlbums(q),
-    searchVideos:       q                  => ytm.searchVideos(q),
-    searchPlaylists:    q                  => ytm.searchPlaylists(q),
-    getPlaylistVideos:  id                 => ytm.getPlaylistVideos(id),
-    searchSuggestions:  q                  => ytm.searchSuggestions(q),
+    search:             async (q, musicOnly) => proxifyArtworkUrls(await ytm.search(q, musicOnly)),
+    searchArtists:      async q            => proxifyArtworkUrls(await ytm.searchArtists(q)),
+    searchAlbums:       async q            => proxifyArtworkUrls(await ytm.searchAlbums(q)),
+    searchVideos:       async q            => proxifyArtworkUrls(await ytm.searchVideos(q)),
+    searchPlaylists:    async q            => proxifyArtworkUrls(await ytm.searchPlaylists(q)),
+    getPlaylistVideos:  async id           => proxifyArtworkUrls(await ytm.getPlaylistVideos(id)),
+    searchSuggestions:  async q            => proxifyArtworkUrls(await ytm.searchSuggestions(q)),
     // On Android, ExoPlayer fetches URLs directly — no local proxy needed.
     // On iOS, keep routing through the proxy as before.
     getStreamUrl:       async (url, q)      => {
@@ -614,13 +715,13 @@ export function installMobileBridge() {
         audioUrl: r.audioUrl ? proxyUrl(r.audioUrl) : null,
       };
     },
-    getTrackInfo:       id                 => ytm.getTrackInfo(id),
-    artistInfo:         id                 => ytm.artistInfo(id),
-    albumTracks:        id                 => ytm.albumTracks(id),
-    getUpNexts:         id                 => ytm.getUpNexts(id),
-    explore:            ()                 => ytm.explore(),
-    charts:             ()                 => ytm.charts(),
-    browseMood:         (bid, params)      => ytm.browseMood(bid, params),
+    getTrackInfo:       async id           => proxifyArtworkUrls(await ytm.getTrackInfo(id)),
+    artistInfo:         async id           => proxifyArtworkUrls(await ytm.artistInfo(id)),
+    albumTracks:        async id           => proxifyArtworkUrls(await ytm.albumTracks(id)),
+    getUpNexts:         async id           => proxifyArtworkUrls(await ytm.getUpNexts(id)),
+    explore:            async ()           => proxifyArtworkUrls(await ytm.explore()),
+    charts:             async ()           => proxifyArtworkUrls(await ytm.charts()),
+    browseMood:         async (bid, params) => proxifyArtworkUrls(await ytm.browseMood(bid, params)),
     setCountry:         () => Promise.resolve(true),
 
     // Caching: no-ops (no yt-dlp cache on mobile)
@@ -664,6 +765,128 @@ export function installMobileBridge() {
     exportPlaylistCsv: (n, t)   => exportPlaylistCsv(n, t),
     exportLibrary:  json         => exportLibrary(json),
     importLibrary:  ()           => importLibrary(),
+
+    // Account & cloud sync
+    signInWithEmail: async (email, password) => {
+      try {
+        const r = await signInWithEmailAndPassword(firebaseAuth, email, password);
+        return getUserInfo(r.user);
+      } catch (err) {
+        return { error: err.message };
+      }
+    },
+    signUpWithEmail: async (email, password) => {
+      try {
+        const r = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+        return getUserInfo(r.user);
+      } catch (err) {
+        return { error: err.message };
+      }
+    },
+    sendPasswordReset: async (email) => {
+      try {
+        await sendPasswordResetEmail(firebaseAuth, email);
+        return { ok: true };
+      } catch (err) {
+        return { error: err.message };
+      }
+    },
+    authSignOut: async () => {
+      try {
+        await fbSignOut(firebaseAuth);
+        return true;
+      } catch (err) {
+        return { error: err.message };
+      }
+    },
+    getUser: async () => {
+      const user = firebaseAuth.currentUser;
+      if (!user) return null;
+      return getUserInfo(user);
+    },
+    updateProfile: async ({ displayName, photoURL }) => {
+      const user = firebaseAuth.currentUser;
+      if (!user) return { error: 'Not signed in' };
+      try {
+        if (displayName !== undefined) {
+          await fbUpdateProfile(user, { displayName });
+        }
+        const profileData = { displayName: user.displayName || '' };
+        if (photoURL !== undefined) profileData.photoURL = photoURL;
+        await setDoc(doc(firebaseDb, 'users', user.uid), { profile: profileData }, { merge: true });
+        return proxifyArtworkUrls({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: photoURL !== undefined ? photoURL : user.photoURL,
+        });
+      } catch (err) {
+        return { error: err.message };
+      }
+    },
+    updateProfileExtras: async ({ banner, bio }) => {
+      const user = firebaseAuth.currentUser;
+      if (!user) return { error: 'Not signed in' };
+      try {
+        const docRef = doc(firebaseDb, 'users', user.uid);
+        const updateData = {};
+        if (banner !== undefined) updateData['profile.banner'] = banner;
+        if (bio !== undefined) updateData['profile.bio'] = String(bio).slice(0, 200);
+        try {
+          await updateDoc(docRef, updateData);
+        } catch (_) {
+          const profile = {};
+          if (banner !== undefined) profile.banner = banner;
+          if (bio !== undefined) profile.bio = String(bio).slice(0, 200);
+          await setDoc(docRef, { profile }, { merge: true });
+        }
+        return { success: true };
+      } catch (err) {
+        return { error: err.message };
+      }
+    },
+    getProfile: async (uid) => {
+      try {
+        const snap = await getDoc(doc(firebaseDb, 'users', uid));
+        if (!snap.exists()) return null;
+        const data = snap.data();
+        const profile = data.profile || {};
+        if (data['profile.banner'] && !profile.banner) profile.banner = data['profile.banner'];
+        if (data['profile.bio'] && !profile.bio) profile.bio = data['profile.bio'];
+        return proxifyArtworkUrls(profile);
+      } catch (_) {
+        return null;
+      }
+    },
+    readImage: async (filePath) => {
+      if (typeof filePath === 'string' && filePath.startsWith('data:image/')) return filePath;
+      return null;
+    },
+    cloudSave: async (data) => {
+      const user = firebaseAuth.currentUser;
+      if (!user) return { error: 'Not signed in' };
+      try {
+        await setDoc(doc(firebaseDb, 'users', user.uid), { ...data, updatedAt: Date.now() }, { merge: true });
+        return true;
+      } catch (err) {
+        return { error: err.message };
+      }
+    },
+    cloudLoad: async () => {
+      const user = firebaseAuth.currentUser;
+      if (!user) return null;
+      try {
+        const snap = await getDoc(doc(firebaseDb, 'users', user.uid));
+        return snap.exists() ? proxifyArtworkUrls(snap.data()) : null;
+      } catch (_) {
+        return null;
+      }
+    },
+    onAuthStateChanged: (callback) => {
+      ensureAuthSubscription();
+      _authListeners.add(callback);
+      return () => _authListeners.delete(callback);
+    },
 
     // Spotify import
     spotifyPickCsv:    ()        => spotifyPickCsv(),

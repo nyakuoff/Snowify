@@ -52,6 +52,22 @@ contextBridge.exposeInMainWorld('snowify', {
   // Playlist export
   exportPlaylistCsv: (name, tracks) => ipcRenderer.invoke('playlist:exportCsv', name, tracks),
 
+  // Account & cloud sync
+  signInWithEmail: (email, password) => ipcRenderer.invoke('auth:signInWithEmail', email, password),
+  signUpWithEmail: (email, password) => ipcRenderer.invoke('auth:signUpWithEmail', email, password),
+  sendPasswordReset: (email) => ipcRenderer.invoke('auth:sendPasswordReset', email),
+  authSignOut: () => ipcRenderer.invoke('auth:signOut'),
+  getUser: () => ipcRenderer.invoke('auth:getUser'),
+  updateProfile: (data) => ipcRenderer.invoke('profile:update', data),
+  updateProfileExtras: (data) => ipcRenderer.invoke('profile:updateExtras', data),
+  getProfile: (uid) => ipcRenderer.invoke('profile:get', uid),
+  readImage: (filePath) => ipcRenderer.invoke('profile:readImage', filePath),
+  cloudSave: (data) => ipcRenderer.invoke('cloud:save', data),
+  cloudLoad: () => ipcRenderer.invoke('cloud:load'),
+  onAuthStateChanged: (callback) => {
+    ipcRenderer.on('auth:stateChanged', (_event, user) => callback(user));
+  },
+
   // Library export/import
   exportLibrary: (jsonStr) => ipcRenderer.invoke('library:export', jsonStr),
   importLibrary: () => ipcRenderer.invoke('library:import'),

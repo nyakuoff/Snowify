@@ -3152,6 +3152,10 @@ body.audio-playing .play-btn {
   margin-top: 10px;
   max-width: 360px;
 }
+.profile-edit-row .auth-input {
+  flex: 1;
+  margin-bottom: 0;
+}
 
 .account-info {
   display: flex;
@@ -3173,6 +3177,134 @@ body.audio-playing .play-btn {
   display: flex;
   gap: 10px;
   flex-shrink: 0;
+}
+
+.auth-form {
+  max-width: 420px;
+}
+.auth-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.auth-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.auth-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.auth-error {
+  margin-top: 10px;
+  color: var(--red);
+  font-size: 12px;
+}
+.btn-welcome-forgot {
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+.btn-welcome-forgot:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.profile-extras {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 16px;
+}
+.profile-extras-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+.profile-banner-section {
+  margin-bottom: 16px;
+}
+.profile-banner-preview {
+  width: 100%;
+  max-width: 480px;
+  height: 120px;
+  border-radius: 10px;
+  background: var(--bg-highlight);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+.profile-banner-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.profile-banner-placeholder {
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.65;
+}
+.profile-banner-actions {
+  display: flex;
+  gap: 8px;
+}
+.profile-bio-section {
+  margin-bottom: 4px;
+}
+.profile-bio-input {
+  width: 100%;
+  max-width: 480px;
+  min-height: 64px;
+  max-height: 120px;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--transition);
+}
+.profile-bio-input:focus {
+  border-color: var(--accent);
+}
+.profile-bio-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.65;
+}
+.profile-bio-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 480px;
+  margin-top: 6px;
+}
+.profile-bio-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.7;
 }
 
 /* ═══════ Welcome Overlay ═══════ */
@@ -6257,6 +6389,14 @@ body.i18n-switching { opacity: 0; }
   padding: 0 var(--page-pad) 12px;
   scrollbar-width: none;
 }
+.platform-mobile #view-home .card-row {
+  scroll-padding-left: var(--page-pad);
+  scroll-padding-right: var(--page-pad);
+}
+.platform-mobile #recent-tracks {
+  padding-left: var(--page-pad);
+  padding-right: var(--page-pad);
+}
 .platform-mobile .card-row::-webkit-scrollbar { display: none; }
 
 /* Track cards inside carousels */
@@ -6812,6 +6952,42 @@ body.i18n-switching { opacity: 0; }
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 32px;
+}
+/* Account tab custom content is not built from .setting-row blocks, so add
+   explicit horizontal gutters to prevent edge collisions on mobile. */
+.platform-mobile #account-section,
+.platform-mobile #account-signed-out,
+.platform-mobile #account-signed-in {
+  padding-left: var(--page-pad);
+  padding-right: var(--page-pad);
+  box-sizing: border-box;
+}
+.platform-mobile #account-signed-out,
+.platform-mobile #account-signed-in,
+.platform-mobile .profile-extras {
+  padding-left: 0;
+  padding-right: 0;
+}
+.platform-mobile .profile-section,
+.platform-mobile .account-info {
+  width: 100%;
+  min-width: 0;
+}
+.platform-mobile .account-actions {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+.platform-mobile .profile-extras {
+  margin-top: 12px;
+}
+.platform-mobile .profile-banner-preview {
+  width: 100%;
+  max-width: 100%;
+}
+.platform-mobile .profile-bio-wrap,
+.platform-mobile .profile-bio-input {
+  width: 100%;
+  box-sizing: border-box;
 }
 /* Section groups: flat, no desktop card style */
 .platform-mobile .settings-group {
