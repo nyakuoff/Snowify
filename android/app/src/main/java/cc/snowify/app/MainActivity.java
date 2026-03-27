@@ -22,6 +22,9 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(MobilePlayerPlugin.class);
         super.onCreate(savedInstanceState);
 
+        // Enable Chrome remote debugging via chrome://inspect.
+        android.webkit.WebView.setWebContentsDebuggingEnabled(true);
+
         // Disable WebView disk cache so reinstalls always load fresh assets.
         getBridge().getWebView().getSettings().setCacheMode(
             android.webkit.WebSettings.LOAD_NO_CACHE

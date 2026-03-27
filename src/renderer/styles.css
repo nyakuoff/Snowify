@@ -6470,6 +6470,24 @@ body.i18n-switching { opacity: 0; }
    Queue & Lyrics — slide-up bottom sheets
    ═══════════════════════════════════════════════════════════════════════════ */
 .platform-mobile #queue-panel,
+/* Lyrics — mobile performance: strip expensive GPU effects, tighten animation */
+.platform-mobile .lyrics-line {
+  transition: opacity 0.18s ease;
+  will-change: opacity;
+}
+.platform-mobile .lyrics-line.active {
+  transform: none !important;
+  text-shadow: none !important;
+}
+.platform-mobile .max-np-lyrics .lyrics-line {
+  transition: opacity 0.18s ease;
+  will-change: opacity;
+}
+.platform-mobile .max-np-lyrics .lyrics-line.active {
+  transform: none !important;
+  text-shadow: none !important;
+}
+
 .platform-mobile #lyrics-panel {
   position: fixed;
   left: 0; right: 0; bottom: 0; top: auto;
@@ -6692,6 +6710,8 @@ body.i18n-switching { opacity: 0; }
 /* Hide: Marketplace tab + pane entirely */
 .platform-mobile .settings-tab-btn[data-settings-tab="marketplace"] { display: none !important; }
 .platform-mobile .settings-tab-pane[data-tab="marketplace"] { display: none !important; }
+/* Hide: Sources section (irrelevant on mobile) */
+.platform-mobile .settings-group:has(h3[data-i18n="settings.sources"]) { display: none !important; }
 /* Hide: desktop-only rows */
 .platform-mobile #row-minimize-to-tray,
 .platform-mobile #row-launch-on-startup,

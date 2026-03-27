@@ -4266,7 +4266,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       }
     });
 
-    // Scroll container so active line is vertically centered
+    // Scroll container so active line is vertically centered.
+    // Use direct scrollTop assignment — CSS scroll-behavior:smooth on the
+    // container handles the animation; calling scrollTo({behavior:'smooth'})
+    // from JS simultaneously creates two competing animations on Android.
     if (activeIdx >= 0) {
       const activeLine = allLines[activeIdx];
       const container = lyricsBody;
@@ -4275,7 +4278,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         const lineHeight = activeLine.offsetHeight;
         const containerHeight = container.clientHeight;
         const targetScrollTop = lineTop - (containerHeight / 2) + (lineHeight / 2);
-        container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+        container.scrollTop = targetScrollTop;
       }
     }
   }
@@ -4608,8 +4611,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         _lyricsSyncRAF = null;
         return; // both stopped — exit loop
       }
-      // Throttle to ~100ms (10 fps) to match previous interval behavior
-      if (now - _lyricsSyncLastTime >= 100) {
+      // Throttle to ~50ms (20 fps) for tighter sync
+      if (now - _lyricsSyncLastTime >= 50) {
         _lyricsSyncLastTime = now;
         if (!audio.paused) {
           if (_lyricsSyncActive && _lyricsLines.length) syncLyrics();
@@ -4654,7 +4657,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       }
     });
 
-    // Scroll container so active line is vertically centered
+    // Same fix as syncLyrics: direct scrollTop, CSS smooth handles animation.
     if (activeIdx >= 0) {
       const activeLine = allLines[activeIdx];
       const container = maxNPLyrics;
@@ -4663,7 +4666,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         const lineHeight = activeLine.offsetHeight;
         const containerHeight = container.clientHeight;
         const targetScrollTop = lineTop - (containerHeight / 2) + (lineHeight / 2);
-        container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+        container.scrollTop = targetScrollTop;
       }
     }
   }
