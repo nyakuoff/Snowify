@@ -5896,7 +5896,7 @@ body.i18n-switching { opacity: 0; }
   --safe-bot: env(safe-area-inset-bottom, 0px);
   --page-pad: 16px;       /* horizontal content padding         */
   --card-gap: 12px;       /* gap between cards / items          */
-  --section-mb: 20px;     /* section bottom margin              */
+  --section-mb: 6px;      /* section bottom margin              */
 }
 
 /* ─── Hide desktop chrome ─── */
@@ -6138,12 +6138,13 @@ body.i18n-switching { opacity: 0; }
 
 /* ─── View header ─── */
 .platform-mobile .view-header {
-  padding: calc(var(--safe-top) + 22px) var(--page-pad) 12px;
+  padding: calc(var(--safe-top) + 22px) var(--page-pad) 4px;
 }
 .platform-mobile .view-header h1 {
   font-size: clamp(26px, 7vw, 36px);
   font-weight: 800;
   letter-spacing: -0.5px;
+  margin-bottom: 0;
 }
 
 /* ─── Section headings ─── */
@@ -6151,7 +6152,7 @@ body.i18n-switching { opacity: 0; }
   margin-bottom: var(--section-mb);
 }
 .platform-mobile .section h2 {
-  padding: 14px var(--page-pad) 10px;
+  padding: 8px var(--page-pad) 8px;
   margin-bottom: 0; /* kill desktop margin-bottom, use padding instead */
   font-size: 17px;
   font-weight: 700;
@@ -6167,7 +6168,7 @@ body.i18n-switching { opacity: 0; }
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   padding: 0 var(--page-pad) 4px;
-  margin-bottom: 20px; /* consistent gap between quick picks and first section */
+  margin-bottom: 8px; /* consistent gap between quick picks and first section */
 }
 .platform-mobile .quick-pick-card {
   border-radius: 8px;
@@ -6363,8 +6364,8 @@ body.i18n-switching { opacity: 0; }
    Artist page
    ═══════════════════════════════════════════════════════════════════════════ */
 .platform-mobile .artist-header {
-  padding: 16px var(--page-pad);
-  gap: 14px;
+  padding: 0 var(--page-pad) 12px;
+  gap: 0;
   flex-direction: column;
   align-items: center;
   text-align: center;
@@ -6374,24 +6375,52 @@ body.i18n-switching { opacity: 0; }
   text-align: center;
   width: min(100%, 32rem);
   max-width: calc(100vw - (var(--page-pad) * 2));
+  padding-top: 10px;
 }
 .platform-mobile .artist-actions {
   justify-content: center;
   padding: 0 var(--page-pad) 8px;
 }
 .platform-mobile .artist-avatar {
-  width: 100px;
-  height: 100px;
+  width: 130px;
+  height: 130px;
   border-radius: 50%;
   flex-shrink: 0;
+  border: 3px solid var(--bg-base);
+  margin-top: -50px;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45);
 }
-.platform-mobile .artist-banner { height: 180px; }
+.platform-mobile .artist-banner {
+  height: 220px;
+  width: 100%;
+  margin-left: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+.platform-mobile .artist-banner-fade {
+  height: 120px;
+  background: linear-gradient(to bottom, transparent, var(--bg-base));
+}
 .platform-mobile .artist-name {
   font-size: clamp(22px, 6vw, 30px);
   font-weight: 800;
   max-width: 100%;
 }
 .platform-mobile .artist-section h2 { padding-left: var(--page-pad); border-left: none; font-size: 17px; }
+
+/* Stream count subtitle in artist popular track list */
+.track-inline-plays {
+  font-size: 12px;
+  color: var(--text-subdued);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Hide artist col entirely for artist-popular context */
+.track-row--artist .track-artist-col { display: none !important; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Full-screen now-playing — tall phone layout
@@ -6558,6 +6587,9 @@ body.i18n-switching { opacity: 0; }
   transform: translateY(100%);
   transition: transform 0.38s cubic-bezier(0.32, 0.72, 0, 1);
   overflow: hidden;
+  /* Always rendered (off-screen when hidden) so CSS transition works */
+  display: flex !important;
+  flex-direction: column;
 }
 .platform-mobile #queue-panel {
   z-index: 220;
@@ -6923,41 +6955,31 @@ body.i18n-switching { opacity: 0; }
 .platform-mobile .card-row .track-card {
   min-width: 118px;
   max-width: 130px;
-  display: grid;
-  grid-template-areas:
-    "thumb thumb"
-    "title artist";
-  grid-template-columns: 1fr auto;
-  grid-template-rows: auto auto;
-  align-items: start;
+  display: block;
 }
 /* Remove play button from cards on mobile */
 .platform-mobile .card-play,
 .platform-mobile .qp-play { display: none !important; }
 .platform-mobile .card-row .track-card .card-thumb {
-  grid-area: thumb;
   margin-bottom: 6px;
 }
 .platform-mobile .card-row .track-card .card-title {
-  grid-area: title;
   font-size: 12px;
   white-space: normal;
   -webkit-line-clamp: 2;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  padding-right: 4px;
+  margin-bottom: 2px;
 }
 .platform-mobile .card-row .track-card .card-artist {
-  grid-area: artist;
-  font-size: 10px;
+  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-align: right;
-  max-width: 52px;
-  align-self: end;
-  margin-bottom: 2px;
+  text-align: left;
+  max-width: none;
+  color: var(--text-subdued);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

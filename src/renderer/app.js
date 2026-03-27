@@ -63,8 +63,16 @@ const _imgQ = (() => {
           _queue.push({ src, attempt: attempt + 1 });
           _drain();
         }, _jitter(RETRY_MS[attempt]));
-      } else {
-        liveEls.forEach(el => el.classList.add('cover-error'));
+      } else if (liveEls.length) {
+        // Keep slow-retrying every ~18s indefinitely instead of giving up
+        setTimeout(() => {
+          const stillLive = liveEls.filter(el => el.isConnected);
+          if (!stillLive.length) return;
+          if (_loaded.has(src)) { stillLive.forEach(el => _applySrc(el, src)); return; }
+          _inFlight.set(src, { els: new Set(stillLive), attempt: RETRY_MS.length - 1 });
+          _queue.push({ src, attempt: RETRY_MS.length - 1 });
+          _drain();
+        }, _jitter(RETRY_MS[RETRY_MS.length - 1]));
       }
       _drain();
     };
@@ -824,14 +832,15 @@ new MutationObserver(muts => {
   }
 
   function renderTrackList(container, tracks, context, sourcePlaylistId = null) {
-    const showPlays = tracks.some(t => t.plays);
+    const isArtistCtx = context === 'artist-popular';
+    const showPlays = !isArtistCtx && tracks.some(t => t.plays);
     const modifier = showPlays ? ' has-plays' : '';
 
     let html = `
       <div class="track-list-header${modifier}">
         <span>#</span>
         <span>${I18n.t('trackList.title')}</span>
-        <span>${I18n.t('trackList.artist')}</span>
+        ${!isArtistCtx ? `<span>${I18n.t('trackList.artist')}</span>` : ''}
         <span></span>
         ${showPlays ? `<span style="text-align:right">${I18n.t('trackList.plays')}</span>` : ''}
       </div>`;
@@ -843,7 +852,7 @@ new MutationObserver(muts => {
       const isLiked = _likedIds.has(track.id);
 
       html += `
-        <div class="track-row ${isPlaying ? 'playing' : ''}${modifier}"
+        <div class="track-row ${isPlaying ? 'playing' : ''}${modifier}${isArtistCtx ? ' track-row--artist' : ''}"
              data-track-id="${track.id}" data-context="${context}" data-index="${i}" draggable="true">
           <div class="track-num">
             <span class="track-num-text">${i + 1}</span>
@@ -856,9 +865,10 @@ new MutationObserver(muts => {
             <img class="track-thumb" data-src="${escapeHtml(track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : ''))}" alt="" />
             <div class="track-details">
               <div class="track-title">${escapeHtml(track.title)}${track.isLocal ? '<span class="local-badge">LOCAL</span>' : ''}</div>
+              ${isArtistCtx && track.plays ? `<div class="track-inline-plays">${escapeHtml(track.plays)}</div>` : ''}
             </div>
           </div>
-          <div class="track-artist-col">${renderArtistLinks(track)}</div>
+          ${!isArtistCtx ? `<div class="track-artist-col">${renderArtistLinks(track)}</div>` : ''}
           <div class="track-like-col">
             <button class="track-like-btn${isLiked ? ' liked' : ''}" title="${I18n.t('player.like')}">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -3808,6 +3818,12 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
   async function openArtistPage(artistId) {
     if (!artistId) return;
+    // Close any open overlays before navigating
+    if (_maxNPOpen) closeMaxNP();
+    if (queuePanel.classList.contains('visible')) {
+      queuePanel.classList.add('hidden');
+      queuePanel.classList.remove('visible');
+    }
     switchView('artist');
 
     const avatar = $('#artist-avatar');
@@ -7554,16 +7570,19 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       }, { passive: true });
     }
 
-    // Swipe-down on queue panel to close
+    // Swipe-down on queue panel to close (only when content is scrolled to top)
     const queuePanelEl = $('#queue-panel');
     if (queuePanelEl) {
       let _qTouchStart = 0;
+      let _qScrollAtStart = 0;
       queuePanelEl.addEventListener('touchstart', (e) => {
         _qTouchStart = e.touches[0].clientY;
+        const activeView = queuePanelEl.querySelector('#queue-view:not([style*="display: none"]), #history-view:not([style*="display: none"])');
+        _qScrollAtStart = activeView ? activeView.scrollTop : 0;
       }, { passive: true });
       queuePanelEl.addEventListener('touchend', (e) => {
         const dy = e.changedTouches[0].clientY - _qTouchStart;
-        if (dy > 80) {
+        if (dy > 80 && _qScrollAtStart < 5) {
           queuePanelEl.classList.add('hidden');
           queuePanelEl.classList.remove('visible');
         }
