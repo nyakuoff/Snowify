@@ -31,27 +31,6 @@
     </div>
   </div>
 
-  <!-- ═══════ Migration Notice ═══════ -->
-  <div id="migration-notice-overlay" class="welcome-overlay hidden">
-    <div class="welcome-card">
-      <img class="welcome-logo" src="../../assets/logo.png" alt="Snowify" width="64" height="64" draggable="false" />
-      <h1 class="welcome-title">Cloud sync is gone</h1>
-      <p class="welcome-desc">
-        Starting with this version, <strong>cloud saving has been removed from Snowify.</strong>
-        The costs of running cloud infrastructure were too high to sustain.
-      </p>
-      <p class="welcome-desc" style="margin-top: 8px;">
-        <strong>Your library is still here.</strong> Everything - your playlists, liked songs, and settings - was always stored locally, so nothing is lost. Going forward, Snowify only saves data locally.
-      </p>
-      <p class="welcome-desc" style="margin-top: 8px; opacity: 0.6; font-size: 12px;">
-        Friends, Listen Along, and account features have also been removed as part of this change.
-      </p>
-      <p class="welcome-desc" style="margin-top: 10px; font-size: 12px; opacity: 0.55;">
-        You can export and re-import your library anytime from Settings → Local Data.
-      </p>
-      <button class="btn-welcome-primary" id="btn-migration-ok" style="margin-top: 20px; width: 100%;">Got it</button>
-    </div>
-  </div>
   <!-- ═══════ Main Layout ═══════ -->
   <div id="app">
     <!-- Sidebar -->
@@ -267,12 +246,188 @@
 
           <!-- Tab bar -->
           <div class="settings-tabs">
+            <button class="settings-tab-btn" data-settings-tab="account" data-i18n="settings.account">Account</button>
             <button class="settings-tab-btn" data-settings-tab="playback" data-i18n="settings.tabPlayback">Playback</button>
             <button class="settings-tab-btn" data-settings-tab="appearance" data-i18n="settings.tabAppearance">Appearance</button>
-            <button class="settings-tab-btn" data-settings-tab="data" data-i18n="settings.tabData">Data &amp; Library</button>
             <button class="settings-tab-btn" data-settings-tab="marketplace" data-i18n="plugins.title">Marketplace</button>
             <button class="settings-tab-btn" data-settings-tab="about" data-i18n="settings.tabAbout">About</button>
           </div>
+
+          <!-- ── Account tab ── -->
+          <div class="settings-tab-pane" data-tab="account">
+
+          <div class="settings-group">
+            <h3 data-i18n="settings.account">Account</h3>
+            <div id="account-section">
+              <div id="account-signed-out">
+                <p class="setting-desc" style="margin-bottom:12px;" data-i18n="settings.accountDesc">Sign in to sync your playlists, liked songs, and settings across devices.</p>
+                <div class="auth-form" id="auth-form">
+                  <input type="email" id="auth-email" class="auth-input" placeholder="Email" data-i18n-placeholder="common.email" spellcheck="false" autocomplete="email" />
+                  <input type="password" id="auth-password" class="auth-input" placeholder="Password" data-i18n-placeholder="common.password" autocomplete="current-password" />
+                  <div class="auth-buttons">
+                    <button class="btn-setting-action" id="btn-sign-in" data-i18n="settings.signIn">Sign In</button>
+                    <button class="btn-setting-action" id="btn-sign-up" data-i18n="settings.createAccount">Create Account</button>
+                    <button class="btn-welcome-forgot" id="btn-forgot-settings" data-i18n="welcome.forgotPassword">Forgot password?</button>
+                  </div>
+                  <p class="auth-error hidden" id="auth-error"></p>
+                </div>
+              </div>
+              <div id="account-signed-in" class="hidden">
+                <div class="profile-section">
+                  <div class="profile-avatar-wrapper">
+                    <img class="profile-avatar" id="profile-avatar" src="" alt="" draggable="false" />
+                    <button class="profile-avatar-edit" id="btn-change-avatar" data-i18n-title="settings.changeAvatar" title="Change profile picture">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                    </button>
+                  </div>
+                  <div class="profile-info">
+                    <div class="profile-name-row">
+                      <span class="profile-display-name" id="profile-display-name">User</span>
+                      <button class="profile-edit-btn" id="btn-edit-name" data-i18n-title="settings.editName" title="Edit display name">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                      </button>
+                    </div>
+                    <span class="profile-email" id="profile-email"></span>
+                    <span class="setting-desc" id="account-sync-status"></span>
+                  </div>
+                </div>
+                <div class="profile-edit-row hidden" id="profile-edit-name-row">
+                  <input type="text" class="auth-input" id="profile-name-input" placeholder="Display name" data-i18n-placeholder="settings.displayName" maxlength="30" />
+                  <button class="btn-setting-action" id="btn-save-name" data-i18n="settings.save">Save</button>
+                  <button class="btn-setting-action" id="btn-cancel-name" data-i18n="settings.cancel">Cancel</button>
+                </div>
+                <div class="account-actions" style="margin-top: 12px;">
+                  <button class="btn-setting-action" id="btn-sync-now" data-i18n="settings.syncNow">Sync Now</button>
+                  <button class="btn-setting-action btn-danger" id="btn-sign-out" data-i18n="settings.signOut">Sign Out</button>
+                </div>
+
+                <div class="profile-extras" style="margin-top: 20px;">
+                  <h4 class="profile-extras-title" data-i18n="settings.profile">Profile</h4>
+                  <div class="profile-banner-section">
+                    <div class="profile-banner-preview" id="profile-banner-preview">
+                      <span class="profile-banner-placeholder" data-i18n="settings.noBanner">No banner</span>
+                    </div>
+                    <div class="profile-banner-actions">
+                      <button class="btn-setting-action" id="btn-change-banner" data-i18n="settings.changeBanner">Change Banner</button>
+                      <button class="btn-setting-action" id="btn-remove-banner" style="display:none;" data-i18n="settings.removeBanner">Remove</button>
+                    </div>
+                  </div>
+                  <div class="profile-bio-section">
+                    <textarea id="profile-bio-input" class="profile-bio-input" maxlength="200" data-i18n-placeholder="settings.bioPlaceholder" placeholder="Write a short bio..."></textarea>
+                    <div class="profile-bio-footer">
+                      <span class="profile-bio-count" id="profile-bio-count">0/200</span>
+                      <button class="btn-setting-action" id="btn-save-bio" data-i18n="settings.saveBio">Save Bio</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h3 data-i18n="settings.localData">Local Data</h3>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.exportLibrary">Export library</span>
+                <span class="setting-desc" data-i18n="settings.exportLibraryDesc">Save your playlists, liked songs, and settings to a file</span>
+              </div>
+              <button class="btn-setting-action" id="btn-export-data" data-i18n="settings.exportAction">Export</button>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.importLibrary">Import library</span>
+                <span class="setting-desc" data-i18n="settings.importLibraryDesc">Restore from a previously exported file</span>
+              </div>
+              <button class="btn-setting-action" id="btn-import-data" data-i18n="settings.importAction">Import</button>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h3 data-i18n="settings.data">Data</h3>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.country">Country</span>
+                <span class="setting-desc" data-i18n="settings.countryDesc">Localizes Explore recommendations</span>
+              </div>
+              <select class="setting-select" id="setting-country">
+                <option value="" data-i18n="settings.countryNotSet">Not set</option>
+                <option value="AR">Argentina</option>
+                <option value="AU">Australia</option>
+                <option value="AT">Austria</option>
+                <option value="BE">Belgium</option>
+                <option value="BR">Brazil</option>
+                <option value="CA">Canada</option>
+                <option value="CL">Chile</option>
+                <option value="CO">Colombia</option>
+                <option value="CZ">Czechia</option>
+                <option value="DK">Denmark</option>
+                <option value="EG">Egypt</option>
+                <option value="FI">Finland</option>
+                <option value="FR">France</option>
+                <option value="DE">Germany</option>
+                <option value="GR">Greece</option>
+                <option value="HU">Hungary</option>
+                <option value="IN">India</option>
+                <option value="ID">Indonesia</option>
+                <option value="IE">Ireland</option>
+                <option value="IL">Israel</option>
+                <option value="IT">Italy</option>
+                <option value="JP">Japan</option>
+                <option value="KE">Kenya</option>
+                <option value="MY">Malaysia</option>
+                <option value="MX">Mexico</option>
+                <option value="NL">Netherlands</option>
+                <option value="NZ">New Zealand</option>
+                <option value="NG">Nigeria</option>
+                <option value="NO">Norway</option>
+                <option value="PK">Pakistan</option>
+                <option value="PE">Peru</option>
+                <option value="PH">Philippines</option>
+                <option value="PL">Poland</option>
+                <option value="PT">Portugal</option>
+                <option value="RO">Romania</option>
+                <option value="RU">Russia</option>
+                <option value="SA">Saudi Arabia</option>
+                <option value="SG">Singapore</option>
+                <option value="ZA">South Africa</option>
+                <option value="KR">South Korea</option>
+                <option value="ES">Spain</option>
+                <option value="SE">Sweden</option>
+                <option value="CH">Switzerland</option>
+                <option value="TW">Taiwan</option>
+                <option value="TH">Thailand</option>
+                <option value="TR">Türkiye</option>
+                <option value="UA">Ukraine</option>
+                <option value="AE">United Arab Emirates</option>
+                <option value="GB">United Kingdom</option>
+                <option value="US">United States</option>
+                <option value="VN">Vietnam</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.clearHistory">Clear play history</span>
+                <span class="setting-desc" data-i18n="settings.clearHistoryDesc">Remove recently played tracks from home</span>
+              </div>
+              <button class="btn-setting-action" id="setting-clear-history" data-i18n="common.clear">Clear</button>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.clearSearchHistory">Clear search history</span>
+                <span class="setting-desc" data-i18n="settings.clearSearchHistoryDesc">Remove all saved search queries</span>
+              </div>
+              <button class="btn-setting-action" id="setting-clear-search-history" data-i18n="common.clear">Clear</button>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.resetAll">Reset all data</span>
+                <span class="setting-desc" data-i18n="settings.resetAllDesc">Delete all playlists, liked songs, and settings</span>
+              </div>
+              <button class="btn-setting-action btn-danger" id="setting-reset-all" data-i18n="common.reset">Reset</button>
+            </div>
+          </div>
+
+          </div><!-- /.settings-tab-pane[account] -->
 
           <!-- ── Playback tab ── -->
           <div class="settings-tab-pane" data-tab="playback">
@@ -509,114 +664,6 @@
             </div>
           </div>
           </div><!-- /.settings-tab-pane[appearance] -->
-
-          <!-- ── Data & Library tab ── -->
-          <div class="settings-tab-pane" data-tab="data">
-
-          <div class="settings-group">
-            <h3 data-i18n="settings.localData">Local Data</h3>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.exportLibrary">Export library</span>
-                <span class="setting-desc" data-i18n="settings.exportLibraryDesc">Save your playlists, liked songs, and settings to a file</span>
-              </div>
-              <button class="btn-setting-action" id="btn-export-data" data-i18n="settings.exportAction">Export</button>
-            </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.importLibrary">Import library</span>
-                <span class="setting-desc" data-i18n="settings.importLibraryDesc">Restore from a previously exported file</span>
-              </div>
-              <button class="btn-setting-action" id="btn-import-data" data-i18n="settings.importAction">Import</button>
-            </div>
-          </div>
-
-          <div class="settings-group">
-            <h3 data-i18n="settings.data">Data</h3>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.country">Country</span>
-                <span class="setting-desc" data-i18n="settings.countryDesc">Localizes Explore recommendations</span>
-              </div>
-              <select class="setting-select" id="setting-country">
-                <option value="" data-i18n="settings.countryNotSet">Not set</option>
-                <option value="AR">Argentina</option>
-                <option value="AU">Australia</option>
-                <option value="AT">Austria</option>
-                <option value="BE">Belgium</option>
-                <option value="BR">Brazil</option>
-                <option value="CA">Canada</option>
-                <option value="CL">Chile</option>
-                <option value="CO">Colombia</option>
-                <option value="CZ">Czechia</option>
-                <option value="DK">Denmark</option>
-                <option value="EG">Egypt</option>
-                <option value="FI">Finland</option>
-                <option value="FR">France</option>
-                <option value="DE">Germany</option>
-                <option value="GR">Greece</option>
-                <option value="HU">Hungary</option>
-                <option value="IN">India</option>
-                <option value="ID">Indonesia</option>
-                <option value="IE">Ireland</option>
-                <option value="IL">Israel</option>
-                <option value="IT">Italy</option>
-                <option value="JP">Japan</option>
-                <option value="KE">Kenya</option>
-                <option value="MY">Malaysia</option>
-                <option value="MX">Mexico</option>
-                <option value="NL">Netherlands</option>
-                <option value="NZ">New Zealand</option>
-                <option value="NG">Nigeria</option>
-                <option value="NO">Norway</option>
-                <option value="PK">Pakistan</option>
-                <option value="PE">Peru</option>
-                <option value="PH">Philippines</option>
-                <option value="PL">Poland</option>
-                <option value="PT">Portugal</option>
-                <option value="RO">Romania</option>
-                <option value="RU">Russia</option>
-                <option value="SA">Saudi Arabia</option>
-                <option value="SG">Singapore</option>
-                <option value="ZA">South Africa</option>
-                <option value="KR">South Korea</option>
-                <option value="ES">Spain</option>
-                <option value="SE">Sweden</option>
-                <option value="CH">Switzerland</option>
-                <option value="TW">Taiwan</option>
-                <option value="TH">Thailand</option>
-                <option value="TR">Türkiye</option>
-                <option value="UA">Ukraine</option>
-                <option value="AE">United Arab Emirates</option>
-                <option value="GB">United Kingdom</option>
-                <option value="US">United States</option>
-                <option value="VN">Vietnam</option>
-              </select>
-            </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.clearHistory">Clear play history</span>
-                <span class="setting-desc" data-i18n="settings.clearHistoryDesc">Remove recently played tracks from home</span>
-              </div>
-              <button class="btn-setting-action" id="setting-clear-history" data-i18n="common.clear">Clear</button>
-            </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.clearSearchHistory">Clear search history</span>
-                <span class="setting-desc" data-i18n="settings.clearSearchHistoryDesc">Remove all saved search queries</span>
-              </div>
-              <button class="btn-setting-action" id="setting-clear-search-history" data-i18n="common.clear">Clear</button>
-            </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.resetAll">Reset all data</span>
-                <span class="setting-desc" data-i18n="settings.resetAllDesc">Delete all playlists, liked songs, and settings</span>
-              </div>
-              <button class="btn-setting-action btn-danger" id="setting-reset-all" data-i18n="common.reset">Reset</button>
-            </div>
-          </div>
-
-          </div><!-- /.settings-tab-pane[data] -->
 
           <!-- ── About tab ── -->
           <div class="settings-tab-pane" data-tab="about">

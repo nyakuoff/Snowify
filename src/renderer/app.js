@@ -287,12 +287,261 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
   const SAVE_SVG_CHECK = '<span class="save-burst"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
   const SAVE_SVG_PLUS = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
 
+  let _cloudSaveTimeout = null;
+  let _cloudUser = null;
+  let _cloudSyncPaused = false;
+  let _cloudLastPayloadHash = null;
+  let _cloudLastSentAt = 0;
+  let _resetEmailLastSent = 0;
+  const RESET_COOLDOWN_MS = 60000;
+  const CLOUD_SAVE_DEBOUNCE_MS = 12000;
+  const CLOUD_SAVE_MIN_INTERVAL_MS = 30000;
+
+  function updateSyncStatus(text) {
+    const el = $('#account-sync-status');
+    if (el) el.textContent = text;
+  }
+
+  function _buildCloudPayload() {
+    const stripLocal = (tracks = []) => tracks.filter(t => !t?.isLocal);
+    return {
+      playlists: state.playlists.map(p => ({ ...p, tracks: stripLocal(p.tracks) })),
+      likedSongs: stripLocal(state.likedSongs),
+      followedArtists: state.followedArtists,
+      volume: state.volume,
+      shuffle: state.shuffle,
+      repeat: state.repeat,
+      musicOnly: state.musicOnly,
+      autoplay: state.autoplay,
+      audioQuality: state.audioQuality,
+      videoQuality: state.videoQuality,
+      videoPremuxed: state.videoPremuxed,
+      animations: state.animations,
+      effects: state.effects,
+      theme: isCustomTheme(state.theme) ? 'dark' : state.theme,
+      discordRpc: state.discordRpc,
+      country: state.country,
+      crossfade: state.crossfade,
+      normalization: state.normalization,
+      normalizationTarget: state.normalizationTarget,
+      prefetchCount: state.prefetchCount,
+      songSources: state.songSources,
+      metadataSources: state.metadataSources,
+      showListeningActivity: state.showListeningActivity,
+      minimizeToTray: state.minimizeToTray,
+      launchOnStartup: state.launchOnStartup,
+    };
+  }
+
+  function _hashPayload(payload) {
+    try {
+      return JSON.stringify(payload);
+    } catch {
+      return '';
+    }
+  }
+
+  async function _performCloudSave({ force = false } = {}) {
+    if (!_cloudUser || _cloudSyncPaused) return false;
+
+    const payload = _buildCloudPayload();
+    const payloadHash = _hashPayload(payload);
+    const now = Date.now();
+
+    if (!force && payloadHash && payloadHash === _cloudLastPayloadHash) return false;
+    if (!force && now - _cloudLastSentAt < CLOUD_SAVE_MIN_INTERVAL_MS) return false;
+
+    const result = await window.snowify.cloudSave(payload);
+    if (result?.error) {
+      console.error('Cloud save failed:', result.error);
+      return false;
+    }
+
+    _cloudLastPayloadHash = payloadHash;
+    _cloudLastSentAt = now;
+    updateSyncStatus(I18n.t('sync.syncedJustNow'));
+    return true;
+  }
+
+  function cloudSaveDebounced() {
+    if (!_cloudUser || _cloudSyncPaused) return;
+    clearTimeout(_cloudSaveTimeout);
+    _cloudSaveTimeout = setTimeout(() => {
+      _cloudSaveTimeout = null;
+      _performCloudSave().catch(() => {});
+    }, CLOUD_SAVE_DEBOUNCE_MS);
+  }
+
+  async function forceCloudSave() {
+    if (_cloudSaveTimeout) {
+      clearTimeout(_cloudSaveTimeout);
+      _cloudSaveTimeout = null;
+    }
+    return _performCloudSave({ force: true });
+  }
+
+  async function cloudLoadAndMerge({ forceCloud = false } = {}) {
+    const cloud = await window.snowify.cloudLoad();
+    if (!cloud) return false;
+
+    const localTime = parseInt(localStorage.getItem('snowify_lastSave') || '0', 10);
+    const shouldApply = forceCloud || (cloud.updatedAt && cloud.updatedAt > localTime);
+    if (!shouldApply) return false;
+
+    const localTracksByPlaylist = new Map();
+    for (const p of state.playlists) {
+      const locals = (p.tracks || []).filter(t => t.isLocal);
+      if (locals.length) localTracksByPlaylist.set(p.id, locals);
+    }
+    const localLiked = state.likedSongs.filter(t => t.isLocal);
+
+    state.playlists = cloud.playlists || state.playlists;
+    state.likedSongs = cloud.likedSongs || state.likedSongs;
+    state.followedArtists = cloud.followedArtists || state.followedArtists;
+
+    for (const p of state.playlists) {
+      const locals = localTracksByPlaylist.get(p.id);
+      if (!locals?.length) continue;
+      const ids = new Set((p.tracks || []).map(t => t.id));
+      for (const lt of locals) if (!ids.has(lt.id)) p.tracks.push(lt);
+    }
+    if (localLiked.length) {
+      const likedIds = new Set(state.likedSongs.map(t => t.id));
+      for (const lt of localLiked) if (!likedIds.has(lt.id)) state.likedSongs.push(lt);
+    }
+
+    state.volume = cloud.volume ?? state.volume;
+    state.shuffle = cloud.shuffle ?? state.shuffle;
+    state.repeat = cloud.repeat || state.repeat;
+    state.musicOnly = cloud.musicOnly ?? state.musicOnly;
+    state.autoplay = cloud.autoplay ?? state.autoplay;
+    state.audioQuality = cloud.audioQuality || state.audioQuality;
+    state.videoQuality = cloud.videoQuality || state.videoQuality;
+    state.videoPremuxed = cloud.videoPremuxed ?? state.videoPremuxed;
+    state.animations = cloud.animations ?? state.animations;
+    state.effects = cloud.effects ?? state.effects;
+    if (cloud.theme && !isCustomTheme(cloud.theme) && !isCustomTheme(state.theme)) {
+      state.theme = cloud.theme;
+    }
+    state.discordRpc = cloud.discordRpc ?? state.discordRpc;
+    state.country = cloud.country || state.country;
+    state.crossfade = cloud.crossfade ?? state.crossfade;
+    state.normalization = cloud.normalization ?? state.normalization;
+    state.normalizationTarget = cloud.normalizationTarget ?? state.normalizationTarget;
+    state.prefetchCount = cloud.prefetchCount ?? state.prefetchCount;
+    state.songSources = cloud.songSources || state.songSources;
+    state.metadataSources = cloud.metadataSources || state.metadataSources;
+    state.showListeningActivity = cloud.showListeningActivity ?? state.showListeningActivity;
+    state.minimizeToTray = cloud.minimizeToTray ?? state.minimizeToTray;
+    state.launchOnStartup = cloud.launchOnStartup ?? state.launchOnStartup;
+
+    _cloudSyncPaused = true;
+    saveState();
+    _cloudSyncPaused = false;
+
+    renderPlaylists();
+    renderHome();
+    applyTheme(state.theme);
+
+    const aq = $('#setting-quality'); if (aq) aq.value = state.audioQuality;
+    const vq = $('#setting-video-quality'); if (vq) vq.value = state.videoQuality;
+    const at = $('#setting-autoplay'); if (at) at.checked = state.autoplay;
+    const vp = $('#setting-video-premuxed'); if (vp) vp.checked = state.videoPremuxed;
+    const an = $('#setting-animations'); if (an) an.checked = state.animations;
+    const ef = $('#setting-effects'); if (ef) ef.checked = state.effects;
+    const dr = $('#setting-discord-rpc'); if (dr) dr.checked = state.discordRpc;
+    const co = $('#setting-country'); if (co) co.value = state.country || '';
+    const ts = $('#theme-select'); if (ts) await populateCustomThemes(ts, state.theme);
+    const cft = $('#setting-crossfade-toggle'); if (cft) cft.checked = state.crossfade > 0;
+    const cfsl = $('#crossfade-slider-row'); if (cfsl) cfsl.classList.toggle('hidden', state.crossfade <= 0);
+    const cff = $('#crossfade-fill');
+    const cfvl = $('#crossfade-value');
+    if (cff && cfvl) {
+      const v = state.crossfade > 0 ? state.crossfade : 5;
+      cff.style.width = ((v - 1) / (engine.CROSSFADE_MAX - 1) * 100) + '%';
+      cfvl.textContent = I18n.t('settings.seconds', { value: v });
+    }
+    const nt = $('#setting-normalization'); if (nt) nt.checked = state.normalization;
+    const ntr = $('#normalization-target-row'); if (ntr) ntr.classList.toggle('hidden', !state.normalization);
+    const nts = $('#setting-normalization-target'); if (nts) nts.value = String(state.normalizationTarget);
+    const pfc = $('#setting-prefetch-count'); if (pfc) pfc.value = String(state.prefetchCount);
+    const mtt = $('#setting-minimize-to-tray'); if (mtt) mtt.checked = state.minimizeToTray;
+    const los = $('#setting-launch-on-startup'); if (los) los.checked = state.launchOnStartup;
+
+    if (state.country) window.snowify.setCountry(state.country);
+    document.documentElement.classList.toggle('no-animations', !state.animations);
+    document.documentElement.classList.toggle('no-effects', !state.effects);
+    engine.applyVolume(state.volume);
+    audio.volume = state.volume * VOLUME_SCALE;
+    showToast(I18n.t('toast.syncedFromCloud'));
+    return true;
+  }
+
+  async function loadProfileExtras() {
+    if (!_cloudUser) return;
+    const bannerPreview = $('#profile-banner-preview');
+    const btnRemoveBanner = $('#btn-remove-banner');
+    const bioInput = $('#profile-bio-input');
+    const bioCount = $('#profile-bio-count');
+    if (!bannerPreview || !bioInput || !bioCount || !btnRemoveBanner) return;
+    try {
+      const profile = await window.snowify.getProfile(_cloudUser.uid);
+      if (!profile) {
+        bannerPreview.innerHTML = `<span class="profile-banner-placeholder">${escapeHtml(I18n.t('settings.noBanner'))}</span>`;
+        btnRemoveBanner.style.display = 'none';
+        bioInput.value = '';
+        bioCount.textContent = '0/200';
+        return;
+      }
+      if (profile.banner) {
+        bannerPreview.innerHTML = `<img src="${escapeHtml(profile.banner)}" alt="" draggable="false" />`;
+        btnRemoveBanner.style.display = '';
+      } else {
+        bannerPreview.innerHTML = `<span class="profile-banner-placeholder">${escapeHtml(I18n.t('settings.noBanner'))}</span>`;
+        btnRemoveBanner.style.display = 'none';
+      }
+
+      const bio = profile.bio || '';
+      bioInput.value = bio;
+      bioCount.textContent = `${bio.length}/200`;
+    } catch (_) {}
+  }
+
+  function updateAccountUI(user) {
+    _cloudUser = user;
+    const signedOut = $('#account-signed-out');
+    const signedIn = $('#account-signed-in');
+    const profileEmail = $('#profile-email');
+    const profileName = $('#profile-display-name');
+    const profileAvatar = $('#profile-avatar');
+
+    if (user) {
+      signedOut?.classList.add('hidden');
+      signedIn?.classList.remove('hidden');
+      if (profileName) profileName.textContent = user.displayName || I18n.t('common.user');
+      if (profileEmail) profileEmail.textContent = user.email || '';
+      if (profileAvatar) {
+        profileAvatar.src = user.photoURL || generateDefaultAvatar(user.displayName || user.email || 'U');
+      }
+      updateSyncStatus(I18n.t('sync.connected'));
+      loadProfileExtras();
+    } else {
+      signedOut?.classList.remove('hidden');
+      signedIn?.classList.add('hidden');
+      if (profileEmail) profileEmail.textContent = '';
+      if (profileName) profileName.textContent = I18n.t('common.user');
+      if (profileAvatar) profileAvatar.src = '';
+      updateSyncStatus('');
+    }
+  }
+
   let _saveStateTimer = null;
   function saveState() {
     if (_saveStateTimer) return; // already scheduled
     _saveStateTimer = setTimeout(() => {
       _saveStateTimer = null;
       _flushSaveState();
+      cloudSaveDebounced();
     }, 300);
   }
   function _flushSaveState() {
@@ -5611,21 +5860,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const systemLocale = await window.snowify.getLocale();
     await I18n.init(systemLocale);
     loadState();
-    showMigrationNoticeIfNeeded();
     finishInit();
     loadPlayLogAsync(); // fire-and-forget — avoids blocking startup with large JSON parse
-  }
-
-  function showMigrationNoticeIfNeeded() {
-    const key = 'snowify_local_migration_v1';
-    if (localStorage.getItem(key)) return;
-    const overlay = $('#migration-notice-overlay');
-    if (!overlay) return;
-    overlay.classList.remove('hidden');
-    $('#btn-migration-ok').addEventListener('click', () => {
-      localStorage.setItem(key, '1');
-      overlay.classList.add('hidden');
-    });
   }
 
   // ─── Wrapped trigger ───
@@ -6024,6 +6260,25 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     });
   }
 
+  function generateDefaultAvatar(name) {
+    const letter = String(name || 'U').charAt(0).toUpperCase();
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#aa55e6';
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.arc(64, 64, 64, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 56px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(letter, 64, 67);
+    return canvas.toDataURL();
+  }
+
   // ─── Deep link handler ───
   async function handleAppDeepLink({ type, id }) {
     if (type === 'track') {
@@ -6053,10 +6308,22 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     });
   }
 
+  if (window.snowify.onAuthStateChanged) {
+    window.snowify.onAuthStateChanged(async (user) => {
+      updateAccountUI(user);
+      if (user) {
+        updateSyncStatus(I18n.t('sync.syncing'));
+        await cloudLoadAndMerge({ forceCloud: true });
+        updateSyncStatus(I18n.t('sync.syncedJustNow'));
+      }
+    });
+  }
+
   // Flush any pending saves before the window closes
-  window.snowify.onBeforeClose(() => {
+  window.snowify.onBeforeClose(async () => {
     prefetchCache.destroy();
     _flushSaveState();
+    await forceCloudSave();
     window.snowify.closeReady();
   });
 
@@ -6311,7 +6578,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         const btn = e.target.closest('.settings-tab-btn');
         if (btn) activateSettingsTab(btn.dataset.settingsTab);
       });
-      activateSettingsTab(sessionStorage.getItem('settings-tab') || 'playback');
+      const preferredTab = sessionStorage.getItem('settings-tab') || 'account';
+      const tabExists = document.querySelector(`.settings-tab-btn[data-settings-tab="${preferredTab}"]`);
+      activateSettingsTab(tabExists ? preferredTab : 'account');
     }
 
     const autoplayToggle = $('#setting-autoplay');
@@ -6642,6 +6911,263 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       saveState();
       showToast(state.country ? I18n.t('toast.exploreRegionSet', { region: countrySelect.options[countrySelect.selectedIndex].text }) : I18n.t('toast.exploreRegionCleared'));
     });
+
+    const btnSignIn = $('#btn-sign-in');
+    const btnSignUp = $('#btn-sign-up');
+    const btnSignOut = $('#btn-sign-out');
+    const btnForgot = $('#btn-forgot-settings');
+    const btnSyncNow = $('#btn-sync-now');
+
+    btnSignIn?.addEventListener('click', async () => {
+      const email = $('#auth-email')?.value.trim();
+      const password = $('#auth-password')?.value;
+      const errorEl = $('#auth-error');
+      if (errorEl) errorEl.classList.add('hidden');
+      if (!email || !password) {
+        if (errorEl) {
+          errorEl.textContent = I18n.t('welcome.enterEmailPassword');
+          errorEl.classList.remove('hidden');
+        }
+        return;
+      }
+      const result = await window.snowify.signInWithEmail(email, password);
+      if (result?.error) {
+        if (errorEl) {
+          errorEl.textContent = result.error;
+          errorEl.classList.remove('hidden');
+        }
+      } else {
+        showToast(I18n.t('toast.signedIn'));
+      }
+    });
+
+    btnSignUp?.addEventListener('click', async () => {
+      const email = $('#auth-email')?.value.trim();
+      const password = $('#auth-password')?.value;
+      const errorEl = $('#auth-error');
+      if (errorEl) errorEl.classList.add('hidden');
+      if (!email || !password) {
+        if (errorEl) {
+          errorEl.textContent = I18n.t('welcome.enterEmailPassword');
+          errorEl.classList.remove('hidden');
+        }
+        return;
+      }
+      if (password.length < 6) {
+        if (errorEl) {
+          errorEl.textContent = I18n.t('welcome.passwordMinLength');
+          errorEl.classList.remove('hidden');
+        }
+        return;
+      }
+      const result = await window.snowify.signUpWithEmail(email, password);
+      if (result?.error) {
+        if (errorEl) {
+          errorEl.textContent = result.error;
+          errorEl.classList.remove('hidden');
+        }
+      } else {
+        showToast(I18n.t('toast.accountCreated'));
+      }
+    });
+
+    btnSignOut?.addEventListener('click', async () => {
+      await forceCloudSave();
+      await window.snowify.authSignOut();
+      showToast(I18n.t('toast.signedOut'));
+    });
+
+    btnForgot?.addEventListener('click', async () => {
+      const email = $('#auth-email')?.value.trim();
+      const errorEl = $('#auth-error');
+      if (errorEl) {
+        errorEl.style.color = '';
+        errorEl.classList.add('hidden');
+      }
+      if (!email) {
+        if (errorEl) {
+          errorEl.textContent = I18n.t('welcome.enterEmailForReset');
+          errorEl.classList.remove('hidden');
+        }
+        return;
+      }
+      const now = Date.now();
+      const remaining = Math.ceil((RESET_COOLDOWN_MS - (now - _resetEmailLastSent)) / 1000);
+      if (remaining > 0) {
+        if (errorEl) {
+          errorEl.textContent = `Please wait ${remaining}s before sending another reset email.`;
+          errorEl.classList.remove('hidden');
+        }
+        return;
+      }
+
+      btnForgot.disabled = true;
+      const result = await window.snowify.sendPasswordReset(email);
+      if (result?.error) {
+        btnForgot.disabled = false;
+        if (errorEl) {
+          errorEl.textContent = result.error;
+          errorEl.classList.remove('hidden');
+        }
+        return;
+      }
+
+      _resetEmailLastSent = Date.now();
+      if (errorEl) {
+        errorEl.style.color = 'var(--accent)';
+        errorEl.textContent = I18n.t('welcome.resetEmailSent');
+        errorEl.classList.remove('hidden');
+      }
+
+      let secs = 60;
+      const iv = setInterval(() => {
+        secs -= 1;
+        if (secs <= 0) {
+          clearInterval(iv);
+          btnForgot.disabled = false;
+          btnForgot.textContent = I18n.t('welcome.forgotPassword');
+        } else {
+          btnForgot.textContent = `Resend in ${secs}s`;
+        }
+      }, 1000);
+    });
+
+    btnSyncNow?.addEventListener('click', async () => {
+      if (!_cloudUser) return;
+      updateSyncStatus(I18n.t('sync.syncing'));
+      await cloudLoadAndMerge({ forceCloud: true });
+      await forceCloudSave();
+      updateSyncStatus(I18n.t('sync.syncedJustNow'));
+    });
+
+    const btnEditName = $('#btn-edit-name');
+    const btnCancelName = $('#btn-cancel-name');
+    const btnSaveName = $('#btn-save-name');
+    const profileNameInput = $('#profile-name-input');
+    const btnChangeAvatar = $('#btn-change-avatar');
+    const btnChangeBanner = $('#btn-change-banner');
+    const btnRemoveBanner = $('#btn-remove-banner');
+    const bioInput = $('#profile-bio-input');
+    const bioCount = $('#profile-bio-count');
+    const btnSaveBio = $('#btn-save-bio');
+    const bannerPreview = $('#profile-banner-preview');
+
+    btnEditName?.addEventListener('click', () => {
+      const row = $('#profile-edit-name-row');
+      if (!row || !profileNameInput) return;
+      row.classList.remove('hidden');
+      profileNameInput.value = $('#profile-display-name')?.textContent || '';
+      profileNameInput.focus();
+      profileNameInput.select();
+    });
+
+    btnCancelName?.addEventListener('click', () => {
+      $('#profile-edit-name-row')?.classList.add('hidden');
+    });
+
+    btnSaveName?.addEventListener('click', async () => {
+      const name = (profileNameInput?.value || '').trim();
+      if (!name) return;
+      const result = await window.snowify.updateProfile({ displayName: name });
+      if (result?.error) {
+        showToast(I18n.t('toast.failedUpdateName'));
+      } else {
+        const nameEl = $('#profile-display-name');
+        if (nameEl) nameEl.textContent = name;
+        const avatarEl = $('#profile-avatar');
+        if (avatarEl) avatarEl.src = result.photoURL || generateDefaultAvatar(name);
+        $('#profile-edit-name-row')?.classList.add('hidden');
+        showToast(I18n.t('toast.nameUpdated'));
+      }
+    });
+
+    profileNameInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') btnSaveName?.click();
+      if (e.key === 'Escape') btnCancelName?.click();
+    });
+
+    btnChangeAvatar?.addEventListener('click', async () => {
+      const filePath = await window.snowify.pickImage();
+      if (!filePath) return;
+      if (/\.gif$/i.test(filePath)) { showToast('GIFs are not supported'); return; }
+      try {
+        const dataUrl = await window.snowify.readImage(filePath);
+        if (!dataUrl) { showToast(I18n.t('toast.failedLoadImage')); return; }
+        const cropped = await openCropModal({
+          dataUrl,
+          title: 'Crop Profile Picture',
+          circle: true,
+          aspectRatio: 1,
+          outputWidth: 256,
+          outputHeight: 256,
+          quality: 0.85
+        });
+        if (!cropped) return;
+        const updateResult = await window.snowify.updateProfile({ photoURL: cropped });
+        if (updateResult?.error) {
+          showToast(I18n.t('toast.failedUpdateAvatarMsg', { error: updateResult.error }));
+          return;
+        }
+        const avatarEl = $('#profile-avatar');
+        if (avatarEl) avatarEl.src = cropped;
+        showToast(I18n.t('toast.avatarUpdated'));
+      } catch (_) {
+        showToast(I18n.t('toast.failedLoadImage'));
+      }
+    });
+
+    bioInput?.addEventListener('input', () => {
+      if (bioCount && bioInput) bioCount.textContent = `${bioInput.value.length}/200`;
+    });
+
+    btnChangeBanner?.addEventListener('click', async () => {
+      const filePath = await window.snowify.pickImage();
+      if (!filePath) return;
+      if (/\.gif$/i.test(filePath)) { showToast('GIFs are not supported'); return; }
+      const dataUri = await window.snowify.readImage(filePath);
+      if (!dataUri) {
+        showToast(I18n.t('toast.failedLoadImage'));
+        return;
+      }
+      const cropped = await openCropModal({
+        dataUrl: dataUri,
+        title: 'Crop Banner',
+        circle: false,
+        aspectRatio: 3,
+        outputWidth: 960,
+        outputHeight: 320,
+        quality: 0.85
+      });
+      if (!cropped) return;
+
+      const res = await window.snowify.updateProfileExtras({ banner: cropped });
+      if (!res?.success) {
+        showToast(res?.error || I18n.t('toast.failedUpdateBanner'));
+        return;
+      }
+      if (bannerPreview) bannerPreview.innerHTML = `<img src="${escapeHtml(cropped)}" alt="" draggable="false" />`;
+      if (btnRemoveBanner) btnRemoveBanner.style.display = '';
+      showToast(I18n.t('toast.bannerUpdated'));
+    });
+
+    btnRemoveBanner?.addEventListener('click', async () => {
+      const res = await window.snowify.updateProfileExtras({ banner: '' });
+      if (!res?.success) return;
+      if (bannerPreview) {
+        bannerPreview.innerHTML = `<span class="profile-banner-placeholder">${escapeHtml(I18n.t('settings.noBanner'))}</span>`;
+      }
+      btnRemoveBanner.style.display = 'none';
+      showToast(I18n.t('toast.bannerRemoved'));
+    });
+
+    btnSaveBio?.addEventListener('click', async () => {
+      const bio = (bioInput?.value || '').trim().slice(0, 200);
+      const res = await window.snowify.updateProfileExtras({ bio });
+      if (res?.success) showToast(I18n.t('toast.bioSaved'));
+      else showToast(res?.error || I18n.t('toast.failedSaveBio'));
+    });
+
+    updateAccountUI(await window.snowify.getUser());
 
     $('#setting-clear-history').addEventListener('click', () => {
       if (confirm(I18n.t('settings.confirmClearHistory'))) {
