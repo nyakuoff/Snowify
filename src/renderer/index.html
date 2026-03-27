@@ -289,7 +289,7 @@
                 <span class="toggle-slider"></span>
               </label>
             </div>
-            <div class="setting-row">
+            <div class="setting-row" id="row-discord-rpc">
               <div class="setting-info">
                 <span class="setting-label" data-i18n="settings.discordRpc">Discord Rich Presence</span>
                 <span class="setting-desc" data-i18n="settings.discordRpcDesc">Show what you're listening to on Discord</span>
@@ -421,6 +421,27 @@
             <h3 data-i18n="settings.appearance">Appearance</h3>
             <div class="setting-row">
               <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.language">Language</span>
+                <span class="setting-desc" data-i18n="settings.languageDesc">App display language</span>
+              </div>
+              <select class="setting-select" id="setting-language">
+                <option value="" data-i18n="settings.langAuto">System default</option>
+                <option value="en">English</option>
+                <option value="es">Español</option>
+                <option value="pt">Português</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="ja">日本語</option>
+                <option value="ko">한국어</option>
+                <option value="zh">中文</option>
+                <option value="it">Italiano</option>
+                <option value="tr">Türkçe</option>
+                <option value="ru">Русский</option>
+                <option value="hi">हिन्दी</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
                 <span class="setting-label" data-i18n="settings.theme">Theme</span>
                 <span class="setting-desc" data-i18n="settings.themeDesc">Choose a color theme for the app</span>
               </div>
@@ -466,7 +487,7 @@
                 <span class="toggle-slider"></span>
               </label>
             </div>
-            <div class="setting-row">
+            <div class="setting-row" id="row-minimize-to-tray">
               <div class="setting-info">
                 <span class="setting-label" data-i18n="settings.minimizeToTray">Minimize to tray</span>
                 <span class="setting-desc" data-i18n="settings.minimizeToTrayDesc">Closing the app minimizes it to the system tray instead of quitting</span>
@@ -476,7 +497,7 @@
                 <span class="toggle-slider"></span>
               </label>
             </div>
-            <div class="setting-row">
+            <div class="setting-row" id="row-launch-on-startup">
               <div class="setting-info">
                 <span class="setting-label" data-i18n="settings.launchOnStartup">Launch on startup</span>
                 <span class="setting-desc" data-i18n="settings.launchOnStartupDesc">Automatically start Snowify when you log in</span>
@@ -922,6 +943,11 @@
     <div class="max-np-bg max-np-bg-a" id="max-np-bg-a"></div>
     <div class="max-np-bg max-np-bg-b" id="max-np-bg-b"></div>
     <div class="max-np-topbar">
+      <img class="max-np-topbar-art" id="max-np-topbar-art" src="" alt="" />
+      <div class="max-np-topbar-info">
+        <span class="max-np-topbar-title" id="max-np-topbar-title">—</span>
+        <span class="max-np-topbar-artist" id="max-np-topbar-artist">—</span>
+      </div>
       <button class="icon-btn max-np-x" id="max-np-x" title="Close" data-i18n-title="common.close">
         <svg width="20" height="20" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
@@ -966,6 +992,9 @@
           </button>
           <button class="icon-btn max-np-lyrics-toggle" id="max-np-lyrics-toggle" data-i18n-title="lyrics.toggleLyrics" title="Toggle Lyrics">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 15 15"><path fill="currentColor" d="M12.1 2.952a2.988 2.988 0 0 0-5.11 1.965l3.142 3.142A2.988 2.988 0 0 0 12.1 2.952m-7.428 5.3L2.55 10.377a1 1 0 0 0 0 1.414l.707.707a1 1 0 0 0 1.414 0l2.121-2.121l2.122-2.122l-2.121-2.121Zm.741 2.087l-.707-.707l2.087-2.084l.707.707Z"/></svg>
+          </button>
+          <button class="icon-btn max-np-queue-btn" id="max-np-queue" data-i18n-title="player.queue" title="Queue">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h10v2H4v-2zm14-1v6l5-3-5-3z"/></svg>
           </button>
           <div class="max-np-volume">
             <button class="icon-btn max-np-vol-btn" id="max-np-vol-btn" title="Volume" data-i18n-title="player.volume">
@@ -1146,6 +1175,7 @@
 
   <audio id="audio-player" preload="auto" crossorigin="anonymous"></audio>
   <audio id="audio-player-b" preload="auto" crossorigin="anonymous"></audio>
+  <script src="mobile-bridge.js"></script>
   <script src="i18n.js"></script>
   <script src="crossfade-engine.js"></script>
   <script src="loudness-normalizer.js"></script>

@@ -895,6 +895,42 @@ html, body {
   transform: scale(1.08);
 }
 
+/* ═══════ Auto Marquee For Truncated Text ═══════ */
+.auto-marquee-target {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.auto-marquee-target > .auto-marquee-inner {
+  display: inline-block;
+  min-width: 100%;
+  transform: translateX(0);
+}
+.auto-marquee-target.auto-marquee-active {
+  text-overflow: clip !important;
+}
+.auto-marquee-target.auto-marquee-active > .auto-marquee-inner {
+  animation: autoMarqueeSweep var(--marquee-duration, 9s) ease-in-out infinite;
+  will-change: transform;
+}
+.auto-marquee-target.auto-marquee-active:hover > .auto-marquee-inner {
+  animation-play-state: paused;
+}
+@keyframes autoMarqueeSweep {
+  0%, 12% {
+    transform: translateX(0);
+  }
+  50%, 62% {
+    transform: translateX(calc(-1 * var(--marquee-distance, 0px)));
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
 /* ═══════ Search ═══════ */
 .search-bar-container {
   position: sticky;
@@ -4008,6 +4044,9 @@ body.audio-playing .play-btn {
   right: 24px;
   z-index: 5;
 }
+/* Topbar art/info: hidden on desktop, visible only on mobile */
+.max-np-topbar-art,
+.max-np-topbar-info { display: none; }
 .max-np-x {
   color: rgba(255, 255, 255, 0.65);
   transition: color var(--transition), transform var(--transition);
@@ -5876,4 +5915,1205 @@ body.i18n-switching { opacity: 0; }
   letter-spacing: 0.05em;
   pointer-events: none;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Mobile / Capacitor — Native-App Layout
+   Applied ONLY when .platform-mobile is on <html> (set by mobile bridge).
+   Desktop Electron is completely unaffected — the bridge guard ensures this.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Design tokens ─── */
+.platform-mobile {
+  --titlebar-height: 0px;
+  --bar-h: 66px;          /* mini player pill height            */
+  --bar-r: 18px;          /* mini player pill border-radius     */
+  --nav-h: 60px;          /* bottom tab bar height              */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+  --page-pad: 16px;       /* horizontal content padding         */
+  --card-gap: 12px;       /* gap between cards / items          */
+  --section-mb: 6px;      /* section bottom margin              */
+}
+
+/* ─── Hide desktop chrome ─── */
+.platform-mobile #titlebar,
+.platform-mobile #floating-search,
+.platform-mobile .floating-search,
+.platform-mobile #update-banner,
+.platform-mobile .sidebar-resize-handle { display: none !important; }
+
+/* ─── Root sizing ─── */
+.platform-mobile html,
+.platform-mobile body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* ─── App shell ─── */
+.platform-mobile #app {
+  position: fixed;
+  top: var(--safe-top);
+  left: 0; right: 0;
+  bottom: calc(var(--bar-h) + var(--nav-h) + var(--safe-bot));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-base);
+}
+.platform-mobile #app.no-player {
+  bottom: calc(var(--nav-h) + var(--safe-bot));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Bottom tab bar
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile #sidebar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0; top: auto;
+  width: 100% !important;
+  min-width: unset !important;
+  height: calc(var(--nav-h) + var(--safe-bot));
+  padding-bottom: var(--safe-bot);
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  background: color-mix(in srgb, var(--bg-surface) 97%, transparent);
+  border-right: none;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 99;
+  overflow: visible;
+}
+
+.platform-mobile .sidebar-nav {
+  flex-direction: row;
+  width: 100%;
+  height: var(--nav-h);
+  gap: 0;
+  padding: 0;
+}
+
+.platform-mobile .sidebar-section { display: none !important; }
+
+/* Individual tab button */
+.platform-mobile .nav-btn {
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 4px 6px;
+  height: var(--nav-h);
+  border-radius: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-subdued);
+  transition: color 0.15s;
+  min-width: unset;
+  position: relative;
+}
+.platform-mobile .nav-btn svg {
+  width: 23px;
+  height: 23px;
+  flex-shrink: 0;
+  transition: transform 0.18s;
+}
+.platform-mobile .nav-btn span { display: block; font-size: 10px; line-height: 1.15; }
+.platform-mobile .nav-btn.active { color: var(--accent); }
+.platform-mobile .nav-btn.active svg { transform: scale(1.12); }
+.platform-mobile .nav-btn.active::before { display: none; }
+/* Active indicator pill above icon */
+.platform-mobile .nav-btn.active::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 26px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.platform-mobile .nav-btn:hover { transform: none; background: transparent; }
+.platform-mobile .nav-btn:active { opacity: 0.55; transform: scale(0.92); }
+/* Search nav visible on mobile (hidden on desktop) */
+.platform-mobile [data-view="search"] { display: flex !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Mini now-playing pill (floats above tab bar)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile #now-playing-bar {
+  position: fixed;
+  bottom: calc(var(--nav-h) + var(--safe-bot) + 10px);
+  left: 12px;
+  right: 12px;
+  height: var(--bar-h);
+  padding: 0 6px 0 8px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  background: color-mix(in srgb, var(--bg-elevated) 92%, rgba(var(--ambient-rgb), 0.45));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--bar-r);
+  box-shadow: 0 10px 36px rgba(0,0,0,0.48), 0 2px 8px rgba(0,0,0,0.22);
+  z-index: 100;
+  cursor: pointer;
+  /* Override desktop 3-col grid */
+  grid-template-columns: unset;
+  transition: transform 0.38s cubic-bezier(0.32,0.72,0,1), opacity 0.25s;
+}
+/* Playback progress bar along bottom edge */
+.platform-mobile #now-playing-bar::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 10px; right: 10px;
+  height: 3px;
+  border-radius: 0 0 var(--bar-r) var(--bar-r);
+  background: linear-gradient(to right,
+    var(--accent) calc(var(--np-progress, 0) * 100%),
+    rgba(255,255,255,0.07) calc(var(--np-progress, 0) * 100%)
+  );
+  pointer-events: none;
+}
+.platform-mobile #now-playing-bar.hidden {
+  transform: translateY(170%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Track info inside mini player */
+.platform-mobile .np-track-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding-left: 4px;
+}
+.platform-mobile #np-thumbnail {
+  width: 48px;
+  height: 48px;
+  border-radius: 13px;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+.platform-mobile .np-title { font-size: 14px; font-weight: 600; }
+.platform-mobile .np-artist { font-size: 12px; }
+
+/* Hide desktop-only mini-player elements */
+.platform-mobile .np-progress { display: none !important; }
+.platform-mobile .np-extras {
+  display: flex !important;
+  align-items: center;
+  flex-shrink: 0;
+}
+.platform-mobile .np-extras #btn-lyrics,
+.platform-mobile .np-extras .volume-control { display: none !important; }
+.platform-mobile .np-like { display: none !important; }
+
+/* Mini player transport — prev / play / next only */
+.platform-mobile .np-controls {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+.platform-mobile .np-controls .icon-btn {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px;
+  border-radius: 50%;
+}
+/* Hide shuffle + repeat in mini-player */
+.platform-mobile .np-controls #btn-shuffle,
+.platform-mobile .np-controls #btn-repeat { display: none; }
+.platform-mobile .np-buttons { display: flex; flex-direction: row; align-items: center; gap: 0; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Main scrollable content
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile #main-content {
+  flex: 1;
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+/* Keep views in layout tree so Android WebView never drops image memory.
+   display:none removes elements from the render tree; height:0+visibility:hidden keeps
+   them but makes them invisible, preventing cover/thumbnail unloading. */
+.platform-mobile .view {
+  display: block !important;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+  padding: 0;
+  min-height: 0;
+  animation: none !important;
+}
+.platform-mobile .view.active {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+  visibility: visible;
+  pointer-events: auto;
+  padding: 0 0 16px;
+  animation: viewEnter 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── View header ─── */
+.platform-mobile .view-header {
+  padding: calc(var(--safe-top) + 22px) var(--page-pad) 4px;
+}
+.platform-mobile .view-header h1 {
+  font-size: clamp(26px, 7vw, 36px);
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-bottom: 0;
+}
+
+/* ─── Section headings ─── */
+.platform-mobile .section {
+  margin-bottom: var(--section-mb);
+}
+.platform-mobile .section h2 {
+  padding: 8px var(--page-pad) 8px;
+  margin-bottom: 0; /* kill desktop margin-bottom, use padding instead */
+  font-size: 17px;
+  font-weight: 700;
+  border-left: none;
+  letter-spacing: -0.3px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Quick picks — 2-column grid with always-visible play button
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .quick-picks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 0 var(--page-pad) 4px;
+  margin-bottom: 8px; /* consistent gap between quick picks and first section */
+}
+.platform-mobile .quick-pick-card {
+  border-radius: 8px;
+  background: rgba(255,255,255,0.07);
+  max-width: none;
+  height: 52px;
+}
+.platform-mobile .quick-pick-card img {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 8px 0 0 8px;
+}
+.platform-mobile .quick-pick-card span {
+  flex: 1;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+}
+/* Always show play button on touch (no hover needed) */
+.platform-mobile .quick-pick-card .qp-play {
+  opacity: 1;
+  transform: none;
+  transition: none;
+  position: static;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+.platform-mobile .quick-pick-card:active { opacity: 0.7; transform: scale(0.97); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Card rows — horizontal scroll carousels (NOT vertical stacking)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .card-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  gap: var(--card-gap);
+  padding: 0 var(--page-pad) 12px;
+  scrollbar-width: none;
+}
+.platform-mobile .card-row::-webkit-scrollbar { display: none; }
+
+/* Track cards inside carousels */
+.platform-mobile .card-row .track-card {
+  min-width: 148px;
+  max-width: 164px;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  padding: 10px;
+}
+.platform-mobile .card-row .track-card .card-thumb {
+  margin-bottom: 8px;
+}
+/* Always-visible play button on touch */
+.platform-mobile .card-row .track-card .card-play {
+  opacity: 1;
+  transform: none;
+  transition: none;
+  bottom: 48px;
+  right: 10px;
+  width: 38px;
+  height: 38px;
+}
+.platform-mobile .card-row .track-card:hover { transform: none; box-shadow: none; }
+.platform-mobile .card-row .track-card:active { opacity: 0.75; transform: scale(0.97); }
+
+/* Horizontal scroll carousels (album-scroll) */
+.platform-mobile .album-scroll {
+  padding: 0 var(--page-pad) 12px;
+  gap: var(--card-gap);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-left: var(--page-pad);
+  scrollbar-width: none;
+}
+.platform-mobile .album-scroll::-webkit-scrollbar { display: none; }
+.platform-mobile .album-scroll .card {
+  min-width: 148px;
+  max-width: 160px;
+  scroll-snap-align: start;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Track rows — native list style
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .track-row {
+  padding: 10px var(--page-pad);
+  min-height: 64px;
+  border-radius: 0;
+  gap: 8px;
+  grid-template-columns: 1fr auto 32px; /* title left, artist auto-width right */
+}
+.platform-mobile .track-row:hover { background: transparent; }
+.platform-mobile .track-row:active { background: rgba(255,255,255,0.05); }
+.platform-mobile .track-num { display: none; }
+.platform-mobile .track-list-header { display: none; }
+.platform-mobile .track-artist-col {
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-subdued);
+  max-width: 110px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  align-self: center;
+}
+.platform-mobile .track-thumb {
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.platform-mobile .track-info { flex: 1; min-width: 0; }
+.platform-mobile .track-title { font-size: 14px; font-weight: 600; }
+.platform-mobile .track-meta { font-size: 12px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Library — 2-column playlist grid
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .library-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 0 var(--page-pad) 12px;
+}
+.platform-mobile .lib-card {
+  padding: 0;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.platform-mobile .lib-card:hover { transform: none; box-shadow: none; }
+.platform-mobile .lib-card:active { opacity: 0.75; transform: scale(0.97); }
+.platform-mobile .lib-card-cover {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 0;
+  margin-bottom: 0;
+  box-shadow: none;
+}
+.platform-mobile .lib-card:hover .lib-card-cover { transform: none; }
+.platform-mobile .lib-card-name {
+  padding: 8px 10px 2px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.platform-mobile .lib-card-meta {
+  padding: 0 10px 10px;
+  font-size: 11px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Playlist / Album hero — full-width cover art
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .playlist-header {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  padding: 0 0 14px;
+}
+.platform-mobile .playlist-hero-cover {
+  width: 100%;
+  max-height: 240px;
+  border-radius: 0;
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+.platform-mobile .playlist-hero-cover img,
+.platform-mobile .playlist-hero-cover .liked-cover,
+.platform-mobile .playlist-hero-cover .playlist-cover-grid { border-radius: 0; width: 100%; height: 100%; }
+.platform-mobile .playlist-hero-info {
+  padding: 0 var(--page-pad);
+  width: 100%;
+  text-align: center;
+}
+.platform-mobile .playlist-hero-name { font-size: clamp(22px, 6vw, 28px); font-weight: 800; letter-spacing: -0.3px; }
+.platform-mobile .playlist-actions { padding: 6px var(--page-pad) 6px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Artist page
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .artist-header {
+  padding: 0 var(--page-pad) 12px;
+  margin-top: 0;
+  gap: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  position: relative;
+  z-index: 2;
+}
+.platform-mobile #view-artist.has-hero .artist-header {
+  margin-top: -106px;
+}
+.platform-mobile .artist-header-info {
+  align-items: flex-start;
+  text-align: left;
+  width: 100%;
+  max-width: 100%;
+  padding-top: 0;
+}
+.platform-mobile .artist-actions {
+  justify-content: flex-start;
+  display: grid;
+  grid-template-columns: auto auto auto;
+  gap: 8px;
+  padding: 0 var(--page-pad) 10px;
+  margin-top: 4px;
+}
+.platform-mobile .artist-avatar {
+  display: none;
+}
+.platform-mobile .artist-banner {
+  height: 340px;
+  width: 100%;
+  margin-left: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+.platform-mobile .artist-banner-fade {
+  height: 200px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.72) 58%, var(--bg-base) 100%);
+}
+.platform-mobile .artist-verified {
+  color: rgba(255,255,255,0.82);
+  letter-spacing: 1.3px;
+  margin-bottom: 4px;
+}
+.platform-mobile .artist-name {
+  font-size: clamp(42px, 14vw, 60px);
+  font-weight: 800;
+  max-width: 100%;
+  line-height: 0.95;
+  color: #fff;
+  background: none;
+  -webkit-text-fill-color: initial;
+}
+.platform-mobile .artist-followers {
+  margin-top: 8px;
+  font-size: 16px;
+  color: rgba(255,255,255,0.9);
+}
+.platform-mobile #btn-artist-play-all {
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.platform-mobile #btn-artist-follow {
+  width: auto;
+  min-height: 42px;
+  padding: 0 14px;
+  font-size: 13px;
+  border-radius: 999px;
+}
+.platform-mobile #btn-artist-share {
+  width: 42px;
+  min-height: 42px;
+  padding: 0;
+  border-radius: 50%;
+}
+.platform-mobile .artist-section h2 { padding-left: var(--page-pad); border-left: none; font-size: 17px; }
+
+/* Stream count subtitle in artist popular track list */
+.track-inline-plays {
+  font-size: 12px;
+  color: var(--text-subdued);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Hide artist col entirely for artist-popular context */
+.track-row--artist .track-artist-col { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Full-screen now-playing — tall phone layout
+   ═══════════════════════════════════════════════════════════════════════════ */
+/* Safe-top is handled here so topbar items never land inside the notch */
+.platform-mobile .max-np {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.platform-mobile .max-np-topbar {
+  position: absolute;
+  top: calc(var(--safe-top) + 6px);
+  left: 0;
+  right: 0;
+  z-index: 4;
+  padding: 14px 16px 8px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  justify-content: flex-end;
+}
+/* Swipe-down handle — sits in the 16px top padding */
+.platform-mobile .max-np-topbar::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 4px;
+  background: rgba(255,255,255,0.22);
+  border-radius: 2px;
+}
+/* Mini cover in topbar */
+.platform-mobile .max-np-topbar-art {
+  display: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+/* Track info in topbar */
+.platform-mobile .max-np-topbar-info {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.platform-mobile .max-np-topbar-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.platform-mobile .max-np-topbar-artist {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.platform-mobile .max-np-x {
+  position: static;
+  transform: none;
+  flex-shrink: 0;
+}
+/* Show the original info block by default; the compact topbar info is lyrics-only */
+.platform-mobile .max-np-info {
+  display: flex;
+  text-align: center;
+}
+.platform-mobile .max-np-body {
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0;
+  padding: calc(var(--safe-top) + 24px) var(--page-pad) calc(var(--safe-bot) + 16px);
+  align-items: center;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  justify-content: center;
+}
+.platform-mobile .max-np.lyrics-active .max-np-topbar {
+  justify-content: flex-start;
+}
+.platform-mobile .max-np.lyrics-active .max-np-topbar-art {
+  display: block;
+}
+.platform-mobile .max-np.lyrics-active .max-np-topbar-info {
+  display: flex;
+}
+.platform-mobile .max-np.lyrics-active .max-np-info {
+  display: none;
+}
+.platform-mobile .max-np.lyrics-active .max-np-body {
+  padding-top: calc(var(--safe-top) + 78px);
+}
+.platform-mobile .max-np-left {
+  width: 100%;
+  max-width: none;
+  gap: 12px;
+  align-items: center;
+  flex: 0 0 auto;
+  justify-content: center;
+}
+/* Album art — bigger, centered, with shadow */
+.platform-mobile .max-np-art {
+  width: min(62vw, 260px);
+  height: min(62vw, 260px);
+  border-radius: 20px;
+  align-self: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.60);
+  flex-shrink: 0;
+}
+/* Override the desktop :has rule that sets 400px when lyrics are hidden */
+.platform-mobile .max-np-body:has(.max-np-right.hidden) .max-np-art {
+  width: min(62vw, 260px) !important;
+  height: min(62vw, 260px) !important;
+}
+/* Progress bar */
+.platform-mobile .max-np-progress { width: 100%; padding: 0 4px; }
+.platform-mobile .max-np-progress-bar { height: 4px; border-radius: 2px; }
+/* Controls */
+.platform-mobile .max-np-controls { gap: 16px; justify-content: center; width: 100%; }
+.platform-mobile .max-np-play-btn { width: 66px; height: 66px; }
+.platform-mobile .max-np-play-btn svg { width: 30px; height: 30px; }
+.platform-mobile .max-np-btn svg { width: 26px; height: 26px; }
+/* Actions row */
+.platform-mobile .max-np-actions { gap: 24px; justify-content: center; width: 100%; }
+/* Hide volume slider on mobile — use system volume */
+.platform-mobile .max-np-volume .max-np-vol-slider { display: none !important; }
+/* Lyrics panel inside NP (normal mode: compact at bottom) */
+.platform-mobile .max-np-right {
+  flex: unset;
+  width: 100%;
+  max-width: none;
+  flex-shrink: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Queue & Lyrics — slide-up bottom sheets
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile #queue-panel,
+.platform-mobile #lyrics-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: auto;
+  height: 82vh;
+  border-radius: 22px 22px 0 0;
+  border-left: none;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  transform: translateY(100%);
+  transition: transform 0.38s cubic-bezier(0.32, 0.72, 0, 1);
+  overflow: hidden;
+  /* Always rendered (off-screen when hidden) so CSS transition works */
+  display: flex !important;
+  flex-direction: column;
+}
+.platform-mobile #queue-panel {
+  z-index: 220;
+}
+/* Lyrics — mobile performance: strip expensive GPU effects, tighten animation */
+.platform-mobile .lyrics-line {
+  transition: opacity 0.18s ease;
+}
+.platform-mobile .lyrics-line.active {
+  transform: none !important;
+  text-shadow: none !important;
+}
+.platform-mobile .max-np-lyrics .lyrics-line {
+  transition: opacity 0.18s ease;
+}
+.platform-mobile .max-np-lyrics .lyrics-line.active {
+  transform: none !important;
+  text-shadow: none !important;
+}
+
+.platform-mobile #lyrics-panel { z-index: 150; }
+.platform-mobile #queue-panel.visible,
+.platform-mobile #lyrics-panel.visible { transform: translateY(0); }
+.platform-mobile #queue-panel.hidden,
+.platform-mobile #lyrics-panel.hidden {
+  transform: translateY(100%);
+  pointer-events: none;
+}
+/* Sheet drag handle */
+.platform-mobile #queue-panel::before,
+.platform-mobile #lyrics-panel::before {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 4px;
+  background: rgba(255,255,255,0.18);
+  border-radius: 2px;
+  margin: 12px auto 0;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Search view
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .search-bar-container {
+  padding: calc(var(--safe-top) + 12px) 52px 8px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg-base);
+}
+/* Hide keyboard shortcut hint on mobile */
+.platform-mobile .search-shortcut-hint { display: none !important; }
+/* Hide custom themes row — not applicable on mobile (no file system access) */
+.platform-mobile .setting-row:has(.custom-theme-actions) { display: none !important; }
+.platform-mobile .search-input-wrap input {
+  font-size: 16px; /* prevents iOS zoom on focus */
+  padding: 13px 44px;
+  border-radius: 14px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Settings — scrollable tab bar + bigger rows + proper scrolling
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .settings-tabs {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  white-space: nowrap;
+  padding: 4px 10px;
+  display: flex;
+  gap: 4px;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+.platform-mobile .settings-tabs::-webkit-scrollbar { display: none; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Settings — complete mobile rewrite
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* View container: flex column, fills screen, overrides the .view.active block */
+.platform-mobile #view-settings.active {
+  display: flex !important;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 0;
+}
+/* Outer wrapper: break desktop max-width:680px centering */
+.platform-mobile .settings-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-width: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+/* Static header at the top, safe-area aware */
+.platform-mobile .settings-content .view-header {
+  position: static;
+  flex-shrink: 0;
+  padding: calc(var(--safe-top) + 14px) var(--page-pad) 6px;
+  margin: 0;
+}
+/* Tab bar: horizontal scroll row */
+.platform-mobile .settings-tabs {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: 6px;
+  padding: 6px var(--page-pad) 10px;
+  flex-shrink: 0;
+  background: transparent;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  margin-bottom: 0;
+}
+/* Tab pill buttons — NOT flex:1, required for container overflow-x to work */
+.platform-mobile .settings-tab-btn {
+  flex: 0 0 auto !important;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.07);
+  color: var(--text-subdued);
+  border: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.platform-mobile .settings-tab-btn.active {
+  background: var(--accent) !important;
+  color: #000 !important;
+}
+/* Panes: only active is visible + scrollable */
+.platform-mobile .settings-tab-pane { display: none !important; }
+.platform-mobile .settings-tab-pane.active {
+  display: flex !important;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 32px;
+}
+/* Section groups: flat, no desktop card style */
+.platform-mobile .settings-group {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  margin-bottom: 0 !important;
+}
+.platform-mobile .settings-group h3 {
+  padding: 18px var(--page-pad) 5px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--accent);
+  border: none;
+  margin: 0;
+}
+/* Rows: label left, control right, never overflow screen */
+.platform-mobile .setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px var(--page-pad);
+  gap: 12px;
+  min-height: 52px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  box-sizing: border-box;
+  width: 100%;
+  flex-wrap: nowrap;
+}
+.platform-mobile .settings-group .setting-row:last-child { border-bottom: none; }
+/* Label side: fill space, ellipsis on overflow */
+.platform-mobile .setting-info { flex: 1; min-width: 0; }
+.platform-mobile .setting-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Descriptions: hidden on mobile */
+.platform-mobile .setting-row .setting-desc { display: none !important; }
+/* Exception: version / update status uses setting-desc for its text content */
+.platform-mobile #app-version-label,
+.platform-mobile #update-status-desc {
+  display: block !important;
+  font-size: 12px;
+  color: var(--text-subdued);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Selects: bounded width so they never push label off screen */
+.platform-mobile .setting-select {
+  flex-shrink: 0;
+  max-width: 140px;
+  font-size: 13px;
+}
+/* Action buttons: stay on row, small enough */
+.platform-mobile .btn-setting-action {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 10px;
+}
+/* Theme button group: wrap when needed */
+.platform-mobile .custom-theme-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 1;
+}
+/* Source list */
+.platform-mobile .source-list { padding: 0 var(--page-pad); }
+.platform-mobile .source-item { padding: 10px var(--page-pad) 10px 0; }
+/* Hide: Marketplace tab + pane entirely */
+.platform-mobile .settings-tab-btn[data-settings-tab="marketplace"] { display: none !important; }
+.platform-mobile .settings-tab-pane[data-tab="marketplace"] { display: none !important; }
+/* Hide: Sources section (irrelevant on mobile) */
+.platform-mobile .settings-group:has(h3[data-i18n="settings.sources"]) { display: none !important; }
+/* Hide: desktop-only rows */
+.platform-mobile #row-minimize-to-tray,
+.platform-mobile #row-launch-on-startup,
+.platform-mobile #row-discord-rpc { display: none !important; }
+/* Hide: desktop filesystem-dependent buttons */
+.platform-mobile #btn-add-theme,
+.platform-mobile #btn-reload-theme,
+.platform-mobile #btn-open-themes,
+.platform-mobile #btn-open-changelog,
+.platform-mobile #btn-check-update { display: none !important; }
+
+/* Broken cover placeholder */
+.cover-error {
+  background: rgba(255,255,255,0.07) !important;
+  opacity: 0.4 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Context menus — larger touch targets, sheet-style bottom position
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .context-menu {
+  min-width: 210px;
+  border-radius: 18px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.platform-mobile .context-menu-item {
+  padding: 14px 18px;
+  font-size: 14.5px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Touch UX fundamentals
+   ═══════════════════════════════════════════════════════════════════════════ */
+/* Disable hover transforms — touch devices don't hover */
+.platform-mobile .icon-btn:hover,
+.platform-mobile .btn:hover,
+.platform-mobile .card:hover { transform: none !important; }
+
+/* Press feedback instead */
+.platform-mobile .icon-btn:active { opacity: 0.55; }
+.platform-mobile .card:active { opacity: 0.7; }
+
+/* Minimum 44×44px touch targets (Apple HIG / Material) */
+.platform-mobile .icon-btn { min-width: 44px; min-height: 44px; }
+.platform-mobile .play-btn { width: 48px; height: 48px; }
+
+/* Momentum scroll on all scrollable containers */
+.platform-mobile .lyrics-body,
+.platform-mobile #main-content,
+.platform-mobile .queue-view,
+.platform-mobile .album-scroll,
+.platform-mobile .settings-content,
+.platform-mobile #view-settings { -webkit-overflow-scrolling: touch; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Lyrics active mode — Spotify-style full-screen lyrics
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile #max-np.lyrics-active .max-np-art { display: none; }
+
+.platform-mobile #max-np.lyrics-active .max-np-info {
+  position: absolute;
+  left: 0; right: 0;
+  top: calc(var(--safe-top) + 52px);
+  z-index: 4;
+  text-align: left;
+  padding: 8px var(--page-pad) 20px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.82) 55%, transparent);
+  pointer-events: none;
+}
+.platform-mobile #max-np.lyrics-active .max-np-title {
+  font-size: 15px; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.platform-mobile #max-np.lyrics-active .max-np-artist {
+  font-size: 13px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.platform-mobile #max-np.lyrics-active .max-np-right {
+  position: absolute;
+  left: 0; right: 0;
+  top: calc(var(--safe-top) + 52px);
+  bottom: 0;
+  z-index: 2;
+  max-height: none;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 72px var(--page-pad) 230px;
+}
+.platform-mobile #max-np.lyrics-active .max-np-progress {
+  position: absolute;
+  left: var(--page-pad); right: var(--page-pad);
+  bottom: calc(var(--safe-bot) + 148px);
+  z-index: 5;
+  padding: 0; width: auto;
+}
+.platform-mobile #max-np.lyrics-active .max-np-controls {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: calc(var(--safe-bot) + 78px);
+  z-index: 5;
+  justify-content: center;
+}
+.platform-mobile #max-np.lyrics-active .max-np-actions {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: calc(var(--safe-bot) + 28px);
+  z-index: 5;
+  justify-content: center;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Scroll arrows — hidden on mobile (swipe to scroll)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .scroll-arrow { display: none !important; }
+.platform-mobile .scroll-container {
+  display: block;
+  overflow: visible;
+}
+.platform-mobile .scroll-container .album-scroll {
+  padding-left: var(--page-pad);
+  padding-right: var(--page-pad);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Card carousels — smaller cards for recent/recommended
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .card-row .track-card {
+  min-width: 118px;
+  max-width: 130px;
+  display: block;
+}
+/* Remove play button from cards on mobile */
+.platform-mobile .card-play,
+.platform-mobile .qp-play { display: none !important; }
+.platform-mobile .card-row .track-card .card-thumb {
+  margin-bottom: 6px;
+}
+.platform-mobile .card-row .track-card .card-title {
+  font-size: 12px;
+  white-space: normal;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+.platform-mobile .card-row .track-card .card-artist {
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  max-width: none;
+  color: var(--text-subdued);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Explore: trending songs — compact single-column list
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .top-songs-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.platform-mobile .top-song-item {
+  padding: 8px var(--page-pad);
+  border-radius: 0;
+  grid-template-columns: 26px 40px 1fr;
+  gap: 8px;
+}
+.platform-mobile .top-song-title { font-size: 13px; }
+.platform-mobile .top-song-artist { font-size: 11px; }
+.platform-mobile .top-song-thumb,
+.platform-mobile .top-song-thumb-wrap { width: 40px; height: 40px; }
+.platform-mobile .top-song-rank { font-size: 13px; }
+
+/* Moods — 2-column grid */
+.platform-mobile .mood-grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 0 var(--page-pad) 8px;
+}
+.platform-mobile .mood-card {
+  padding: 14px 12px;
+  font-size: 12px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Search: artists smaller, section headings compact
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .similar-artists-scroll {
+  padding: 4px var(--page-pad) 8px;
+}
+.platform-mobile .search-artist-card {
+  flex: 0 0 74px;
+  width: 74px;
+  padding: 8px 4px;
+  gap: 5px;
+}
+.platform-mobile .search-artist-avatar {
+  width: 58px; height: 58px;
+}
+.platform-mobile .search-artist-name { font-size: 11px; }
+.platform-mobile .search-artist-label { font-size: 10px; }
+.platform-mobile .search-artist-top { flex: 0 0 86px; width: 86px; }
+.platform-mobile .search-artist-top .search-artist-avatar { width: 68px; height: 68px; }
+.platform-mobile .search-artist-top .search-artist-name { font-size: 12px; }
+.platform-mobile .search-section-header {
+  font-size: 16px;
+  margin: 12px 0 6px;
+  padding: 0 var(--page-pad);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Explore section wrapper padding
+   ═══════════════════════════════════════════════════════════════════════════ */
+.platform-mobile .explore-section { padding: 0; }
+.platform-mobile .explore-section > h2 { padding: 0 var(--page-pad) 10px; }
 

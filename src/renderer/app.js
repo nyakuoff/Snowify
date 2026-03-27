@@ -6,6 +6,269 @@ import { BUILTIN_THEMES, isCustomTheme, customThemeId, applyCustomThemeCss, remo
 
 const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
+const IS_MOBILE_RUNTIME =
+  window.snowify?.platform === 'android' ||
+  window.snowify?.platform === 'ios' ||
+  document.documentElement.classList.contains('platform-mobile') ||
+  /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+
+// ─── Throttled image loader — prevents 429 from simultaneous thumbnail requests ───
+// Images use `data-src` in templates; a MutationObserver feeds them into this queue.
+const _imgQ = (() => {
+  const CONCURRENCY = IS_MOBILE_RUNTIME ? 1 : 2; // mobile is more aggressive with per-host throttling
+  const RETRY_MS = IS_MOBILE_RUNTIME ? [4000, 11000, 22000] : [2500, 7000, 18000];
+  const START_GAP = IS_MOBILE_RUNTIME ? 180 : 80;
+  let _active = 0;
+  let _drainPending = false;
+  const _queue = [];
+  const _queued = new Set();
+  const _loaded = new Set();                // URLs known to be loaded successfully
+  const _inFlight = new Map();              // src -> { els:Set<HTMLImageElement>, attempt:number }
+  let _errorStreak = 0;
+  let _resumeAt = 0;
+
+  const _jitter = ms => ms * (0.75 + Math.random() * 0.5); // ±25% jitter
+
+  function _applySrc(el, src) {
+    if (!el || !el.isConnected) return;
+    if (el.dataset.src === src) el.removeAttribute('data-src');
+    if (el.getAttribute('src') === src || el.currentSrc === src) return;
+    el.loading = 'lazy';
+    el.decoding = 'async';
+    el.src = src;
+  }
+
+  function _drain() {
+    _drainPending = false;
+    if (_resumeAt > Date.now()) {
+      if (!_drainPending) {
+        _drainPending = true;
+        setTimeout(_drain, Math.max(40, _resumeAt - Date.now()));
+      }
+      return;
+    }
+    if (_active >= CONCURRENCY || !_queue.length) return;
+    const next = _queue.shift();
+    if (!next) return;
+    _queued.delete(next.src);
+    _start(next);
+    // Schedule the next slot after a small gap to prevent simultaneous burst
+    if (!_drainPending && _queue.length && _active < CONCURRENCY) {
+      _drainPending = true;
+      setTimeout(_drain, START_GAP);
+    }
+  }
+
+  function _start({ src, attempt }) {
+    _active++;
+    const probe = new Image();
+    probe.decoding = 'async';
+    probe.onload = () => {
+      _active--;
+      _errorStreak = 0;
+      _resumeAt = 0;
+      _loaded.add(src);
+      const entry = _inFlight.get(src);
+      _inFlight.delete(src);
+      entry?.els.forEach(el => _applySrc(el, src));
+      _drain();
+    };
+    probe.onerror = () => {
+      _active--;
+      _errorStreak = Math.min(10, _errorStreak + 1);
+      if (IS_MOBILE_RUNTIME) {
+        // Brief global cooldown helps avoid repeated host throttling bursts.
+        const cooldown = Math.min(12000, 1200 + (_errorStreak * 900));
+        _resumeAt = Math.max(_resumeAt, Date.now() + cooldown);
+      }
+      const entry = _inFlight.get(src);
+      _inFlight.delete(src);
+      const liveEls = [...(entry?.els || [])].filter(el => el && el.isConnected);
+      if (attempt < RETRY_MS.length && liveEls.length) {
+        setTimeout(() => {
+          if (!liveEls.some(el => el.isConnected)) return;
+          _inFlight.set(src, { els: new Set(liveEls.filter(el => el.isConnected)), attempt: attempt + 1 });
+          if (!_queued.has(src)) {
+            _queued.add(src);
+            _queue.push({ src, attempt: attempt + 1 });
+          }
+          _drain();
+        }, _jitter(RETRY_MS[attempt]));
+      } else if (liveEls.length) {
+        // Keep slow-retrying every ~18s indefinitely instead of giving up
+        setTimeout(() => {
+          const stillLive = liveEls.filter(el => el.isConnected);
+          if (!stillLive.length) return;
+          if (_loaded.has(src)) { stillLive.forEach(el => _applySrc(el, src)); return; }
+          _inFlight.set(src, { els: new Set(stillLive), attempt: RETRY_MS.length - 1 });
+          if (!_queued.has(src)) {
+            _queued.add(src);
+            _queue.push({ src, attempt: RETRY_MS.length - 1 });
+          }
+          _drain();
+        }, _jitter(RETRY_MS[RETRY_MS.length - 1]));
+      }
+      _drain();
+    };
+    probe.src = src;
+  }
+
+  // IntersectionObserver: only enqueue when image enters extended viewport.
+  // 300px root margin means images start loading just before scrolling into view.
+  // This prevents the burst of 40+ simultaneous requests on track list renders.
+  const _io = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      const el = entry.target;
+      _io.unobserve(el);
+      const src = el.dataset.src;
+      if (!src) continue;
+      if (el.getAttribute('src') === src || el.currentSrc === src) {
+        el.removeAttribute('data-src');
+        _loaded.add(src);
+        continue;
+      }
+      if (_loaded.has(src)) {
+        _applySrc(el, src);
+        continue;
+      }
+      const existing = _inFlight.get(src);
+      if (existing) {
+        existing.els.add(el);
+        el.removeAttribute('data-src');
+        continue;
+      }
+      el.removeAttribute('data-src');
+      _inFlight.set(src, { els: new Set([el]), attempt: 0 });
+      if (!_queued.has(src)) {
+        _queued.add(src);
+        _queue.push({ src, attempt: 0 });
+      }
+      _drain();
+    }
+  }, { rootMargin: '300px 0px' });
+
+  return {
+    enqueue(el) {
+      if (!el.dataset.src) return;
+      const src = el.dataset.src;
+      if (!src) return;
+      if (el.getAttribute('src') === src || el.currentSrc === src || _loaded.has(src)) {
+        _applySrc(el, src);
+        return;
+      }
+      const existing = _inFlight.get(src);
+      if (existing) {
+        existing.els.add(el);
+        el.removeAttribute('data-src');
+        return;
+      }
+      if (_queued.has(src)) {
+        _io.observe(el);
+        return;
+      }
+      _io.observe(el); // defer until near viewport
+    }
+  };
+})();
+
+// Auto-process any img[data-src] inserted into the DOM
+new MutationObserver(muts => {
+  for (const m of muts)
+    for (const n of m.addedNodes) {
+      if (n.nodeType !== 1) continue;
+      if (n.tagName === 'IMG' && n.dataset.src) _imgQ.enqueue(n);
+      else n.querySelectorAll?.('img[data-src]').forEach(e => _imgQ.enqueue(e));
+    }
+}).observe(document.documentElement, { childList: true, subtree: true });
+
+// ─── Auto marquee for truncated titles/artists ───
+const _MARQUEE_SELECTORS = [
+  '.np-title',
+  '.np-artist',
+  '.max-np-title',
+  '.max-np-artist',
+  '.max-np-topbar-title',
+  '.max-np-topbar-artist',
+  '.track-title',
+  '.track-artist-col',
+  '.card-title',
+  '.card-artist',
+  '.queue-item-title',
+  '.queue-item-artist',
+  '.suggestion-title',
+  '.suggestion-subtitle',
+  '.search-suggestion-text',
+  '.playlist-name',
+  '.album-card-name',
+  '.album-card-meta',
+  '.lib-card-name',
+  '.video-card-name',
+  '.top-song-title',
+  '.top-song-artist',
+  '.similar-artist-name'
+].join(', ');
+
+let _marqueeRefreshRAF = 0;
+
+function _applyAutoMarquee(el) {
+  if (!el || !el.isConnected) return;
+  el.classList.add('auto-marquee-target');
+
+  let inner = el.querySelector(':scope > .auto-marquee-inner');
+  if (!inner) {
+    inner = document.createElement('span');
+    inner.className = 'auto-marquee-inner';
+    while (el.firstChild) inner.appendChild(el.firstChild);
+    el.appendChild(inner);
+  }
+
+  // Hidden/collapsed elements should not animate.
+  if (el.offsetParent === null || el.clientWidth <= 0) {
+    el.classList.remove('auto-marquee-active');
+    return;
+  }
+
+  const overflowPx = Math.ceil(inner.scrollWidth - el.clientWidth);
+  if (overflowPx > 12) {
+    const distance = Math.min(overflowPx + 18, 680);
+    const duration = Math.max(6, Math.min(18, distance / 22));
+    el.style.setProperty('--marquee-distance', `${distance}px`);
+    el.style.setProperty('--marquee-duration', `${duration}s`);
+    el.classList.add('auto-marquee-active');
+  } else {
+    el.classList.remove('auto-marquee-active');
+    el.style.removeProperty('--marquee-distance');
+    el.style.removeProperty('--marquee-duration');
+  }
+}
+
+function refreshAutoMarquee() {
+  _marqueeRefreshRAF = 0;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.querySelectorAll('.auto-marquee-active').forEach(el => el.classList.remove('auto-marquee-active'));
+    return;
+  }
+  document.querySelectorAll(_MARQUEE_SELECTORS).forEach(_applyAutoMarquee);
+}
+
+function scheduleAutoMarqueeRefresh() {
+  if (_marqueeRefreshRAF) return;
+  _marqueeRefreshRAF = requestAnimationFrame(refreshAutoMarquee);
+}
+
+new MutationObserver(() => {
+  scheduleAutoMarqueeRefresh();
+}).observe(document.documentElement, {
+  childList: true,
+  subtree: true,
+  characterData: true
+});
+
+window.addEventListener('resize', scheduleAutoMarqueeRefresh);
+window.addEventListener('orientationchange', scheduleAutoMarqueeRefresh);
+setInterval(scheduleAutoMarqueeRefresh, 4000);
+setTimeout(scheduleAutoMarqueeRefresh, 250);
 
   const audioA = $('#audio-player');
   const audioB = $('#audio-player-b');
@@ -121,7 +384,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
         state.shuffle = saved.shuffle ?? false;
         state.repeat = saved.repeat || 'off';
         state.musicOnly = saved.musicOnly ?? true;
-        state.autoplay = saved.autoplay ?? false;
+        state.autoplay = saved.autoplay ?? true;
         state.audioQuality = saved.audioQuality || 'bestaudio';
         state.videoQuality = saved.videoQuality || '720';
         state.videoPremuxed = saved.videoPremuxed ?? true;
@@ -140,6 +403,9 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
         state.songSources = saved.songSources || ['youtube'];
         state.metadataSources = saved.metadataSources || ['youtube'];
         state.wrappedShownYear = saved.wrappedShownYear ?? null;
+      }
+      if (IS_MOBILE_RUNTIME) {
+        state.normalization = false;
       }
       // Restore queue (local-only, separate from cloud sync)
       const savedQueue = JSON.parse(localStorage.getItem('snowify_queue'));
@@ -285,7 +551,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
       const dataIdx = idx++;
       if (item.type === 'artist') {
         return separator + `<div class="search-suggestion-item" data-index="${dataIdx}" data-type="artist" data-artist-id="${escapeHtml(item.artistId || '')}">
-          <img class="suggestion-thumb suggestion-thumb-round" src="${escapeHtml(item.thumbnail || '')}" alt="" />
+          <img class="suggestion-thumb suggestion-thumb-round" data-src="${escapeHtml(item.thumbnail || '')}" alt="" />
           <div class="suggestion-info">
             <div class="suggestion-title">${escapeHtml(item.name)}</div>
             <div class="suggestion-subtitle">${I18n.t('search.artist')}${item.subtitle ? ' \u00b7 ' + escapeHtml(item.subtitle) : ''}</div>
@@ -294,7 +560,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
       }
       if (item.type === 'album') {
         return separator + `<div class="search-suggestion-item" data-index="${dataIdx}" data-type="album" data-album-id="${escapeHtml(item.albumId || '')}" data-item-idx="${i}">
-          <img class="suggestion-thumb" src="${escapeHtml(item.thumbnail || '')}" alt="" />
+          <img class="suggestion-thumb" data-src="${escapeHtml(item.thumbnail || '')}" alt="" />
           <div class="suggestion-info">
             <div class="suggestion-title">${escapeHtml(item.name)}</div>
             <div class="suggestion-subtitle">${I18n.t('search.album')}${item.subtitle ? ' \u00b7 ' + escapeHtml(item.subtitle) : ''}</div>
@@ -303,7 +569,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
       }
       if (item.type === 'song') {
         return separator + `<div class="search-suggestion-item" data-index="${dataIdx}" data-type="song" data-song-idx="${i}">
-          <img class="suggestion-thumb" src="${escapeHtml(item.thumbnail || '')}" alt="" />
+          <img class="suggestion-thumb" data-src="${escapeHtml(item.thumbnail || '')}" alt="" />
           <div class="suggestion-info">
             <div class="suggestion-title">${escapeHtml(item.title)}</div>
             <div class="suggestion-subtitle">${I18n.t('search.song')} \u00b7 ${renderArtistLinks(item)}</div>
@@ -567,7 +833,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
     scroll.className = 'similar-artists-scroll';
     scroll.innerHTML = artists.map((a, i) => `
       <div class="search-artist-card${i === 0 ? ' search-artist-top' : ''}" data-artist-id="${escapeHtml(a.artistId)}">
-        <img class="search-artist-avatar" src="${escapeHtml(a.thumbnail || '')}" alt="" loading="lazy" />
+        <img class="search-artist-avatar" data-src="${escapeHtml(a.thumbnail || '')}" alt="" />
         <div class="search-artist-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
         <div class="search-artist-label">${I18n.t('artist.type')}</div>
       </div>
@@ -593,7 +859,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
     scroll.className = 'album-scroll';
     scroll.innerHTML = albums.map(a => `
       <div class="album-card" data-album-id="${escapeHtml(a.albumId)}">
-        <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
+        <img class="album-card-cover" data-src="${escapeHtml(a.thumbnail)}" alt="" />
         <button class="album-card-play" title="${I18n.t('player.play')}">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
@@ -628,7 +894,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
     scroll.className = 'album-scroll';
     scroll.innerHTML = playlists.map(p => `
       <div class="album-card" data-playlist-id="${escapeHtml(p.playlistId)}">
-        <img class="album-card-cover" src="${escapeHtml(p.thumbnail)}" alt="" loading="lazy" />
+        <img class="album-card-cover" data-src="${escapeHtml(p.thumbnail)}" alt="" />
         <button class="album-card-play" title="${I18n.t('player.play')}">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
@@ -663,7 +929,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
     scroll.className = 'album-scroll';
     scroll.innerHTML = videos.map(v => `
       <div class="video-card" data-video-id="${escapeHtml(v.id)}">
-        <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
+        <img class="video-card-thumb" data-src="${escapeHtml(v.thumbnail)}" alt="" />
         <button class="video-card-play" title="${I18n.t('video.watch')}">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
@@ -698,14 +964,15 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
   }
 
   function renderTrackList(container, tracks, context, sourcePlaylistId = null) {
-    const showPlays = tracks.some(t => t.plays);
+    const isArtistCtx = context === 'artist-popular';
+    const showPlays = !isArtistCtx && tracks.some(t => t.plays);
     const modifier = showPlays ? ' has-plays' : '';
 
     let html = `
       <div class="track-list-header${modifier}">
         <span>#</span>
         <span>${I18n.t('trackList.title')}</span>
-        <span>${I18n.t('trackList.artist')}</span>
+        ${!isArtistCtx ? `<span>${I18n.t('trackList.artist')}</span>` : ''}
         <span></span>
         ${showPlays ? `<span style="text-align:right">${I18n.t('trackList.plays')}</span>` : ''}
       </div>`;
@@ -717,7 +984,7 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
       const isLiked = _likedIds.has(track.id);
 
       html += `
-        <div class="track-row ${isPlaying ? 'playing' : ''}${modifier}"
+        <div class="track-row ${isPlaying ? 'playing' : ''}${modifier}${isArtistCtx ? ' track-row--artist' : ''}"
              data-track-id="${track.id}" data-context="${context}" data-index="${i}" draggable="true">
           <div class="track-num">
             <span class="track-num-text">${i + 1}</span>
@@ -727,12 +994,13 @@ const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
             </span>
           </div>
           <div class="track-main">
-            <img class="track-thumb" src="${escapeHtml(track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : ''))}" alt="" loading="lazy" />
+            <img class="track-thumb" data-src="${escapeHtml(track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : ''))}" alt="" />
             <div class="track-details">
               <div class="track-title">${escapeHtml(track.title)}${track.isLocal ? '<span class="local-badge">LOCAL</span>' : ''}</div>
+              ${isArtistCtx && track.plays ? `<div class="track-inline-plays">${escapeHtml(track.plays)}</div>` : ''}
             </div>
           </div>
-          <div class="track-artist-col">${renderArtistLinks(track)}</div>
+          ${!isArtistCtx ? `<div class="track-artist-col">${renderArtistLinks(track)}</div>` : ''}
           <div class="track-like-col">
             <button class="track-like-btn${isLiked ? ' liked' : ''}" title="${I18n.t('player.like')}">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1135,7 +1403,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       if (gen !== _playGeneration) return; // stale call
       // Ignore AbortError — happens when play() is interrupted by a new load (e.g. rapid skip)
       if (err && err.name === 'AbortError') return;
-      console.error('Playback error:', err);
+      console.error('Playback error:', err && (err.name + ': ' + err.message), 'src=', audio && audio.src && audio.src.substring(0, 120));
       const msg = typeof err === 'string' ? err : (err.message || 'unknown error');
       showToast(I18n.t('toast.playbackFailed', { error: msg }));
       state.isPlaying = false;
@@ -1218,11 +1486,11 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     updatePlaylistHighlight();
   }
 
-  function playNext() {
+  function playNext({ respectRepeatOne = false } = {}) {
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
     if (!state.queue.length) return;
 
-    if (state.repeat === 'one') {
+    if (respectRepeatOne && state.repeat === 'one') {
       engine.clearPreload();
       audio.currentTime = 0;
       audio.play();
@@ -1256,9 +1524,13 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     renderQueue();
   }
 
+  let _smartQueueFillInFlight = false;
+
   async function smartQueueFill({ silent = false } = {}) {
+    if (_smartQueueFillInFlight) return;
     const current = state.queue[state.queueIndex];
     if (!current || current.isLocal) return;
+    _smartQueueFillInFlight = true;
 
     try {
       const queueIds = new Set(state.queue.map(t => t.id));
@@ -1326,6 +1598,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         state.isPlaying = false;
         updatePlayButton();
       }
+    } finally {
+      _smartQueueFillInFlight = false;
     }
   }
 
@@ -1481,7 +1755,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         break;
       case 'ended-no-preload':
         normalizer.finalizeMeasurement(audio, false);
-        playNext();
+        playNext({ respectRepeatOne: true });
         break;
       case 'seeked':
         updatePositionState();
@@ -1535,8 +1809,22 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   audio = engine.getActiveAudio();
 
   // ─── Initialize loudness normalizer ───
-  const normalizer = window.LoudnessNormalizer(audioA, audioB);
-  if (state.normalization) {
+  const normalizer = IS_MOBILE_RUNTIME
+    ? {
+        setEnabled() {},
+        setTarget() {},
+        initAudioContext: async () => {},
+        isWorkletReady: () => true,
+        analyzeAndApply() {},
+        finalizeMeasurement() {},
+        applyGain() {},
+        preAnalyze() {},
+        getCachedLUFS: () => null,
+        startMeasurement() {},
+        updateVolumeCompensation() {}
+      }
+    : window.LoudnessNormalizer(audioA, audioB);
+  if (!IS_MOBILE_RUNTIME && state.normalization) {
     normalizer.setEnabled(true);
     normalizer.setTarget(state.normalizationTarget);
     normalizer.initAudioContext(); // async — resolves before first playTrack
@@ -1776,10 +2064,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     }
 
     const npArtist = $('#np-artist');
-    npArtist.innerHTML = renderArtistLinks(track);
+    npArtist.textContent = track.artist || '';
     npArtist.classList.remove('clickable');
     npArtist.onclick = null;
-    bindArtistLinks(npArtist);
 
     const isLiked = state.likedSongs.some(t => t.id === track.id);
     $('#np-like').classList.toggle('liked', isLiked);
@@ -1997,10 +2284,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     }
     if (playlist.tracks.length >= 4) {
       const thumbs = playlist.tracks.slice(0, 4).map(t => t.thumbnail);
-      return `<div class="playlist-cover-grid${sizeClass}">${thumbs.map(t => `<img src="${escapeHtml(t)}" alt="" />`).join('')}</div>`;
+      return `<div class="playlist-cover-grid${sizeClass}">${thumbs.map(t => `<img data-src="${escapeHtml(t)}" alt="" />`).join('')}</div>`;
     }
     if (playlist.tracks.length > 0) {
-      return `<img src="${escapeHtml(playlist.tracks[0].thumbnail)}" alt="" />`;
+      return `<img data-src="${escapeHtml(playlist.tracks[0].thumbnail)}" alt="" />`;
     }
     const iconSize = size === 'large' ? 64 : size === 'lib' ? 32 : 20;
     return `<svg width="${iconSize}" height="${iconSize}" viewBox="0 0 24 24" fill="#535353"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>`;
@@ -2786,7 +3073,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const draggable = showRemove ? ' draggable="true"' : '';
     return `
       <div class="queue-item ${isActive ? 'active' : ''}" data-track-id="${track.id}"${indexAttr}${draggable}>
-        <img src="${escapeHtml(track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : ''))}" alt="" />
+        <img data-src="${escapeHtml(track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : ''))}" alt="" />
         <div class="queue-item-info">
           <div class="queue-item-title">${escapeHtml(track.title)}</div>
           <div class="queue-item-artist">${renderArtistLinks(track)}</div>
@@ -3045,7 +3332,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     addScrollArrows(container);
     container.innerHTML = releases.map(a => `
       <div class="album-card" data-album-id="${a.albumId}">
-        <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
+        <img class="album-card-cover" data-src="${escapeHtml(a.thumbnail)}" alt="" />
         <button class="album-card-play" title="${I18n.t('player.play')}">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
@@ -3087,12 +3374,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
     container.innerHTML = state.recentTracks.slice(0, 8).map(track => `
       <div class="track-card" data-track-id="${track.id}" draggable="true">
-        <img class="card-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" />
+        <img class="card-thumb" data-src="${escapeHtml(track.thumbnail)}" alt="" />
         <div class="card-title">${escapeHtml(track.title)}</div>
         <div class="card-artist">${renderArtistLinks(track)}</div>
-        <button class="card-play" title="${I18n.t('player.play')}">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
-        </button>
       </div>
     `).join('');
 
@@ -3123,11 +3407,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     }
     container.innerHTML = picks.map(track => `
       <div class="quick-pick-card" data-track-id="${track.id}" draggable="true">
-        <img src="${escapeHtml(track.thumbnail)}" alt="" />
+        <img data-src="${escapeHtml(track.thumbnail)}" alt="" />
         <span>${escapeHtml(track.title)}</span>
-        <button class="qp-play" title="${I18n.t('player.play')}">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
-        </button>
       </div>
     `).join('');
 
@@ -3202,12 +3483,9 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       songsSection.style.display = '';
       songsContainer.innerHTML = recommendedSongs.map(track => `
         <div class="track-card" data-track-id="${track.id}" draggable="true">
-          <img class="card-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" />
+          <img class="card-thumb" data-src="${escapeHtml(track.thumbnail)}" alt="" />
           <div class="card-title">${escapeHtml(track.title)}</div>
           <div class="card-artist">${renderArtistLinks(track)}</div>
-          <button class="card-play" title="${I18n.t('player.play')}">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
-          </button>
         </div>
       `).join('');
 
@@ -3303,7 +3581,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       html += `<div class="explore-section"><h2>${I18n.t('explore.newAlbums')}</h2><div class="scroll-container"><button class="scroll-arrow scroll-arrow-left" data-dir="left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="album-scroll">`;
       html += exploreData.newAlbums.map(a => `
         <div class="album-card" data-album-id="${escapeHtml(a.albumId)}">
-          <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
+          <img class="album-card-cover" data-src="${escapeHtml(a.thumbnail)}" alt="" />
           <button class="album-card-play" title="${I18n.t('player.play')}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
@@ -3321,7 +3599,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         <div class="top-song-item" data-track-id="${escapeHtml(track.id)}">
           <div class="top-song-rank">${track.rank || i + 1}</div>
           <div class="top-song-thumb-wrap">
-            <img class="top-song-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" />
+            <img class="top-song-thumb" data-src="${escapeHtml(track.thumbnail)}" alt="" />
             <div class="top-song-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg></div>
           </div>
           <div class="top-song-info">
@@ -3338,7 +3616,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       html += `<div class="explore-section"><h2>${I18n.t('explore.topArtists')}</h2><div class="scroll-container"><button class="scroll-arrow scroll-arrow-left" data-dir="left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="album-scroll top-artists-scroll">`;
       html += chartsData.topArtists.map((a, i) => `
         <div class="top-artist-card" data-artist-id="${escapeHtml(a.artistId)}">
-          <img class="top-artist-avatar" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
+          <img class="top-artist-avatar" data-src="${escapeHtml(a.thumbnail)}" alt="" />
           <div class="top-artist-name">${escapeHtml(a.name)}</div>
           <div class="top-artist-rank">#${i + 1}</div>
         </div>
@@ -3351,7 +3629,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       html += `<div class="explore-section"><h2>${I18n.t('explore.newMusicVideos')}</h2><div class="scroll-container"><button class="scroll-arrow scroll-arrow-left" data-dir="left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="album-scroll music-video-scroll">`;
       html += exploreData.newMusicVideos.slice(0, 15).map(v => `
         <div class="video-card" data-video-id="${escapeHtml(v.id)}">
-          <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
+          <img class="video-card-thumb" data-src="${escapeHtml(v.thumbnail)}" alt="" />
           <button class="video-card-play" title="${I18n.t('video.watch')}">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
@@ -3456,7 +3734,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         moodHtml += `<div class="album-scroll">`;
         moodHtml += playlists.map(p => `
           <div class="album-card" data-playlist-id="${escapeHtml(p.playlistId)}">
-            <img class="album-card-cover" src="${escapeHtml(p.thumbnail)}" alt="" loading="lazy" />
+            <img class="album-card-cover" data-src="${escapeHtml(p.thumbnail)}" alt="" />
             <div class="album-card-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
             <div class="album-card-meta">${escapeHtml(p.subtitle || '')}</div>
           </div>
@@ -3686,9 +3964,16 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
   async function openArtistPage(artistId) {
     if (!artistId) return;
+    // Close any open overlays before navigating
+    if (_maxNPOpen) closeMaxNP();
+    if (queuePanel.classList.contains('visible')) {
+      queuePanel.classList.add('hidden');
+      queuePanel.classList.remove('visible');
+    }
     switchView('artist');
 
     const avatar = $('#artist-avatar');
+    const artistView = $('#view-artist');
     const bannerEl = $('#artist-banner');
     const bannerImg = $('#artist-banner-img');
     const nameEl = $('#artist-name');
@@ -3742,19 +4027,14 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     nameEl.textContent = info.name;
     followersEl.textContent = info.monthlyListeners || '';
 
-    if (info.avatar) {
-      avatar.addEventListener('load', () => {
-        avatar.classList.remove('shimmer');
-        avatar.classList.add('loaded');
-      }, { once: true });
-      avatar.src = info.avatar;
-    }
-
-    if (info.banner) {
-      bannerImg.src = info.banner;
+    const heroImage = info.banner || info.avatar || '';
+    if (heroImage) {
+      bannerImg.src = heroImage;
       bannerEl.style.display = '';
+      artistView?.classList.add('has-hero');
     } else {
       bannerEl.style.display = 'none';
+      artistView?.classList.remove('has-hero');
     }
 
     aboutSection.style.display = 'none';
@@ -3762,18 +4042,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     // ── Plugin metadata overlay (non-blocking — patches in artist art/genres when ready) ──
     resolvePluginArtistMeta(info.name).then(overlay => {
       if (!overlay) return;
-      if (overlay.avatar) {
-        avatar.addEventListener('load', () => {
-          avatar.classList.remove('shimmer');
-          avatar.classList.add('loaded');
-        }, { once: true });
-        avatar.classList.add('shimmer');
-        avatar.classList.remove('loaded');
-        avatar.src = overlay.avatar;
-      }
-      if (overlay.banner) {
-        bannerImg.src = overlay.banner;
+      if (overlay.banner || overlay.avatar) {
+        bannerImg.src = overlay.banner || overlay.avatar;
         bannerEl.style.display = '';
+        artistView?.classList.add('has-hero');
       }
       if (overlay.genres?.length) {
         tagsEl.innerHTML = overlay.genres.map(g => `<span class="artist-tag">${escapeHtml(g)}</span>`).join('');
@@ -3842,7 +4114,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       }
       discographyContainer.innerHTML = items.map(a => `
         <div class="album-card" data-album-id="${a.albumId}">
-          <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
+          <img class="album-card-cover" data-src="${escapeHtml(a.thumbnail)}" alt="" />
           <button class="album-card-play" title="${I18n.t('player.play')}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
@@ -3890,7 +4162,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       videosSection.style.display = '';
       videosContainer.innerHTML = topVideos.map(v => `
         <div class="video-card" data-video-id="${escapeHtml(v.videoId)}">
-          <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
+          <img class="video-card-thumb" data-src="${escapeHtml(v.thumbnail)}" alt="" />
           <button class="video-card-play" title="${I18n.t('video.watch')}">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
@@ -3919,7 +4191,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       liveSection.style.display = '';
       liveContainer.innerHTML = livePerfs.map(v => `
         <div class="video-card" data-video-id="${escapeHtml(v.videoId)}">
-          <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
+          <img class="video-card-thumb" data-src="${escapeHtml(v.thumbnail)}" alt="" />
           <button class="video-card-play" title="${I18n.t('video.watch')}">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
@@ -3947,7 +4219,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       fansSection.style.display = '';
       fansContainer.innerHTML = fansAlsoLike.map(a => `
         <div class="similar-artist-card" data-artist-id="${escapeHtml(a.artistId)}">
-          <img class="similar-artist-avatar" src="${escapeHtml(a.thumbnail || '')}" alt="" loading="lazy" />
+          <img class="similar-artist-avatar" data-src="${escapeHtml(a.thumbnail || '')}" alt="" />
           <div class="similar-artist-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
         </div>
       `).join('');
@@ -3980,7 +4252,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       featuredSection.style.display = '';
       featuredContainer.innerHTML = allPlaylists.map(p => `
         <div class="album-card" data-playlist-id="${escapeHtml(p.playlistId)}">
-          <img class="album-card-cover" src="${escapeHtml(p.thumbnail)}" alt="" loading="lazy" />
+          <img class="album-card-cover" data-src="${escapeHtml(p.thumbnail)}" alt="" />
           <button class="album-card-play" title="${I18n.t('player.play')}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
@@ -4130,13 +4402,34 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
     lyricsBody.innerHTML = `<div class="lyrics-loading"><div class="spinner"></div><p>${I18n.t('lyrics.searching')}</p></div>`;
 
-    // Parse duration: try audio.duration first, then the track string "m:ss"
+    // Resolve duration: try audio.duration first, then track.durationMs, then parse track.duration string.
+    // If audio hasn't loaded metadata yet, wait for it (up to 4 s).
     let durationSec = null;
-    if (audio.duration && !isNaN(audio.duration) && audio.duration > 0) {
-      durationSec = Math.round(audio.duration);
-    } else if (track.duration) {
-      const parts = track.duration.split(':');
-      if (parts.length === 2) durationSec = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    const resolveDuration = () => {
+      if (audio.duration && !isNaN(audio.duration) && audio.duration > 0) {
+        return Math.round(audio.duration);
+      }
+      if (track.durationMs && track.durationMs > 0) {
+        return Math.round(track.durationMs / 1000);
+      }
+      if (track.duration) {
+        const parts = track.duration.split(':');
+        if (parts.length === 2) return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+        if (parts.length === 3) return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]);
+      }
+      return null;
+    };
+    durationSec = resolveDuration();
+    if (!durationSec) {
+      // Audio not loaded yet — wait for loadedmetadata (max 4 s)
+      await new Promise(resolve => {
+        const done = () => { durationSec = resolveDuration(); resolve(); };
+        if (audio.readyState >= 1) { done(); return; }
+        const onMeta = () => { audio.removeEventListener('loadedmetadata', onMeta); done(); };
+        audio.addEventListener('loadedmetadata', onMeta, { once: true });
+        setTimeout(() => { audio.removeEventListener('loadedmetadata', onMeta); resolve(); }, 4000);
+      });
+      if (_lyricsTrackId !== track.id) return; // track changed while waiting
     }
 
     try {
@@ -4275,7 +4568,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       }
     });
 
-    // Scroll container so active line is vertically centered
+    // Scroll container so active line is vertically centered.
+    // Use direct scrollTop assignment — CSS scroll-behavior:smooth on the
+    // container handles the animation; calling scrollTo({behavior:'smooth'})
+    // from JS simultaneously creates two competing animations on Android.
     if (activeIdx >= 0) {
       const activeLine = allLines[activeIdx];
       const container = lyricsBody;
@@ -4284,21 +4580,24 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         const lineHeight = activeLine.offsetHeight;
         const containerHeight = container.clientHeight;
         const targetScrollTop = lineTop - (containerHeight / 2) + (lineHeight / 2);
-        container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+        container.scrollTop = targetScrollTop;
       }
     }
   }
 
   // Trigger lyrics fetch on track change
   function onTrackChanged(track) {
+    // Reset all lyrics state for the new track so there's no stale data
     _lastActiveLyricIdx = -1;
+    _maxLastActiveLyricIdx = -1;
+    _cachedLyricEls = null;
+    _cachedMaxLyricEls = null;
+    _lyricsTrackId = null; // cancel any in-flight fetch guard for old track
     if (_lyricsVisible) {
       fetchAndShowLyrics(track);
     } else if (_maxNPOpen && _maxNPLyricsVisible) {
       // Lyrics panel not open but maximized view with lyrics is — fetch for it
       fetchMaxNPLyrics(track);
-    } else {
-      _lyricsTrackId = null;
     }
     updateMaxNP(track);
   }
@@ -4386,8 +4685,12 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   const maxNPArt = $('#max-np-art');
   const maxNPTitle = $('#max-np-title');
   const maxNPArtist = $('#max-np-artist');
+  const maxNPTopbarArt = $('#max-np-topbar-art');
+  const maxNPTopbarTitle = $('#max-np-topbar-title');
+  const maxNPTopbarArtist = $('#max-np-topbar-artist');
   const maxNPLike = $('#max-np-like');
   const maxNPLyricsToggle = $('#max-np-lyrics-toggle');
+  const maxNPQueueBtn = $('#max-np-queue');
   const maxNPRight = $('#max-np-right');
   const maxNPLyrics = $('#max-np-lyrics');
   const maxNPPlay = $('#max-np-play');
@@ -4401,6 +4704,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
   let _maxNPLyricsVisible = false;
   let _maxLastActiveLyricIdx = -1;
   let _cachedMaxLyricEls = null;
+
+  function syncMaxNPLayout() {
+    maxNP.classList.toggle('lyrics-active', _maxNPLyricsVisible);
+  }
 
   function openMaxNP() {
     const current = state.queue[state.queueIndex];
@@ -4420,6 +4727,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     // Force reflow before adding visible class for transition
     void maxNP.offsetHeight;
     maxNP.classList.add('visible');
+    syncMaxNPLayout();
     updateMaxNP(current);
     syncMaxNPControls();
     // Sync volume slider
@@ -4434,7 +4742,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
   function closeMaxNP() {
     _maxNPOpen = false;
-    maxNP.classList.remove('visible');
+    _maxNPLyricsVisible = false;
+    maxNP.classList.remove('visible', 'lyrics-active');
+    maxNPRight.classList.add('hidden');
+    maxNPRight.classList.remove('visible');
     stopMaxLyricsSync();
     setTimeout(() => {
       if (!_maxNPOpen) maxNP.classList.add('hidden');
@@ -4446,6 +4757,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const thumbUrl = track.thumbnail ? track.thumbnail.replace(/=w\d+-h\d+/, '=w800-h800') : '';
     const imgSrc = thumbUrl || track.thumbnail;
     maxNPArt.src = imgSrc;
+    // Topbar mini cover: use original (small) thumbnail, not the 800×800 upscaled one
+    maxNPTopbarArt.src = track.thumbnail || imgSrc;
 
     // Extract dominant color from cover for lyrics tinting
     extractDominantColor(maxNPArt).then(applyMaxNPLyricsColor);
@@ -4483,6 +4796,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     maxNPTitle.textContent = track.title;
     maxNPArtist.innerHTML = renderArtistLinks(track);
     bindArtistLinks(maxNPArtist);
+    maxNPTopbarTitle.textContent = track.title;
+    maxNPTopbarArtist.textContent = track.artist || '';
 
     const isLiked = state.likedSongs.some(t => t.id === track.id);
     maxNPLike.classList.toggle('liked', isLiked);
@@ -4553,12 +4868,26 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
 
     maxNPLyrics.innerHTML = `<div class="lyrics-loading"><div class="spinner"></div><p>${I18n.t('lyrics.searching')}</p></div>`;
 
-    let durationSec = null;
-    if (audio.duration && !isNaN(audio.duration) && audio.duration > 0) {
-      durationSec = Math.round(audio.duration);
-    } else if (track.duration) {
-      const parts = track.duration.split(':');
-      if (parts.length === 2) durationSec = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    // Resolve duration: audio.duration → track.durationMs → track.duration string
+    const resolveDuration = () => {
+      if (audio.duration && !isNaN(audio.duration) && audio.duration > 0) return Math.round(audio.duration);
+      if (track.durationMs && track.durationMs > 0) return Math.round(track.durationMs / 1000);
+      if (track.duration) {
+        const parts = track.duration.split(':');
+        if (parts.length === 2) return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+        if (parts.length === 3) return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]);
+      }
+      return null;
+    };
+    let durationSec = resolveDuration();
+    if (!durationSec) {
+      await new Promise(resolve => {
+        if (audio.readyState >= 1) { durationSec = resolveDuration(); resolve(); return; }
+        const onMeta = () => { audio.removeEventListener('loadedmetadata', onMeta); durationSec = resolveDuration(); resolve(); };
+        audio.addEventListener('loadedmetadata', onMeta, { once: true });
+        setTimeout(() => { audio.removeEventListener('loadedmetadata', onMeta); resolve(); }, 4000);
+      });
+      if (_lyricsTrackId !== track.id) return;
     }
 
     try {
@@ -4614,8 +4943,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         _lyricsSyncRAF = null;
         return; // both stopped — exit loop
       }
-      // Throttle to ~100ms (10 fps) to match previous interval behavior
-      if (now - _lyricsSyncLastTime >= 100) {
+      // Throttle to ~50ms (20 fps) for tighter sync
+      if (now - _lyricsSyncLastTime >= 50) {
         _lyricsSyncLastTime = now;
         if (!audio.paused) {
           if (_lyricsSyncActive && _lyricsLines.length) syncLyrics();
@@ -4660,7 +4989,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
       }
     });
 
-    // Scroll container so active line is vertically centered
+    // Same fix as syncLyrics: direct scrollTop, CSS smooth handles animation.
     if (activeIdx >= 0) {
       const activeLine = allLines[activeIdx];
       const container = maxNPLyrics;
@@ -4669,7 +4998,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
         const lineHeight = activeLine.offsetHeight;
         const containerHeight = container.clientHeight;
         const targetScrollTop = lineTop - (containerHeight / 2) + (lineHeight / 2);
-        container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+        container.scrollTop = targetScrollTop;
       }
     }
   }
@@ -4680,12 +5009,21 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     maxNPRight.classList.toggle('hidden', !_maxNPLyricsVisible);
     maxNPRight.classList.toggle('visible', _maxNPLyricsVisible);
     maxNPLyricsToggle.classList.toggle('active', _maxNPLyricsVisible);
+    syncMaxNPLayout();
     if (_maxNPLyricsVisible) {
       renderMaxNPLyrics();
       startMaxLyricsSync();
     } else {
       stopMaxLyricsSync();
     }
+  });
+
+  maxNPQueueBtn.addEventListener('click', () => {
+    queuePanel.classList.remove('hidden');
+    queuePanel.classList.add('visible');
+    _queueActiveTab = 'queue';
+    switchQueueTab('queue');
+    renderQueue();
   });
 
   // Like button in maximized view
@@ -4806,6 +5144,14 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     if (_maxNPDragging) maxNPSeekTo(e);
   });
   document.addEventListener('mouseup', () => { _maxNPDragging = false; });
+
+  // Touch seek for max-NP progress bar (mobile)
+  maxNPProgressBar.addEventListener('touchstart', (e) => {
+    maxNPSeekTo(e.touches[0]);
+  }, { passive: true });
+  maxNPProgressBar.addEventListener('touchmove', (e) => {
+    maxNPSeekTo(e.touches[0]);
+  }, { passive: true });
 
   function maxNPSeekTo(e) {
     if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
@@ -5365,6 +5711,13 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     if (!cached?.albumArt) return;
     const thumb = $('#np-thumbnail');
     if (thumb && thumb.src !== cached.albumArt) {
+      const originalSrc = thumb.src;
+      const onError = () => {
+        thumb.src = originalSrc; // restore original thumbnail if cached art fails
+        thumb.removeEventListener('error', onError);
+      };
+      thumb.addEventListener('error', onError);
+      thumb.addEventListener('load', () => thumb.removeEventListener('error', onError), { once: true });
       thumb.src = cached.albumArt;
       extractDominantColor({ src: cached.albumArt }).then(color => {
         const rgb = color ? `${color.r}, ${color.g}, ${color.b}` : '170, 85, 230';
@@ -6025,6 +6378,22 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     // Apply theme
     applyTheme(state.theme);
 
+    // Language dropdown
+    const languageSelect = $('#setting-language');
+    if (languageSelect) {
+      const savedLocale = localStorage.getItem('snowify_locale') || '';
+      languageSelect.value = savedLocale;
+      languageSelect.addEventListener('change', () => {
+        const lang = languageSelect.value;
+        if (lang) {
+          I18n.changeLanguage(lang);
+        } else {
+          localStorage.removeItem('snowify_locale');
+          I18n.changeLanguage(navigator.language || 'en');
+        }
+      });
+    }
+
     // Theme dropdown
     const themeSelect = $('#theme-select');
     await populateCustomThemes(themeSelect, state.theme);
@@ -6177,12 +6546,23 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const normToggle = $('#setting-normalization');
     const normTargetRow = $('#normalization-target-row');
     const normTargetSelect = $('#setting-normalization-target');
+    const normRow = normToggle?.closest('.setting-row');
+
+    if (IS_MOBILE_RUNTIME) {
+      state.normalization = false;
+      normToggle.checked = false;
+      normToggle.disabled = true;
+      normTargetRow.classList.add('hidden');
+      normRow?.classList.add('hidden');
+      saveState();
+    }
 
     normToggle.checked = state.normalization;
     normTargetRow.classList.toggle('hidden', !state.normalization);
     normTargetSelect.value = String(state.normalizationTarget);
 
     normToggle.addEventListener('change', async () => {
+      if (IS_MOBILE_RUNTIME) return;
       state.normalization = normToggle.checked;
       normalizer.setEnabled(state.normalization);
       normTargetRow.classList.toggle('hidden', !state.normalization);
@@ -6200,6 +6580,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     });
 
     normTargetSelect.addEventListener('change', () => {
+      if (IS_MOBILE_RUNTIME) return;
       state.normalizationTarget = parseInt(normTargetSelect.value, 10);
       normalizer.setTarget(state.normalizationTarget);
       // Re-apply gain to current track
@@ -7277,5 +7658,98 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     if (view === 'library') renderLibrary();
     if (view === 'explore') renderExplore();
   });
+
+  // ─── Mobile-specific interactions ─────────────────────────────────────────
+  if (window.snowify?.platform === 'android' || window.snowify?.platform === 'ios' ||
+      document.documentElement.classList.contains('platform-mobile')) {
+
+    // Tap the mini player bar (outside the controls) → expand to full screen
+    const npBar = $('#now-playing-bar');
+    if (npBar) {
+      npBar.addEventListener('click', (e) => {
+        // Don't intercept clicks on the transport buttons
+        if (e.target.closest('.np-controls')) return;
+        if (typeof openMaxNP === 'function') openMaxNP();
+      });
+    }
+
+    // Swipe-down gesture on max-NP to dismiss
+    const maxNPEl = $('#max-np');
+    if (maxNPEl) {
+      let _touchStartY = 0;
+      let _lastTouchY  = 0;
+      let _touchActive = false;
+      let _touchFromHandle = false;
+
+      maxNPEl.addEventListener('touchstart', (e) => {
+        const target = e.target;
+        _touchFromHandle = !!(target && target.closest && target.closest('.max-np-topbar'));
+        if (!_touchFromHandle) {
+          _touchActive = false;
+          return;
+        }
+        _touchStartY = e.touches[0].clientY;
+        _lastTouchY  = _touchStartY;
+        _touchActive = true;
+        maxNPEl.style.transition = 'none';
+      }, { passive: true });
+
+      maxNPEl.addEventListener('touchmove', (e) => {
+        if (!_touchActive || !_touchFromHandle) return;
+        const dy = e.touches[0].clientY - _touchStartY;
+        _lastTouchY = e.touches[0].clientY;
+        if (dy > 0) {
+          maxNPEl.style.transform = `translateY(${dy}px)`;
+        }
+      }, { passive: true });
+
+      maxNPEl.addEventListener('touchend', () => {
+        if (!_touchActive || !_touchFromHandle) return;
+        _touchActive = false;
+        _touchFromHandle = false;
+        const dy = _lastTouchY - _touchStartY;
+        maxNPEl.style.transition = '';
+        maxNPEl.style.transform  = '';
+        if (dy > 80 && typeof closeMaxNP === 'function') {
+          closeMaxNP();
+        }
+      }, { passive: true });
+    }
+
+    // Swipe-down on queue panel to close (only when content is scrolled to top)
+    const queuePanelEl = $('#queue-panel');
+    if (queuePanelEl) {
+      let _qTouchStart = 0;
+      let _qScrollAtStart = 0;
+      queuePanelEl.addEventListener('touchstart', (e) => {
+        _qTouchStart = e.touches[0].clientY;
+        const activeView = queuePanelEl.querySelector('#queue-view:not([style*="display: none"]), #history-view:not([style*="display: none"])');
+        _qScrollAtStart = activeView ? activeView.scrollTop : 0;
+      }, { passive: true });
+      queuePanelEl.addEventListener('touchend', (e) => {
+        const dy = e.changedTouches[0].clientY - _qTouchStart;
+        if (dy > 80 && _qScrollAtStart < 5) {
+          queuePanelEl.classList.add('hidden');
+          queuePanelEl.classList.remove('visible');
+        }
+      }, { passive: true });
+    }
+
+    // Swipe-down on lyrics panel to close
+    const lyricsPanelEl = $('#lyrics-panel');
+    if (lyricsPanelEl) {
+      let _lTouchStart = 0;
+      lyricsPanelEl.addEventListener('touchstart', (e) => {
+        _lTouchStart = e.touches[0].clientY;
+      }, { passive: true });
+      lyricsPanelEl.addEventListener('touchend', (e) => {
+        const dy = e.changedTouches[0].clientY - _lTouchStart;
+        if (dy > 80) {
+          lyricsPanelEl.classList.add('hidden');
+          lyricsPanelEl.classList.remove('visible');
+        }
+      }, { passive: true });
+    }
+  }
 
   init();
