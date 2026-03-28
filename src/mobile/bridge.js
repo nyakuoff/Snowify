@@ -29,6 +29,7 @@ import {
 } from 'firebase/auth';
 import {
   initializeFirestore,
+  persistentLocalCache,
   doc,
   getDoc,
   setDoc,
@@ -123,10 +124,13 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const firebaseAuth = getAuth(firebaseApp);
 // Capacitor WebViews are more reliable with Firestore long-polling than the
-// default streaming transport.
+// default streaming transport.  persistentLocalCache enables IndexedDB offline
+// persistence so setDoc() commits to local cache immediately (fast, offline-safe)
+// and syncs to the server in the background — surviving app suspend/kill.
 const firebaseDb = initializeFirestore(firebaseApp, {
   experimentalForceLongPolling: true,
   useFetchStreams: false,
+  localCache: persistentLocalCache(),
 });
 
 const SYNC_COLLECTION_V2 = 'users_v2';

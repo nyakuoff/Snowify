@@ -434,7 +434,9 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
     const now = Date.now();
 
     if (!force && payloadHash && payloadHash === _cloudLastPayloadHash) return false;
-    if (!force && now - _cloudLastSentAt < CLOUD_SAVE_MIN_INTERVAL_MS) return false;
+    // NOTE: No minimum-interval gate here — the 12s debounce in cloudSaveDebounced
+    // already throttles writes.  A hard interval would silently drop pending saves
+    // (no retry is scheduled when the check fires) which loses user data on mobile.
 
     const result = await window.snowify.cloudSave(payload);
     if (result?.error) {
