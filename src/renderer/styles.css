@@ -6399,7 +6399,7 @@ body.i18n-switching { opacity: 0; }
   overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
   gap: var(--card-gap);
-  padding: 0 var(--page-pad) 12px;
+  padding: 0 calc(var(--page-pad) + 4px) 12px;
   scrollbar-width: none;
 }
 .platform-mobile #view-home .card-row {
@@ -6407,29 +6407,29 @@ body.i18n-switching { opacity: 0; }
   scroll-padding-right: var(--page-pad);
 }
 .platform-mobile #recent-tracks {
-  padding-left: var(--page-pad);
-  padding-right: var(--page-pad);
+  padding-left: calc(var(--page-pad) + 4px);
+  padding-right: calc(var(--page-pad) + 4px);
 }
 .platform-mobile .card-row::-webkit-scrollbar { display: none; }
 
 /* Track cards inside carousels */
 .platform-mobile .card-row .track-card {
   min-width: 148px;
-  max-width: 164px;
+  max-width: 160px;
   flex-shrink: 0;
   scroll-snap-align: start;
-  padding: 8px 8px 4px;
+  padding: 12px;
 }
 .platform-mobile .card-row .track-card .card-thumb {
-  margin-bottom: 6px;
+  margin-bottom: 10px;
 }
 .platform-mobile .card-row .track-card .card-title {
   font-size: 13px;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 .platform-mobile .card-row .track-card .card-artist {
   font-size: 11px;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 /* Hide song-card play buttons on mobile; desktop keeps hover play buttons. */
 .platform-mobile .card-row .track-card .card-play {
