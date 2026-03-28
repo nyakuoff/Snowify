@@ -139,6 +139,7 @@
   "context.saveToLibrary": "Save as Playlist",
   "context.removeFromLibrary": "Remove from library",
   "context.shufflePlay": "Shuffle Play",
+  "context.findOtherVersions": "Find Other Versions",
   "settings.title": "Settings",
   "settings.tabPlayback": "Playback",
   "settings.tabAppearance": "Appearance",
@@ -372,6 +373,7 @@
   "common.reset": "Reset",
   "common.user": "User",
   "common.importFromSpotify": "Import from Spotify",
+  "common.importCsv": "Import CSV",
   "common.createPlaylist": "Create playlist",
   "common.importFolderPlaylist": "Import folder as playlist",
   "common.playlist": "Playlist",
@@ -587,5 +589,13 @@
   "wrapped.bestMonth": "Your Most Active Month",
   "wrapped.outroNotes": "notes played",
   "wrapped.outroTitle": "Thanks for\nlistening.",
-  "wrapped.outroSub": "Here's to"
+  "wrapped.outroSub": "Here's to",
+
+  "replace.title": "Find Other Versions",
+  "replace.searching": "Searching for versions...",
+  "replace.noResults": "No alternative versions found",
+  "replace.pickOne": "Pick a version to replace this track",
+  "toast.trackReplaced": "Track replaced",
+  "toast.trackReplacedEverywhere": "Replaced in {{count}} places",
+  "toast.playingSelectedVersion": "Playing selected version"
 }

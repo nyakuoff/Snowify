@@ -3825,6 +3825,34 @@ body.audio-playing .play-btn {
   min-width: 420px;
   max-width: 520px;
 }
+
+.track-replace-modal-box {
+  min-width: 420px;
+  max-width: 520px;
+}
+
+.platform-mobile .spotify-modal-box,
+.platform-mobile .track-replace-modal-box {
+  min-width: 0;
+  width: min(92vw, 360px);
+  max-width: 360px;
+  padding: 18px 16px;
+  border-radius: 14px;
+}
+
+.platform-mobile .spotify-step-desc {
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.platform-mobile .spotify-pick-btn {
+  font-size: 12px;
+  padding: 9px 12px;
+}
+
+.platform-mobile .spotify-track-list {
+  max-height: 220px;
+}
 .spotify-step-desc {
   font-size: 13px;
   color: var(--text-secondary);
@@ -3946,6 +3974,15 @@ body.audio-playing .play-btn {
   border-radius: var(--radius);
   font-size: 13px;
   min-height: 36px;
+}
+
+.spotify-track-item.selectable {
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.spotify-track-item.selectable:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 .spotify-track-item.matched {
   color: var(--text-primary);

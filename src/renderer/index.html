@@ -83,8 +83,8 @@
         <div class="sidebar-section-header">
           <h3 data-i18n="sidebar.playlists">Playlists</h3>
           <div class="sidebar-header-actions">
-            <button class="icon-btn" id="btn-spotify-import" data-i18n-title="common.importFromSpotify" title="Import from Spotify">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.6 0 12 0zm5.52 17.28c-.24.36-.66.48-1.02.24-2.82-1.74-6.36-2.1-10.56-1.14-.42.12-.78-.18-.9-.54-.12-.42.18-.78.54-.9 4.56-1.02 8.52-.6 11.7 1.32.36.24.48.66.24 1.02zm1.44-3.3c-.3.42-.84.6-1.26.3-3.24-1.98-8.16-2.58-11.94-1.38-.48.12-.99-.12-1.14-.6-.12-.48.12-.99.6-1.14 4.38-1.32 9.78-.66 13.5 1.62.36.18.54.78.24 1.2zm.12-3.36C15.24 8.4 8.88 8.16 5.16 9.3c-.6.18-1.2-.18-1.38-.72-.18-.6.18-1.2.72-1.38 4.26-1.26 11.28-1.02 15.72 1.62.54.3.72 1.02.42 1.56-.3.42-1.02.6-1.56.3z"/></svg>
+            <button class="icon-btn" id="btn-spotify-import" data-i18n-title="common.importCsv" title="Import CSV">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h8"/><path d="M8 17h8"/></svg>
             </button>
             <button class="icon-btn" id="btn-create-playlist" data-i18n-title="common.createPlaylist" title="Create playlist">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3v14M3 10h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
@@ -196,7 +196,7 @@
           <h1 data-i18n="library.title">Your Library</h1>
           <div class="library-header-actions">
             <button class="btn-setting-action" id="btn-lib-create-playlist-top" data-i18n="library.createPlaylist">Create playlist</button>
-            <button class="btn-setting-action" id="btn-lib-spotify-import" data-i18n="common.importFromSpotify">Import from Spotify</button>
+            <button class="btn-setting-action" id="btn-lib-spotify-import" data-i18n="common.importCsv">Import CSV</button>
           </div>
         </div>
         <div id="library-content" class="track-list">
@@ -1104,9 +1104,9 @@
   <!-- ═══════ Spotify Import Modal ═══════ -->
   <div id="spotify-modal" class="modal-overlay hidden">
     <div class="modal-box spotify-modal-box">
-      <h3 id="spotify-modal-title" data-i18n="spotify.title">Import Spotify Playlists</h3>
+      <h3 id="spotify-modal-title" data-i18n="spotify.title">Import CSV Playlists</h3>
       <div id="spotify-step-url" class="spotify-step">
-        <p class="spotify-step-desc">Export your Spotify playlists as CSV using <a href="#" id="spotify-exportify-link">playlistexport.com</a>, then import the files here.</p>
+        <p class="spotify-step-desc">Export playlists as CSV using <a href="#" id="spotify-exportify-link">tunemymusic.com/transfer</a>, then import the files here.</p>
         <button class="modal-btn spotify-pick-btn" id="spotify-pick-files">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
           <span data-i18n="spotify.selectFiles">Select CSV Files</span>
@@ -1130,6 +1130,19 @@
         <div class="modal-buttons" id="spotify-done-buttons" style="display:none">
           <button class="modal-btn modal-confirm" id="spotify-done" data-i18n="spotify.done">Done</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ Track Replace Modal ═══════ -->
+  <div id="track-replace-modal" class="modal-overlay hidden">
+    <div class="modal-box track-replace-modal-box">
+      <h3 id="track-replace-title" data-i18n="replace.title">Find Other Versions</h3>
+      <p id="track-replace-subtitle" class="spotify-step-desc"></p>
+      <div id="track-replace-status" class="spotify-progress-info"></div>
+      <div id="track-replace-list" class="spotify-track-list"></div>
+      <div class="modal-buttons">
+        <button class="modal-btn modal-cancel" id="track-replace-cancel" data-i18n="modal.cancel">Cancel</button>
       </div>
     </div>
   </div>
