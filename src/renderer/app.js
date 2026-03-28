@@ -332,9 +332,7 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
   let _resetEmailLastSent = 0;
   let _welcomeDismissed = false;
   const RESET_COOLDOWN_MS = 60000;
-  // On mobile the user may close the app seconds after a change — keep the
-  // debounce short so saves complete while the app is still in the foreground.
-  const CLOUD_SAVE_DEBOUNCE_MS = IS_MOBILE_RUNTIME ? 2000 : 12000;
+  const CLOUD_SAVE_DEBOUNCE_MS = 12000;
   const CLOUD_SAVE_MIN_INTERVAL_MS = 30000;
   const WELCOME_SEEN_KEY = 'snowify_welcome_seen_v2';
 
