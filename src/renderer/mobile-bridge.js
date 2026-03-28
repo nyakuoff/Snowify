@@ -1125,6 +1125,58 @@ var __SnowifyMobile = (() => {
     }
   });
 
+  // node_modules/@capacitor/app/dist/esm/web.js
+  var web_exports2 = {};
+  __export(web_exports2, {
+    AppWeb: () => AppWeb
+  });
+  var AppWeb;
+  var init_web2 = __esm({
+    "node_modules/@capacitor/app/dist/esm/web.js"() {
+      init_dist();
+      AppWeb = class extends WebPlugin {
+        constructor() {
+          super();
+          this.handleVisibilityChange = () => {
+            const data = {
+              isActive: document.hidden !== true
+            };
+            this.notifyListeners("appStateChange", data);
+            if (document.hidden) {
+              this.notifyListeners("pause", null);
+            } else {
+              this.notifyListeners("resume", null);
+            }
+          };
+          document.addEventListener("visibilitychange", this.handleVisibilityChange, false);
+        }
+        exitApp() {
+          throw this.unimplemented("Not implemented on web.");
+        }
+        async getInfo() {
+          throw this.unimplemented("Not implemented on web.");
+        }
+        async getLaunchUrl() {
+          return { url: "" };
+        }
+        async getState() {
+          return { isActive: document.hidden !== true };
+        }
+        async minimizeApp() {
+          throw this.unimplemented("Not implemented on web.");
+        }
+        async toggleBackButtonHandler() {
+          throw this.unimplemented("Not implemented on web.");
+        }
+        async getAppLanguage() {
+          return {
+            value: navigator.language.split("-")[0].toLowerCase()
+          };
+        }
+      };
+    }
+  });
+
   // src/mobile/bridge.js
   var bridge_exports = {};
   __export(bridge_exports, {
@@ -22576,6 +22628,12 @@ This typically indicates that your device does not have a healthy Internet conne
   });
   f();
 
+  // node_modules/@capacitor/app/dist/esm/index.js
+  init_dist();
+  var App = registerPlugin("App", {
+    web: () => Promise.resolve().then(() => (init_web2(), web_exports2)).then((m) => new m.AppWeb())
+  });
+
   // node_modules/@capacitor/status-bar/dist/esm/index.js
   init_dist();
 
@@ -22874,6 +22932,10 @@ This typically indicates that your device does not have a healthy Internet conne
   var THEMES_DIR = "snowify/themes";
   var MKT_META_FILE = "snowify/themes/marketplace.json";
   async function scanThemes() {
+    try {
+      await Filesystem.mkdir({ path: THEMES_DIR, directory: DATA_DIR, recursive: true });
+    } catch (_) {
+    }
     const files = await fsList(THEMES_DIR);
     return files.filter((f2) => (f2.name || f2).endsWith(".css")).map((f2) => {
       const n = f2.name || f2;
@@ -23523,6 +23585,20 @@ This typically indicates that your device does not have a healthy Internet conne
       },
       onThumbarPlayPause: () => {
       },
+      // App lifecycle — fire registered callback when the app goes to background
+      // so pending saves (localStorage + cloud) are flushed before the OS can kill the process.
+      onBeforeClose: (callback) => {
+        App.addListener("appStateChange", async ({ isActive }) => {
+          if (!isActive) {
+            try {
+              await callback();
+            } catch (_) {
+            }
+          }
+        });
+      },
+      closeReady: () => {
+      },
       onThumbarNext: () => {
       },
       // Discord (no-op)
@@ -23530,11 +23606,6 @@ This typically indicates that your device does not have a healthy Internet conne
       disconnectDiscord: () => Promise.resolve(null),
       updatePresence: () => Promise.resolve(null),
       clearPresence: () => Promise.resolve(null),
-      // Graceful close (no-op — no beforeunload hook needed on mobile)
-      onBeforeClose: () => {
-      },
-      closeReady: () => {
-      },
       // Debug logs
       getLogs: () => Promise.resolve([]),
       appendLog: (entry) => {

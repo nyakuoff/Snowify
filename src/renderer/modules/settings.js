@@ -251,6 +251,10 @@ export async function initSettings() {
     const preferred = sessionStorage.getItem('settings-tab') || 'account';
     const tabExists = document.querySelector(`.settings-tab-btn[data-settings-tab="${preferred}"]`);
     activateSettingsTab(tabExists ? preferred : 'account');
+
+    if (IS_MOBILE_RUNTIME) {
+      document.querySelector('.settings-tab-btn[data-settings-tab="behavior"]')?.classList.add('hidden');
+    }
   }
 
   const autoplayToggle       = $('#setting-autoplay');
@@ -259,6 +263,8 @@ export async function initSettings() {
   const videoPremuxedToggle  = $('#setting-video-premuxed');
   const animationsToggle     = $('#setting-animations');
   const effectsToggle        = $('#setting-effects');
+  const miniplayerGlowToggle = $('#setting-miniplayer-glow');
+  const miniplayerGlowRow    = $('#row-miniplayer-glow');
   const discordRpcToggle     = $('#setting-discord-rpc');
   const countrySelect        = $('#setting-country');
   const crossfadeToggle      = $('#setting-crossfade-toggle');
@@ -282,10 +288,13 @@ export async function initSettings() {
   videoQualitySelect.disabled    = state.videoPremuxed;
   animationsToggle.checked       = state.animations;
   effectsToggle.checked          = state.effects;
+  if (miniplayerGlowToggle) miniplayerGlowToggle.checked = state.miniplayerGlow;
+  if (miniplayerGlowRow) miniplayerGlowRow.classList.toggle('hidden', !state.effects);
   if (countrySelect) countrySelect.value = state.country || '';
   if (state.country) window.snowify.setCountry(state.country);
   document.documentElement.classList.toggle('no-animations', !state.animations);
   document.documentElement.classList.toggle('no-effects', !state.effects);
+  document.documentElement.classList.toggle('no-miniplayer-glow', !state.miniplayerGlow);
 
   // ── Minimize to tray ──
   const minimizeToTrayToggle = $('#setting-minimize-to-tray');
@@ -489,8 +498,18 @@ export async function initSettings() {
   });
   effectsToggle.addEventListener('change', () => {
     state.effects = effectsToggle.checked;
-    document.documentElement.classList.toggle('no-effects', !state.effects); callbacks.saveState();
+    document.documentElement.classList.toggle('no-effects', !state.effects);
+    if (miniplayerGlowRow) miniplayerGlowRow.classList.toggle('hidden', !state.effects);
+    callbacks.saveState();
   });
+
+  if (miniplayerGlowToggle) {
+    miniplayerGlowToggle.addEventListener('change', () => {
+      state.miniplayerGlow = miniplayerGlowToggle.checked;
+      document.documentElement.classList.toggle('no-miniplayer-glow', !state.miniplayerGlow);
+      callbacks.saveState();
+    });
+  }
 
   if (countrySelect) {
     countrySelect.addEventListener('change', () => {

@@ -6,7 +6,7 @@
 
 import { audioRef } from './audio-ref.js';
 import state from './state.js';
-import { escapeHtml, renderArtistLinks } from './utils.js';
+import { escapeHtml, renderArtistLinks, formatTime } from './utils.js';
 
 // Circular imports — all usage is inside function/event-handler bodies,
 // which only execute after every module has finished initialising.
@@ -375,10 +375,11 @@ export function syncMaxLyrics() {
   if (activeIdx >= 0) {
     const activeLine = allLines[activeIdx];
     if (activeLine) {
-      const lineTop    = activeLine.offsetTop;
-      const lineHeight = activeLine.offsetHeight;
-      const cHeight    = maxNPLyrics.clientHeight;
-      maxNPLyrics.scrollTop = lineTop - (cHeight / 2) + (lineHeight / 2);
+      const cRect  = maxNPLyrics.getBoundingClientRect();
+      const lRect  = activeLine.getBoundingClientRect();
+      const target = maxNPLyrics.scrollTop + lRect.top - cRect.top
+                     - (maxNPLyrics.clientHeight / 2) + (activeLine.offsetHeight / 2);
+      maxNPLyrics.scrollTo({ top: target, behavior: 'smooth' });
     }
   }
 }

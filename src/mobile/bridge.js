@@ -260,6 +260,7 @@ function ensureAuthSubscription() {
 }
 import { getLyrics }   from './lyrics-client.js';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
 // ─── Filesystem helpers ───────────────────────────────────────────────────
@@ -356,6 +357,7 @@ const THEMES_DIR    = 'snowify/themes';
 const MKT_META_FILE = 'snowify/themes/marketplace.json';
 
 async function scanThemes() {
+  try { await Filesystem.mkdir({ path: THEMES_DIR, directory: DATA_DIR, recursive: true }); } catch (_) {}
   const files = await fsList(THEMES_DIR);
   return files
     .filter(f => (f.name || f).endsWith('.css'))
@@ -1057,6 +1059,17 @@ export function installMobileBridge() {
     updateThumbar:    () => {},
     onThumbarPrev:    () => {},
     onThumbarPlayPause: () => {},
+
+    // App lifecycle — fire registered callback when the app goes to background
+    // so pending saves (localStorage + cloud) are flushed before the OS can kill the process.
+    onBeforeClose: (callback) => {
+      CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
+        if (!isActive) {
+          try { await callback(); } catch (_) {}
+        }
+      });
+    },
+    closeReady: () => {},
     onThumbarNext:    () => {},
 
     // Discord (no-op)
@@ -1064,10 +1077,6 @@ export function installMobileBridge() {
     disconnectDiscord: () => Promise.resolve(null),
     updatePresence:    () => Promise.resolve(null),
     clearPresence:     () => Promise.resolve(null),
-
-    // Graceful close (no-op — no beforeunload hook needed on mobile)
-    onBeforeClose: () => {},
-    closeReady:    () => {},
 
     // Debug logs
     getLogs:    () => Promise.resolve([]),

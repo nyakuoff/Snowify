@@ -1632,6 +1632,27 @@ body.audio-playing .play-btn {
   50%       { box-shadow: 0 2px 18px rgba(255,255,255,0.20), 0 0 0 7px rgba(var(--ambient-rgb), 0); }
 }
 
+/* ── No miniplayer glow ── */
+.no-miniplayer-glow #now-playing-bar {
+  background: var(--bg-surface);
+  box-shadow: none;
+}
+.no-miniplayer-glow #np-thumbnail {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+.no-miniplayer-glow body.audio-playing #np-thumbnail {
+  animation: none;
+}
+.no-miniplayer-glow .play-btn {
+  box-shadow: 0 2px 12px rgba(255, 255, 255, 0.15);
+}
+.no-miniplayer-glow body.audio-playing .play-btn {
+  animation: none;
+}
+.no-miniplayer-glow .progress-fill {
+  background: var(--accent);
+}
+
 .np-progress {
   display: flex;
   align-items: center;
@@ -4102,7 +4123,6 @@ body.audio-playing .play-btn {
   flex: 1;
   overflow-y: auto;
   padding: 0 60px 40px;
-  scroll-behavior: smooth;
   scrollbar-width: none;
 }
 .lyrics-body::-webkit-scrollbar { display: none; }
@@ -4495,7 +4515,6 @@ body.audio-playing .play-btn {
   flex: 1;
   overflow-y: auto;
   padding: 0 36px 40px;
-  scroll-behavior: smooth;
   scrollbar-width: none;
   display: flex;
   flex-direction: column;

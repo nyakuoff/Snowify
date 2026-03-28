@@ -25,6 +25,7 @@ const state = {
   videoPremuxed: true,
   animations: true,
   effects: true,
+  miniplayerGlow: true,
   theme: 'dark',
   discordRpc: false,
   country: '',

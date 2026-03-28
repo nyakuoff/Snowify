@@ -5,7 +5,7 @@
  */
 
 import state from './state.js';
-import { escapeHtml, showToast, renderArtistLinks } from './utils.js';
+import { escapeHtml, showToast, renderArtistLinks, resolveImageUrl } from './utils.js';
 import { callbacks } from './callbacks.js';
 // Circular imports — safe at runtime: all usage is inside function bodies.
 import {
@@ -26,20 +26,22 @@ const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const SAVE_SVG_CHECK = '<span class="save-burst"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 const SAVE_SVG_PLUS  = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
 
+function trackPlaysLabel(track) {
+  if (!track) return '';
+  return String(track.plays || track.viewCount || track.views || track.shortViewCountText || '').trim();
+}
+
 // ─── renderTrackList ──────────────────────────────────────────────────────────
 
 export function renderTrackList(container, tracks, context, sourcePlaylistId = null) {
   const isArtistCtx = context === 'artist-popular';
-  const showPlays   = !isArtistCtx && tracks.some(t => t.plays);
-  const modifier    = showPlays ? ' has-plays' : '';
 
   let html = `
-    <div class="track-list-header${modifier}">
+    <div class="track-list-header">
       <span>#</span>
       <span>${I18n.t('trackList.title')}</span>
       ${!isArtistCtx ? `<span>${I18n.t('trackList.artist')}</span>` : ''}
       <span></span>
-      ${showPlays ? `<span style="text-align:right">${I18n.t('trackList.plays')}</span>` : ''}
     </div>`;
 
   const _currentId = state.queue[state.queueIndex]?.id;
@@ -47,8 +49,9 @@ export function renderTrackList(container, tracks, context, sourcePlaylistId = n
   tracks.forEach((track, i) => {
     const isPlaying = _currentId === track.id;
     const isLiked   = _likedIds.has(track.id);
+    const playsText = trackPlaysLabel(track);
     html += `
-      <div class="track-row ${isPlaying ? 'playing' : ''}${modifier}${isArtistCtx ? ' track-row--artist' : ''}"
+      <div class="track-row ${isPlaying ? 'playing' : ''}${isArtistCtx ? ' track-row--artist' : ''}"
            data-track-id="${track.id}" data-context="${context}" data-index="${i}" draggable="true">
         <div class="track-num">
           <span class="track-num-text">${i + 1}</span>
@@ -58,10 +61,10 @@ export function renderTrackList(container, tracks, context, sourcePlaylistId = n
           </span>
         </div>
         <div class="track-main">
-          <img class="track-thumb" data-src="${escapeHtml(track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : ''))}" alt="" />
+          <img class="track-thumb" data-src="${escapeHtml(resolveImageUrl(track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : '')) || '')}" alt="" />
           <div class="track-details">
             <div class="track-title">${escapeHtml(track.title)}${track.isLocal ? '<span class="local-badge">LOCAL</span>' : ''}</div>
-            ${isArtistCtx && track.plays ? `<div class="track-inline-plays">${escapeHtml(track.plays)}</div>` : ''}
+            ${playsText ? `<div class="track-inline-plays">${escapeHtml(playsText)}</div>` : ''}
             ${!isArtistCtx && track.artist ? `<div class="track-artist-sub">${escapeHtml(track.artist)}</div>` : ''}
           </div>
         </div>
@@ -73,7 +76,6 @@ export function renderTrackList(container, tracks, context, sourcePlaylistId = n
             </svg>
           </button>
         </div>
-        ${showPlays ? `<div class="track-plays">${escapeHtml(track.plays || '')}</div>` : ''}
       </div>`;
   });
 
@@ -224,7 +226,7 @@ export async function findTrackAlternatives(track, replaceCtx = null) {
   listEl.innerHTML = results.map((r, i) => `
     <div class="spotify-track-item selectable" data-idx="${i}">
       <span class="spotify-track-status">
-        <img src="${escapeHtml(r.thumbnail || '')}" alt="" style="width:16px;height:16px;border-radius:3px;object-fit:cover;" />
+        <img src="${escapeHtml(resolveImageUrl(r.thumbnail || '') || '')}" alt="" style="width:16px;height:16px;border-radius:3px;object-fit:cover;" />
       </span>
       <span class="spotify-track-title">${escapeHtml(r.title || '')}</span>
       <span class="spotify-track-artist">${escapeHtml(r.artist || '')}</span>
@@ -265,7 +267,7 @@ export async function findTrackAlternatives(track, replaceCtx = null) {
 
 // ─── positionContextMenu ──────────────────────────────────────────────────────
 
-function positionContextMenu(menu) {
+export function positionContextMenu(menu) {
   document.body.appendChild(menu);
   const rect = menu.getBoundingClientRect();
   if (rect.right  > window.innerWidth)  menu.style.left = (window.innerWidth  - rect.width  - 8) + 'px';
@@ -276,6 +278,7 @@ function positionContextMenu(menu) {
     const subMenuEl = parentItem.querySelector('.context-submenu');
     if (isMobile) {
       parentItem.addEventListener('click', (ev) => {
+        if (ev.target.closest('.context-sub-item')) return; // let sub-item clicks bubble to main handler
         ev.stopPropagation();
         const isOpen = parentItem.classList.contains('submenu-open');
         menu.querySelectorAll('.context-menu-has-sub.submenu-open').forEach(el => el.classList.remove('submenu-open'));
@@ -337,7 +340,7 @@ export function showContextMenu(e, track, { hideAddQueue = false, hidePlayNext =
     <div class="ctx-sheet-handle"></div>
     <div class="ctx-sheet-header">
       <div class="ctx-sheet-track">
-        <img class="ctx-sheet-thumb" src="${escapeHtml(track.thumbnail || '')}" alt="" />
+        <img class="ctx-sheet-thumb" src="${escapeHtml(resolveImageUrl(track.thumbnail || '') || '')}" alt="" />
         <div class="ctx-sheet-info">
           <div class="ctx-sheet-title">${escapeHtml(track.title)}</div>
           <div class="ctx-sheet-artist">${escapeHtml(track.artist || '')}</div>

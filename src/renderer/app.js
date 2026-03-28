@@ -28,7 +28,7 @@ const IS_MOBILE_RUNTIME =
 
 function resolveImageUrl(url) {
   if (!url) return url;
-  return window.snowify?.resolveImageUrl?.(url) || url;
+  return window.snowify?.resolveImageUrl?.(url) || deproxyUrl(url);
 }
 
 const MOBILE_PROXY_PREFIX = 'http://127.0.0.1:17890/stream?url=';
@@ -520,6 +520,7 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
     state.videoPremuxed = cloud.videoPremuxed ?? state.videoPremuxed;
     state.animations = cloud.animations ?? state.animations;
     state.effects = cloud.effects ?? state.effects;
+    state.miniplayerGlow = cloud.miniplayerGlow ?? state.miniplayerGlow;
     if (cloud.theme && !isCustomTheme(cloud.theme) && !isCustomTheme(state.theme)) {
       state.theme = cloud.theme;
     }
@@ -573,6 +574,7 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
     if (state.country) window.snowify.setCountry(state.country);
     document.documentElement.classList.toggle('no-animations', !state.animations);
     document.documentElement.classList.toggle('no-effects', !state.effects);
+    document.documentElement.classList.toggle('no-miniplayer-glow', !state.miniplayerGlow);
     audioRef.engine.applyVolume(state.volume);
     audioRef.audio.volume = state.volume * VOLUME_SCALE;
     showToast(I18n.t('toast.syncedFromCloud'));
@@ -727,7 +729,8 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
         localStorage.setItem('snowify_migrated_v2', '1');
         return;
       }
-      const saved = JSON.parse(localStorage.getItem('snowify_state'));
+      const rawSaved = JSON.parse(localStorage.getItem('snowify_state'));
+      const saved = rawSaved ? normalizeForCloud(rawSaved) : null;
       if (saved) {
         state.playlists = saved.playlists || [];
         state.likedSongs = saved.likedSongs || [];
@@ -743,6 +746,7 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
         state.videoPremuxed = saved.videoPremuxed ?? true;
         state.animations = saved.animations ?? true;
         state.effects = saved.effects ?? true;
+        state.miniplayerGlow = saved.miniplayerGlow ?? true;
         state.theme = saved.theme || 'dark';
         state.discordRpc = saved.discordRpc ?? false;
         state.country = saved.country || '';
@@ -756,17 +760,27 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
         state.songSources = saved.songSources || ['youtube'];
         state.metadataSources = saved.metadataSources || ['youtube'];
         state.wrappedShownYear = saved.wrappedShownYear ?? null;
+
+        // Persist once after deproxying old mobile proxy URLs in local state.
+        if (JSON.stringify(rawSaved) !== JSON.stringify(saved)) {
+          localStorage.setItem('snowify_state', JSON.stringify(saved));
+        }
       }
       if (IS_MOBILE_RUNTIME) {
         state.normalization = false;
       }
       // Restore queue (local-only, separate from cloud sync)
-      const savedQueue = JSON.parse(localStorage.getItem('snowify_queue'));
+      const rawSavedQueue = JSON.parse(localStorage.getItem('snowify_queue'));
+      const savedQueue = rawSavedQueue ? normalizeForCloud(rawSavedQueue) : null;
       if (savedQueue) {
         state.queue = savedQueue.queue || [];
         state.originalQueue = savedQueue.originalQueue || [];
         state.queueIndex = savedQueue.queueIndex ?? -1;
         state.playingPlaylistId = savedQueue.playingPlaylistId || null;
+
+        if (JSON.stringify(rawSavedQueue) !== JSON.stringify(savedQueue)) {
+          localStorage.setItem('snowify_queue', JSON.stringify(savedQueue));
+        }
       }
       // Play log, genre cache, and backfill are loaded async in loadPlayLogAsync()
       // to avoid blocking the main thread on startup.
@@ -1192,8 +1206,22 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
     });
   }
 
-  window.snowify.getUser?.().then((user) => {
-    if (!user) showWelcomeOverlay();
+  // getUser provides a fallback for the case where onAuthStateChanged fired in the
+  // main process before the renderer window existed (firebase auth restored from cache
+  // before createWindow ran). In that case the IPC 'auth:stateChanged' was dropped and
+  // _cloudUser is still null — we trigger the initial sync here instead.
+  window.snowify.getUser?.().then(async (user) => {
+    if (user) {
+      if (!_cloudUser) {
+        // onAuthStateChanged was missed — bootstrap auth state and cloud sync now.
+        updateAccountUI(user);
+        updateSyncStatus(I18n.t('sync.syncing'));
+        await cloudLoadAndMerge({ forceCloud: true });
+        updateSyncStatus(I18n.t('sync.syncedJustNow'));
+      }
+    } else {
+      showWelcomeOverlay();
+    }
   }).catch(() => {
     showWelcomeOverlay();
   });

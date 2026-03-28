@@ -155,7 +155,7 @@ export async function renderPlugins() {
         document.querySelectorAll(`[data-plugin-id="${id}"]`).forEach(el => {
           if (el.tagName === 'STYLE' || el.tagName === 'SCRIPT') el.remove();
         });
-        showToast(I18n.t('plugins.uninstalledRestart'), { label: I18n.t('plugins.restart'), onClick: () => window.snowify.restartApp() });
+        showToast(I18n.t('plugins.uninstalled'));
         renderPlugins();
       });
     });

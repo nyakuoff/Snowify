@@ -4,7 +4,7 @@
  */
 
 import state from './state.js';
-import { escapeHtml, renderArtistLinks } from './utils.js';
+import { escapeHtml, renderArtistLinks, resolveImageUrl } from './utils.js';
 import { callbacks } from './callbacks.js';
 // Circular imports — safe at runtime: all usage is inside function bodies.
 import {
@@ -30,7 +30,7 @@ export async function showAlbumDetail(albumId, albumMeta) {
   heroName.textContent  = albumMeta?.name || I18n.t('common.loading');
   heroMeta.textContent  = '';
   heroType.textContent  = (albumMeta?.type || I18n.t('album.type')).toUpperCase();
-  heroCover.src         = albumMeta?.thumbnail || '';
+  heroCover.src         = resolveImageUrl(albumMeta?.thumbnail || '') || '';
   tracksContainer.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
 
   const album = await window.snowify.albumTracks(albumId);
@@ -46,7 +46,7 @@ export async function showAlbumDetail(albumId, albumMeta) {
   parts.push(I18n.tp('sidebar.songCount', album.tracks.length));
   heroMeta.innerHTML = parts.join(' \u00B7 ');
   bindArtistLinks(heroMeta);
-  if (album.thumbnail) heroCover.src = album.thumbnail;
+  if (album.thumbnail) heroCover.src = resolveImageUrl(album.thumbnail) || album.thumbnail;
 
   renderTrackList(tracksContainer, album.tracks, 'album');
 
@@ -89,7 +89,7 @@ export async function showExternalPlaylistDetail(playlistId, meta) {
   heroName.textContent  = meta?.name || I18n.t('common.loading');
   heroMeta.textContent  = '';
   heroType.textContent  = I18n.t('playlist.type');
-  heroCover.src         = meta?.thumbnail || '';
+  heroCover.src         = resolveImageUrl(meta?.thumbnail || '') || '';
   tracksContainer.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
 
   const tracks = await window.snowify.getPlaylistVideos(playlistId);

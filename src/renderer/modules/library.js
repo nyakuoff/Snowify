@@ -4,7 +4,7 @@
  */
 
 import state from './state.js';
-import { escapeHtml, showToast, showInputModal } from './utils.js';
+import { escapeHtml, showToast, showInputModal, resolveImageUrl } from './utils.js';
 import { callbacks } from './callbacks.js';
 // Circular imports — safe at runtime: all usage is inside function bodies.
 import {
@@ -201,10 +201,13 @@ export async function refreshFolderPlaylist(playlist, { silent = false } = {}) {
 
 function showSidebarPlaylistMenu(e, playlist, isLiked = false) {
   removeContextMenu();
+  const isMobile = document.documentElement.classList.contains('platform-mobile');
   const menu     = document.createElement('div');
   menu.className = 'context-menu';
-  menu.style.left = e.clientX + 'px';
-  menu.style.top  = e.clientY + 'px';
+  if (!isMobile) {
+    menu.style.left = e.clientX + 'px';
+    menu.style.top  = e.clientY + 'px';
+  }
 
   const manageHtml = isLiked ? '' : `
     <div class="context-menu-divider"></div>
@@ -216,7 +219,27 @@ function showSidebarPlaylistMenu(e, playlist, isLiked = false) {
     <div class="context-menu-item" data-action="rename">${I18n.t('context.rename')}</div>
     <div class="context-menu-item" data-action="delete" style="color:var(--red)">${I18n.t('context.delete')}</div>`;
 
-  menu.innerHTML = `
+  let mobileHeader = '';
+  if (isMobile) {
+    const coverHtml = isLiked
+      ? `<svg width="40" height="40" viewBox="0 0 24 24" fill="#fff"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`
+      : getPlaylistCoverHtml(playlist, 'normal');
+    const trackCount = isLiked ? I18n.tp('sidebar.songCount', playlist.tracks.length) : I18n.tp('sidebar.songCount', playlist.tracks.length);
+    mobileHeader = `
+      <div class="ctx-sheet-handle"></div>
+      <div class="ctx-sheet-header">
+        <div class="ctx-sheet-track">
+          <div class="ctx-sheet-thumb" style="overflow:hidden;border-radius:6px;display:flex;align-items:center;justify-content:center;background:var(--surface2)">${coverHtml}</div>
+          <div class="ctx-sheet-info">
+            <div class="ctx-sheet-title">${escapeHtml(playlist.name)}</div>
+            <div class="ctx-sheet-artist">${trackCount}</div>
+          </div>
+        </div>
+      </div>
+      <div class="context-menu-divider"></div>`;
+  }
+
+  menu.innerHTML = mobileHeader + `
     <div class="context-menu-item" data-action="play">${I18n.t('context.play')}</div>
     <div class="context-menu-item" data-action="shuffle">${I18n.t('context.shufflePlay')}</div>
     <div class="context-menu-divider"></div>
@@ -225,9 +248,48 @@ function showSidebarPlaylistMenu(e, playlist, isLiked = false) {
   `;
 
   document.body.appendChild(menu);
-  const rect = menu.getBoundingClientRect();
-  if (rect.right  > window.innerWidth)  menu.style.left = (window.innerWidth  - rect.width  - 8) + 'px';
-  if (rect.bottom > window.innerHeight) menu.style.top  = (window.innerHeight - rect.height - 8) + 'px';
+
+  if (isMobile) {
+    const backdrop     = document.createElement('div');
+    backdrop.className = 'ctx-backdrop';
+    document.body.appendChild(backdrop);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      menu.classList.add('ctx-open');
+      backdrop.classList.add('ctx-open');
+    }));
+    backdrop.addEventListener('click', removeContextMenu);
+
+    let touchStartY = 0, touchLastY = 0;
+    menu.addEventListener('touchstart', (ev) => {
+      touchStartY = ev.touches[0].clientY; touchLastY = touchStartY;
+      menu.style.transition = 'none';
+    }, { passive: true });
+    menu.addEventListener('touchmove', (ev) => {
+      touchLastY = ev.touches[0].clientY;
+      const delta = Math.max(0, touchLastY - touchStartY);
+      menu.style.transform = `translateY(${delta}px)`;
+      backdrop.style.opacity = String(Math.max(0, 1 - delta / 260));
+    }, { passive: true });
+    menu.addEventListener('touchend', () => {
+      const delta = Math.max(0, touchLastY - touchStartY);
+      if (delta > 90) {
+        menu.style.transition = 'transform 0.22s ease';
+        menu.style.transform  = 'translateY(100%)';
+        backdrop.style.transition = 'opacity 0.22s ease';
+        backdrop.style.opacity    = '0';
+        setTimeout(() => { menu.remove(); backdrop.remove(); }, 230);
+      } else {
+        menu.style.transition = 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)';
+        menu.style.transform  = 'translateY(0)';
+        backdrop.style.opacity = '1';
+      }
+    });
+  } else {
+    const rect = menu.getBoundingClientRect();
+    if (rect.right  > window.innerWidth)  menu.style.left = (window.innerWidth  - rect.width  - 8) + 'px';
+    if (rect.bottom > window.innerHeight) menu.style.top  = (window.innerHeight - rect.height - 8) + 'px';
+    setTimeout(() => { document.addEventListener('click', removeContextMenu, { once: true }); }, 10);
+  }
 
   menu.addEventListener('click', async (ev) => {
     const item = ev.target.closest('.context-menu-item');
@@ -268,8 +330,6 @@ function showSidebarPlaylistMenu(e, playlist, isLiked = false) {
     }
     removeContextMenu();
   });
-
-  setTimeout(() => { document.addEventListener('click', removeContextMenu, { once: true }); }, 10);
 }
 
 // ─── renderPlaylists ──────────────────────────────────────────────────────────
@@ -327,6 +387,24 @@ export function renderPlaylists() {
         if (pl) showSidebarPlaylistMenu(e, pl, false);
       }
     });
+
+    // Long-press on mobile triggers the playlist menu.
+    let _lpTimer = null;
+    item.addEventListener('touchstart', (e) => {
+      _lpTimer = setTimeout(() => {
+        _lpTimer = null;
+        const pid = item.dataset.playlist;
+        if (pid === 'liked') {
+          showSidebarPlaylistMenu(e, getLikedSongsPlaylist(), true);
+        } else {
+          const pl = state.playlists.find(p => p.id === pid);
+          if (pl) showSidebarPlaylistMenu(e, pl, false);
+        }
+      }, 500);
+    }, { passive: true });
+    item.addEventListener('touchmove',  () => { clearTimeout(_lpTimer); _lpTimer = null; }, { passive: true });
+    item.addEventListener('touchend',   () => { clearTimeout(_lpTimer); _lpTimer = null; }, { passive: true });
+    item.addEventListener('touchcancel',() => { clearTimeout(_lpTimer); _lpTimer = null; }, { passive: true });
 
     const overlay = item.querySelector('.playlist-cover-overlay');
     if (overlay) {
@@ -471,7 +549,7 @@ export function showPlaylistTrackMenu(e, track, playlist, isLiked, idx) {
     <div class="ctx-sheet-handle"></div>
     <div class="ctx-sheet-header">
       <div class="ctx-sheet-track">
-        <img class="ctx-sheet-thumb" src="${escapeHtml(track.thumbnail || '')}" alt="" />
+        <img class="ctx-sheet-thumb" src="${escapeHtml(resolveImageUrl(track.thumbnail || '') || '')}" alt="" />
         <div class="ctx-sheet-info">
           <div class="ctx-sheet-title">${escapeHtml(track.title)}</div>
           <div class="ctx-sheet-artist">${escapeHtml(track.artist || '')}</div>
@@ -619,8 +697,8 @@ $('#btn-import-folder-playlist')?.addEventListener('click', async () => {
   showPlaylistDetail(playlist, false);
   callbacks.switchView('playlist');
 });
-$('#btn-spotify-import').addEventListener('click', () => openSpotifyImport());
-$('#btn-lib-spotify-import')?.addEventListener('click', () => openSpotifyImport());
+$('#btn-spotify-import').addEventListener('click', () => openSpotifyImport({ createPlaylist, renderPlaylists, renderLibrary }));
+$('#btn-lib-spotify-import')?.addEventListener('click', () => openSpotifyImport({ createPlaylist, renderPlaylists, renderLibrary }));
 
 // ─── renderLibrary ────────────────────────────────────────────────────────────
 
@@ -678,5 +756,23 @@ export function renderLibrary() {
         if (pl) showSidebarPlaylistMenu(e, pl, false);
       }
     });
+
+    // Long-press on mobile triggers the playlist menu.
+    let _lpTimer = null;
+    card.addEventListener('touchstart', (e) => {
+      _lpTimer = setTimeout(() => {
+        _lpTimer = null;
+        const pid = card.dataset.playlist;
+        if (pid === 'liked') {
+          showSidebarPlaylistMenu(e, { id: 'liked', name: 'Liked Songs', tracks: state.likedSongs }, true);
+        } else {
+          const pl = state.playlists.find(p => p.id === pid);
+          if (pl) showSidebarPlaylistMenu(e, pl, false);
+        }
+      }, 500);
+    }, { passive: true });
+    card.addEventListener('touchmove',  () => { clearTimeout(_lpTimer); _lpTimer = null; }, { passive: true });
+    card.addEventListener('touchend',   () => { clearTimeout(_lpTimer); _lpTimer = null; }, { passive: true });
+    card.addEventListener('touchcancel',() => { clearTimeout(_lpTimer); _lpTimer = null; }, { passive: true });
   });
 }

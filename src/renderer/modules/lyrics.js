@@ -240,15 +240,16 @@ export function syncLyrics() {
     else                    el.style.opacity = '0.15';
   });
 
-  // Direct scrollTop — CSS scroll-behavior:smooth on the container handles animation.
-  // Using scrollTo({behavior:'smooth'}) simultaneously creates competing animations on Android.
+  // Use getBoundingClientRect for a viewport-relative calculation so the scroll
+  // target is correct regardless of offsetParent (critical on Android WebView).
   if (activeIdx >= 0) {
-    const activeLine = allLines[activeIdx];
+    const activeLine   = allLines[activeIdx];
     if (activeLine) {
-      const lineTop    = activeLine.offsetTop;
-      const lineHeight = activeLine.offsetHeight;
-      const cHeight    = lyricsBody.clientHeight;
-      lyricsBody.scrollTop = lineTop - (cHeight / 2) + (lineHeight / 2);
+      const cRect  = lyricsBody.getBoundingClientRect();
+      const lRect  = activeLine.getBoundingClientRect();
+      const target = lyricsBody.scrollTop + lRect.top - cRect.top
+                     - (lyricsBody.clientHeight / 2) + (activeLine.offsetHeight / 2);
+      lyricsBody.scrollTo({ top: target, behavior: 'smooth' });
     }
   }
 }

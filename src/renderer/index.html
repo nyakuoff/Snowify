@@ -274,6 +274,7 @@
             <button class="settings-tab-btn" data-settings-tab="account" data-i18n="settings.account">Account</button>
             <button class="settings-tab-btn" data-settings-tab="playback" data-i18n="settings.tabPlayback">Playback</button>
             <button class="settings-tab-btn" data-settings-tab="appearance" data-i18n="settings.tabAppearance">Appearance</button>
+            <button class="settings-tab-btn" data-settings-tab="behavior" data-i18n="settings.tabBehavior">Behavior</button>
             <button class="settings-tab-btn" data-settings-tab="marketplace" data-i18n="plugins.title">Marketplace</button>
             <button class="settings-tab-btn" data-settings-tab="about" data-i18n="settings.tabAbout">About</button>
           </div>
@@ -427,6 +428,27 @@
                 <option value="GB">United Kingdom</option>
                 <option value="US">United States</option>
                 <option value="VN">Vietnam</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.language">Language</span>
+                <span class="setting-desc" data-i18n="settings.languageDesc">App display language</span>
+              </div>
+              <select class="setting-select" id="setting-language">
+                <option value="" data-i18n="settings.langAuto">System default</option>
+                <option value="en">English</option>
+                <option value="es">Español</option>
+                <option value="pt">Português</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="ja">日本語</option>
+                <option value="ko">한국어</option>
+                <option value="zh">中文</option>
+                <option value="it">Italiano</option>
+                <option value="tr">Türkçe</option>
+                <option value="ru">Русский</option>
+                <option value="hi">हिन्दी</option>
               </select>
             </div>
             <div class="setting-row">
@@ -601,27 +623,6 @@
             <h3 data-i18n="settings.appearance">Appearance</h3>
             <div class="setting-row">
               <div class="setting-info">
-                <span class="setting-label" data-i18n="settings.language">Language</span>
-                <span class="setting-desc" data-i18n="settings.languageDesc">App display language</span>
-              </div>
-              <select class="setting-select" id="setting-language">
-                <option value="" data-i18n="settings.langAuto">System default</option>
-                <option value="en">English</option>
-                <option value="es">Español</option>
-                <option value="pt">Português</option>
-                <option value="fr">Français</option>
-                <option value="de">Deutsch</option>
-                <option value="ja">日本語</option>
-                <option value="ko">한국어</option>
-                <option value="zh">中文</option>
-                <option value="it">Italiano</option>
-                <option value="tr">Türkçe</option>
-                <option value="ru">Русский</option>
-                <option value="hi">हिन्दी</option>
-              </select>
-            </div>
-            <div class="setting-row">
-              <div class="setting-info">
                 <span class="setting-label" data-i18n="settings.theme">Theme</span>
                 <span class="setting-desc" data-i18n="settings.themeDesc">Choose a color theme for the app</span>
               </div>
@@ -667,6 +668,24 @@
                 <span class="toggle-slider"></span>
               </label>
             </div>
+            <div class="setting-row" id="row-miniplayer-glow">
+              <div class="setting-info">
+                <span class="setting-label" data-i18n="settings.miniplayerGlow">Miniplayer glow &amp; fade</span>
+                <span class="setting-desc" data-i18n="settings.miniplayerGlowDesc">Ambient color glow and pulse animations on the player bar</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-miniplayer-glow" checked />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+          </div><!-- /.settings-tab-pane[appearance] -->
+
+          <!-- ── Behavior tab ── -->
+          <div class="settings-tab-pane" data-tab="behavior">
+
+          <div class="settings-group">
+            <h3 data-i18n="settings.behavior">Behavior</h3>
             <div class="setting-row" id="row-minimize-to-tray">
               <div class="setting-info">
                 <span class="setting-label" data-i18n="settings.minimizeToTray">Minimize to tray</span>
@@ -688,7 +707,7 @@
               </label>
             </div>
           </div>
-          </div><!-- /.settings-tab-pane[appearance] -->
+          </div><!-- /.settings-tab-pane[behavior] -->
 
           <!-- ── About tab ── -->
           <div class="settings-tab-pane" data-tab="about">

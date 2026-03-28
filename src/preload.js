@@ -1,8 +1,21 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+const MOBILE_PROXY_PREFIX = 'http://127.0.0.1:17890/stream?url=';
+
+function deproxyUrl(url) {
+  if (typeof url !== 'string' || !url.startsWith(MOBILE_PROXY_PREFIX)) return url;
+  try {
+    const parsed = new URL(url);
+    return parsed.searchParams.get('url') || url;
+  } catch {
+    return url;
+  }
+}
+
 contextBridge.exposeInMainWorld('snowify', {
   // Platform
   platform: process.platform,
+  resolveImageUrl: (url) => deproxyUrl(url),
 
   // Window controls
   minimize: () => ipcRenderer.send('window:minimize'),

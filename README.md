@@ -108,9 +108,9 @@ If you find bugs, have ideas, or want to clean something up, feel free to open a
 
 ### Translating
 
-Snowify supports multiple languages through JSON translation files in `src/locales/`. To contribute a translation:
+Snowify supports multiple languages through JSON translation files in `src/renderer/locales/`. To contribute a translation:
 
-1. **Copy the English file** — Duplicate `src/locales/en.json` and rename it to your language's [ISO 639-1 code](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) (e.g. `nl.json` for Dutch).
+1. **Copy the English file** — Duplicate `src/renderer/locales/en.json` and rename it to your language's [ISO 639-1 code](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) (e.g. `nl.json` for Dutch).
 
 2. **Translate the values** — Each file is a flat `"key": "value"` JSON object. Translate only the **values**, never the keys. Keep any `{{placeholder}}` variables intact:
    ```json

@@ -1,5 +1,22 @@
 // ─── Renderer utilities ───
 
+const MOBILE_PROXY_PREFIX = 'http://127.0.0.1:17890/stream?url=';
+
+export function deproxyUrl(url) {
+  if (typeof url !== 'string' || !url.startsWith(MOBILE_PROXY_PREFIX)) return url;
+  try {
+    const parsed = new URL(url);
+    return parsed.searchParams.get('url') || url;
+  } catch {
+    return url;
+  }
+}
+
+export function resolveImageUrl(url) {
+  if (!url) return url;
+  return window.snowify?.resolveImageUrl?.(url) || deproxyUrl(url);
+}
+
 export function setupSliderTooltip(sliderEl, formatValue) {
   const tip = document.createElement('div');
   tip.className = 'slider-tooltip';

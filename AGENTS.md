@@ -97,6 +97,7 @@ Required app assignments in `finishInit()`:
 
 - User-facing strings must use `I18n.t(...)` keys.
 - Do not hardcode display text unless it is a strict temporary debug message.
+- **The single locale directory is `src/renderer/locales/*.json`.** This is used by both the renderer (via `fetch`) and the Electron main process (via `fs.readFileSync`). Always edit `src/renderer/locales/en.json` (and other languages) when adding new keys. There is no `src/locales/` directory.
 - Preserve mobile behavior and gestures.
 - Respect reduced-motion and existing animation toggles.
 
@@ -123,6 +124,7 @@ When editing:
 - Make the smallest targeted change.
 - Do not move unrelated logic.
 - Do not rename public exports unless all imports are updated.
+- Make sure any Mobile specific changes don't impact Desktop unless required
 
 After editing:
 - Run syntax checks for touched files.
@@ -161,7 +163,7 @@ When adding a feature:
 2. Export only the public functions needed by callers.
 3. Add callback injection points if app-owned dependencies are needed.
 4. Wire imports and callback assignments in `app.js`.
-5. Add i18n keys to locale files.
+5. Add i18n keys to `src/renderer/locales/en.json` (and other language files if applicable).
 6. Run validation checklist.
 
 ## 13. Migration Discipline
