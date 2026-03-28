@@ -1345,6 +1345,7 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
             <div class="track-details">
               <div class="track-title">${escapeHtml(track.title)}${track.isLocal ? '<span class="local-badge">LOCAL</span>' : ''}</div>
               ${isArtistCtx && track.plays ? `<div class="track-inline-plays">${escapeHtml(track.plays)}</div>` : ''}
+              ${!isArtistCtx && track.artist ? `<div class="track-artist-sub">${escapeHtml(track.artist)}</div>` : ''}
             </div>
           </div>
           ${!isArtistCtx ? `<div class="track-artist-col">${renderArtistLinks(track)}</div>` : ''}
@@ -1432,50 +1433,78 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
     if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 8) + 'px';
     if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 8) + 'px';
 
+    const isMobile = document.documentElement.classList.contains('platform-mobile');
     menu.querySelectorAll('.context-menu-has-sub').forEach(parentItem => {
       const subMenuEl = parentItem.querySelector('.context-submenu');
-      let hideTimeout = null;
-      const show = () => {
-        clearTimeout(hideTimeout);
-        menu.querySelectorAll('.context-menu-has-sub.submenu-open').forEach(el => {
-          if (el !== parentItem) el.classList.remove('submenu-open');
+      if (isMobile) {
+        // On mobile: tap the row to toggle the inline submenu
+        parentItem.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const isOpen = parentItem.classList.contains('submenu-open');
+          menu.querySelectorAll('.context-menu-has-sub.submenu-open').forEach(el => el.classList.remove('submenu-open'));
+          if (!isOpen) parentItem.classList.add('submenu-open');
         });
-        parentItem.classList.add('submenu-open');
-        const subRect = subMenuEl.getBoundingClientRect();
-        if (subRect.right > window.innerWidth) {
-          subMenuEl.classList.add('open-left');
-        } else {
-          subMenuEl.classList.remove('open-left');
-        }
-        if (subRect.bottom > window.innerHeight) {
-          subMenuEl.style.top = 'auto';
-          subMenuEl.style.bottom = '0';
-        }
-      };
-      const hide = () => {
-        hideTimeout = setTimeout(() => parentItem.classList.remove('submenu-open'), 250);
-      };
-      parentItem.addEventListener('mouseenter', show);
-      parentItem.addEventListener('mouseleave', hide);
-      subMenuEl.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
-      subMenuEl.addEventListener('mouseleave', hide);
+      } else {
+        let hideTimeout = null;
+        const show = () => {
+          clearTimeout(hideTimeout);
+          menu.querySelectorAll('.context-menu-has-sub.submenu-open').forEach(el => {
+            if (el !== parentItem) el.classList.remove('submenu-open');
+          });
+          parentItem.classList.add('submenu-open');
+          const subRect = subMenuEl.getBoundingClientRect();
+          if (subRect.right > window.innerWidth) {
+            subMenuEl.classList.add('open-left');
+          } else {
+            subMenuEl.classList.remove('open-left');
+          }
+          if (subRect.bottom > window.innerHeight) {
+            subMenuEl.style.top = 'auto';
+            subMenuEl.style.bottom = '0';
+          }
+        };
+        const hide = () => {
+          hideTimeout = setTimeout(() => parentItem.classList.remove('submenu-open'), 250);
+        };
+        parentItem.addEventListener('mouseenter', show);
+        parentItem.addEventListener('mouseleave', hide);
+        subMenuEl.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+        subMenuEl.addEventListener('mouseleave', hide);
+      }
     });
   }
 
   function showContextMenu(e, track, { hideAddQueue = false, hidePlayNext = false } = {}) {
     removeContextMenu();
+    const isMobile = document.documentElement.classList.contains('platform-mobile');
     const isLiked = state.likedSongs.some(t => t.id === track.id);
     const isLocal = !!track.isLocal;
     const menu = document.createElement('div');
     menu.className = 'context-menu';
-    menu.style.left = e.clientX + 'px';
-    menu.style.top = e.clientY + 'px';
+    if (!isMobile) {
+      menu.style.left = e.clientX + 'px';
+      menu.style.top = e.clientY + 'px';
+    }
 
     const playlistSection = buildPlaylistSectionHtml(track);
     const addQueueHtml = hideAddQueue ? '' : `<div class="context-menu-item" data-action="add-queue">${I18n.t('context.addToQueue')}</div>`;
     const playNextHtml = hidePlayNext ? '' : `<div class="context-menu-item" data-action="play-next">${I18n.t('context.playNext')}</div>`;
 
-    menu.innerHTML = `
+    const mobileHeader = isMobile ? `
+      <div class="ctx-sheet-handle"></div>
+      <div class="ctx-sheet-header">
+        <div class="ctx-sheet-track">
+          <img class="ctx-sheet-thumb" src="${escapeHtml(track.thumbnail || '')}" alt="" />
+          <div class="ctx-sheet-info">
+            <div class="ctx-sheet-title">${escapeHtml(track.title)}</div>
+            <div class="ctx-sheet-artist">${escapeHtml(track.artist || '')}</div>
+          </div>
+        </div>
+      </div>
+      <div class="context-menu-divider"></div>
+    ` : '';
+
+    menu.innerHTML = mobileHeader + `
       <div class="context-menu-item" data-action="play">${I18n.t('context.play')}</div>
       ${playNextHtml}
       ${addQueueHtml}
@@ -1488,6 +1517,52 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
     `;
 
     positionContextMenu(menu);
+
+    if (isMobile) {
+      const backdrop = document.createElement('div');
+      backdrop.className = 'ctx-backdrop';
+      document.body.appendChild(backdrop);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          menu.classList.add('ctx-open');
+          backdrop.classList.add('ctx-open');
+        });
+      });
+      backdrop.addEventListener('click', removeContextMenu);
+
+      // Swipe down to dismiss
+      let touchStartY = 0;
+      let touchLastY = 0;
+      menu.addEventListener('touchstart', (ev) => {
+        touchStartY = ev.touches[0].clientY;
+        touchLastY = touchStartY;
+        menu.style.transition = 'none';
+      }, { passive: true });
+      menu.addEventListener('touchmove', (ev) => {
+        touchLastY = ev.touches[0].clientY;
+        const delta = Math.max(0, touchLastY - touchStartY);
+        menu.style.transform = `translateY(${delta}px)`;
+        backdrop.style.opacity = String(Math.max(0, 1 - delta / 260));
+      }, { passive: true });
+      menu.addEventListener('touchend', () => {
+        const delta = Math.max(0, touchLastY - touchStartY);
+        if (delta > 90) {
+          menu.style.transition = 'transform 0.22s ease';
+          menu.style.transform = `translateY(100%)`;
+          backdrop.style.transition = 'opacity 0.22s ease';
+          backdrop.style.opacity = '0';
+          setTimeout(() => { menu.remove(); backdrop.remove(); }, 230);
+        } else {
+          menu.style.transition = 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)';
+          menu.style.transform = 'translateY(0)';
+          backdrop.style.opacity = '1';
+        }
+      });
+    } else {
+      setTimeout(() => {
+        document.addEventListener('click', removeContextMenu, { once: true });
+      }, 10);
+    }
 
     menu.addEventListener('click', async (ev) => {
       const item = ev.target.closest('[data-action]');
@@ -1517,14 +1592,22 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
       }
       removeContextMenu();
     });
-
-    setTimeout(() => {
-      document.addEventListener('click', removeContextMenu, { once: true });
-    }, 10);
   }
 
   function removeContextMenu() {
-    document.querySelectorAll('.context-menu').forEach(m => m.remove());
+    const isMobile = document.documentElement.classList.contains('platform-mobile');
+    document.querySelectorAll('.context-menu').forEach(m => {
+      if (isMobile) {
+        m.classList.remove('ctx-open');
+        setTimeout(() => m.remove(), 300);
+      } else {
+        m.remove();
+      }
+    });
+    document.querySelectorAll('.ctx-backdrop').forEach(b => {
+      b.classList.remove('ctx-open');
+      setTimeout(() => b.remove(), 300);
+    });
   }
 
   // ─── Generic save button setup (reused by album + playlist detail views) ───
