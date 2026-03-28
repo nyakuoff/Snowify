@@ -819,6 +819,9 @@ html, body {
   border-left: 3px solid var(--accent);
   line-height: 1.25;
 }
+.library-header-actions {
+  display: none;
+}
 
 .card-row {
   display: grid;
@@ -6325,6 +6328,22 @@ body.i18n-switching { opacity: 0; }
   font-weight: 800;
   letter-spacing: -0.5px;
   margin-bottom: 0;
+}
+
+.platform-mobile .library-header-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.platform-mobile .library-header-actions .btn-setting-action {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 0 10px;
 }
 
 /* ─── Section headings ─── */

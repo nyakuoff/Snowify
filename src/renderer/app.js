@@ -3229,6 +3229,10 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     const name = await showInputModal(I18n.t('modal.createPlaylist'), I18n.t('modal.defaultPlaylistName'));
     if (name) createPlaylist(name);
   });
+  $('#btn-lib-create-playlist-top')?.addEventListener('click', async () => {
+    const name = await showInputModal(I18n.t('modal.createPlaylist'), I18n.t('modal.defaultPlaylistName'));
+    if (name) createPlaylist(name);
+  });
   $('#btn-import-folder-playlist')?.addEventListener('click', async () => {
     const result = await window.snowify.pickAudioFolder();
     if (!result) return;
@@ -3245,6 +3249,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     switchView('playlist');
   });
   $('#btn-spotify-import').addEventListener('click', () => openSpotifyImport());
+  $('#btn-lib-spotify-import')?.addEventListener('click', () => openSpotifyImport());
 
   function renderLibrary() {
     const container = $('#library-content');
@@ -5559,7 +5564,7 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
     menu.style.left = e.clientX + 'px';
     menu.style.top = e.clientY + 'px';
 
-    const playlistSection = buildPlaylistSectionHtml();
+    const playlistSection = buildPlaylistSectionHtml(track);
 
     menu.innerHTML = `
       ${isLocal ? '' : `<div class="context-menu-item" data-action="start-radio">${I18n.t('context.startRadio')}</div>`}
@@ -5583,8 +5588,8 @@ const cachedPath = prefetchCache.getCachedPath(track.id);
           openVideoPlayer(track.id, track.title, track.artist);
           break;
         case 'like': toggleLike(track); break;
-        case 'add-to-playlist':
-          addToPlaylist(item.dataset.pid, track);
+        case 'toggle-playlist':
+          handleTogglePlaylist(item.dataset.pid, track);
           break;
         case 'go-to-artist':
           openArtistPage(track.artistId);
