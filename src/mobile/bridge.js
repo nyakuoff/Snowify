@@ -664,7 +664,6 @@ class NativeAudioShim extends EventTarget {
     this._volume      = 1;
     this._readyState  = 0;
     this._error       = null;
-    this._srcDirty    = false;
     // Dummy properties expected by LoudnessNormalizer / CSS code
     this.style    = {};
     this.preload  = 'auto';
@@ -691,30 +690,13 @@ class NativeAudioShim extends EventTarget {
       });
       plugin.addListener('playerEnded', d => {
         if (d.id !== this.shimId) return;
-        // Ignore spurious ended events when this shim has no loaded source
-        // (can fire after stop() clears the player between tracks).
-        if (!this._src) return;
         this._paused = true;
         this._fire('ended');
       });
       plugin.addListener('playerError', d => {
         if (d.id !== this.shimId) return;
-        // If the localhost proxy fails on Android, retry once with the raw
-        // upstream googlevideo URL before surfacing an error.
-        if (d.message === 'Source error' && !this._retriedRawSrc) {
-          const rawSrc = getRawUrlFromProxy(this._src);
-          if (rawSrc) {
-            this._retriedRawSrc = true;
-            this._src = rawSrc;
-            plugin.load({ id: this.shimId, url: rawSrc })
-              .then(() => plugin.play({ id: this.shimId }))
-              .catch(() => {});
-            return;
-          }
-        }
         this._paused = true;
         this._error  = { code: 4, message: d.message };
-        console.error('[NativeAudio] playerError:', d.message, '| src:', this._src?.substring(0, 100));
         this._fire('error');
       });
     };
@@ -734,29 +716,18 @@ class NativeAudioShim extends EventTarget {
   // ── src property ──────────────────────────────────────────────────────────
   get src() { return this._src; }
   set src(url) {
-    const incoming = url ?? '';
-    // Android native player can consume remote URLs directly; avoid feeding it
-    // localhost-proxied stream URLs, which can fail with generic Source error.
-    this._src        = deproxyUrl(incoming);
+    this._src        = url ?? '';
     this._readyState = 0;
     this._duration   = 0;
     this._currentTime = 0;
-    this._retriedRawSrc = false;
-    this._srcDirty   = true; // load() will handle the actual plugin.load() call
-    if (!this._src) {
-      // Clearing the source — nothing to load
-      this._srcDirty = false;
+    if (this._src) {
+      window.Capacitor?.Plugins?.MobilePlayer?.load({ id: this.shimId, url: this._src });
     }
   }
 
   // ── playback control ──────────────────────────────────────────────────────
   load() {
-    if (this._srcDirty && this._src) {
-      // First load() after src was set — trigger the native load exactly once
-      this._srcDirty = false;
-      window.Capacitor?.Plugins?.MobilePlayer?.load({ id: this.shimId, url: this._src });
-    } else if (!this._srcDirty && this._src) {
-      // Explicit reload request (e.g. after seeking back to start)
+    if (this._src) {
       window.Capacitor?.Plugins?.MobilePlayer?.load({ id: this.shimId, url: this._src });
     }
   }
@@ -825,17 +796,9 @@ export function installMobileBridge() {
     if (el) el.removeAttribute('crossorigin');
   });
 
-  // Detect Android/iOS primarily from Capacitor runtime, fallback to UA.
-  const capPlatform = typeof window.Capacitor?.getPlatform === 'function'
-    ? window.Capacitor.getPlatform()
-    : null;
+  // Detect Android vs iOS from user-agent
   const ua = navigator.userAgent || '';
-  const platform =
-    capPlatform === 'android' ? 'android'
-      : capPlatform === 'ios' ? 'darwin'
-      : /android/i.test(ua) ? 'android'
-        : /iphone|ipad|ipod/i.test(ua) ? 'darwin'
-          : 'linux';
+  const platform = /android/i.test(ua) ? 'android' : /iphone|ipad|ipod/i.test(ua) ? 'darwin' : 'linux';
 
   // On Android, replace the real <audio> elements with ExoPlayer-backed shims
   // so DualAudioEngine drives native playback without WebView CORS restrictions.

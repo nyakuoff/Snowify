@@ -40,11 +40,10 @@ public class MobilePlayerPlugin extends Plugin {
 
     private static final String TAG = "MobilePlayer";
 
-    // Keep this aligned with the primary ANDROID player client in ytm-client.js
-    // so CDN signatures and request headers stay consistent.
-    private static final String STREAM_USER_AGENT =
-        "com.google.android.youtube/21.03.36 " +
-        "(Linux; U; Android 16; en_US; SM-S908E Build/TP1A.220624.014) gzip";
+    // Must match ANDROID_VR.client.userAgent in ytm-client.js.
+    private static final String VR_USER_AGENT =
+        "com.google.android.apps.youtube.vr.oculus/1.65.10 " +
+        "(Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip";
 
     // Preserve insertion order so time-update polling iterates consistently
     private final Map<String, ExoPlayer> players = new LinkedHashMap<>();
@@ -58,7 +57,7 @@ public class MobilePlayerPlugin extends Plugin {
         if (existing != null) return existing;
 
         DefaultHttpDataSource.Factory dsFactory = new DefaultHttpDataSource.Factory()
-            .setUserAgent(STREAM_USER_AGENT)
+            .setUserAgent(VR_USER_AGENT)
             .setAllowCrossProtocolRedirects(true);
 
         ExoPlayer player = new ExoPlayer.Builder(getContext())

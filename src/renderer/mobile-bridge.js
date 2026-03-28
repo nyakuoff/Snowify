@@ -1167,21 +1167,8 @@ var __SnowifyMobile = (() => {
   async function nativeRequest(url, options = {}) {
     return request(url, options);
   }
-  async function nativeGetText(url, options = {}) {
-    const response = await request(url, { ...options, method: "GET", responseType: "text" });
-    return typeof response.data === "string" ? response.data : String(response.data ?? "");
-  }
   async function nativeGetJson(url, options = {}) {
     const response = await request(url, { ...options, method: "GET", responseType: "json" });
-    if (typeof response.data === "string") {
-      const text = response.data.trim();
-      if (!text) throw new Error(`Empty JSON response from ${url}`);
-      return JSON.parse(text);
-    }
-    return response.data;
-  }
-  async function nativeRequestJson(url, options = {}) {
-    const response = await request(url, { ...options, responseType: "json" });
     if (typeof response.data === "string") {
       const text = response.data.trim();
       if (!text) throw new Error(`Empty JSON response from ${url}`);
@@ -1196,6 +1183,7 @@ var __SnowifyMobile = (() => {
   var _visitorData = null;
   var _initDone = false;
   var _initP = null;
+  var _cookieJar = /* @__PURE__ */ new Map();
   function generateCpn() {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
     return Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * 64)]).join("");
@@ -1251,13 +1239,82 @@ var __SnowifyMobile = (() => {
       }
     }
   ];
-  var ANDROID_STREAM_USER_AGENT = "com.google.android.youtube/21.03.36 (Linux; U; Android 16; en_US; SM-S908E Build/TP1A.220624.014) gzip";
+  function getHeader(headers, name4) {
+    if (!headers || typeof headers !== "object") return void 0;
+    const lower = name4.toLowerCase();
+    for (const [key, value] of Object.entries(headers)) {
+      if (String(key).toLowerCase() === lower) return value;
+    }
+    return void 0;
+  }
+  function parseSetCookieHeader(value) {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.flatMap(parseSetCookieHeader);
+    const str = String(value);
+    return str.split(/,(?=[^;,=\s]+=[^;,]+)/g).map((v2) => v2.trim()).filter(Boolean);
+  }
+  function storeCookiesFromHeaders(headers) {
+    const rawSetCookie = getHeader(headers, "set-cookie");
+    const cookieLines = parseSetCookieHeader(rawSetCookie);
+    for (const cookieLine of cookieLines) {
+      const firstPart = cookieLine.split(";")[0]?.trim();
+      if (!firstPart) continue;
+      const eqIdx = firstPart.indexOf("=");
+      if (eqIdx <= 0) continue;
+      const name4 = firstPart.slice(0, eqIdx).trim();
+      const val = firstPart.slice(eqIdx + 1).trim();
+      if (!name4) continue;
+      _cookieJar.set(name4, val);
+    }
+  }
+  function buildCookieHeader() {
+    if (!_cookieJar.size) return "";
+    return [..._cookieJar.entries()].map(([name4, value]) => `${name4}=${value}`).join("; ");
+  }
+  async function nativeTextRequest(url, options = {}) {
+    const headers = { ...options.headers || {} };
+    const cookieHeader = buildCookieHeader();
+    if (cookieHeader && !headers.Cookie) headers.Cookie = cookieHeader;
+    const response = await nativeRequest(url, {
+      ...options,
+      method: options.method || "GET",
+      headers,
+      responseType: "text"
+    });
+    storeCookiesFromHeaders(response?.headers);
+    return typeof response?.data === "string" ? response.data : String(response?.data ?? "");
+  }
+  async function nativeJsonRequest(url, options = {}) {
+    const headers = { ...options.headers || {} };
+    const cookieHeader = buildCookieHeader();
+    if (cookieHeader && !headers.Cookie) headers.Cookie = cookieHeader;
+    const response = await nativeRequest(url, {
+      ...options,
+      method: options.method || "GET",
+      headers,
+      responseType: "json"
+    });
+    storeCookiesFromHeaders(response?.headers);
+    if (typeof response?.data === "string") {
+      const text = response.data.trim();
+      if (!text) throw new Error(`Empty JSON response from ${url}`);
+      return JSON.parse(text);
+    }
+    return response?.data;
+  }
   async function initSession() {
     if (_initDone) return;
     if (_initP) return _initP;
     _initP = (async () => {
       try {
-        const html = await nativeGetText("https://music.youtube.com/");
+        const html = await nativeTextRequest("https://music.youtube.com/", {
+          headers: {
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+          }
+        });
         const visitorMatch = html.match(/"VISITOR_DATA"\s*:\s*"([^"]+)"/);
         if (visitorMatch?.[1]) _visitorData = visitorMatch[1];
         const keyMatch = html.match(/"INNERTUBE_API_KEY"\s*:\s*"([^"]+)"/);
@@ -1289,11 +1346,17 @@ var __SnowifyMobile = (() => {
   }
   async function musicRequest(endpoint, body) {
     await initSession();
-    return nativeRequestJson(
+    return nativeJsonRequest(
       `https://music.youtube.com/youtubei/v1/${endpoint}?key=${_apiKey}&prettyPrint=false`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Origin: "https://music.youtube.com",
+          Referer: "https://music.youtube.com/",
+          "X-Origin": "https://music.youtube.com"
+        },
         body: JSON.stringify({ context: _context, ...body })
       }
     );
@@ -2037,10 +2100,14 @@ var __SnowifyMobile = (() => {
     };
   }
   async function requestPlayerData(playerClient, videoId) {
-    return nativeRequestJson(playerClient.apiUrl, {
+    return nativeJsonRequest(playerClient.apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Accept: "application/json",
+        Origin: "https://www.youtube.com",
+        Referer: "https://www.youtube.com/",
+        "X-Origin": "https://www.youtube.com",
         "X-YouTube-Client-Name": playerClient.clientNameId,
         "X-YouTube-Client-Version": playerClient.client.clientVersion,
         "User-Agent": playerClient.client.userAgent,
@@ -2065,41 +2132,8 @@ var __SnowifyMobile = (() => {
     });
   }
   async function fetchPlayerData(videoId) {
-    let lastData = null;
-    let lastError = null;
-    for (const playerClient of PLAYER_CLIENTS) {
-      try {
-        const data = await requestPlayerData(playerClient, videoId);
-        const status = data?.playabilityStatus?.status;
-        const hasStreams = Boolean(
-          data?.streamingData?.hlsManifestUrl || data?.streamingData?.adaptiveFormats?.length || data?.streamingData?.formats?.length
-        );
-        if (status === "OK" && hasStreams) {
-          return data;
-        }
-        if (!lastData || status === "OK") {
-          lastData = data;
-        }
-      } catch (error) {
-        lastError = error;
-        console.warn(`[YTM] ${playerClient.name} player request failed:`, error?.message || error);
-      }
-    }
-    if (lastData) return lastData;
-    throw lastError || new Error("Failed to fetch player data");
-  }
-  async function fetchMusicWebPlayerData(videoId) {
-    await initSession();
-    return musicRequest("player", {
-      videoId,
-      contentCheckOk: true,
-      racyCheckOk: true,
-      playbackContext: {
-        contentPlaybackContext: {
-          html5Preference: "HTML5_PREF_WANTS"
-        }
-      }
-    });
+    const androidVrClient = PLAYER_CLIENTS.find((client) => client.name === "ANDROID_VR") || PLAYER_CLIENTS[0];
+    return requestPlayerData(androidVrClient, videoId);
   }
   async function fetchPipedStreams(videoId) {
     try {
@@ -2108,72 +2142,6 @@ var __SnowifyMobile = (() => {
       console.error("[YTM] Piped API failed:", error);
       return null;
     }
-  }
-  function extractAudioFormats(playerData) {
-    const adaptive = playerData?.streamingData?.adaptiveFormats ?? [];
-    const directAudio = adaptive.filter((format) => format.mimeType?.startsWith("audio/") && format.url).map((format) => ({
-      itag: format.itag,
-      mimeType: format.mimeType,
-      bitrate: format.bitrate || 0,
-      url: format.url
-    }));
-    if (directAudio.length) return directAudio;
-    const muxed = (playerData?.streamingData?.formats ?? []).filter((format) => format.url).map((format) => ({
-      itag: format.itag,
-      mimeType: format.mimeType,
-      bitrate: format.bitrate || 0,
-      url: format.url
-    }));
-    if (muxed.length) return muxed;
-    const hlsManifestUrl = playerData?.streamingData?.hlsManifestUrl;
-    if (hlsManifestUrl) {
-      return [{ mimeType: "application/x-mpegURL", bitrate: 0, url: hlsManifestUrl }];
-    }
-    return [];
-  }
-  function scoreAudioFormat(format, quality = "bestaudio") {
-    const mime = String(format?.mimeType || "").toLowerCase();
-    const url = String(format?.url || "");
-    const bitrate = Number(format?.bitrate || 0);
-    let score = 0;
-    if (mime.includes("audio/mp4")) score += 100;
-    else if (mime.includes("audio/webm")) score += 70;
-    else if (mime.includes("application/x-mpegurl")) score += 20;
-    if (/([?&])source=yt_otf([&=]|$)/i.test(url) || /([?&])otf=1([&=]|$)/i.test(url)) score -= 200;
-    if (mime.startsWith("audio/")) score += 15;
-    const bitrateDelta = Math.floor(bitrate / 1e3);
-    score += quality === "worstaudio" ? -bitrateDelta : bitrateDelta;
-    return score;
-  }
-  async function probeStreamUrl(url) {
-    try {
-      const resp = await nativeRequest(url, {
-        method: "GET",
-        responseType: "text",
-        headers: {
-          "User-Agent": ANDROID_STREAM_USER_AGENT,
-          "Range": "bytes=0-1"
-        },
-        connectTimeout: 12e3,
-        readTimeout: 12e3,
-        shouldEncodeUrlParams: false
-      });
-      const status = Number(resp?.status || 0);
-      return status >= 200 && status < 400;
-    } catch {
-      return false;
-    }
-  }
-  async function pickReachableStreamUrl(formats, cpn, quality = "bestaudio", { allowUnprobedFallback = false } = {}) {
-    if (!Array.isArray(formats) || !formats.length) return null;
-    const ranked = [...formats].sort((a, b2) => scoreAudioFormat(b2, quality) - scoreAudioFormat(a, quality));
-    const maxChecks = Math.min(6, ranked.length);
-    for (let i = 0; i < maxChecks; i++) {
-      const candidate = appendCpn(ranked[i].url, cpn);
-      if (await probeStreamUrl(candidate)) return candidate;
-    }
-    if (!allowUnprobedFallback) return null;
-    return appendCpn(ranked[0].url, cpn);
   }
   function appendCpn(streamUrl, cpn) {
     if (!streamUrl) return streamUrl;
@@ -2191,43 +2159,26 @@ var __SnowifyMobile = (() => {
     const videoId = videoUrl?.includes("watch?v=") ? new URL(videoUrl).searchParams.get("v") : videoUrl;
     if (!videoId) throw new Error("Invalid video URL");
     const cpn = generateCpn();
-    let data = await fetchPlayerData(videoId);
-    let status = data?.playabilityStatus?.status;
-    let audioFormats = extractAudioFormats(data);
-    let piped = null;
-    if (status !== "OK" || !audioFormats.length) {
-      try {
-        const webData = await fetchMusicWebPlayerData(videoId);
-        const webStatus = webData?.playabilityStatus?.status;
-        const webFormats = extractAudioFormats(webData);
-        if (webStatus === "OK" && webFormats.length) {
-          data = webData;
-          status = webStatus;
-          audioFormats = webFormats;
-        }
-      } catch (error) {
-        console.warn("[YTM] Music web player fallback failed:", error?.message || error);
-      }
-    }
-    if (status !== "OK" || !audioFormats.length) {
-      console.warn("[YTM] Player status not OK, trying Piped fallback:", status);
-      piped = await fetchPipedStreams(videoId);
-    }
+    const data = await fetchPlayerData(videoId);
+    const status = data?.playabilityStatus?.status;
     if (status === "OK") {
+      const af = data?.streamingData?.adaptiveFormats ?? [];
+      let audioFormats = af.filter((f2) => f2.mimeType?.startsWith("audio/") && f2.url);
       if (!audioFormats.length) {
         console.log("[YTM] No direct audio URLs, trying Piped API\u2026");
-        piped = piped || await fetchPipedStreams(videoId);
-        audioFormats = (piped?.audioStreams ?? []).filter((s2) => s2.url).map((s2) => ({ mimeType: s2.mimeType ?? "audio/webm", bitrate: s2.bitrate ?? 0, url: s2.url }));
+        try {
+          const piped = await fetchPipedStreams(videoId);
+          audioFormats = (piped?.audioStreams ?? []).filter((s2) => s2.url).map((s2) => ({ mimeType: s2.mimeType ?? "audio/webm", bitrate: s2.bitrate ?? 0, url: s2.url }));
+        } catch (e) {
+          console.error("[YTM] Piped API failed:", e);
+        }
       }
       if (audioFormats.length) {
-        const picked = await pickReachableStreamUrl(audioFormats, cpn, quality);
-        if (picked) return picked;
+        const sorted = quality === "worstaudio" ? [...audioFormats].sort((a, b2) => (a.bitrate || 0) - (b2.bitrate || 0)) : [...audioFormats].sort((a, b2) => (b2.bitrate || 0) - (a.bitrate || 0));
+        return appendCpn(sorted[0].url, cpn);
       }
-    }
-    const pipedAudioFormats = (piped?.audioStreams ?? []).filter((s2) => s2.url).map((s2) => ({ mimeType: s2.mimeType ?? "audio/webm", bitrate: s2.bitrate ?? 0, url: s2.url }));
-    if (pipedAudioFormats.length) {
-      const picked = await pickReachableStreamUrl(pipedAudioFormats, cpn, quality, { allowUnprobedFallback: true });
-      if (picked) return picked;
+      const muxed = (data?.streamingData?.formats ?? []).filter((f2) => f2.url);
+      if (muxed.length) return appendCpn(muxed[0].url, cpn);
     }
     console.error("[YTM] Player response:", JSON.stringify(data?.playabilityStatus));
     throw new Error(`No stream URLs found (status: ${data?.playabilityStatus?.status})`);
@@ -23193,7 +23144,6 @@ This typically indicates that your device does not have a healthy Internet conne
       this._volume = 1;
       this._readyState = 0;
       this._error = null;
-      this._srcDirty = false;
       this.style = {};
       this.preload = "auto";
       this.className = "";
@@ -23217,25 +23167,13 @@ This typically indicates that your device does not have a healthy Internet conne
         });
         plugin.addListener("playerEnded", (d) => {
           if (d.id !== this.shimId) return;
-          if (!this._src) return;
           this._paused = true;
           this._fire("ended");
         });
         plugin.addListener("playerError", (d) => {
           if (d.id !== this.shimId) return;
-          if (d.message === "Source error" && !this._retriedRawSrc) {
-            const rawSrc = getRawUrlFromProxy(this._src);
-            if (rawSrc) {
-              this._retriedRawSrc = true;
-              this._src = rawSrc;
-              plugin.load({ id: this.shimId, url: rawSrc }).then(() => plugin.play({ id: this.shimId })).catch(() => {
-              });
-              return;
-            }
-          }
           this._paused = true;
           this._error = { code: 4, message: d.message };
-          console.error("[NativeAudio] playerError:", d.message, "| src:", this._src?.substring(0, 100));
           this._fire("error");
         });
       };
@@ -23253,23 +23191,17 @@ This typically indicates that your device does not have a healthy Internet conne
       return this._src;
     }
     set src(url) {
-      const incoming = url ?? "";
-      this._src = deproxyUrl(incoming);
+      this._src = url ?? "";
       this._readyState = 0;
       this._duration = 0;
       this._currentTime = 0;
-      this._retriedRawSrc = false;
-      this._srcDirty = true;
-      if (!this._src) {
-        this._srcDirty = false;
+      if (this._src) {
+        window.Capacitor?.Plugins?.MobilePlayer?.load({ id: this.shimId, url: this._src });
       }
     }
     // ── playback control ──────────────────────────────────────────────────────
     load() {
-      if (this._srcDirty && this._src) {
-        this._srcDirty = false;
-        window.Capacitor?.Plugins?.MobilePlayer?.load({ id: this.shimId, url: this._src });
-      } else if (!this._srcDirty && this._src) {
+      if (this._src) {
         window.Capacitor?.Plugins?.MobilePlayer?.load({ id: this.shimId, url: this._src });
       }
     }
@@ -23336,9 +23268,8 @@ This typically indicates that your device does not have a healthy Internet conne
       const el = document.getElementById(id);
       if (el) el.removeAttribute("crossorigin");
     });
-    const capPlatform = typeof window.Capacitor?.getPlatform === "function" ? window.Capacitor.getPlatform() : null;
     const ua = navigator.userAgent || "";
-    const platform = capPlatform === "android" ? "android" : capPlatform === "ios" ? "darwin" : /android/i.test(ua) ? "android" : /iphone|ipad|ipod/i.test(ua) ? "darwin" : "linux";
+    const platform = /android/i.test(ua) ? "android" : /iphone|ipad|ipod/i.test(ua) ? "darwin" : "linux";
     if (platform === "android") {
       const shimA = new NativeAudioShim("a");
       const shimB = new NativeAudioShim("b");

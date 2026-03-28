@@ -17,10 +17,10 @@ public class MainActivity extends BridgeActivity {
     /** Port the local audio proxy listens on — must match bridge.js PROXY_PORT. */
     static final int PROXY_PORT = 17890;
 
-    // Keep this aligned with the primary ANDROID player client in ytm-client.js.
-    static final String STREAM_USER_AGENT =
-        "com.google.android.youtube/21.03.36 " +
-        "(Linux; U; Android 16; en_US; SM-S908E Build/TP1A.220624.014) gzip";
+    // Must match ANDROID_VR.client.userAgent in ytm-client.js.
+    static final String VR_USER_AGENT =
+        "com.google.android.apps.youtube.vr.oculus/1.65.10 " +
+        "(Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip";
 
     @Override
     public void onCreate(android.os.Bundle savedInstanceState) {
@@ -86,7 +86,7 @@ public class MainActivity extends BridgeActivity {
                 conn.setRequestMethod("GET");
                 conn.setInstanceFollowRedirects(true);
 
-                conn.setRequestProperty("User-Agent", STREAM_USER_AGENT);
+                conn.setRequestProperty("User-Agent", VR_USER_AGENT);
 
                 // Forward Range header so the media player can seek.
                 if (incomingRange != null) conn.setRequestProperty("Range", incomingRange);

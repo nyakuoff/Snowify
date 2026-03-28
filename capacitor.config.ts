@@ -10,7 +10,7 @@ const config: CapacitorConfig = {
   plugins: {
     CapacitorHttp: {
       // Keep Firebase/Auth/Firestore on the normal browser networking stack.
-      // Specific mobile endpoints that need native HTTP use CapacitorHttp directly.
+      // Mobile YTM requests use CapacitorHttp directly where needed.
       enabled: false,
     },
   },
