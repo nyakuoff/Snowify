@@ -383,6 +383,7 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
     return normalizeForCloud({
       playlists: state.playlists.map(p => ({ ...p, tracks: stripLocal(p.tracks) })),
       likedSongs: stripLocal(state.likedSongs),
+      recentTracks: stripLocal(state.recentTracks),
       followedArtists: state.followedArtists,
       volume: state.volume,
       shuffle: state.shuffle,
@@ -401,8 +402,10 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
       normalization: state.normalization,
       normalizationTarget: state.normalizationTarget,
       prefetchCount: state.prefetchCount,
+      searchHistory: state.searchHistory,
       songSources: state.songSources,
       metadataSources: state.metadataSources,
+      wrappedShownYear: state.wrappedShownYear,
       showListeningActivity: state.showListeningActivity,
       minimizeToTray: state.minimizeToTray,
       launchOnStartup: state.launchOnStartup,
@@ -476,9 +479,11 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
       if (locals.length) localTracksByPlaylist.set(p.id, locals);
     }
     const localLiked = state.likedSongs.filter(t => t.isLocal);
+    const localRecent = state.recentTracks.filter(t => t.isLocal);
 
     state.playlists = cloud.playlists || state.playlists;
     state.likedSongs = cloud.likedSongs || state.likedSongs;
+    state.recentTracks = cloud.recentTracks || state.recentTracks;
     state.followedArtists = cloud.followedArtists || state.followedArtists;
 
     for (const p of state.playlists) {
@@ -490,6 +495,13 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
     if (localLiked.length) {
       const likedIds = new Set(state.likedSongs.map(t => t.id));
       for (const lt of localLiked) if (!likedIds.has(lt.id)) state.likedSongs.push(lt);
+    }
+    if (localRecent.length) {
+      const recentIds = new Set(state.recentTracks.map(t => t.id));
+      for (const lt of localRecent) {
+        if (!recentIds.has(lt.id)) state.recentTracks.unshift(lt);
+      }
+      if (state.recentTracks.length > 20) state.recentTracks = state.recentTracks.slice(0, 20);
     }
 
     state.volume = cloud.volume ?? state.volume;
@@ -511,8 +523,10 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
     state.normalization = cloud.normalization ?? state.normalization;
     state.normalizationTarget = cloud.normalizationTarget ?? state.normalizationTarget;
     state.prefetchCount = cloud.prefetchCount ?? state.prefetchCount;
+    state.searchHistory = cloud.searchHistory || state.searchHistory;
     state.songSources = cloud.songSources || state.songSources;
     state.metadataSources = cloud.metadataSources || state.metadataSources;
+    state.wrappedShownYear = cloud.wrappedShownYear ?? state.wrappedShownYear;
     state.showListeningActivity = cloud.showListeningActivity ?? state.showListeningActivity;
     state.minimizeToTray = cloud.minimizeToTray ?? state.minimizeToTray;
     state.launchOnStartup = cloud.launchOnStartup ?? state.launchOnStartup;
