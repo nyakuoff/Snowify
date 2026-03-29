@@ -804,6 +804,17 @@ function updateMediaSession(track) {
       updatePositionState();
     }
   });
+
+  // Push metadata to the Android native MediaSession so the foreground
+  // service notification shows the correct track title, artist, and artwork.
+  const mp = window.Capacitor?.Plugins?.MobilePlayer;
+  if (mp) {
+    mp.setNotificationMetadata({
+      title:      track.title  || '',
+      artist:     track.artist || '',
+      artworkUrl: track.thumbnail || '',
+    }).catch(() => {});
+  }
 }
 
 export function updatePositionState() {
