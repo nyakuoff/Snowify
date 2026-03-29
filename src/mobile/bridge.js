@@ -1066,11 +1066,11 @@ export function installMobileBridge() {
 
     // App lifecycle — fire registered callback when the app goes to background
     // so pending saves (localStorage + cloud) are flushed before the OS can kill the process.
+    // Use 'pause' (maps to Android onPause) rather than appStateChange (onStop): onPause fires
+    // earlier and Android guarantees it won't kill the process during onPause, giving JS time to run.
     onBeforeClose: (callback) => {
-      CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
-        if (!isActive) {
-          try { await callback(); } catch (_) {}
-        }
+      CapacitorApp.addListener('pause', async () => {
+        try { await callback(); } catch (_) {}
       });
     },
     closeReady: () => {},

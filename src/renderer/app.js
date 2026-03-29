@@ -1236,18 +1236,18 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
     window.snowify.closeReady();
   });
 
-  // visibilitychange fires synchronously in the WebView when Android backgrounds
-  // the app — more reliable than the Capacitor appStateChange bridge event.
-  // If a debounced save is pending, flush it now so it starts writing to
-  // Firestore's offline cache before the OS restricts network access.
+  // visibilitychange fires in the WebView when Android backgrounds the app.
+  // Always flush and attempt cloud save — don't gate on _cloudSaveTimeout being set:
+  // if the user changed something and closed within the 300ms saveState debounce window,
+  // _cloudSaveTimeout is still null but the change still needs to be cloud-saved.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
-      _flushSaveState();
+      _flushSaveState(); // sync localStorage write, also clears the 300ms timer
       if (_cloudSaveTimeout) {
         clearTimeout(_cloudSaveTimeout);
         _cloudSaveTimeout = null;
-        _performCloudSave({ force: true }).catch(() => {});
       }
+      _performCloudSave({ force: false }).catch(() => {}); // hash-check guards redundant writes
     }
   });
   I18n.onChange(() => {
