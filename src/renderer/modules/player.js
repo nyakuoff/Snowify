@@ -716,6 +716,7 @@ export function updatePlayButton() {
   else                 { playIcon.classList.remove('hidden'); pauseIcon.classList.add('hidden'); }
   document.body.classList.toggle('audio-playing', state.isPlaying);
   if (window.snowify.updateThumbar) window.snowify.updateThumbar(state.isPlaying);
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = state.isPlaying ? 'playing' : 'paused';
   syncViewPlayAllBtns();
   if (maxNPState.open) syncMaxNPControls();
   updatePlaylistHighlight();
