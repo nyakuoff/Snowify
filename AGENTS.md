@@ -139,6 +139,12 @@ For renderer changes, run all:
 2. `node --check` for every touched module file
 3. Editor diagnostics clean for touched files
 
+For changes to `src/mobile/bridge.js`, also run:
+
+1. `npm run build:mobile` — regenerates `src/renderer/mobile-bridge.js` (the bundled IIFE loaded by the Capacitor WebView)
+2. Commit `src/renderer/mobile-bridge.js` alongside the source change
+3. **Never edit `src/renderer/mobile-bridge.js` directly** — it is a generated artifact and will be overwritten by the next build
+
 For behavior-sensitive changes, ask for manually verification:
 
 1. App boot succeeds
