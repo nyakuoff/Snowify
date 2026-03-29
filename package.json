@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build:mobile": "esbuild src/mobile/bridge.js --bundle --format=iife --global-name=__SnowifyMobile --outfile=src/renderer/mobile-bridge.js --platform=browser && cp src/locales/*.json src/renderer/locales/",
+    "build:mobile": "esbuild src/mobile/bridge.js --bundle --format=iife --global-name=__SnowifyMobile --outfile=src/renderer/mobile-bridge.js --platform=browser",
     "sync:android": "npx cap sync android",
     "apk": "npm run build:mobile && npx cap sync android && cd android && JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew clean assembleDebug",
     "apk:install": "npm run apk && adb install -r android/app/build/outputs/apk/debug/app-debug.apk",

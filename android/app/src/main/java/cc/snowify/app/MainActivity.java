@@ -27,6 +27,10 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(MobilePlayerPlugin.class);
         super.onCreate(savedInstanceState);
 
+        // Start PlaybackService early so ExoPlayer + MediaSession are ready
+        // before the first JS audio call comes in.
+        startService(new android.content.Intent(this, PlaybackService.class));
+
         // Enable Chrome remote debugging via chrome://inspect.
         android.webkit.WebView.setWebContentsDebuggingEnabled(true);
 

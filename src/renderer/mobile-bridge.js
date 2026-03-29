@@ -358,7 +358,7 @@ var __SnowifyMobile = (() => {
       });
       normalizeHttpHeaders = (headers = {}) => {
         const originalKeys = Object.keys(headers);
-        const loweredKeys = Object.keys(headers).map((k) => k.toLocaleLowerCase());
+        const loweredKeys = Object.keys(headers).map((k2) => k2.toLocaleLowerCase());
         const normalized = loweredKeys.reduce((acc, key, index) => {
           acc[key] = headers[originalKeys[index]];
           return acc;
@@ -1122,6 +1122,58 @@ var __SnowifyMobile = (() => {
         }
       };
       FilesystemWeb._debug = true;
+    }
+  });
+
+  // node_modules/@capacitor/app/dist/esm/web.js
+  var web_exports2 = {};
+  __export(web_exports2, {
+    AppWeb: () => AppWeb
+  });
+  var AppWeb;
+  var init_web2 = __esm({
+    "node_modules/@capacitor/app/dist/esm/web.js"() {
+      init_dist();
+      AppWeb = class extends WebPlugin {
+        constructor() {
+          super();
+          this.handleVisibilityChange = () => {
+            const data = {
+              isActive: document.hidden !== true
+            };
+            this.notifyListeners("appStateChange", data);
+            if (document.hidden) {
+              this.notifyListeners("pause", null);
+            } else {
+              this.notifyListeners("resume", null);
+            }
+          };
+          document.addEventListener("visibilitychange", this.handleVisibilityChange, false);
+        }
+        exitApp() {
+          throw this.unimplemented("Not implemented on web.");
+        }
+        async getInfo() {
+          throw this.unimplemented("Not implemented on web.");
+        }
+        async getLaunchUrl() {
+          return { url: "" };
+        }
+        async getState() {
+          return { isActive: document.hidden !== true };
+        }
+        async minimizeApp() {
+          throw this.unimplemented("Not implemented on web.");
+        }
+        async toggleBackButtonHandler() {
+          throw this.unimplemented("Not implemented on web.");
+        }
+        async getAppLanguage() {
+          return {
+            value: navigator.language.split("-")[0].toLowerCase()
+          };
+        }
+      };
     }
   });
 
@@ -2581,6 +2633,9 @@ var __SnowifyMobile = (() => {
   function isSafari() {
     return !isNode() && !!navigator.userAgent && navigator.userAgent.includes("Safari") && !navigator.userAgent.includes("Chrome");
   }
+  function isSafariOrWebkit() {
+    return !isNode() && !!navigator.userAgent && (navigator.userAgent.includes("Safari") || navigator.userAgent.includes("WebKit")) && !navigator.userAgent.includes("Chrome");
+  }
   function isIndexedDBAvailable() {
     try {
       return typeof indexedDB === "object";
@@ -2662,12 +2717,12 @@ var __SnowifyMobile = (() => {
     }
     const aKeys = Object.keys(a);
     const bKeys = Object.keys(b2);
-    for (const k of aKeys) {
-      if (!bKeys.includes(k)) {
+    for (const k2 of aKeys) {
+      if (!bKeys.includes(k2)) {
         return false;
       }
-      const aProp = a[k];
-      const bProp = b2[k];
+      const aProp = a[k2];
+      const bProp = b2[k2];
       if (isObject(aProp) && isObject(bProp)) {
         if (!deepEqual(aProp, bProp)) {
           return false;
@@ -2676,8 +2731,8 @@ var __SnowifyMobile = (() => {
         return false;
       }
     }
-    for (const k of bKeys) {
-      if (!aKeys.includes(k)) {
+    for (const k2 of bKeys) {
+      if (!aKeys.includes(k2)) {
         return false;
       }
     }
@@ -5526,8 +5581,8 @@ var __SnowifyMobile = (() => {
     } else if (_isAndroid(ua)) {
       return "Android";
     } else {
-      const re = /([a-zA-Z\d\.]+)\/[a-zA-Z\d\.]*$/;
-      const matches = userAgent.match(re);
+      const re2 = /([a-zA-Z\d\.]+)\/[a-zA-Z\d\.]*$/;
+      const matches = userAgent.match(re2);
       if (matches?.length === 2) {
         return matches[1];
       }
@@ -9442,8 +9497,8 @@ var __SnowifyMobile = (() => {
       return hostname === expected;
     }
     const escapedDomainPattern = expected.replace(/\./g, "\\.");
-    const re = new RegExp("^(.+\\." + escapedDomainPattern + "|" + escapedDomainPattern + ")$", "i");
-    return re.test(hostname);
+    const re2 = new RegExp("^(.+\\." + escapedDomainPattern + "|" + escapedDomainPattern + ")$", "i");
+    return re2.test(hostname);
   }
   var NETWORK_TIMEOUT = new Delay(3e4, 6e4);
   function resetUnloadedGapiModules() {
@@ -10225,7 +10280,7 @@ var __SnowifyMobile = (() => {
   var Md5;
   (function() {
     var h;
-    function k(d, a) {
+    function k2(d, a) {
       function c() {
       }
       c.prototype = a.prototype;
@@ -10248,7 +10303,7 @@ var __SnowifyMobile = (() => {
       this.o = this.h = 0;
       this.u();
     }
-    k(m, l);
+    k2(m, l);
     m.prototype.u = function() {
       this.g[0] = 1732584193;
       this.g[1] = 4023233417;
@@ -10474,7 +10529,7 @@ var __SnowifyMobile = (() => {
       }
       return f2;
     }
-    var w = u2(0), z = u2(1), A = u2(16777216);
+    var w = u2(0), z2 = u2(1), A = u2(16777216);
     h = t.prototype;
     h.m = function() {
       if (B2(this)) return -x2(this).m();
@@ -10522,7 +10577,7 @@ var __SnowifyMobile = (() => {
     function x2(d) {
       const a = d.g.length, c = [];
       for (let f2 = 0; f2 < a; f2++) c[f2] = ~d.g[f2];
-      return new t(c, ~d.h).add(z);
+      return new t(c, ~d.h).add(z2);
     }
     h.abs = function() {
       return B2(this) ? x2(this) : this;
@@ -10567,28 +10622,28 @@ var __SnowifyMobile = (() => {
     function G2(d, a) {
       for (; (d[a] & 65535) != d[a]; ) d[a + 1] += d[a] >>> 16, d[a] &= 65535, a++;
     }
-    function H(d, a) {
+    function H2(d, a) {
       this.g = d;
       this.h = a;
     }
     function D2(d, a) {
       if (C2(a)) throw Error("division by zero");
-      if (C2(d)) return new H(w, w);
-      if (B2(d)) return a = D2(x2(d), a), new H(x2(a.g), x2(a.h));
-      if (B2(a)) return a = D2(d, x2(a)), new H(x2(a.g), a.h);
+      if (C2(d)) return new H2(w, w);
+      if (B2(d)) return a = D2(x2(d), a), new H2(x2(a.g), x2(a.h));
+      if (B2(a)) return a = D2(d, x2(a)), new H2(x2(a.g), a.h);
       if (d.g.length > 30) {
         if (B2(d) || B2(a)) throw Error("slowDivide_ only works with positive integers.");
-        for (var c = z, f2 = a; f2.l(d) <= 0; ) c = I(c), f2 = I(f2);
-        var e = J(c, 1), g = J(f2, 1);
-        f2 = J(f2, 2);
-        for (c = J(c, 2); !C2(f2); ) {
+        for (var c = z2, f2 = a; f2.l(d) <= 0; ) c = I(c), f2 = I(f2);
+        var e = J2(c, 1), g = J2(f2, 1);
+        f2 = J2(f2, 2);
+        for (c = J2(c, 2); !C2(f2); ) {
           var b2 = g.add(f2);
           b2.l(d) <= 0 && (e = e.add(c), g = b2);
-          f2 = J(f2, 1);
-          c = J(c, 1);
+          f2 = J2(f2, 1);
+          c = J2(c, 1);
         }
         a = F2(d, e.j(a));
-        return new H(e, a);
+        return new H2(e, a);
       }
       for (e = w; d.l(a) >= 0; ) {
         c = Math.max(1, Math.floor(d.m() / a.m()));
@@ -10596,11 +10651,11 @@ var __SnowifyMobile = (() => {
         f2 = f2 <= 48 ? 1 : Math.pow(2, f2 - 48);
         g = v2(c);
         for (b2 = g.j(a); B2(b2) || b2.l(d) > 0; ) c -= f2, g = v2(c), b2 = g.j(a);
-        C2(g) && (g = z);
+        C2(g) && (g = z2);
         e = e.add(g);
         d = F2(d, b2);
       }
-      return new H(e, d);
+      return new H2(e, d);
     }
     h.B = function(d) {
       return D2(this, d).h;
@@ -10625,7 +10680,7 @@ var __SnowifyMobile = (() => {
       for (let f2 = 0; f2 < a; f2++) c[f2] = d.i(f2) << 1 | d.i(f2 - 1) >>> 31;
       return new t(c, d.h);
     }
-    function J(d, a) {
+    function J2(d, a) {
       const c = a >> 5;
       a %= 32;
       const f2 = d.g.length - c, e = [];
@@ -10729,7 +10784,7 @@ var __SnowifyMobile = (() => {
       a.prototype = new c();
       a.prototype.constructor = a;
       a.Ob = function(d, e, f2) {
-        for (var g = Array(arguments.length - 2), k = 2; k < arguments.length; k++) g[k - 2] = arguments[k];
+        for (var g = Array(arguments.length - 2), k2 = 2; k2 < arguments.length; k2++) g[k2 - 2] = arguments[k2];
         return b2.prototype[e].apply(d, g);
       };
     }
@@ -10863,7 +10918,7 @@ var __SnowifyMobile = (() => {
     function y(a) {
       return /^[\s\xa0]*$/.test(a);
     }
-    function z(a, b2) {
+    function z2(a, b2) {
       x2.call(this, a ? a.type : "");
       this.relatedTarget = this.g = this.target = null;
       this.button = this.screenY = this.screenX = this.clientY = this.clientX = 0;
@@ -10875,8 +10930,8 @@ var __SnowifyMobile = (() => {
       this.i = null;
       a && this.init(a, b2);
     }
-    t(z, x2);
-    z.prototype.init = function(a, b2) {
+    t(z2, x2);
+    z2.prototype.init = function(a, b2) {
       const c = this.type = a.type, d = a.changedTouches && a.changedTouches.length ? a.changedTouches[0] : null;
       this.target = a.target || a.srcElement;
       this.g = b2;
@@ -10894,10 +10949,10 @@ var __SnowifyMobile = (() => {
       this.pointerType = a.pointerType;
       this.state = a.state;
       this.i = a;
-      a.defaultPrevented && z.Z.h.call(this);
+      a.defaultPrevented && z2.Z.h.call(this);
     };
-    z.prototype.h = function() {
-      z.Z.h.call(this);
+    z2.prototype.h = function() {
+      z2.Z.h.call(this);
       const a = this.i;
       a.preventDefault ? a.preventDefault() : a.returnValue = false;
     };
@@ -10981,9 +11036,9 @@ var __SnowifyMobile = (() => {
     function Na(a, b2, c, d, e, f2) {
       if (!b2) throw Error("Invalid event type");
       const g = n(e) ? !!e.capture : !!e;
-      let k = Oa(a);
-      k || (a[Ha] = k = new Ea(a));
-      c = k.add(b2, c, d, g, f2);
+      let k2 = Oa(a);
+      k2 || (a[Ha] = k2 = new Ea(a));
+      c = k2.add(b2, c, d, g, f2);
       if (c.proxy) return c;
       d = Pa();
       c.proxy = d;
@@ -11031,7 +11086,7 @@ var __SnowifyMobile = (() => {
     function Ra(a, b2) {
       if (a.da) a = true;
       else {
-        b2 = new z(b2, this);
+        b2 = new z2(b2, this);
         const c = a.listener, d = a.ha || a.src;
         a.fa && Ta(a);
         a = c.call(d, b2);
@@ -11108,9 +11163,9 @@ var __SnowifyMobile = (() => {
       for (let f2 = 0; f2 < b2.length; ++f2) {
         const g = b2[f2];
         if (g && !g.da && g.capture == c) {
-          const k = g.listener, q2 = g.ha || g.src;
+          const k2 = g.listener, q2 = g.ha || g.src;
           g.fa && Ga(a.i, g);
-          e = k.call(q2, d) !== false && e;
+          e = k2.call(q2, d) !== false && e;
         }
       }
       return e && !d.defaultPrevented;
@@ -11181,7 +11236,7 @@ var __SnowifyMobile = (() => {
     }
     function fb() {
     }
-    var H = { OPEN: "a", hb: "b", ERROR: "c", tb: "d" };
+    var H2 = { OPEN: "a", hb: "b", ERROR: "c", tb: "d" };
     function gb() {
       x2.call(this, "d");
     }
@@ -11209,7 +11264,7 @@ var __SnowifyMobile = (() => {
       this.stat = b2;
     }
     t(mb, x2);
-    function J(a) {
+    function J2(a) {
       const b2 = jb();
       D2(b2, new mb(b2, a));
     }
@@ -11235,9 +11290,9 @@ var __SnowifyMobile = (() => {
       a.info(function() {
         if (a.g) if (f2) {
           var g = "";
-          var k = f2.split("&");
-          for (let m = 0; m < k.length; m++) {
-            var q2 = k[m].split("=");
+          var k2 = f2.split("&");
+          for (let m = 0; m < k2.length; m++) {
+            var q2 = k2[m].split("=");
             if (q2.length > 1) {
               const r = q2[0];
               q2 = q2[1];
@@ -11255,7 +11310,7 @@ var __SnowifyMobile = (() => {
         return "XMLHTTP RESP (" + d + ") [ attempt " + e + "]: " + b2 + "\n" + c + "\n" + f2 + " " + g;
       });
     }
-    function K(a, b2, c, d) {
+    function K2(a, b2, c, d) {
       a.info(function() {
         return "XMLHTTP TEXT (" + b2 + "): " + sb(a, c) + (d ? " " + d : "");
       });
@@ -11299,7 +11354,7 @@ var __SnowifyMobile = (() => {
       return new XMLHttpRequest();
     };
     wb = new xb();
-    function L(a) {
+    function L2(a) {
       return encodeURIComponent(String(a));
     }
     function yb(a) {
@@ -11384,15 +11439,15 @@ var __SnowifyMobile = (() => {
     N2.prototype.Y = function(a) {
       try {
         if (a == this.g) a: {
-          const k = P(this.g), q2 = this.g.ya(), m = this.g.ca();
-          if (!(k < 3) && (k != 3 || this.g && (this.h.h || this.g.la() || Ib(this.g)))) {
-            this.K || k != 4 || q2 == 7 || (q2 == 8 || m <= 0 ? lb(3) : lb(2));
+          const k2 = P(this.g), q2 = this.g.ya(), m = this.g.ca();
+          if (!(k2 < 3) && (k2 != 3 || this.g && (this.h.h || this.g.la() || Ib(this.g)))) {
+            this.K || k2 != 4 || q2 == 7 || (q2 == 8 || m <= 0 ? lb(3) : lb(2));
             Jb(this);
             var b2 = this.g.ca();
             this.X = b2;
             var c = Kb(this);
             this.o = b2 == 200;
-            rb(this.i, this.v, this.B, this.l, this.S, k, b2);
+            rb(this.i, this.v, this.B, this.l, this.S, k2, b2);
             if (this.o) {
               if (this.U && !this.L) {
                 b: {
@@ -11405,12 +11460,12 @@ var __SnowifyMobile = (() => {
                   }
                   f2 = null;
                 }
-                if (a = f2) K(this.i, this.l, a, "Initial handshake response via X-HTTP-Initial-Response"), this.L = true, Lb(this, a);
+                if (a = f2) K2(this.i, this.l, a, "Initial handshake response via X-HTTP-Initial-Response"), this.L = true, Lb(this, a);
                 else {
                   this.o = false;
                   this.m = 3;
-                  J(12);
-                  Q(this);
+                  J2(12);
+                  Q2(this);
                   Mb(this);
                   break a;
                 }
@@ -11419,37 +11474,37 @@ var __SnowifyMobile = (() => {
                 a = true;
                 let r;
                 for (; !this.K && this.C < c.length; ) if (r = Nb(this, c), r == Bb) {
-                  k == 4 && (this.m = 4, J(14), a = false);
-                  K(this.i, this.l, null, "[Incomplete Response]");
+                  k2 == 4 && (this.m = 4, J2(14), a = false);
+                  K2(this.i, this.l, null, "[Incomplete Response]");
                   break;
                 } else if (r == Ab) {
                   this.m = 4;
-                  J(15);
-                  K(this.i, this.l, c, "[Invalid Chunk]");
+                  J2(15);
+                  K2(this.i, this.l, c, "[Invalid Chunk]");
                   a = false;
                   break;
-                } else K(this.i, this.l, r, null), Lb(this, r);
+                } else K2(this.i, this.l, r, null), Lb(this, r);
                 Ob(this) && this.C != 0 && (this.h.g = this.h.g.slice(this.C), this.C = 0);
-                k != 4 || c.length != 0 || this.h.h || (this.m = 1, J(16), a = false);
+                k2 != 4 || c.length != 0 || this.h.h || (this.m = 1, J2(16), a = false);
                 this.o = this.o && a;
-                if (!a) K(
+                if (!a) K2(
                   this.i,
                   this.l,
                   c,
                   "[Invalid Chunked Response]"
-                ), Q(this), Mb(this);
+                ), Q2(this), Mb(this);
                 else if (c.length > 0 && !this.W) {
                   this.W = true;
                   var g = this.j;
-                  g.g == this && g.aa && !g.P && (g.j.info("Great, no buffering proxy detected. Bytes received: " + c.length), Pb(g), g.P = true, J(11));
+                  g.g == this && g.aa && !g.P && (g.j.info("Great, no buffering proxy detected. Bytes received: " + c.length), Pb(g), g.P = true, J2(11));
                 }
-              } else K(this.i, this.l, c, null), Lb(this, c);
-              k == 4 && Q(this);
-              this.o && !this.K && (k == 4 ? Qb(this.j, this) : (this.o = false, Fb(this)));
-            } else Rb(this.g), b2 == 400 && c.indexOf("Unknown SID") > 0 ? (this.m = 3, J(12)) : (this.m = 0, J(13)), Q(this), Mb(this);
+              } else K2(this.i, this.l, c, null), Lb(this, c);
+              k2 == 4 && Q2(this);
+              this.o && !this.K && (k2 == 4 ? Qb(this.j, this) : (this.o = false, Fb(this)));
+            } else Rb(this.g), b2 == 400 && c.indexOf("Unknown SID") > 0 ? (this.m = 3, J2(12)) : (this.m = 0, J2(13)), Q2(this), Mb(this);
           }
         }
-      } catch (k) {
+      } catch (k2) {
       } finally {
       }
     };
@@ -11460,7 +11515,7 @@ var __SnowifyMobile = (() => {
       let c = "";
       const d = b2.length, e = P(a.g) == 4;
       if (!a.h.i) {
-        if (typeof TextDecoder === "undefined") return Q(a), Mb(a), "";
+        if (typeof TextDecoder === "undefined") return Q2(a), Mb(a), "";
         a.h.i = new l.TextDecoder();
       }
       for (let f2 = 0; f2 < d; f2++) a.h.h = true, c += a.h.i.decode(b2[f2], { stream: !(e && f2 == d - 1) });
@@ -11485,7 +11540,7 @@ var __SnowifyMobile = (() => {
     }
     N2.prototype.cancel = function() {
       this.K = true;
-      Q(this);
+      Q2(this);
     };
     function Fb(a) {
       a.T = Date.now() + a.H;
@@ -11501,12 +11556,12 @@ var __SnowifyMobile = (() => {
     N2.prototype.aa = function() {
       this.D = null;
       const a = Date.now();
-      a - this.T >= 0 ? (tb(this.i, this.B), this.M != 2 && (lb(), J(17)), Q(this), this.m = 2, Mb(this)) : Sb(this, this.T - a);
+      a - this.T >= 0 ? (tb(this.i, this.B), this.M != 2 && (lb(), J2(17)), Q2(this), this.m = 2, Mb(this)) : Sb(this, this.T - a);
     };
     function Mb(a) {
       a.j.I == 0 || a.K || Qb(a.j, a);
     }
-    function Q(a) {
+    function Q2(a) {
       Jb(a);
       var b2 = a.O;
       b2 && typeof b2.dispose == "function" && b2.dispose();
@@ -11531,7 +11586,7 @@ var __SnowifyMobile = (() => {
                   if (c.g) if (c.g.F + 3e3 < a.F) Ub(c), Vb(c);
                   else break a;
                   Wb(c);
-                  J(18);
+                  J2(18);
                 }
               }
               else c.xa = e[1], 0 < c.xa - c.K && e[2] < 37500 && c.F && c.A == 0 && !c.C && (c.C = ob(p(c.Va, c), 6e3));
@@ -11570,9 +11625,9 @@ var __SnowifyMobile = (() => {
               d.na = Zb(d, d.L ? d.ba : null, d.W);
               if (g.L) {
                 $b(d.h, g);
-                var k = g, q2 = d.O;
-                q2 && (k.H = q2);
-                k.D && (Jb(k), Fb(k));
+                var k2 = g, q2 = d.O;
+                q2 && (k2.H = q2);
+                k2.D && (Jb(k2), Fb(k2));
                 d.g = g;
               } else ac(d);
               c.i.length > 0 && bc(c);
@@ -11656,7 +11711,7 @@ var __SnowifyMobile = (() => {
       var b2 = this.j;
       b2 && a.push(qc(b2, rc, true), ":");
       var c = this.g;
-      if (c || b2 == "file") a.push("//"), (b2 = this.o) && a.push(qc(b2, rc, true), "@"), a.push(L(c).replace(/%25([0-9a-fA-F]{2})/g, "%$1")), c = this.u, c != null && a.push(":", String(c));
+      if (c || b2 == "file") a.push("//"), (b2 = this.o) && a.push(qc(b2, rc, true), "@"), a.push(L2(c).replace(/%25([0-9a-fA-F]{2})/g, "%$1")), c = this.u, c != null && a.push(":", String(c));
       if (c = this.h) this.g && c.charAt(0) != "/" && a.push("/"), a.push(qc(c, c.charAt(0) == "/" ? sc : tc, true));
       (c = this.i.toString()) && a.push("?", c);
       (c = this.m) && a.push("#", qc(c, uc));
@@ -11683,8 +11738,8 @@ var __SnowifyMobile = (() => {
           e = e.split("/");
           const f2 = [];
           for (let g = 0; g < e.length; ) {
-            const k = e[g++];
-            k == "." ? d && g == e.length && f2.push("") : k == ".." ? ((f2.length > 1 || f2.length == 1 && f2[0] != "") && f2.pop(), d && g == e.length && f2.push("")) : (f2.push(k), d = true);
+            const k2 = e[g++];
+            k2 == "." ? d && g == e.length && f2.push("") : k2 == ".." ? ((f2.length > 1 || f2.length == 1 && f2[0] != "") && f2.pop(), d && g == e.length && f2.push("")) : (f2.push(k2), d = true);
           }
           d = f2.join("/");
         } else d = e;
@@ -11799,11 +11854,11 @@ var __SnowifyMobile = (() => {
       const a = [], b2 = Array.from(this.g.keys());
       for (let d = 0; d < b2.length; d++) {
         var c = b2[d];
-        const e = L(c);
+        const e = L2(c);
         c = Ac(this, c);
         for (let f2 = 0; f2 < c.length; f2++) {
           let g = e;
-          c[f2] !== "" && (g += "=" + L(c[f2]));
+          c[f2] !== "" && (g += "=" + L2(c[f2]));
           a.push(g);
         }
       }
@@ -11993,9 +12048,9 @@ var __SnowifyMobile = (() => {
         }
         d = true;
       }
-      d || (c = Jc(c), typeof a === "string" ? c != null && L(c) : S2(a, b2, c));
+      d || (c = Jc(c), typeof a === "string" ? c != null && L2(c) : S2(a, b2, c));
     }
-    function X(a) {
+    function X2(a) {
       C2.call(this);
       this.headers = /* @__PURE__ */ new Map();
       this.L = a || null;
@@ -12009,9 +12064,9 @@ var __SnowifyMobile = (() => {
       this.F = "";
       this.H = false;
     }
-    t(X, C2);
+    t(X2, C2);
     var Lc = /^https?$/i, Mc = ["POST", "PUT"];
-    h = X.prototype;
+    h = X2.prototype;
     h.Fa = function(a) {
       this.H = a;
     };
@@ -12064,7 +12119,7 @@ var __SnowifyMobile = (() => {
     };
     h.N = function() {
       this.g && (this.h && (this.h = false, this.j = true, this.g.abort(), this.j = false), Pc(this, true));
-      X.Z.N.call(this);
+      X2.Z.N.call(this);
     };
     h.Ca = function() {
       this.u || (this.B || this.v || this.j ? Qc(this) : this.Xa());
@@ -12242,7 +12297,7 @@ var __SnowifyMobile = (() => {
     h.ka = 8;
     h.I = 1;
     h.connect = function(a, b2, c, d) {
-      J(0);
+      J2(0);
       this.W = a;
       this.H = b2 || {};
       c && d !== void 0 && (this.H.OSID = c, this.H.OAID = d);
@@ -12341,7 +12396,7 @@ var __SnowifyMobile = (() => {
           S2(c, "CVER", 22);
           this.G && S2(c, "X-HTTP-Session-Id", this.G);
           Uc(this, c);
-          f2 && (this.R ? b2 = "headers=" + L(Jc(f2)) + "&" + b2 : this.u && Kc(c, this.u, f2));
+          f2 && (this.R ? b2 = "headers=" + L2(Jc(f2)) + "&" + b2 : this.u && Kc(c, this.u, f2));
           Yb(this.h, e);
           this.Ra && S2(c, "TYPE", "init");
           this.S ? (S2(c, "$req", b2), S2(c, "SID", "null"), e.U = true, Cb(e, c, null)) : Cb(e, c, b2);
@@ -12379,16 +12434,16 @@ var __SnowifyMobile = (() => {
       const d = a.l ? p(a.l.Ka, a.l, a) : null;
       a: {
         var e = a.i;
-        let k = -1;
+        let k2 = -1;
         for (; ; ) {
           const q2 = ["count=" + c];
-          k == -1 ? c > 0 ? (k = e[0].g, q2.push("ofs=" + k)) : k = 0 : q2.push("ofs=" + k);
+          k2 == -1 ? c > 0 ? (k2 = e[0].g, q2.push("ofs=" + k2)) : k2 = 0 : q2.push("ofs=" + k2);
           let m = true;
           for (let r = 0; r < c; r++) {
             var f2 = e[r].g;
             const A = e[r].map;
-            f2 -= k;
-            if (f2 < 0) k = Math.max(0, e[r].g - 100), m = false;
+            f2 -= k2;
+            if (f2 < 0) k2 = Math.max(0, e[r].g - 100), m = false;
             else try {
               f2 = "req" + f2 + "_" || "";
               try {
@@ -12443,7 +12498,7 @@ var __SnowifyMobile = (() => {
       }
     };
     h.Wa = function() {
-      this.B && (this.B = null, this.j.info("BP detection timeout reached."), this.j.info("Buffering proxy detected and switch to long-polling!"), this.F = false, this.P = true, J(10), Vb(this), $c(this));
+      this.B && (this.B = null, this.j.info("BP detection timeout reached."), this.j.info("Buffering proxy detected and switch to long-polling!"), this.F = false, this.P = true, J2(10), Vb(this), $c(this));
     };
     function Pb(a) {
       a.B != null && (l.clearTimeout(a.B), a.B = null);
@@ -12471,7 +12526,7 @@ var __SnowifyMobile = (() => {
       Eb(c, a);
     }
     h.Va = function() {
-      this.C != null && (this.C = null, Vb(this), Wb(this), J(19));
+      this.C != null && (this.C = null, Vb(this), Wb(this), J2(19));
     };
     function Ub(a) {
       a.C != null && (l.clearTimeout(a.C), a.C = null);
@@ -12523,14 +12578,14 @@ var __SnowifyMobile = (() => {
         l.location && l.location.protocol == "http" || kc(d, "https");
         Db(d);
         e ? Bc(d.toString(), c) : Cc(d.toString(), c);
-      } else J(2);
+      } else J2(2);
       a.I = 0;
       a.l && a.l.pa(b2);
       Vc(a);
       Tc(a);
     }
     h.bb = function(a) {
-      a ? (this.j.info("Successfully pinged google.com"), J(2)) : (this.j.info("Failed to ping google.com"), J(1));
+      a ? (this.j.info("Successfully pinged google.com"), J2(2)) : (this.j.info("Failed to ping google.com"), J2(1));
     };
     function Vc(a) {
       a.I = 0;
@@ -12565,7 +12620,7 @@ var __SnowifyMobile = (() => {
     }
     function Hb(a, b2, c) {
       if (b2 && !a.L) throw Error("Can't create secondary domain capable XhrIo object.");
-      b2 = a.Aa && !a.ma ? new X(new Ec({ ab: c })) : new X(a.ma);
+      b2 = a.Aa && !a.ma ? new X2(new Ec({ ab: c })) : new X2(a.ma);
       b2.Fa(a.L);
       return b2;
     }
@@ -12609,7 +12664,7 @@ var __SnowifyMobile = (() => {
       this.A = b2 && b2.supportsCrossDomainXhr || false;
       this.v = b2 && b2.sendRawJson || false;
       (b2 = b2 && b2.httpSessionIdParam) && !y(b2) && (this.g.G = b2, a = this.h, a !== null && b2 in a && (a = this.h, b2 in a && delete a[b2]));
-      this.j = new Z(this);
+      this.j = new Z2(this);
     }
     t(Y2, C2);
     Y2.prototype.m = function() {
@@ -12659,20 +12714,20 @@ var __SnowifyMobile = (() => {
       this.status = 1;
     }
     t(dd, hb);
-    function Z(a) {
+    function Z2(a) {
       this.g = a;
     }
-    t(Z, ad);
-    Z.prototype.ra = function() {
+    t(Z2, ad);
+    Z2.prototype.ra = function() {
       D2(this.g, "a");
     };
-    Z.prototype.qa = function(a) {
+    Z2.prototype.qa = function(a) {
       D2(this.g, new cd(a));
     };
-    Z.prototype.pa = function(a) {
+    Z2.prototype.pa = function(a) {
       D2(this.g, new dd());
     };
-    Z.prototype.oa = function() {
+    Z2.prototype.oa = function() {
       D2(this.g, "b");
     };
     bd.prototype.createWebChannel = bd.prototype.g;
@@ -12693,23 +12748,23 @@ var __SnowifyMobile = (() => {
     ErrorCode = webchannel_blob_es2018.ErrorCode = ub;
     vb.COMPLETE = "complete";
     EventType = webchannel_blob_es2018.EventType = vb;
-    fb.EventType = H;
-    H.OPEN = "a";
-    H.CLOSE = "b";
-    H.ERROR = "c";
-    H.MESSAGE = "d";
+    fb.EventType = H2;
+    H2.OPEN = "a";
+    H2.CLOSE = "b";
+    H2.ERROR = "c";
+    H2.MESSAGE = "d";
     C2.prototype.listen = C2.prototype.J;
     WebChannel = webchannel_blob_es2018.WebChannel = fb;
     FetchXmlHttpFactory = webchannel_blob_es2018.FetchXmlHttpFactory = Ec;
-    X.prototype.listenOnce = X.prototype.K;
-    X.prototype.getLastError = X.prototype.Ha;
-    X.prototype.getLastErrorCode = X.prototype.ya;
-    X.prototype.getStatus = X.prototype.ca;
-    X.prototype.getResponseJson = X.prototype.La;
-    X.prototype.getResponseText = X.prototype.la;
-    X.prototype.send = X.prototype.ea;
-    X.prototype.setWithCredentials = X.prototype.Fa;
-    XhrIo = webchannel_blob_es2018.XhrIo = X;
+    X2.prototype.listenOnce = X2.prototype.K;
+    X2.prototype.getLastError = X2.prototype.Ha;
+    X2.prototype.getLastErrorCode = X2.prototype.ya;
+    X2.prototype.getStatus = X2.prototype.ca;
+    X2.prototype.getResponseJson = X2.prototype.La;
+    X2.prototype.getResponseText = X2.prototype.la;
+    X2.prototype.send = X2.prototype.ea;
+    X2.prototype.setWithCredentials = X2.prototype.Fa;
+    XhrIo = webchannel_blob_es2018.XhrIo = X2;
   }).apply(typeof commonjsGlobal2 !== "undefined" ? commonjsGlobal2 : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {});
 
   // node_modules/@firebase/firestore/dist/common-edb5d170.esm.js
@@ -13126,6 +13181,9 @@ var __SnowifyMobile = (() => {
   }
   function __PRIVATE_arrayEquals(e, t, n) {
     return e.length === t.length && e.every(((e2, r) => n(e2, t[r])));
+  }
+  function __PRIVATE_immediateSuccessor(e) {
+    return e + "\0";
   }
   var F = "__name__";
   var BasePath = class _BasePath {
@@ -13591,7 +13649,27 @@ var __SnowifyMobile = (() => {
       this.indexId = e, this.collectionGroup = t, this.fields = n, this.indexState = r;
     }
   };
+  function __PRIVATE_fieldIndexGetArraySegment(e) {
+    return e.fields.find(((e2) => 2 === e2.kind));
+  }
+  function __PRIVATE_fieldIndexGetDirectionalSegments(e) {
+    return e.fields.filter(((e2) => 2 !== e2.kind));
+  }
   FieldIndex.UNKNOWN_ID = -1;
+  var IndexSegment = class {
+    constructor(e, t) {
+      this.fieldPath = e, this.kind = t;
+    }
+  };
+  var IndexState = class _IndexState {
+    constructor(e, t) {
+      this.sequenceNumber = e, this.offset = t;
+    }
+    /** The state of an index that has not yet been backfilled. */
+    static empty() {
+      return new _IndexState(0, IndexOffset.min());
+    }
+  };
   function __PRIVATE_newIndexOffsetSuccessorFromReadTime(e, t) {
     const n = e.toTimestamp().seconds, r = e.toTimestamp().nanoseconds + 1, i = SnapshotVersion.fromTimestamp(1e9 === r ? new Timestamp(n + 1, 0) : new Timestamp(n, r));
     return new IndexOffset(i, DocumentKey.empty(), t);
@@ -13745,13 +13823,431 @@ var __SnowifyMobile = (() => {
       }));
     }
   };
+  var L = "SimpleDb";
+  var __PRIVATE_SimpleDbTransaction = class ___PRIVATE_SimpleDbTransaction {
+    static open(e, t, n, r) {
+      try {
+        return new ___PRIVATE_SimpleDbTransaction(t, e.transaction(r, n));
+      } catch (e2) {
+        throw new __PRIVATE_IndexedDbTransactionError(t, e2);
+      }
+    }
+    constructor(e, t) {
+      this.action = e, this.transaction = t, this.aborted = false, /**
+       * A `Promise` that resolves with the result of the IndexedDb transaction.
+       */
+      this.S = new __PRIVATE_Deferred(), this.transaction.oncomplete = () => {
+        this.S.resolve();
+      }, this.transaction.onabort = () => {
+        t.error ? this.S.reject(new __PRIVATE_IndexedDbTransactionError(e, t.error)) : this.S.resolve();
+      }, this.transaction.onerror = (t2) => {
+        const n = __PRIVATE_checkForAndReportiOSError(t2.target.error);
+        this.S.reject(new __PRIVATE_IndexedDbTransactionError(e, n));
+      };
+    }
+    get D() {
+      return this.S.promise;
+    }
+    abort(e) {
+      e && this.S.reject(e), this.aborted || (__PRIVATE_logDebug(L, "Aborting transaction:", e ? e.message : "Client-initiated abort"), this.aborted = true, this.transaction.abort());
+    }
+    C() {
+      const e = this.transaction;
+      this.aborted || "function" != typeof e.commit || e.commit();
+    }
+    /**
+     * Returns a SimpleDbStore<KeyType, ValueType> for the specified store. All
+     * operations performed on the SimpleDbStore happen within the context of this
+     * transaction and it cannot be used anymore once the transaction is
+     * completed.
+     *
+     * Note that we can't actually enforce that the KeyType and ValueType are
+     * correct, but they allow type safety through the rest of the consuming code.
+     */
+    store(e) {
+      const t = this.transaction.objectStore(e);
+      return new __PRIVATE_SimpleDbStore(t);
+    }
+  };
+  var __PRIVATE_SimpleDb = class ___PRIVATE_SimpleDb {
+    /** Deletes the specified database. */
+    static delete(e) {
+      __PRIVATE_logDebug(L, "Removing database:", e);
+      return __PRIVATE_wrapRequest(getGlobal().indexedDB.deleteDatabase(e)).toPromise();
+    }
+    /** Returns true if IndexedDB is available in the current environment. */
+    static v() {
+      if (!isIndexedDBAvailable()) return false;
+      if (___PRIVATE_SimpleDb.F()) return true;
+      const e = getUA(), t = ___PRIVATE_SimpleDb.M(e), n = 0 < t && t < 10, r = __PRIVATE_getAndroidVersion(e), i = 0 < r && r < 4.5;
+      return !(e.indexOf("MSIE ") > 0 || e.indexOf("Trident/") > 0 || e.indexOf("Edge/") > 0 || n || i);
+    }
+    /**
+     * Returns true if the backing IndexedDB store is the Node IndexedDBShim
+     * (see https://github.com/axemclion/IndexedDBShim).
+     */
+    static F() {
+      return "undefined" != typeof process && "YES" === process.__PRIVATE_env?.__PRIVATE_USE_MOCK_PERSISTENCE;
+    }
+    /** Helper to get a typed SimpleDbStore from a transaction. */
+    static O(e, t) {
+      return e.store(t);
+    }
+    // visible for testing
+    /** Parse User Agent to determine iOS version. Returns -1 if not found. */
+    static M(e) {
+      const t = e.match(/i(?:phone|pad|pod) os ([\d_]+)/i), n = t ? t[1].split("_").slice(0, 2).join(".") : "-1";
+      return Number(n);
+    }
+    /*
+     * Creates a new SimpleDb wrapper for IndexedDb database `name`.
+     *
+     * Note that `version` must not be a downgrade. IndexedDB does not support
+     * downgrading the schema version. We currently do not support any way to do
+     * versioning outside of IndexedDB's versioning mechanism, as only
+     * version-upgrade transactions are allowed to do things like create
+     * objectstores.
+     */
+    constructor(e, t, n) {
+      this.name = e, this.version = t, this.N = n, this.B = null;
+      12.2 === ___PRIVATE_SimpleDb.M(getUA()) && __PRIVATE_logError("Firestore persistence suffers from a bug in iOS 12.2 Safari that may cause your app to stop working. See https://stackoverflow.com/q/56496296/110915 for details and a potential workaround.");
+    }
+    /**
+     * Opens the specified database, creating or upgrading it if necessary.
+     */
+    async L(e) {
+      return this.db || (__PRIVATE_logDebug(L, "Opening database:", this.name), this.db = await new Promise(((t, n) => {
+        const r = indexedDB.open(this.name, this.version);
+        r.onsuccess = (e2) => {
+          const n2 = e2.target.result;
+          t(n2);
+        }, r.onblocked = () => {
+          n(new __PRIVATE_IndexedDbTransactionError(e, "Cannot upgrade IndexedDB schema while another tab is open. Close all tabs that access Firestore and reload this page to proceed."));
+        }, r.onerror = (t2) => {
+          const r2 = t2.target.error;
+          "VersionError" === r2.name ? n(new FirestoreError(D.FAILED_PRECONDITION, "A newer version of the Firestore SDK was previously used and so the persisted data is not compatible with the version of the SDK you are now using. The SDK will operate with persistence disabled. If you need persistence, please re-upgrade to a newer version of the SDK or else clear the persisted IndexedDB data for your app to start fresh.")) : "InvalidStateError" === r2.name ? n(new FirestoreError(D.FAILED_PRECONDITION, "Unable to open an IndexedDB connection. This could be due to running in a private browsing session on a browser whose private browsing sessions do not support IndexedDB: " + r2)) : n(new __PRIVATE_IndexedDbTransactionError(e, r2));
+        }, r.onupgradeneeded = (e2) => {
+          __PRIVATE_logDebug(L, 'Database "' + this.name + '" requires upgrade from version:', e2.oldVersion);
+          const t2 = e2.target.result;
+          this.N.k(t2, r.transaction, e2.oldVersion, this.version).next((() => {
+            __PRIVATE_logDebug(L, "Database upgrade to version " + this.version + " complete");
+          }));
+        };
+      }))), this.q && (this.db.onversionchange = (e2) => this.q(e2)), this.db;
+    }
+    K(e) {
+      this.q = e, this.db && (this.db.onversionchange = (t) => e(t));
+    }
+    async runTransaction(e, t, n, r) {
+      const i = "readonly" === t;
+      let s2 = 0;
+      for (; ; ) {
+        ++s2;
+        try {
+          this.db = await this.L(e);
+          const t2 = __PRIVATE_SimpleDbTransaction.open(this.db, e, i ? "readonly" : "readwrite", n), s3 = r(t2).next(((e2) => (t2.C(), e2))).catch(((e2) => (
+            // Abort the transaction if there was an error.
+            (t2.abort(e2), PersistencePromise.reject(e2))
+          ))).toPromise();
+          return s3.catch((() => {
+          })), // Wait for the transaction to complete (i.e. IndexedDb's onsuccess event to
+          // fire), but still return the original transactionFnResult back to the
+          // caller.
+          await t2.D, s3;
+        } catch (e2) {
+          const t2 = e2, n2 = "FirebaseError" !== t2.name && s2 < 3;
+          if (__PRIVATE_logDebug(L, "Transaction failed with error:", t2.message, "Retrying:", n2), this.close(), !n2) return Promise.reject(t2);
+        }
+      }
+    }
+    close() {
+      this.db && this.db.close(), this.db = void 0;
+    }
+  };
   function __PRIVATE_getAndroidVersion(e) {
     const t = e.match(/Android ([\d.]+)/i), n = t ? t[1].split(".").slice(0, 2).join(".") : "-1";
     return Number(n);
   }
+  var __PRIVATE_IterationController = class {
+    constructor(e) {
+      this.U = e, this.$ = false, this.W = null;
+    }
+    get isDone() {
+      return this.$;
+    }
+    get G() {
+      return this.W;
+    }
+    set cursor(e) {
+      this.U = e;
+    }
+    /**
+     * This function can be called to stop iteration at any point.
+     */
+    done() {
+      this.$ = true;
+    }
+    /**
+     * This function can be called to skip to that next key, which could be
+     * an index or a primary key.
+     */
+    j(e) {
+      this.W = e;
+    }
+    /**
+     * Delete the current cursor value from the object store.
+     *
+     * NOTE: You CANNOT do this with a keysOnly query.
+     */
+    delete() {
+      return __PRIVATE_wrapRequest(this.U.delete());
+    }
+  };
+  var __PRIVATE_IndexedDbTransactionError = class extends FirestoreError {
+    constructor(e, t) {
+      super(D.UNAVAILABLE, `IndexedDB transaction '${e}' failed: ${t}`), this.name = "IndexedDbTransactionError";
+    }
+  };
   function __PRIVATE_isIndexedDbTransactionError(e) {
     return "IndexedDbTransactionError" === e.name;
   }
+  var __PRIVATE_SimpleDbStore = class {
+    constructor(e) {
+      this.store = e;
+    }
+    put(e, t) {
+      let n;
+      return void 0 !== t ? (__PRIVATE_logDebug(L, "PUT", this.store.name, e, t), n = this.store.put(t, e)) : (__PRIVATE_logDebug(L, "PUT", this.store.name, "<auto-key>", e), n = this.store.put(e)), __PRIVATE_wrapRequest(n);
+    }
+    /**
+     * Adds a new value into an Object Store and returns the new key. Similar to
+     * IndexedDb's `add()`, this method will fail on primary key collisions.
+     *
+     * @param value - The object to write.
+     * @returns The key of the value to add.
+     */
+    add(e) {
+      __PRIVATE_logDebug(L, "ADD", this.store.name, e, e);
+      return __PRIVATE_wrapRequest(this.store.add(e));
+    }
+    /**
+     * Gets the object with the specified key from the specified store, or null
+     * if no object exists with the specified key.
+     *
+     * @key The key of the object to get.
+     * @returns The object with the specified key or null if no object exists.
+     */
+    get(e) {
+      return __PRIVATE_wrapRequest(this.store.get(e)).next(((t) => (
+        // Normalize nonexistence to null.
+        (void 0 === t && (t = null), __PRIVATE_logDebug(L, "GET", this.store.name, e, t), t)
+      )));
+    }
+    delete(e) {
+      __PRIVATE_logDebug(L, "DELETE", this.store.name, e);
+      return __PRIVATE_wrapRequest(this.store.delete(e));
+    }
+    /**
+     * If we ever need more of the count variants, we can add overloads. For now,
+     * all we need is to count everything in a store.
+     *
+     * Returns the number of rows in the store.
+     */
+    count() {
+      __PRIVATE_logDebug(L, "COUNT", this.store.name);
+      return __PRIVATE_wrapRequest(this.store.count());
+    }
+    J(e, t) {
+      const n = this.options(e, t), r = n.index ? this.store.index(n.index) : this.store;
+      if ("function" == typeof r.getAll) {
+        const e2 = r.getAll(n.range);
+        return new PersistencePromise(((t2, n2) => {
+          e2.onerror = (e3) => {
+            n2(e3.target.error);
+          }, e2.onsuccess = (e3) => {
+            t2(e3.target.result);
+          };
+        }));
+      }
+      {
+        const e2 = this.cursor(n), t2 = [];
+        return this.H(e2, ((e3, n2) => {
+          t2.push(n2);
+        })).next((() => t2));
+      }
+    }
+    /**
+     * Loads the first `count` elements from the provided index range. Loads all
+     * elements if no limit is provided.
+     */
+    Z(e, t) {
+      const n = this.store.getAll(e, null === t ? void 0 : t);
+      return new PersistencePromise(((e2, t2) => {
+        n.onerror = (e3) => {
+          t2(e3.target.error);
+        }, n.onsuccess = (t3) => {
+          e2(t3.target.result);
+        };
+      }));
+    }
+    X(e, t) {
+      __PRIVATE_logDebug(L, "DELETE ALL", this.store.name);
+      const n = this.options(e, t);
+      n.Y = false;
+      const r = this.cursor(n);
+      return this.H(r, ((e2, t2, n2) => n2.delete()));
+    }
+    ee(e, t) {
+      let n;
+      t ? n = e : (n = {}, t = e);
+      const r = this.cursor(n);
+      return this.H(r, t);
+    }
+    /**
+     * Iterates over a store, but waits for the given callback to complete for
+     * each entry before iterating the next entry. This allows the callback to do
+     * asynchronous work to determine if this iteration should continue.
+     *
+     * The provided callback should return `true` to continue iteration, and
+     * `false` otherwise.
+     */
+    te(e) {
+      const t = this.cursor({});
+      return new PersistencePromise(((n, r) => {
+        t.onerror = (e2) => {
+          const t2 = __PRIVATE_checkForAndReportiOSError(e2.target.error);
+          r(t2);
+        }, t.onsuccess = (t2) => {
+          const r2 = t2.target.result;
+          r2 ? e(r2.primaryKey, r2.value).next(((e2) => {
+            e2 ? r2.continue() : n();
+          })) : n();
+        };
+      }));
+    }
+    H(e, t) {
+      const n = [];
+      return new PersistencePromise(((r, i) => {
+        e.onerror = (e2) => {
+          i(e2.target.error);
+        }, e.onsuccess = (e2) => {
+          const i2 = e2.target.result;
+          if (!i2) return void r();
+          const s2 = new __PRIVATE_IterationController(i2), o = t(i2.primaryKey, i2.value, s2);
+          if (o instanceof PersistencePromise) {
+            const e3 = o.catch(((e4) => (s2.done(), PersistencePromise.reject(e4))));
+            n.push(e3);
+          }
+          s2.isDone ? r() : null === s2.G ? i2.continue() : i2.continue(s2.G);
+        };
+      })).next((() => PersistencePromise.waitFor(n)));
+    }
+    options(e, t) {
+      let n;
+      return void 0 !== e && ("string" == typeof e ? n = e : t = e), {
+        index: n,
+        range: t
+      };
+    }
+    cursor(e) {
+      let t = "next";
+      if (e.reverse && (t = "prev"), e.index) {
+        const n = this.store.index(e.index);
+        return e.Y ? n.openKeyCursor(e.range, t) : n.openCursor(e.range, t);
+      }
+      return this.store.openCursor(e.range, t);
+    }
+  };
+  function __PRIVATE_wrapRequest(e) {
+    return new PersistencePromise(((t, n) => {
+      e.onsuccess = (e2) => {
+        const n2 = e2.target.result;
+        t(n2);
+      }, e.onerror = (e2) => {
+        const t2 = __PRIVATE_checkForAndReportiOSError(e2.target.error);
+        n(t2);
+      };
+    }));
+  }
+  var k = false;
+  function __PRIVATE_checkForAndReportiOSError(e) {
+    const t = __PRIVATE_SimpleDb.M(getUA());
+    if (t >= 12.2 && t < 13) {
+      const t2 = "An internal error was encountered in the Indexed Database server";
+      if (e.message.indexOf(t2) >= 0) {
+        const e2 = new FirestoreError("internal", `IOS_INDEXEDDB_BUG1: IndexedDb has thrown '${t2}'. This is likely due to an unavoidable bug in iOS. See https://stackoverflow.com/q/56496296/110915 for details and a potential workaround.`);
+        return k || (k = true, // Throw a global exception outside of this promise chain, for the user to
+        // potentially catch.
+        setTimeout((() => {
+          throw e2;
+        }), 0)), e2;
+      }
+    }
+    return e;
+  }
+  var K = "IndexBackfiller";
+  var __PRIVATE_IndexBackfillerScheduler = class {
+    constructor(e, t) {
+      this.asyncQueue = e, this.ne = t, this.task = null;
+    }
+    start() {
+      this.re(15e3);
+    }
+    stop() {
+      this.task && (this.task.cancel(), this.task = null);
+    }
+    get started() {
+      return null !== this.task;
+    }
+    re(e) {
+      __PRIVATE_logDebug(K, `Scheduled in ${e}ms`), this.task = this.asyncQueue.enqueueAfterDelay("index_backfill", e, (async () => {
+        this.task = null;
+        try {
+          const e2 = await this.ne.ie();
+          __PRIVATE_logDebug(K, `Documents written: ${e2}`);
+        } catch (e2) {
+          __PRIVATE_isIndexedDbTransactionError(e2) ? __PRIVATE_logDebug(K, "Ignoring IndexedDB error during index backfill: ", e2) : await __PRIVATE_ignoreIfPrimaryLeaseLoss(e2);
+        }
+        await this.re(6e4);
+      }));
+    }
+  };
+  var __PRIVATE_IndexBackfiller = class {
+    constructor(e, t) {
+      this.localStore = e, this.persistence = t;
+    }
+    async ie(e = 50) {
+      return this.persistence.runTransaction("Backfill Indexes", "readwrite-primary", ((t) => this.se(t, e)));
+    }
+    /** Writes index entries until the cap is reached. Returns the number of documents processed. */
+    se(e, t) {
+      const n = /* @__PURE__ */ new Set();
+      let r = t, i = true;
+      return PersistencePromise.doWhile((() => true === i && r > 0), (() => this.localStore.indexManager.getNextCollectionGroupToUpdate(e).next(((t2) => {
+        if (null !== t2 && !n.has(t2)) return __PRIVATE_logDebug(K, `Processing collection: ${t2}`), this.oe(e, t2, r).next(((e2) => {
+          r -= e2, n.add(t2);
+        }));
+        i = false;
+      })))).next((() => t - r));
+    }
+    /**
+     * Writes entries for the provided collection group. Returns the number of documents processed.
+     */
+    oe(e, t, n) {
+      return this.localStore.indexManager.getMinOffsetFromCollectionGroup(e, t).next(((r) => this.localStore.localDocuments.getNextDocuments(e, t, r, n).next(((n2) => {
+        const i = n2.changes;
+        return this.localStore.indexManager.updateIndexEntries(e, i).next((() => this._e(r, n2))).next(((n3) => (__PRIVATE_logDebug(K, `Updating offset: ${n3}`), this.localStore.indexManager.updateCollectionGroup(e, t, n3)))).next((() => i.size));
+      }))));
+    }
+    /** Returns the next offset based on the provided documents. */
+    _e(e, t) {
+      let n = e;
+      return t.changes.forEach(((e2, t2) => {
+        const r = __PRIVATE_newIndexOffsetFromDocument(t2);
+        __PRIVATE_indexOffsetComparator(r, n) > 0 && (n = r);
+      })), new IndexOffset(n.readTime, n.documentKey, Math.max(t.batchId, e.largestBatchId));
+    }
+  };
   var __PRIVATE_ListenSequence = class {
     constructor(e, t) {
       this.previousValue = e, t && (t.sequenceNumberHandler = (e2) => this.ae(e2), this.ue = (e2) => t.writeSequenceNumber(e2));
@@ -13802,31 +14298,124 @@ var __SnowifyMobile = (() => {
   function __PRIVATE_encodeSeparator(e) {
     return e + U + "";
   }
+  function __PRIVATE_decodeResourcePath(e) {
+    const t = e.length;
+    if (__PRIVATE_hardAssert(t >= 2, 64408, {
+      path: e
+    }), 2 === t) return __PRIVATE_hardAssert(e.charAt(0) === U && "" === e.charAt(1), 56145, {
+      path: e
+    }), ResourcePath.emptyPath();
+    const __PRIVATE_lastReasonableEscapeIndex = t - 2, n = [];
+    let r = "";
+    for (let i = 0; i < t; ) {
+      const t2 = e.indexOf(U, i);
+      (t2 < 0 || t2 > __PRIVATE_lastReasonableEscapeIndex) && fail(50515, {
+        path: e
+      });
+      switch (e.charAt(t2 + 1)) {
+        case "":
+          const s2 = e.substring(i, t2);
+          let o;
+          0 === r.length ? (
+            // Avoid copying for the common case of a segment that excludes \0
+            // and \001
+            o = s2
+          ) : (r += s2, o = r, r = ""), n.push(o);
+          break;
+        case "":
+          r += e.substring(i, t2), r += "\0";
+          break;
+        case "":
+          r += e.substring(i, t2 + 1);
+          break;
+        default:
+          fail(61167, {
+            path: e
+          });
+      }
+      i = t2 + 2;
+    }
+    return new ResourcePath(n);
+  }
   var $ = "remoteDocuments";
   var W = "owner";
+  var Q = "owner";
   var G = "mutationQueues";
+  var z = "userId";
   var j = "mutations";
+  var H = "batchId";
+  var J = "userMutationsIndex";
+  var Z = ["userId", "batchId"];
+  function __PRIVATE_newDbDocumentMutationPrefixForPath(e, t) {
+    return [e, __PRIVATE_encodeResourcePath(t)];
+  }
+  function __PRIVATE_newDbDocumentMutationKey(e, t, n) {
+    return [e, __PRIVATE_encodeResourcePath(t), n];
+  }
+  var X = {};
   var Y = "documentMutations";
   var ee = "remoteDocumentsV14";
+  var te = ["prefixPath", "collectionGroup", "readTime", "documentId"];
+  var ne = "documentKeyIndex";
+  var re = ["prefixPath", "collectionGroup", "documentId"];
+  var ie = "collectionGroupIndex";
+  var se = ["collectionGroup", "readTime", "prefixPath", "documentId"];
   var oe = "remoteDocumentGlobal";
+  var _e = "remoteDocumentGlobalKey";
   var ae = "targets";
+  var ue = "queryTargetsIndex";
+  var ce = ["canonicalId", "targetId"];
   var le = "targetDocuments";
+  var he = ["targetId", "path"];
+  var Pe = "documentTargetsIndex";
+  var Te = ["path", "targetId"];
+  var Ie = "targetGlobalKey";
   var Ee = "targetGlobal";
   var Re = "collectionParents";
+  var Ae = ["collectionId", "parent"];
   var Ve = "clientMetadata";
+  var de = "clientId";
   var me = "bundles";
+  var fe = "bundleId";
   var ge = "namedQueries";
+  var pe = "name";
   var ye = "indexConfiguration";
+  var we = "indexId";
+  var be = "collectionGroupIndex";
+  var Se = "collectionGroup";
   var De = "indexState";
+  var Ce = ["indexId", "uid"];
+  var ve = "sequenceNumberIndex";
+  var Fe = ["uid", "sequenceNumber"];
   var Me = "indexEntries";
+  var xe = ["indexId", "uid", "arrayValue", "directionalValue", "orderedDocumentKey", "documentKey"];
+  var Oe = "documentKeyIndex";
+  var Ne = ["indexId", "uid", "orderedDocumentKey"];
   var Be = "documentOverlays";
+  var Le = ["userId", "collectionPath", "documentId"];
+  var ke = "collectionPathOverlayIndex";
+  var Ke = ["userId", "collectionPath", "largestBatchId"];
+  var qe = "collectionGroupOverlayIndex";
+  var Ue = ["userId", "collectionGroup", "largestBatchId"];
   var $e = "globals";
+  var We = "name";
   var Qe = [...[...[...[...[G, j, Y, $, ae, W, Ee, le], Ve], oe], Re], me, ge];
   var Ge = [...Qe, Be];
   var ze = [G, j, Y, ee, ae, W, Ee, le, Ve, oe, Re, me, ge, Be];
   var je = ze;
   var He = [...je, ye, De, Me];
+  var Je = He;
   var Ze = [...He, $e];
+  var Xe = Ze;
+  var __PRIVATE_IndexedDbTransaction = class extends PersistenceTransaction {
+    constructor(e, t) {
+      super(), this.le = e, this.currentSequenceNumber = t;
+    }
+  };
+  function __PRIVATE_getStore(e, t) {
+    const n = __PRIVATE_debugCast(e);
+    return __PRIVATE_SimpleDb.O(n.le, t);
+  }
   function __PRIVATE_objectSize(e) {
     let t = 0;
     for (const n in e) Object.prototype.hasOwnProperty.call(e, n) && t++;
@@ -14237,6 +14826,9 @@ var __SnowifyMobile = (() => {
       return this.iter.hasNext();
     }
   };
+  function __PRIVATE_advanceIterator(e) {
+    return e.hasNext() ? e.getNext() : void 0;
+  }
   var FieldMask = class _FieldMask {
     constructor(e) {
       this.fields = e, // TODO(dimond): validation of FieldMask
@@ -14436,6 +15028,9 @@ var __SnowifyMobile = (() => {
   };
   var at = "__vector__";
   var ut = "value";
+  var ct = {
+    nullValue: "NULL_VALUE"
+  };
   function __PRIVATE_typeOrder(e) {
     return "nullValue" in e ? 0 : "booleanValue" in e ? 1 : "integerValue" in e || "doubleValue" in e ? 2 : "timestampValue" in e ? 3 : "stringValue" in e ? 5 : "bytesValue" in e ? 6 : "referenceValue" in e ? 7 : "geoPointValue" in e ? 8 : "arrayValue" in e ? 9 : "mapValue" in e ? __PRIVATE_isServerTimestamp(e) ? 4 : __PRIVATE_isMaxValue(e) ? 9007199254740991 : __PRIVATE_isVectorValue(e) ? 10 : 11 : fail(28295, {
       value: e
@@ -14649,6 +15244,11 @@ var __SnowifyMobile = (() => {
         });
     }
   }
+  function __PRIVATE_refValue(e, t) {
+    return {
+      referenceValue: `projects/${e.projectId}/databases/${e.database}/documents/${t.path.canonicalString()}`
+    };
+  }
   function isInteger(e) {
     return !!e && "integerValue" in e;
   }
@@ -14715,6 +15315,66 @@ var __SnowifyMobile = (() => {
       }
     }
   };
+  function __PRIVATE_valuesGetLowerBound(e) {
+    return "nullValue" in e ? ct : "booleanValue" in e ? {
+      booleanValue: false
+    } : "integerValue" in e || "doubleValue" in e ? {
+      doubleValue: NaN
+    } : "timestampValue" in e ? {
+      timestampValue: {
+        seconds: Number.MIN_SAFE_INTEGER
+      }
+    } : "stringValue" in e ? {
+      stringValue: ""
+    } : "bytesValue" in e ? {
+      bytesValue: ""
+    } : "referenceValue" in e ? __PRIVATE_refValue(DatabaseId.empty(), DocumentKey.empty()) : "geoPointValue" in e ? {
+      geoPointValue: {
+        latitude: -90,
+        longitude: -180
+      }
+    } : "arrayValue" in e ? {
+      arrayValue: {}
+    } : "mapValue" in e ? __PRIVATE_isVectorValue(e) ? lt : {
+      mapValue: {}
+    } : fail(35942, {
+      value: e
+    });
+  }
+  function __PRIVATE_valuesGetUpperBound(e) {
+    return "nullValue" in e ? {
+      booleanValue: false
+    } : "booleanValue" in e ? {
+      doubleValue: NaN
+    } : "integerValue" in e || "doubleValue" in e ? {
+      timestampValue: {
+        seconds: Number.MIN_SAFE_INTEGER
+      }
+    } : "timestampValue" in e ? {
+      stringValue: ""
+    } : "stringValue" in e ? {
+      bytesValue: ""
+    } : "bytesValue" in e ? __PRIVATE_refValue(DatabaseId.empty(), DocumentKey.empty()) : "referenceValue" in e ? {
+      geoPointValue: {
+        latitude: -90,
+        longitude: -180
+      }
+    } : "geoPointValue" in e ? {
+      arrayValue: {}
+    } : "arrayValue" in e ? lt : "mapValue" in e ? __PRIVATE_isVectorValue(e) ? {
+      mapValue: {}
+    } : _t : fail(61959, {
+      value: e
+    });
+  }
+  function __PRIVATE_lowerBoundCompare(e, t) {
+    const n = __PRIVATE_valueCompare(e.value, t.value);
+    return 0 !== n ? n : e.inclusive && !t.inclusive ? -1 : !e.inclusive && t.inclusive ? 1 : 0;
+  }
+  function __PRIVATE_upperBoundCompare(e, t) {
+    const n = __PRIVATE_valueCompare(e.value, t.value);
+    return 0 !== n ? n : e.inclusive && !t.inclusive ? 1 : !e.inclusive && t.inclusive ? -1 : 0;
+  }
   var ObjectValue = class _ObjectValue {
     constructor(e) {
       this.value = e;
@@ -15077,6 +15737,9 @@ var __SnowifyMobile = (() => {
   function __PRIVATE_compositeFilterIsConjunction(e) {
     return "and" === e.op;
   }
+  function __PRIVATE_compositeFilterIsDisjunction(e) {
+    return "or" === e.op;
+  }
   function __PRIVATE_compositeFilterIsFlatConjunction(e) {
     return __PRIVATE_compositeFilterIsFlat(e) && __PRIVATE_compositeFilterIsConjunction(e);
   }
@@ -15103,6 +15766,10 @@ var __SnowifyMobile = (() => {
       }
       return false;
     })(e, t) : void fail(19439);
+  }
+  function __PRIVATE_compositeFilterWithAddedFilters(e, t) {
+    const n = e.filters.concat(t);
+    return CompositeFilter.create(n, e.op);
   }
   function __PRIVATE_stringifyFilter(e) {
     return e instanceof FieldFilter ? (function __PRIVATE_stringifyFieldFilter(e2) {
@@ -15206,6 +15873,103 @@ var __SnowifyMobile = (() => {
   }
   function __PRIVATE_targetIsDocumentTarget(e) {
     return DocumentKey.isDocumentKey(e.path) && null === e.collectionGroup && 0 === e.filters.length;
+  }
+  function __PRIVATE_targetGetFieldFiltersForPath(e, t) {
+    return e.filters.filter(((e2) => e2 instanceof FieldFilter && e2.field.isEqual(t)));
+  }
+  function __PRIVATE_targetGetAscendingBound(e, t, n) {
+    let r = ct, i = true;
+    for (const n2 of __PRIVATE_targetGetFieldFiltersForPath(e, t)) {
+      let e2 = ct, t2 = true;
+      switch (n2.op) {
+        case "<":
+        case "<=":
+          e2 = __PRIVATE_valuesGetLowerBound(n2.value);
+          break;
+        case "==":
+        case "in":
+        case ">=":
+          e2 = n2.value;
+          break;
+        case ">":
+          e2 = n2.value, t2 = false;
+          break;
+        case "!=":
+        case "not-in":
+          e2 = ct;
+      }
+      __PRIVATE_lowerBoundCompare({
+        value: r,
+        inclusive: i
+      }, {
+        value: e2,
+        inclusive: t2
+      }) < 0 && (r = e2, i = t2);
+    }
+    if (null !== n) for (let s2 = 0; s2 < e.orderBy.length; ++s2) {
+      if (e.orderBy[s2].field.isEqual(t)) {
+        const e2 = n.position[s2];
+        __PRIVATE_lowerBoundCompare({
+          value: r,
+          inclusive: i
+        }, {
+          value: e2,
+          inclusive: n.inclusive
+        }) < 0 && (r = e2, i = n.inclusive);
+        break;
+      }
+    }
+    return {
+      value: r,
+      inclusive: i
+    };
+  }
+  function __PRIVATE_targetGetDescendingBound(e, t, n) {
+    let r = _t, i = true;
+    for (const n2 of __PRIVATE_targetGetFieldFiltersForPath(e, t)) {
+      let e2 = _t, t2 = true;
+      switch (n2.op) {
+        case ">=":
+        case ">":
+          e2 = __PRIVATE_valuesGetUpperBound(n2.value), t2 = false;
+          break;
+        case "==":
+        case "in":
+        case "<=":
+          e2 = n2.value;
+          break;
+        case "<":
+          e2 = n2.value, t2 = false;
+          break;
+        case "!=":
+        case "not-in":
+          e2 = _t;
+      }
+      __PRIVATE_upperBoundCompare({
+        value: r,
+        inclusive: i
+      }, {
+        value: e2,
+        inclusive: t2
+      }) > 0 && (r = e2, i = t2);
+    }
+    if (null !== n) for (let s2 = 0; s2 < e.orderBy.length; ++s2) {
+      if (e.orderBy[s2].field.isEqual(t)) {
+        const e2 = n.position[s2];
+        __PRIVATE_upperBoundCompare({
+          value: r,
+          inclusive: i
+        }, {
+          value: e2,
+          inclusive: n.inclusive
+        }) > 0 && (r = e2, i = n.inclusive);
+        break;
+      }
+    }
+    return {
+      value: r,
+      inclusive: i
+    };
   }
   var __PRIVATE_QueryImpl = class {
     /**
@@ -15539,6 +16303,11 @@ var __SnowifyMobile = (() => {
   function __PRIVATE_coercedFieldValuesArray(e) {
     return isArray(e) && e.arrayValue.values ? e.arrayValue.values.slice() : [];
   }
+  var FieldTransform = class {
+    constructor(e, t) {
+      this.field = e, this.transform = t;
+    }
+  };
   function __PRIVATE_fieldTransformEquals(e, t) {
     return e.field.isEqual(t.field) && (function __PRIVATE_transformOperationEquals(e2, t2) {
       return e2 instanceof __PRIVATE_ArrayUnionTransformOperation && t2 instanceof __PRIVATE_ArrayUnionTransformOperation || e2 instanceof __PRIVATE_ArrayRemoveTransformOperation && t2 instanceof __PRIVATE_ArrayRemoveTransformOperation ? __PRIVATE_arrayEquals(e2.elements, t2.elements, __PRIVATE_valueEquals) : e2 instanceof __PRIVATE_NumericIncrementTransformOperation && t2 instanceof __PRIVATE_NumericIncrementTransformOperation ? __PRIVATE_valueEquals(e2.Ae, t2.Ae) : e2 instanceof __PRIVATE_ServerTimestampTransform && t2 instanceof __PRIVATE_ServerTimestampTransform;
@@ -16500,6 +17269,14 @@ var __SnowifyMobile = (() => {
       fields: n.value.mapValue.fields
     };
   }
+  function __PRIVATE_fromDocument(e, t, n) {
+    const r = fromName(e, t.name), i = __PRIVATE_fromVersion(t.updateTime), s2 = t.createTime ? __PRIVATE_fromVersion(t.createTime) : SnapshotVersion.min(), o = new ObjectValue({
+      mapValue: {
+        fields: t.fields
+      }
+    }), _ = MutableDocument.newFoundDocument(r, i, s2, o);
+    return n && _.setHasCommittedMutations(), n ? _.setHasCommittedMutations() : _;
+  }
   function __PRIVATE_fromWatchChange(e, t) {
     let n;
     if ("targetChange" in t) {
@@ -16607,6 +17384,54 @@ var __SnowifyMobile = (() => {
         exists: t2.exists
       } : fail(27497);
     })(e, t.precondition)), n;
+  }
+  function __PRIVATE_fromMutation(e, t) {
+    const n = t.currentDocument ? (function __PRIVATE_fromPrecondition(e2) {
+      return void 0 !== e2.updateTime ? Precondition.updateTime(__PRIVATE_fromVersion(e2.updateTime)) : void 0 !== e2.exists ? Precondition.exists(e2.exists) : Precondition.none();
+    })(t.currentDocument) : Precondition.none(), r = t.updateTransforms ? t.updateTransforms.map(((t2) => (function __PRIVATE_fromFieldTransform(e2, t3) {
+      let n2 = null;
+      if ("setToServerValue" in t3) __PRIVATE_hardAssert("REQUEST_TIME" === t3.setToServerValue, 16630, {
+        proto: t3
+      }), n2 = new __PRIVATE_ServerTimestampTransform();
+      else if ("appendMissingElements" in t3) {
+        const e3 = t3.appendMissingElements.values || [];
+        n2 = new __PRIVATE_ArrayUnionTransformOperation(e3);
+      } else if ("removeAllFromArray" in t3) {
+        const e3 = t3.removeAllFromArray.values || [];
+        n2 = new __PRIVATE_ArrayRemoveTransformOperation(e3);
+      } else "increment" in t3 ? n2 = new __PRIVATE_NumericIncrementTransformOperation(e2, t3.increment) : fail(16584, {
+        proto: t3
+      });
+      const r2 = FieldPath$1.fromServerFormat(t3.fieldPath);
+      return new FieldTransform(r2, n2);
+    })(e, t2))) : [];
+    if (t.update) {
+      t.update.name;
+      const i = fromName(e, t.update.name), s2 = new ObjectValue({
+        mapValue: {
+          fields: t.update.fields
+        }
+      });
+      if (t.updateMask) {
+        const e2 = (function __PRIVATE_fromDocumentMask(e3) {
+          const t2 = e3.fieldPaths || [];
+          return new FieldMask(t2.map(((e4) => FieldPath$1.fromServerFormat(e4))));
+        })(t.updateMask);
+        return new __PRIVATE_PatchMutation(i, s2, e2, n, r);
+      }
+      return new __PRIVATE_SetMutation(i, s2, n, r);
+    }
+    if (t.delete) {
+      const r2 = fromName(e, t.delete);
+      return new __PRIVATE_DeleteMutation(r2, n);
+    }
+    if (t.verify) {
+      const r2 = fromName(e, t.verify);
+      return new __PRIVATE_VerifyMutation(r2, n);
+    }
+    return fail(1463, {
+      proto: t
+    });
   }
   function __PRIVATE_fromWriteResults(e, t) {
     return e && e.length > 0 ? (__PRIVATE_hardAssert(void 0 !== t, 14353), e.map(((e2) => (function __PRIVATE_fromWriteResult(e3, t2) {
@@ -16938,6 +17763,114 @@ var __SnowifyMobile = (() => {
       this.yt = e;
     }
   };
+  function __PRIVATE_fromDbRemoteDocument(e, t) {
+    let n;
+    if (t.document) n = __PRIVATE_fromDocument(e.yt, t.document, !!t.hasCommittedMutations);
+    else if (t.noDocument) {
+      const e2 = DocumentKey.fromSegments(t.noDocument.path), r = __PRIVATE_fromDbTimestamp(t.noDocument.readTime);
+      n = MutableDocument.newNoDocument(e2, r), t.hasCommittedMutations && n.setHasCommittedMutations();
+    } else {
+      if (!t.unknownDocument) return fail(56709);
+      {
+        const e2 = DocumentKey.fromSegments(t.unknownDocument.path), r = __PRIVATE_fromDbTimestamp(t.unknownDocument.version);
+        n = MutableDocument.newUnknownDocument(e2, r);
+      }
+    }
+    return t.readTime && n.setReadTime((function __PRIVATE_fromDbTimestampKey(e2) {
+      const t2 = new Timestamp(e2[0], e2[1]);
+      return SnapshotVersion.fromTimestamp(t2);
+    })(t.readTime)), n;
+  }
+  function __PRIVATE_toDbRemoteDocument(e, t) {
+    const n = t.key, r = {
+      prefixPath: n.getCollectionPath().popLast().toArray(),
+      collectionGroup: n.collectionGroup,
+      documentId: n.path.lastSegment(),
+      readTime: __PRIVATE_toDbTimestampKey(t.readTime),
+      hasCommittedMutations: t.hasCommittedMutations
+    };
+    if (t.isFoundDocument()) r.document = (function __PRIVATE_toDocument(e2, t2) {
+      return {
+        name: __PRIVATE_toName(e2, t2.key),
+        fields: t2.data.value.mapValue.fields,
+        updateTime: toTimestamp(e2, t2.version.toTimestamp()),
+        createTime: toTimestamp(e2, t2.createTime.toTimestamp())
+      };
+    })(e.yt, t);
+    else if (t.isNoDocument()) r.noDocument = {
+      path: n.path.toArray(),
+      readTime: __PRIVATE_toDbTimestamp(t.version)
+    };
+    else {
+      if (!t.isUnknownDocument()) return fail(57904, {
+        document: t
+      });
+      r.unknownDocument = {
+        path: n.path.toArray(),
+        version: __PRIVATE_toDbTimestamp(t.version)
+      };
+    }
+    return r;
+  }
+  function __PRIVATE_toDbTimestampKey(e) {
+    const t = e.toTimestamp();
+    return [t.seconds, t.nanoseconds];
+  }
+  function __PRIVATE_toDbTimestamp(e) {
+    const t = e.toTimestamp();
+    return {
+      seconds: t.seconds,
+      nanoseconds: t.nanoseconds
+    };
+  }
+  function __PRIVATE_fromDbTimestamp(e) {
+    const t = new Timestamp(e.seconds, e.nanoseconds);
+    return SnapshotVersion.fromTimestamp(t);
+  }
+  function __PRIVATE_fromDbMutationBatch(e, t) {
+    const n = (t.baseMutations || []).map(((t2) => __PRIVATE_fromMutation(e.yt, t2)));
+    for (let e2 = 0; e2 < t.mutations.length - 1; ++e2) {
+      const n2 = t.mutations[e2];
+      if (e2 + 1 < t.mutations.length && void 0 !== t.mutations[e2 + 1].transform) {
+        const r2 = t.mutations[e2 + 1];
+        n2.updateTransforms = r2.transform.fieldTransforms, t.mutations.splice(e2 + 1, 1), ++e2;
+      }
+    }
+    const r = t.mutations.map(((t2) => __PRIVATE_fromMutation(e.yt, t2))), i = Timestamp.fromMillis(t.localWriteTimeMs);
+    return new MutationBatch(t.batchId, i, n, r);
+  }
+  function __PRIVATE_fromDbTarget(e) {
+    const t = __PRIVATE_fromDbTimestamp(e.readTime), n = void 0 !== e.lastLimboFreeSnapshotVersion ? __PRIVATE_fromDbTimestamp(e.lastLimboFreeSnapshotVersion) : SnapshotVersion.min();
+    let r;
+    return r = /**
+    * A helper function for figuring out what kind of query has been stored.
+    */
+    (function __PRIVATE_isDocumentQuery(e2) {
+      return void 0 !== e2.documents;
+    })(e.query) ? (function __PRIVATE_fromDocumentsTarget(e2) {
+      const t2 = e2.documents.length;
+      return __PRIVATE_hardAssert(1 === t2, 1966, {
+        count: t2
+      }), __PRIVATE_queryToTarget(__PRIVATE_newQueryForPath(__PRIVATE_fromQueryPath(e2.documents[0])));
+    })(e.query) : (function __PRIVATE_fromQueryTarget(e2) {
+      return __PRIVATE_queryToTarget(__PRIVATE_convertQueryTargetToQuery(e2));
+    })(e.query), new TargetData(r, e.targetId, "TargetPurposeListen", e.lastListenSequenceNumber, t, n, ByteString.fromBase64String(e.resumeToken));
+  }
+  function __PRIVATE_toDbTarget(e, t) {
+    const n = __PRIVATE_toDbTimestamp(t.snapshotVersion), r = __PRIVATE_toDbTimestamp(t.lastLimboFreeSnapshotVersion);
+    let i;
+    i = __PRIVATE_targetIsDocumentTarget(t.target) ? __PRIVATE_toDocumentsTarget(e.yt, t.target) : __PRIVATE_toQueryTarget(e.yt, t.target).ft;
+    const s2 = t.resumeToken.toBase64();
+    return {
+      targetId: t.targetId,
+      canonicalId: __PRIVATE_canonifyTarget(t.target),
+      readTime: n,
+      resumeToken: s2,
+      lastListenSequenceNumber: t.sequenceNumber,
+      lastLimboFreeSnapshotVersion: r,
+      query: i
+    };
+  }
   function __PRIVATE_fromBundledQuery(e) {
     const t = __PRIVATE_convertQueryTargetToQuery({
       parent: e.parent,
@@ -16950,6 +17883,181 @@ var __SnowifyMobile = (() => {
       /* LimitType.Last */
     ) : t;
   }
+  function __PRIVATE_fromDbDocumentOverlay(e, t) {
+    return new Overlay(t.largestBatchId, __PRIVATE_fromMutation(e.yt, t.overlayMutation));
+  }
+  function __PRIVATE_toDbDocumentOverlayKey(e, t) {
+    const n = t.path.lastSegment();
+    return [e, __PRIVATE_encodeResourcePath(t.path.popLast()), n];
+  }
+  function __PRIVATE_toDbIndexState(e, t, n, r) {
+    return {
+      indexId: e,
+      uid: t,
+      sequenceNumber: n,
+      readTime: __PRIVATE_toDbTimestamp(r.readTime),
+      documentKey: __PRIVATE_encodeResourcePath(r.documentKey.path),
+      largestBatchId: r.largestBatchId
+    };
+  }
+  var __PRIVATE_IndexedDbBundleCache = class {
+    getBundleMetadata(e, t) {
+      return __PRIVATE_bundlesStore(e).get(t).next(((e2) => {
+        if (e2) return (function __PRIVATE_fromDbBundle(e3) {
+          return {
+            id: e3.bundleId,
+            createTime: __PRIVATE_fromDbTimestamp(e3.createTime),
+            version: e3.version
+          };
+        })(e2);
+      }));
+    }
+    saveBundleMetadata(e, t) {
+      return __PRIVATE_bundlesStore(e).put((function __PRIVATE_toDbBundle(e2) {
+        return {
+          bundleId: e2.id,
+          createTime: __PRIVATE_toDbTimestamp(__PRIVATE_fromVersion(e2.createTime)),
+          version: e2.version
+        };
+      })(t));
+    }
+    getNamedQuery(e, t) {
+      return __PRIVATE_namedQueriesStore(e).get(t).next(((e2) => {
+        if (e2) return (function __PRIVATE_fromDbNamedQuery(e3) {
+          return {
+            name: e3.name,
+            query: __PRIVATE_fromBundledQuery(e3.bundledQuery),
+            readTime: __PRIVATE_fromDbTimestamp(e3.readTime)
+          };
+        })(e2);
+      }));
+    }
+    saveNamedQuery(e, t) {
+      return __PRIVATE_namedQueriesStore(e).put((function __PRIVATE_toDbNamedQuery(e2) {
+        return {
+          name: e2.name,
+          readTime: __PRIVATE_toDbTimestamp(__PRIVATE_fromVersion(e2.readTime)),
+          bundledQuery: e2.bundledQuery
+        };
+      })(t));
+    }
+  };
+  function __PRIVATE_bundlesStore(e) {
+    return __PRIVATE_getStore(e, me);
+  }
+  function __PRIVATE_namedQueriesStore(e) {
+    return __PRIVATE_getStore(e, ge);
+  }
+  var __PRIVATE_IndexedDbDocumentOverlayCache = class ___PRIVATE_IndexedDbDocumentOverlayCache {
+    /**
+     * @param serializer - The document serializer.
+     * @param userId - The userId for which we are accessing overlays.
+     */
+    constructor(e, t) {
+      this.serializer = e, this.userId = t;
+    }
+    static wt(e, t) {
+      const n = t.uid || "";
+      return new ___PRIVATE_IndexedDbDocumentOverlayCache(e, n);
+    }
+    getOverlay(e, t) {
+      return __PRIVATE_documentOverlayStore(e).get(__PRIVATE_toDbDocumentOverlayKey(this.userId, t)).next(((e2) => e2 ? __PRIVATE_fromDbDocumentOverlay(this.serializer, e2) : null));
+    }
+    getOverlays(e, t) {
+      const n = __PRIVATE_newOverlayMap();
+      return PersistencePromise.forEach(t, ((t2) => this.getOverlay(e, t2).next(((e2) => {
+        null !== e2 && n.set(t2, e2);
+      })))).next((() => n));
+    }
+    saveOverlays(e, t, n) {
+      const r = [];
+      return n.forEach(((n2, i) => {
+        const s2 = new Overlay(t, i);
+        r.push(this.St(e, s2));
+      })), PersistencePromise.waitFor(r);
+    }
+    removeOverlaysForBatchId(e, t, n) {
+      const r = /* @__PURE__ */ new Set();
+      t.forEach(((e2) => r.add(__PRIVATE_encodeResourcePath(e2.getCollectionPath()))));
+      const i = [];
+      return r.forEach(((t2) => {
+        const r2 = IDBKeyRange.bound(
+          [this.userId, t2, n],
+          [this.userId, t2, n + 1],
+          /*lowerOpen=*/
+          false,
+          /*upperOpen=*/
+          true
+        );
+        i.push(__PRIVATE_documentOverlayStore(e).X(ke, r2));
+      })), PersistencePromise.waitFor(i);
+    }
+    getOverlaysForCollection(e, t, n) {
+      const r = __PRIVATE_newOverlayMap(), i = __PRIVATE_encodeResourcePath(t), s2 = IDBKeyRange.bound(
+        [this.userId, i, n],
+        [this.userId, i, Number.POSITIVE_INFINITY],
+        /*lowerOpen=*/
+        true
+      );
+      return __PRIVATE_documentOverlayStore(e).J(ke, s2).next(((e2) => {
+        for (const t2 of e2) {
+          const e3 = __PRIVATE_fromDbDocumentOverlay(this.serializer, t2);
+          r.set(e3.getKey(), e3);
+        }
+        return r;
+      }));
+    }
+    getOverlaysForCollectionGroup(e, t, n, r) {
+      const i = __PRIVATE_newOverlayMap();
+      let s2;
+      const o = IDBKeyRange.bound(
+        [this.userId, t, n],
+        [this.userId, t, Number.POSITIVE_INFINITY],
+        /*lowerOpen=*/
+        true
+      );
+      return __PRIVATE_documentOverlayStore(e).ee({
+        index: qe,
+        range: o
+      }, ((e2, t2, n2) => {
+        const o2 = __PRIVATE_fromDbDocumentOverlay(this.serializer, t2);
+        i.size() < r || o2.largestBatchId === s2 ? (i.set(o2.getKey(), o2), s2 = o2.largestBatchId) : n2.done();
+      })).next((() => i));
+    }
+    St(e, t) {
+      return __PRIVATE_documentOverlayStore(e).put((function __PRIVATE_toDbDocumentOverlay(e2, t2, n) {
+        const [r, i, s2] = __PRIVATE_toDbDocumentOverlayKey(t2, n.mutation.key);
+        return {
+          userId: t2,
+          collectionPath: i,
+          documentId: s2,
+          collectionGroup: n.mutation.key.getCollectionGroup(),
+          largestBatchId: n.largestBatchId,
+          overlayMutation: toMutation(e2.yt, n.mutation)
+        };
+      })(this.serializer, this.userId, t));
+    }
+  };
+  function __PRIVATE_documentOverlayStore(e) {
+    return __PRIVATE_getStore(e, Be);
+  }
+  var __PRIVATE_IndexedDbGlobalsCache = class {
+    bt(e) {
+      return __PRIVATE_getStore(e, $e);
+    }
+    getSessionToken(e) {
+      return this.bt(e).get("sessionToken").next(((e2) => {
+        const t = e2?.value;
+        return t ? ByteString.fromUint8Array(t) : ByteString.EMPTY_BYTE_STRING;
+      }));
+    }
+    setSessionToken(e, t) {
+      return this.bt(e).put({
+        name: "sessionToken",
+        value: t.toUint8Array()
+      });
+    }
+  };
   var __PRIVATE_FirestoreIndexValueWriter = class {
     constructor() {
     }
@@ -17025,6 +18133,473 @@ var __SnowifyMobile = (() => {
     }
   };
   __PRIVATE_FirestoreIndexValueWriter.Wt = new __PRIVATE_FirestoreIndexValueWriter();
+  var pt = 255;
+  function __PRIVATE_numberOfLeadingZerosInByte(e) {
+    if (0 === e) return 8;
+    let t = 0;
+    return e >> 4 || // Test if the first four bits are zero.
+    (t += 4, e <<= 4), e >> 6 || // Test if the first two (or next two) bits are zero.
+    (t += 2, e <<= 2), e >> 7 || // Test if the remaining bit is zero.
+    (t += 1), t;
+  }
+  function __PRIVATE_unsignedNumLength(e) {
+    const t = 64 - (function __PRIVATE_numberOfLeadingZeros(e2) {
+      let t2 = 0;
+      for (let n = 0; n < 8; ++n) {
+        const r = __PRIVATE_numberOfLeadingZerosInByte(255 & e2[n]);
+        if (t2 += r, 8 !== r) break;
+      }
+      return t2;
+    })(e);
+    return Math.ceil(t / 8);
+  }
+  var __PRIVATE_OrderedCodeWriter = class {
+    constructor() {
+      this.buffer = new Uint8Array(1024), this.position = 0;
+    }
+    Qt(e) {
+      const t = e[Symbol.iterator]();
+      let n = t.next();
+      for (; !n.done; ) this.Gt(n.value), n = t.next();
+      this.zt();
+    }
+    jt(e) {
+      const t = e[Symbol.iterator]();
+      let n = t.next();
+      for (; !n.done; ) this.Jt(n.value), n = t.next();
+      this.Ht();
+    }
+    /** Writes utf8 bytes into this byte sequence, ascending. */
+    Zt(e) {
+      for (const t of e) {
+        const e2 = t.charCodeAt(0);
+        if (e2 < 128) this.Gt(e2);
+        else if (e2 < 2048) this.Gt(960 | e2 >>> 6), this.Gt(128 | 63 & e2);
+        else if (t < "\uD800" || "\uDBFF" < t) this.Gt(480 | e2 >>> 12), this.Gt(128 | 63 & e2 >>> 6), this.Gt(128 | 63 & e2);
+        else {
+          const e3 = t.codePointAt(0);
+          this.Gt(240 | e3 >>> 18), this.Gt(128 | 63 & e3 >>> 12), this.Gt(128 | 63 & e3 >>> 6), this.Gt(128 | 63 & e3);
+        }
+      }
+      this.zt();
+    }
+    /** Writes utf8 bytes into this byte sequence, descending */
+    Xt(e) {
+      for (const t of e) {
+        const e2 = t.charCodeAt(0);
+        if (e2 < 128) this.Jt(e2);
+        else if (e2 < 2048) this.Jt(960 | e2 >>> 6), this.Jt(128 | 63 & e2);
+        else if (t < "\uD800" || "\uDBFF" < t) this.Jt(480 | e2 >>> 12), this.Jt(128 | 63 & e2 >>> 6), this.Jt(128 | 63 & e2);
+        else {
+          const e3 = t.codePointAt(0);
+          this.Jt(240 | e3 >>> 18), this.Jt(128 | 63 & e3 >>> 12), this.Jt(128 | 63 & e3 >>> 6), this.Jt(128 | 63 & e3);
+        }
+      }
+      this.Ht();
+    }
+    Yt(e) {
+      const t = this.en(e), n = __PRIVATE_unsignedNumLength(t);
+      this.tn(1 + n), this.buffer[this.position++] = 255 & n;
+      for (let e2 = t.length - n; e2 < t.length; ++e2) this.buffer[this.position++] = 255 & t[e2];
+    }
+    nn(e) {
+      const t = this.en(e), n = __PRIVATE_unsignedNumLength(t);
+      this.tn(1 + n), this.buffer[this.position++] = ~(255 & n);
+      for (let e2 = t.length - n; e2 < t.length; ++e2) this.buffer[this.position++] = ~(255 & t[e2]);
+    }
+    /**
+     * Writes the "infinity" byte sequence that sorts after all other byte
+     * sequences written in ascending order.
+     */
+    rn() {
+      this.sn(pt), this.sn(255);
+    }
+    /**
+     * Writes the "infinity" byte sequence that sorts before all other byte
+     * sequences written in descending order.
+     */
+    _n() {
+      this.an(pt), this.an(255);
+    }
+    /**
+     * Resets the buffer such that it is the same as when it was newly
+     * constructed.
+     */
+    reset() {
+      this.position = 0;
+    }
+    seed(e) {
+      this.tn(e.length), this.buffer.set(e, this.position), this.position += e.length;
+    }
+    /** Makes a copy of the encoded bytes in this buffer.  */
+    un() {
+      return this.buffer.slice(0, this.position);
+    }
+    /**
+     * Encodes `val` into an encoding so that the order matches the IEEE 754
+     * floating-point comparison results with the following exceptions:
+     *   -0.0 < 0.0
+     *   all non-NaN < NaN
+     *   NaN = NaN
+     */
+    en(e) {
+      const t = (
+        /** Converts a JavaScript number to a byte array (using big endian encoding). */
+        (function __PRIVATE_doubleToLongBits(e2) {
+          const t2 = new DataView(new ArrayBuffer(8));
+          return t2.setFloat64(
+            0,
+            e2,
+            /* littleEndian= */
+            false
+          ), new Uint8Array(t2.buffer);
+        })(e)
+      ), n = !!(128 & t[0]);
+      t[0] ^= n ? 255 : 128;
+      for (let e2 = 1; e2 < t.length; ++e2) t[e2] ^= n ? 255 : 0;
+      return t;
+    }
+    /** Writes a single byte ascending to the buffer. */
+    Gt(e) {
+      const t = 255 & e;
+      0 === t ? (this.sn(0), this.sn(255)) : t === pt ? (this.sn(pt), this.sn(0)) : this.sn(t);
+    }
+    /** Writes a single byte descending to the buffer.  */
+    Jt(e) {
+      const t = 255 & e;
+      0 === t ? (this.an(0), this.an(255)) : t === pt ? (this.an(pt), this.an(0)) : this.an(e);
+    }
+    zt() {
+      this.sn(0), this.sn(1);
+    }
+    Ht() {
+      this.an(0), this.an(1);
+    }
+    sn(e) {
+      this.tn(1), this.buffer[this.position++] = e;
+    }
+    an(e) {
+      this.tn(1), this.buffer[this.position++] = ~e;
+    }
+    tn(e) {
+      const t = e + this.position;
+      if (t <= this.buffer.length) return;
+      let n = 2 * this.buffer.length;
+      n < t && (n = t);
+      const r = new Uint8Array(n);
+      r.set(this.buffer), // copy old data
+      this.buffer = r;
+    }
+  };
+  var __PRIVATE_AscendingIndexByteEncoder = class {
+    constructor(e) {
+      this.cn = e;
+    }
+    Bt(e) {
+      this.cn.Qt(e);
+    }
+    xt(e) {
+      this.cn.Zt(e);
+    }
+    Mt(e) {
+      this.cn.Yt(e);
+    }
+    vt() {
+      this.cn.rn();
+    }
+  };
+  var __PRIVATE_DescendingIndexByteEncoder = class {
+    constructor(e) {
+      this.cn = e;
+    }
+    Bt(e) {
+      this.cn.jt(e);
+    }
+    xt(e) {
+      this.cn.Xt(e);
+    }
+    Mt(e) {
+      this.cn.nn(e);
+    }
+    vt() {
+      this.cn._n();
+    }
+  };
+  var __PRIVATE_IndexByteEncoder = class {
+    constructor() {
+      this.cn = new __PRIVATE_OrderedCodeWriter(), this.ascending = new __PRIVATE_AscendingIndexByteEncoder(this.cn), this.descending = new __PRIVATE_DescendingIndexByteEncoder(this.cn);
+    }
+    seed(e) {
+      this.cn.seed(e);
+    }
+    ln(e) {
+      return 0 === e ? this.ascending : this.descending;
+    }
+    un() {
+      return this.cn.un();
+    }
+    reset() {
+      this.cn.reset();
+    }
+  };
+  var __PRIVATE_IndexEntry = class ___PRIVATE_IndexEntry {
+    constructor(e, t, n, r) {
+      this.hn = e, this.Pn = t, this.Tn = n, this.En = r;
+    }
+    /**
+     * Returns an IndexEntry entry that sorts immediately after the current
+     * directional value.
+     */
+    In() {
+      const e = this.En.length, t = 0 === e || 255 === this.En[e - 1] ? e + 1 : e, n = new Uint8Array(t);
+      return n.set(this.En, 0), t !== e ? n.set([0], this.En.length) : ++n[n.length - 1], new ___PRIVATE_IndexEntry(this.hn, this.Pn, this.Tn, n);
+    }
+    // Create a representation of the Index Entry as a DbIndexEntry
+    Rn(e, t, n) {
+      return {
+        indexId: this.hn,
+        uid: e,
+        arrayValue: __PRIVATE_encodeKeySafeBytes(this.Tn),
+        directionalValue: __PRIVATE_encodeKeySafeBytes(this.En),
+        orderedDocumentKey: __PRIVATE_encodeKeySafeBytes(t),
+        documentKey: n.path.toArray()
+      };
+    }
+    // Create a representation of the Index Entry as a DbIndexEntryKey
+    An(e, t, n) {
+      const r = this.Rn(e, t, n);
+      return [r.indexId, r.uid, r.arrayValue, r.directionalValue, r.orderedDocumentKey, r.documentKey];
+    }
+  };
+  function __PRIVATE_indexEntryComparator(e, t) {
+    let n = e.hn - t.hn;
+    return 0 !== n ? n : (n = __PRIVATE_compareByteArrays(e.Tn, t.Tn), 0 !== n ? n : (n = __PRIVATE_compareByteArrays(e.En, t.En), 0 !== n ? n : DocumentKey.comparator(e.Pn, t.Pn)));
+  }
+  function __PRIVATE_compareByteArrays(e, t) {
+    for (let n = 0; n < e.length && n < t.length; ++n) {
+      const r = e[n] - t[n];
+      if (0 !== r) return r;
+    }
+    return e.length - t.length;
+  }
+  function __PRIVATE_encodeKeySafeBytes(e) {
+    return isSafariOrWebkit() ? (
+      /**
+      * Encodes a Uint8Array into a "sortable byte string".
+      * A "sortable byte string" sorts in the same order as the Uint8Array.
+      * This works because JS string comparison sorts strings based on code points.
+      */
+      (function __PRIVATE_encodeUint8ArrayToSortableString(e2) {
+        let t = "";
+        for (let n = 0; n < e2.length; n++) t += String.fromCharCode(e2[n]);
+        return t;
+      })(e)
+    ) : e;
+  }
+  function __PRIVATE_decodeKeySafeBytes(e) {
+    return "string" != typeof e ? e : (function __PRIVATE_decodeSortableStringToUint8Array(e2) {
+      const t = new Uint8Array(e2.length);
+      for (let n = 0; n < e2.length; n++) t[n] = e2.charCodeAt(n);
+      return t;
+    })(e);
+  }
+  var __PRIVATE_TargetIndexMatcher = class {
+    constructor(e) {
+      this.Vn = new SortedSet(((e2, t) => FieldPath$1.comparator(e2.field, t.field))), this.collectionId = null != e.collectionGroup ? e.collectionGroup : e.path.lastSegment(), this.dn = e.orderBy, this.mn = [];
+      for (const t of e.filters) {
+        const e2 = t;
+        e2.isInequality() ? this.Vn = this.Vn.add(e2) : this.mn.push(e2);
+      }
+    }
+    get fn() {
+      return this.Vn.size > 1;
+    }
+    /**
+     * Returns whether the index can be used to serve the TargetIndexMatcher's
+     * target.
+     *
+     * An index is considered capable of serving the target when:
+     * - The target uses all index segments for its filters and orderBy clauses.
+     *   The target can have additional filter and orderBy clauses, but not
+     *   fewer.
+     * - If an ArrayContains/ArrayContainsAnyfilter is used, the index must also
+     *   have a corresponding `CONTAINS` segment.
+     * - All directional index segments can be mapped to the target as a series of
+     *   equality filters, a single inequality filter and a series of orderBy
+     *   clauses.
+     * - The segments that represent the equality filters may appear out of order.
+     * - The optional segment for the inequality filter must appear after all
+     *   equality segments.
+     * - The segments that represent that orderBy clause of the target must appear
+     *   in order after all equality and inequality segments. Single orderBy
+     *   clauses cannot be skipped, but a continuous orderBy suffix may be
+     *   omitted.
+     */
+    gn(e) {
+      if (__PRIVATE_hardAssert(e.collectionGroup === this.collectionId, 49279), this.fn)
+        return false;
+      const t = __PRIVATE_fieldIndexGetArraySegment(e);
+      if (void 0 !== t && !this.pn(t)) return false;
+      const n = __PRIVATE_fieldIndexGetDirectionalSegments(e);
+      let r = /* @__PURE__ */ new Set(), i = 0, s2 = 0;
+      for (; i < n.length && this.pn(n[i]); ++i) r = r.add(n[i].fieldPath.canonicalString());
+      if (i === n.length) return true;
+      if (this.Vn.size > 0) {
+        const e2 = this.Vn.getIterator().getNext();
+        if (!r.has(e2.field.canonicalString())) {
+          const t2 = n[i];
+          if (!this.yn(e2, t2) || !this.wn(this.dn[s2++], t2)) return false;
+        }
+        ++i;
+      }
+      for (; i < n.length; ++i) {
+        const e2 = n[i];
+        if (s2 >= this.dn.length || !this.wn(this.dn[s2++], e2)) return false;
+      }
+      return true;
+    }
+    /**
+     * Returns a full matched field index for this target. Currently multiple
+     * inequality query is not supported so function returns null.
+     */
+    Sn() {
+      if (this.fn) return null;
+      let e = new SortedSet(FieldPath$1.comparator);
+      const t = [];
+      for (const n of this.mn) {
+        if (n.field.isKeyField()) continue;
+        if ("array-contains" === n.op || "array-contains-any" === n.op) t.push(new IndexSegment(
+          n.field,
+          2
+          /* IndexKind.CONTAINS */
+        ));
+        else {
+          if (e.has(n.field)) continue;
+          e = e.add(n.field), t.push(new IndexSegment(
+            n.field,
+            0
+            /* IndexKind.ASCENDING */
+          ));
+        }
+      }
+      for (const n of this.dn)
+        n.field.isKeyField() || e.has(n.field) || (e = e.add(n.field), t.push(new IndexSegment(
+          n.field,
+          "asc" === n.dir ? 0 : 1
+          /* IndexKind.DESCENDING */
+        )));
+      return new FieldIndex(FieldIndex.UNKNOWN_ID, this.collectionId, t, IndexState.empty());
+    }
+    pn(e) {
+      for (const t of this.mn) if (this.yn(t, e)) return true;
+      return false;
+    }
+    yn(e, t) {
+      if (void 0 === e || !e.field.isEqual(t.fieldPath)) return false;
+      const n = "array-contains" === e.op || "array-contains-any" === e.op;
+      return 2 === t.kind === n;
+    }
+    wn(e, t) {
+      return !!e.field.isEqual(t.fieldPath) && (0 === t.kind && "asc" === e.dir || 1 === t.kind && "desc" === e.dir);
+    }
+  };
+  function __PRIVATE_computeInExpansion(e) {
+    if (__PRIVATE_hardAssert(e instanceof FieldFilter || e instanceof CompositeFilter, 20012), e instanceof FieldFilter) {
+      if (e instanceof __PRIVATE_InFilter) {
+        const t2 = e.value.arrayValue?.values?.map(((t3) => FieldFilter.create(e.field, "==", t3))) || [];
+        return CompositeFilter.create(
+          t2,
+          "or"
+          /* CompositeOperator.OR */
+        );
+      }
+      return e;
+    }
+    const t = e.filters.map(((e2) => __PRIVATE_computeInExpansion(e2)));
+    return CompositeFilter.create(t, e.op);
+  }
+  function __PRIVATE_getDnfTerms(e) {
+    if (0 === e.getFilters().length) return [];
+    const t = __PRIVATE_computeDistributedNormalForm(__PRIVATE_computeInExpansion(e));
+    return __PRIVATE_hardAssert(__PRIVATE_isDisjunctiveNormalForm(t), 7391), __PRIVATE_isSingleFieldFilter(t) || __PRIVATE_isFlatConjunction(t) ? [t] : t.getFilters();
+  }
+  function __PRIVATE_isSingleFieldFilter(e) {
+    return e instanceof FieldFilter;
+  }
+  function __PRIVATE_isFlatConjunction(e) {
+    return e instanceof CompositeFilter && __PRIVATE_compositeFilterIsFlatConjunction(e);
+  }
+  function __PRIVATE_isDisjunctiveNormalForm(e) {
+    return __PRIVATE_isSingleFieldFilter(e) || __PRIVATE_isFlatConjunction(e) || /**
+    * Returns true if the given filter is the disjunction of one or more "flat conjunctions" and
+    * field filters. e.g. (a == 10) || (b==20 && c==30)
+    */
+    (function __PRIVATE_isDisjunctionOfFieldFiltersAndFlatConjunctions(e2) {
+      if (e2 instanceof CompositeFilter && __PRIVATE_compositeFilterIsDisjunction(e2)) {
+        for (const t of e2.getFilters()) if (!__PRIVATE_isSingleFieldFilter(t) && !__PRIVATE_isFlatConjunction(t)) return false;
+        return true;
+      }
+      return false;
+    })(e);
+  }
+  function __PRIVATE_computeDistributedNormalForm(e) {
+    if (__PRIVATE_hardAssert(e instanceof FieldFilter || e instanceof CompositeFilter, 34018), e instanceof FieldFilter) return e;
+    if (1 === e.filters.length) return __PRIVATE_computeDistributedNormalForm(e.filters[0]);
+    const t = e.filters.map(((e2) => __PRIVATE_computeDistributedNormalForm(e2)));
+    let n = CompositeFilter.create(t, e.op);
+    return n = __PRIVATE_applyAssociation(n), __PRIVATE_isDisjunctiveNormalForm(n) ? n : (__PRIVATE_hardAssert(n instanceof CompositeFilter, 64498), __PRIVATE_hardAssert(__PRIVATE_compositeFilterIsConjunction(n), 40251), __PRIVATE_hardAssert(n.filters.length > 1, 57927), n.filters.reduce(((e2, t2) => __PRIVATE_applyDistribution(e2, t2))));
+  }
+  function __PRIVATE_applyDistribution(e, t) {
+    let n;
+    return __PRIVATE_hardAssert(e instanceof FieldFilter || e instanceof CompositeFilter, 38388), __PRIVATE_hardAssert(t instanceof FieldFilter || t instanceof CompositeFilter, 25473), // FieldFilter FieldFilter
+    n = e instanceof FieldFilter ? t instanceof FieldFilter ? (function __PRIVATE_applyDistributionFieldFilters(e2, t2) {
+      return CompositeFilter.create(
+        [e2, t2],
+        "and"
+        /* CompositeOperator.AND */
+      );
+    })(e, t) : __PRIVATE_applyDistributionFieldAndCompositeFilters(e, t) : t instanceof FieldFilter ? __PRIVATE_applyDistributionFieldAndCompositeFilters(t, e) : (function __PRIVATE_applyDistributionCompositeFilters(e2, t2) {
+      if (__PRIVATE_hardAssert(e2.filters.length > 0 && t2.filters.length > 0, 48005), __PRIVATE_compositeFilterIsConjunction(e2) && __PRIVATE_compositeFilterIsConjunction(t2)) return __PRIVATE_compositeFilterWithAddedFilters(e2, t2.getFilters());
+      const n2 = __PRIVATE_compositeFilterIsDisjunction(e2) ? e2 : t2, r = __PRIVATE_compositeFilterIsDisjunction(e2) ? t2 : e2, i = n2.filters.map(((e3) => __PRIVATE_applyDistribution(e3, r)));
+      return CompositeFilter.create(
+        i,
+        "or"
+        /* CompositeOperator.OR */
+      );
+    })(e, t), __PRIVATE_applyAssociation(n);
+  }
+  function __PRIVATE_applyDistributionFieldAndCompositeFilters(e, t) {
+    if (__PRIVATE_compositeFilterIsConjunction(t))
+      return __PRIVATE_compositeFilterWithAddedFilters(t, e.getFilters());
+    {
+      const n = t.filters.map(((t2) => __PRIVATE_applyDistribution(e, t2)));
+      return CompositeFilter.create(
+        n,
+        "or"
+        /* CompositeOperator.OR */
+      );
+    }
+  }
+  function __PRIVATE_applyAssociation(e) {
+    if (__PRIVATE_hardAssert(e instanceof FieldFilter || e instanceof CompositeFilter, 11850), e instanceof FieldFilter) return e;
+    const t = e.getFilters();
+    if (1 === t.length) return __PRIVATE_applyAssociation(t[0]);
+    if (__PRIVATE_compositeFilterIsFlat(e)) return e;
+    const n = t.map(((e2) => __PRIVATE_applyAssociation(e2))), r = [];
+    return n.forEach(((t2) => {
+      t2 instanceof FieldFilter ? r.push(t2) : t2 instanceof CompositeFilter && (t2.op === e.op ? (
+        // compositeFilter: (A | (B | C))
+        // compositeSubfilter: (B | C)
+        // Result: (A | B | C)
+        r.push(...t2.filters)
+      ) : (
+        // compositeFilter: (A | (B & C))
+        // compositeSubfilter: (B & C)
+        // Result: (A | (B & C))
+        r.push(t2)
+      ));
+    })), 1 === r.length ? r[0] : CompositeFilter.create(r, e.op);
+  }
   var __PRIVATE_MemoryIndexManager = class {
     constructor() {
       this.bn = new __PRIVATE_MemoryCollectionParentIndex();
@@ -17092,7 +18667,500 @@ var __SnowifyMobile = (() => {
       return (this.index[e] || new SortedSet(ResourcePath.comparator)).toArray();
     }
   };
+  var yt = "IndexedDbIndexManager";
   var wt = new Uint8Array(0);
+  var __PRIVATE_IndexedDbIndexManager = class {
+    constructor(e, t) {
+      this.databaseId = t, /**
+       * An in-memory copy of the index entries we've already written since the SDK
+       * launched. Used to avoid re-writing the same entry repeatedly.
+       *
+       * This is *NOT* a complete cache of what's in persistence and so can never be
+       * used to satisfy reads.
+       */
+      this.Dn = new __PRIVATE_MemoryCollectionParentIndex(), /**
+       * Maps from a target to its equivalent list of sub-targets. Each sub-target
+       * contains only one term from the target's disjunctive normal form (DNF).
+       */
+      this.Cn = new ObjectMap(((e2) => __PRIVATE_canonifyTarget(e2)), ((e2, t2) => __PRIVATE_targetEquals(e2, t2))), this.uid = e.uid || "";
+    }
+    /**
+     * Adds a new entry to the collection parent index.
+     *
+     * Repeated calls for the same collectionPath should be avoided within a
+     * transaction as IndexedDbIndexManager only caches writes once a transaction
+     * has been committed.
+     */
+    addToCollectionParentIndex(e, t) {
+      if (!this.Dn.has(t)) {
+        const n = t.lastSegment(), r = t.popLast();
+        e.addOnCommittedListener((() => {
+          this.Dn.add(t);
+        }));
+        const i = {
+          collectionId: n,
+          parent: __PRIVATE_encodeResourcePath(r)
+        };
+        return __PRIVATE_collectionParentsStore(e).put(i);
+      }
+      return PersistencePromise.resolve();
+    }
+    getCollectionParents(e, t) {
+      const n = [], r = IDBKeyRange.bound(
+        [t, ""],
+        [__PRIVATE_immediateSuccessor(t), ""],
+        /*lowerOpen=*/
+        false,
+        /*upperOpen=*/
+        true
+      );
+      return __PRIVATE_collectionParentsStore(e).J(r).next(((e2) => {
+        for (const r2 of e2) {
+          if (r2.collectionId !== t) break;
+          n.push(__PRIVATE_decodeResourcePath(r2.parent));
+        }
+        return n;
+      }));
+    }
+    addFieldIndex(e, t) {
+      const n = __PRIVATE_indexConfigurationStore(e), r = (function __PRIVATE_toDbIndexConfiguration(e2) {
+        return {
+          indexId: e2.indexId,
+          collectionGroup: e2.collectionGroup,
+          fields: e2.fields.map(((e3) => [e3.fieldPath.canonicalString(), e3.kind]))
+        };
+      })(t);
+      delete r.indexId;
+      const i = n.add(r);
+      if (t.indexState) {
+        const n2 = __PRIVATE_indexStateStore(e);
+        return i.next(((e2) => {
+          n2.put(__PRIVATE_toDbIndexState(e2, this.uid, t.indexState.sequenceNumber, t.indexState.offset));
+        }));
+      }
+      return i.next();
+    }
+    deleteFieldIndex(e, t) {
+      const n = __PRIVATE_indexConfigurationStore(e), r = __PRIVATE_indexStateStore(e), i = __PRIVATE_indexEntriesStore(e);
+      return n.delete(t.indexId).next((() => r.delete(IDBKeyRange.bound(
+        [t.indexId],
+        [t.indexId + 1],
+        /*lowerOpen=*/
+        false,
+        /*upperOpen=*/
+        true
+      )))).next((() => i.delete(IDBKeyRange.bound(
+        [t.indexId],
+        [t.indexId + 1],
+        /*lowerOpen=*/
+        false,
+        /*upperOpen=*/
+        true
+      ))));
+    }
+    deleteAllFieldIndexes(e) {
+      const t = __PRIVATE_indexConfigurationStore(e), n = __PRIVATE_indexEntriesStore(e), r = __PRIVATE_indexStateStore(e);
+      return t.X().next((() => n.X())).next((() => r.X()));
+    }
+    createTargetIndexes(e, t) {
+      return PersistencePromise.forEach(this.vn(t), ((t2) => this.getIndexType(e, t2).next(((n) => {
+        if (0 === n || 1 === n) {
+          const n2 = new __PRIVATE_TargetIndexMatcher(t2).Sn();
+          if (null != n2) return this.addFieldIndex(e, n2);
+        }
+      }))));
+    }
+    getDocumentsMatchingTarget(e, t) {
+      const n = __PRIVATE_indexEntriesStore(e);
+      let r = true;
+      const i = /* @__PURE__ */ new Map();
+      return PersistencePromise.forEach(this.vn(t), ((t2) => this.Fn(e, t2).next(((e2) => {
+        r && (r = !!e2), i.set(t2, e2);
+      })))).next((() => {
+        if (r) {
+          let e2 = __PRIVATE_documentKeySet();
+          const r2 = [];
+          return PersistencePromise.forEach(i, ((i2, s2) => {
+            __PRIVATE_logDebug(yt, `Using index ${(function __PRIVATE_fieldIndexToString(e3) {
+              return `id=${e3.indexId}|cg=${e3.collectionGroup}|f=${e3.fields.map(((e4) => `${e4.fieldPath}:${e4.kind}`)).join(",")}`;
+            })(i2)} to execute ${__PRIVATE_canonifyTarget(t)}`);
+            const o = (function __PRIVATE_targetGetArrayValues(e3, t2) {
+              const n2 = __PRIVATE_fieldIndexGetArraySegment(t2);
+              if (void 0 === n2) return null;
+              for (const t3 of __PRIVATE_targetGetFieldFiltersForPath(e3, n2.fieldPath)) switch (t3.op) {
+                case "array-contains-any":
+                  return t3.value.arrayValue.values || [];
+                case "array-contains":
+                  return [t3.value];
+              }
+              return null;
+            })(s2, i2), _ = (function __PRIVATE_targetGetNotInValues(e3, t2) {
+              const n2 = /* @__PURE__ */ new Map();
+              for (const r3 of __PRIVATE_fieldIndexGetDirectionalSegments(t2)) for (const t3 of __PRIVATE_targetGetFieldFiltersForPath(e3, r3.fieldPath)) switch (t3.op) {
+                case "==":
+                case "in":
+                  n2.set(r3.fieldPath.canonicalString(), t3.value);
+                  break;
+                case "not-in":
+                case "!=":
+                  return n2.set(r3.fieldPath.canonicalString(), t3.value), Array.from(n2.values());
+              }
+              return null;
+            })(s2, i2), a = (function __PRIVATE_targetGetLowerBound(e3, t2) {
+              const n2 = [];
+              let r3 = true;
+              for (const i3 of __PRIVATE_fieldIndexGetDirectionalSegments(t2)) {
+                const t3 = 0 === i3.kind ? __PRIVATE_targetGetAscendingBound(e3, i3.fieldPath, e3.startAt) : __PRIVATE_targetGetDescendingBound(e3, i3.fieldPath, e3.startAt);
+                n2.push(t3.value), r3 && (r3 = t3.inclusive);
+              }
+              return new Bound(n2, r3);
+            })(s2, i2), u2 = (function __PRIVATE_targetGetUpperBound(e3, t2) {
+              const n2 = [];
+              let r3 = true;
+              for (const i3 of __PRIVATE_fieldIndexGetDirectionalSegments(t2)) {
+                const t3 = 0 === i3.kind ? __PRIVATE_targetGetDescendingBound(e3, i3.fieldPath, e3.endAt) : __PRIVATE_targetGetAscendingBound(e3, i3.fieldPath, e3.endAt);
+                n2.push(t3.value), r3 && (r3 = t3.inclusive);
+              }
+              return new Bound(n2, r3);
+            })(s2, i2), c = this.Mn(i2, s2, a), l = this.Mn(i2, s2, u2), h = this.xn(i2, s2, _), P = this.On(i2.indexId, o, c, a.inclusive, l, u2.inclusive, h);
+            return PersistencePromise.forEach(P, ((i3) => n.Z(i3, t.limit).next(((t2) => {
+              t2.forEach(((t3) => {
+                const n2 = DocumentKey.fromSegments(t3.documentKey);
+                e2.has(n2) || (e2 = e2.add(n2), r2.push(n2));
+              }));
+            }))));
+          })).next((() => r2));
+        }
+        return PersistencePromise.resolve(null);
+      }));
+    }
+    vn(e) {
+      let t = this.Cn.get(e);
+      if (t) return t;
+      if (0 === e.filters.length) t = [e];
+      else {
+        t = __PRIVATE_getDnfTerms(CompositeFilter.create(
+          e.filters,
+          "and"
+          /* CompositeOperator.AND */
+        )).map(((t2) => __PRIVATE_newTarget(e.path, e.collectionGroup, e.orderBy, t2.getFilters(), e.limit, e.startAt, e.endAt)));
+      }
+      return this.Cn.set(e, t), t;
+    }
+    /**
+     * Constructs a key range query on `DbIndexEntryStore` that unions all
+     * bounds.
+     */
+    On(e, t, n, r, i, s2, o) {
+      const _ = (null != t ? t.length : 1) * Math.max(n.length, i.length), a = _ / (null != t ? t.length : 1), u2 = [];
+      for (let c = 0; c < _; ++c) {
+        const _2 = t ? this.Nn(t[c / a]) : wt, l = this.Bn(e, _2, n[c % a], r), h = this.Ln(e, _2, i[c % a], s2), P = o.map(((t2) => this.Bn(
+          e,
+          _2,
+          t2,
+          /* inclusive= */
+          true
+        )));
+        u2.push(...this.createRange(l, h, P));
+      }
+      return u2;
+    }
+    /** Generates the lower bound for `arrayValue` and `directionalValue`. */
+    Bn(e, t, n, r) {
+      const i = new __PRIVATE_IndexEntry(e, DocumentKey.empty(), t, n);
+      return r ? i : i.In();
+    }
+    /** Generates the upper bound for `arrayValue` and `directionalValue`. */
+    Ln(e, t, n, r) {
+      const i = new __PRIVATE_IndexEntry(e, DocumentKey.empty(), t, n);
+      return r ? i.In() : i;
+    }
+    Fn(e, t) {
+      const n = new __PRIVATE_TargetIndexMatcher(t), r = null != t.collectionGroup ? t.collectionGroup : t.path.lastSegment();
+      return this.getFieldIndexes(e, r).next(((e2) => {
+        let t2 = null;
+        for (const r2 of e2) {
+          n.gn(r2) && (!t2 || r2.fields.length > t2.fields.length) && (t2 = r2);
+        }
+        return t2;
+      }));
+    }
+    getIndexType(e, t) {
+      let n = 2;
+      const r = this.vn(t);
+      return PersistencePromise.forEach(r, ((t2) => this.Fn(e, t2).next(((e2) => {
+        e2 ? 0 !== n && e2.fields.length < (function __PRIVATE_targetGetSegmentCount(e3) {
+          let t3 = new SortedSet(FieldPath$1.comparator), n2 = false;
+          for (const r2 of e3.filters) for (const e4 of r2.getFlattenedFilters())
+            e4.field.isKeyField() || // ARRAY_CONTAINS or ARRAY_CONTAINS_ANY filters must be counted separately.
+            // For instance, it is possible to have an index for "a ARRAY a ASC". Even
+            // though these are on the same field, they should be counted as two
+            // separate segments in an index.
+            ("array-contains" === e4.op || "array-contains-any" === e4.op ? n2 = true : t3 = t3.add(e4.field));
+          for (const n3 of e3.orderBy)
+            n3.field.isKeyField() || (t3 = t3.add(n3.field));
+          return t3.size + (n2 ? 1 : 0);
+        })(t2) && (n = 1) : n = 0;
+      })))).next((() => (
+        // OR queries have more than one sub-target (one sub-target per DNF term). We currently consider
+        // OR queries that have a `limit` to have a partial index. For such queries we perform sorting
+        // and apply the limit in memory as a post-processing step.
+        (function __PRIVATE_targetHasLimit(e2) {
+          return null !== e2.limit;
+        })(t) && r.length > 1 && 2 === n ? 1 : n
+      )));
+    }
+    /**
+     * Returns the byte encoded form of the directional values in the field index.
+     * Returns `null` if the document does not have all fields specified in the
+     * index.
+     */
+    kn(e, t) {
+      const n = new __PRIVATE_IndexByteEncoder();
+      for (const r of __PRIVATE_fieldIndexGetDirectionalSegments(e)) {
+        const e2 = t.data.field(r.fieldPath);
+        if (null == e2) return null;
+        const i = n.ln(r.kind);
+        __PRIVATE_FirestoreIndexValueWriter.Wt.Dt(e2, i);
+      }
+      return n.un();
+    }
+    /** Encodes a single value to the ascending index format. */
+    Nn(e) {
+      const t = new __PRIVATE_IndexByteEncoder();
+      return __PRIVATE_FirestoreIndexValueWriter.Wt.Dt(e, t.ln(
+        0
+        /* IndexKind.ASCENDING */
+      )), t.un();
+    }
+    /**
+     * Returns an encoded form of the document key that sorts based on the key
+     * ordering of the field index.
+     */
+    qn(e, t) {
+      const n = new __PRIVATE_IndexByteEncoder();
+      return __PRIVATE_FirestoreIndexValueWriter.Wt.Dt(__PRIVATE_refValue(this.databaseId, t), n.ln((function __PRIVATE_fieldIndexGetKeyOrder(e2) {
+        const t2 = __PRIVATE_fieldIndexGetDirectionalSegments(e2);
+        return 0 === t2.length ? 0 : t2[t2.length - 1].kind;
+      })(e))), n.un();
+    }
+    /**
+     * Encodes the given field values according to the specification in `target`.
+     * For IN queries, a list of possible values is returned.
+     */
+    xn(e, t, n) {
+      if (null === n) return [];
+      let r = [];
+      r.push(new __PRIVATE_IndexByteEncoder());
+      let i = 0;
+      for (const s2 of __PRIVATE_fieldIndexGetDirectionalSegments(e)) {
+        const e2 = n[i++];
+        for (const n2 of r) if (this.Kn(t, s2.fieldPath) && isArray(e2)) r = this.Un(r, s2, e2);
+        else {
+          const t2 = n2.ln(s2.kind);
+          __PRIVATE_FirestoreIndexValueWriter.Wt.Dt(e2, t2);
+        }
+      }
+      return this.$n(r);
+    }
+    /**
+     * Encodes the given bounds according to the specification in `target`. For IN
+     * queries, a list of possible values is returned.
+     */
+    Mn(e, t, n) {
+      return this.xn(e, t, n.position);
+    }
+    /** Returns the byte representation for the provided encoders. */
+    $n(e) {
+      const t = [];
+      for (let n = 0; n < e.length; ++n) t[n] = e[n].un();
+      return t;
+    }
+    /**
+     * Creates a separate encoder for each element of an array.
+     *
+     * The method appends each value to all existing encoders (e.g. filter("a",
+     * "==", "a1").filter("b", "in", ["b1", "b2"]) becomes ["a1,b1", "a1,b2"]). A
+     * list of new encoders is returned.
+     */
+    Un(e, t, n) {
+      const r = [...e], i = [];
+      for (const e2 of n.arrayValue.values || []) for (const n2 of r) {
+        const r2 = new __PRIVATE_IndexByteEncoder();
+        r2.seed(n2.un()), __PRIVATE_FirestoreIndexValueWriter.Wt.Dt(e2, r2.ln(t.kind)), i.push(r2);
+      }
+      return i;
+    }
+    Kn(e, t) {
+      return !!e.filters.find(((e2) => e2 instanceof FieldFilter && e2.field.isEqual(t) && ("in" === e2.op || "not-in" === e2.op)));
+    }
+    getFieldIndexes(e, t) {
+      const n = __PRIVATE_indexConfigurationStore(e), r = __PRIVATE_indexStateStore(e);
+      return (t ? n.J(be, IDBKeyRange.bound(t, t)) : n.J()).next(((e2) => {
+        const t2 = [];
+        return PersistencePromise.forEach(e2, ((e3) => r.get([e3.indexId, this.uid]).next(((n2) => {
+          t2.push((function __PRIVATE_fromDbIndexConfiguration(e4, t3) {
+            const n3 = t3 ? new IndexState(t3.sequenceNumber, new IndexOffset(__PRIVATE_fromDbTimestamp(t3.readTime), new DocumentKey(__PRIVATE_decodeResourcePath(t3.documentKey)), t3.largestBatchId)) : IndexState.empty(), r2 = e4.fields.map((([e5, t4]) => new IndexSegment(FieldPath$1.fromServerFormat(e5), t4)));
+            return new FieldIndex(e4.indexId, e4.collectionGroup, r2, n3);
+          })(e3, n2));
+        })))).next((() => t2));
+      }));
+    }
+    getNextCollectionGroupToUpdate(e) {
+      return this.getFieldIndexes(e).next(((e2) => 0 === e2.length ? null : (e2.sort(((e3, t) => {
+        const n = e3.indexState.sequenceNumber - t.indexState.sequenceNumber;
+        return 0 !== n ? n : __PRIVATE_primitiveComparator(e3.collectionGroup, t.collectionGroup);
+      })), e2[0].collectionGroup)));
+    }
+    updateCollectionGroup(e, t, n) {
+      const r = __PRIVATE_indexConfigurationStore(e), i = __PRIVATE_indexStateStore(e);
+      return this.Wn(e).next(((e2) => r.J(be, IDBKeyRange.bound(t, t)).next(((t2) => PersistencePromise.forEach(t2, ((t3) => i.put(__PRIVATE_toDbIndexState(t3.indexId, this.uid, e2, n))))))));
+    }
+    updateIndexEntries(e, t) {
+      const n = /* @__PURE__ */ new Map();
+      return PersistencePromise.forEach(t, ((t2, r) => {
+        const i = n.get(t2.collectionGroup);
+        return (i ? PersistencePromise.resolve(i) : this.getFieldIndexes(e, t2.collectionGroup)).next(((i2) => (n.set(t2.collectionGroup, i2), PersistencePromise.forEach(i2, ((n2) => this.Qn(e, t2, n2).next(((t3) => {
+          const i3 = this.Gn(r, n2);
+          return t3.isEqual(i3) ? PersistencePromise.resolve() : this.zn(e, r, n2, t3, i3);
+        })))))));
+      }));
+    }
+    jn(e, t, n, r) {
+      return __PRIVATE_indexEntriesStore(e).put(r.Rn(this.uid, this.qn(n, t.key), t.key));
+    }
+    Jn(e, t, n, r) {
+      return __PRIVATE_indexEntriesStore(e).delete(r.An(this.uid, this.qn(n, t.key), t.key));
+    }
+    Qn(e, t, n) {
+      const r = __PRIVATE_indexEntriesStore(e);
+      let i = new SortedSet(__PRIVATE_indexEntryComparator);
+      return r.ee({
+        index: Oe,
+        range: IDBKeyRange.only([n.indexId, this.uid, __PRIVATE_encodeKeySafeBytes(this.qn(n, t))])
+      }, ((e2, r2) => {
+        i = i.add(new __PRIVATE_IndexEntry(n.indexId, t, __PRIVATE_decodeKeySafeBytes(r2.arrayValue), __PRIVATE_decodeKeySafeBytes(r2.directionalValue)));
+      })).next((() => i));
+    }
+    /** Creates the index entries for the given document. */
+    Gn(e, t) {
+      let n = new SortedSet(__PRIVATE_indexEntryComparator);
+      const r = this.kn(t, e);
+      if (null == r) return n;
+      const i = __PRIVATE_fieldIndexGetArraySegment(t);
+      if (null != i) {
+        const s2 = e.data.field(i.fieldPath);
+        if (isArray(s2)) for (const i2 of s2.arrayValue.values || []) n = n.add(new __PRIVATE_IndexEntry(t.indexId, e.key, this.Nn(i2), r));
+      } else n = n.add(new __PRIVATE_IndexEntry(t.indexId, e.key, wt, r));
+      return n;
+    }
+    /**
+     * Updates the index entries for the provided document by deleting entries
+     * that are no longer referenced in `newEntries` and adding all newly added
+     * entries.
+     */
+    zn(e, t, n, r, i) {
+      __PRIVATE_logDebug(yt, "Updating index entries for document '%s'", t.key);
+      const s2 = [];
+      return (function __PRIVATE_diffSortedSets(e2, t2, n2, r2, i2) {
+        const s3 = e2.getIterator(), o = t2.getIterator();
+        let _ = __PRIVATE_advanceIterator(s3), a = __PRIVATE_advanceIterator(o);
+        for (; _ || a; ) {
+          let e3 = false, t3 = false;
+          if (_ && a) {
+            const r3 = n2(_, a);
+            r3 < 0 ? (
+              // The element was removed if the next element in our ordered
+              // walkthrough is only in `before`.
+              t3 = true
+            ) : r3 > 0 && // The element was added if the next element in our ordered walkthrough
+            // is only in `after`.
+            (e3 = true);
+          } else null != _ ? t3 = true : e3 = true;
+          e3 ? (r2(a), a = __PRIVATE_advanceIterator(o)) : t3 ? (i2(_), _ = __PRIVATE_advanceIterator(s3)) : (_ = __PRIVATE_advanceIterator(s3), a = __PRIVATE_advanceIterator(o));
+        }
+      })(
+        r,
+        i,
+        __PRIVATE_indexEntryComparator,
+        /* onAdd= */
+        ((r2) => {
+          s2.push(this.jn(e, t, n, r2));
+        }),
+        /* onRemove= */
+        ((r2) => {
+          s2.push(this.Jn(e, t, n, r2));
+        })
+      ), PersistencePromise.waitFor(s2);
+    }
+    Wn(e) {
+      let t = 1;
+      return __PRIVATE_indexStateStore(e).ee({
+        index: ve,
+        reverse: true,
+        range: IDBKeyRange.upperBound([this.uid, Number.MAX_SAFE_INTEGER])
+      }, ((e2, n, r) => {
+        r.done(), t = n.sequenceNumber + 1;
+      })).next((() => t));
+    }
+    /**
+     * Returns a new set of IDB ranges that splits the existing range and excludes
+     * any values that match the `notInValue` from these ranges. As an example,
+     * '[foo > 2 && foo != 3]` becomes  `[foo > 2 && < 3, foo > 3]`.
+     */
+    createRange(e, t, n) {
+      n = n.sort(((e2, t2) => __PRIVATE_indexEntryComparator(e2, t2))).filter(((e2, t2, n2) => !t2 || 0 !== __PRIVATE_indexEntryComparator(e2, n2[t2 - 1])));
+      const r = [];
+      r.push(e);
+      for (const i2 of n) {
+        const n2 = __PRIVATE_indexEntryComparator(i2, e), s2 = __PRIVATE_indexEntryComparator(i2, t);
+        if (0 === n2)
+          r[0] = e.In();
+        else if (n2 > 0 && s2 < 0)
+          r.push(i2), r.push(i2.In());
+        else if (s2 > 0)
+          break;
+      }
+      r.push(t);
+      const i = [];
+      for (let e2 = 0; e2 < r.length; e2 += 2) {
+        if (this.Hn(r[e2], r[e2 + 1])) return [];
+        const t2 = r[e2].An(this.uid, wt, DocumentKey.empty()), n2 = r[e2 + 1].An(this.uid, wt, DocumentKey.empty());
+        i.push(IDBKeyRange.bound(t2, n2));
+      }
+      return i;
+    }
+    Hn(e, t) {
+      return __PRIVATE_indexEntryComparator(e, t) > 0;
+    }
+    getMinOffsetFromCollectionGroup(e, t) {
+      return this.getFieldIndexes(e, t).next(__PRIVATE_getMinOffsetFromFieldIndexes);
+    }
+    getMinOffset(e, t) {
+      return PersistencePromise.mapArray(this.vn(t), ((t2) => this.Fn(e, t2).next(((e2) => e2 || fail(44426))))).next(__PRIVATE_getMinOffsetFromFieldIndexes);
+    }
+  };
+  function __PRIVATE_collectionParentsStore(e) {
+    return __PRIVATE_getStore(e, Re);
+  }
+  function __PRIVATE_indexEntriesStore(e) {
+    return __PRIVATE_getStore(e, Me);
+  }
+  function __PRIVATE_indexConfigurationStore(e) {
+    return __PRIVATE_getStore(e, ye);
+  }
+  function __PRIVATE_indexStateStore(e) {
+    return __PRIVATE_getStore(e, De);
+  }
+  function __PRIVATE_getMinOffsetFromFieldIndexes(e) {
+    __PRIVATE_hardAssert(0 !== e.length, 28825);
+    let t = e[0].indexState.offset, n = t.largestBatchId;
+    for (let r = 1; r < e.length; r++) {
+      const i = e[r].indexState.offset;
+      __PRIVATE_indexOffsetComparator(i, t) < 0 && (t = i), n < i.largestBatchId && (n = i.largestBatchId);
+    }
+    return new IndexOffset(t.readTime, t.documentKey, n);
+  }
   var bt = {
     didRun: false,
     sequenceNumbersCollected: 0,
@@ -17108,7 +19176,292 @@ var __SnowifyMobile = (() => {
       this.cacheSizeCollectionThreshold = e, this.percentileToCollect = t, this.maximumSequenceNumbersToCollect = n;
     }
   };
+  function removeMutationBatch(e, t, n) {
+    const r = e.store(j), i = e.store(Y), s2 = [], o = IDBKeyRange.only(n.batchId);
+    let _ = 0;
+    const a = r.ee({
+      range: o
+    }, ((e2, t2, n2) => (_++, n2.delete())));
+    s2.push(a.next((() => {
+      __PRIVATE_hardAssert(1 === _, 47070, {
+        batchId: n.batchId
+      });
+    })));
+    const u2 = [];
+    for (const e2 of n.mutations) {
+      const r2 = __PRIVATE_newDbDocumentMutationKey(t, e2.key.path, n.batchId);
+      s2.push(i.delete(r2)), u2.push(e2.key);
+    }
+    return PersistencePromise.waitFor(s2).next((() => u2));
+  }
+  function __PRIVATE_dbDocumentSize(e) {
+    if (!e) return 0;
+    let t;
+    if (e.document) t = e.document;
+    else if (e.unknownDocument) t = e.unknownDocument;
+    else {
+      if (!e.noDocument) throw fail(14731);
+      t = e.noDocument;
+    }
+    return JSON.stringify(t).length;
+  }
   LruParams.DEFAULT_COLLECTION_PERCENTILE = 10, LruParams.DEFAULT_MAX_SEQUENCE_NUMBERS_TO_COLLECT = 1e3, LruParams.DEFAULT = new LruParams(St, LruParams.DEFAULT_COLLECTION_PERCENTILE, LruParams.DEFAULT_MAX_SEQUENCE_NUMBERS_TO_COLLECT), LruParams.DISABLED = new LruParams(-1, 0, 0);
+  var __PRIVATE_IndexedDbMutationQueue = class ___PRIVATE_IndexedDbMutationQueue {
+    constructor(e, t, n, r) {
+      this.userId = e, this.serializer = t, this.indexManager = n, this.referenceDelegate = r, /**
+       * Caches the document keys for pending mutation batches. If the mutation
+       * has been removed from IndexedDb, the cached value may continue to
+       * be used to retrieve the batch's document keys. To remove a cached value
+       * locally, `removeCachedMutationKeys()` should be invoked either directly
+       * or through `removeMutationBatches()`.
+       *
+       * With multi-tab, when the primary client acknowledges or rejects a mutation,
+       * this cache is used by secondary clients to invalidate the local
+       * view of the documents that were previously affected by the mutation.
+       */
+      // PORTING NOTE: Multi-tab only.
+      this.Zn = {};
+    }
+    /**
+     * Creates a new mutation queue for the given user.
+     * @param user - The user for which to create a mutation queue.
+     * @param serializer - The serializer to use when persisting to IndexedDb.
+     */
+    static wt(e, t, n, r) {
+      __PRIVATE_hardAssert("" !== e.uid, 64387);
+      const i = e.isAuthenticated() ? e.uid : "";
+      return new ___PRIVATE_IndexedDbMutationQueue(i, t, n, r);
+    }
+    checkEmpty(e) {
+      let t = true;
+      const n = IDBKeyRange.bound([this.userId, Number.NEGATIVE_INFINITY], [this.userId, Number.POSITIVE_INFINITY]);
+      return __PRIVATE_mutationsStore(e).ee({
+        index: J,
+        range: n
+      }, ((e2, n2, r) => {
+        t = false, r.done();
+      })).next((() => t));
+    }
+    addMutationBatch(e, t, n, r) {
+      const i = __PRIVATE_documentMutationsStore(e), s2 = __PRIVATE_mutationsStore(e);
+      return s2.add({}).next(((o) => {
+        __PRIVATE_hardAssert("number" == typeof o, 49019);
+        const _ = new MutationBatch(o, t, n, r), a = (function __PRIVATE_toDbMutationBatch(e2, t2, n2) {
+          const r2 = n2.baseMutations.map(((t3) => toMutation(e2.yt, t3))), i2 = n2.mutations.map(((t3) => toMutation(e2.yt, t3)));
+          return {
+            userId: t2,
+            batchId: n2.batchId,
+            localWriteTimeMs: n2.localWriteTime.toMillis(),
+            baseMutations: r2,
+            mutations: i2
+          };
+        })(this.serializer, this.userId, _), u2 = [];
+        let c = new SortedSet(((e2, t2) => __PRIVATE_primitiveComparator(e2.canonicalString(), t2.canonicalString())));
+        for (const e2 of r) {
+          const t2 = __PRIVATE_newDbDocumentMutationKey(this.userId, e2.key.path, o);
+          c = c.add(e2.key.path.popLast()), u2.push(s2.put(a)), u2.push(i.put(t2, X));
+        }
+        return c.forEach(((t2) => {
+          u2.push(this.indexManager.addToCollectionParentIndex(e, t2));
+        })), e.addOnCommittedListener((() => {
+          this.Zn[o] = _.keys();
+        })), PersistencePromise.waitFor(u2).next((() => _));
+      }));
+    }
+    lookupMutationBatch(e, t) {
+      return __PRIVATE_mutationsStore(e).get(t).next(((e2) => e2 ? (__PRIVATE_hardAssert(e2.userId === this.userId, 48, "Unexpected user for mutation batch", {
+        userId: e2.userId,
+        batchId: t
+      }), __PRIVATE_fromDbMutationBatch(this.serializer, e2)) : null));
+    }
+    /**
+     * Returns the document keys for the mutation batch with the given batchId.
+     * For primary clients, this method returns `null` after
+     * `removeMutationBatches()` has been called. Secondary clients return a
+     * cached result until `removeCachedMutationKeys()` is invoked.
+     */
+    // PORTING NOTE: Multi-tab only.
+    Xn(e, t) {
+      return this.Zn[t] ? PersistencePromise.resolve(this.Zn[t]) : this.lookupMutationBatch(e, t).next(((e2) => {
+        if (e2) {
+          const n = e2.keys();
+          return this.Zn[t] = n, n;
+        }
+        return null;
+      }));
+    }
+    getNextMutationBatchAfterBatchId(e, t) {
+      const n = t + 1, r = IDBKeyRange.lowerBound([this.userId, n]);
+      let i = null;
+      return __PRIVATE_mutationsStore(e).ee({
+        index: J,
+        range: r
+      }, ((e2, t2, r2) => {
+        t2.userId === this.userId && (__PRIVATE_hardAssert(t2.batchId >= n, 47524, {
+          Yn: n
+        }), i = __PRIVATE_fromDbMutationBatch(this.serializer, t2)), r2.done();
+      })).next((() => i));
+    }
+    getHighestUnacknowledgedBatchId(e) {
+      const t = IDBKeyRange.upperBound([this.userId, Number.POSITIVE_INFINITY]);
+      let n = q;
+      return __PRIVATE_mutationsStore(e).ee({
+        index: J,
+        range: t,
+        reverse: true
+      }, ((e2, t2, r) => {
+        n = t2.batchId, r.done();
+      })).next((() => n));
+    }
+    getAllMutationBatches(e) {
+      const t = IDBKeyRange.bound([this.userId, q], [this.userId, Number.POSITIVE_INFINITY]);
+      return __PRIVATE_mutationsStore(e).J(J, t).next(((e2) => e2.map(((e3) => __PRIVATE_fromDbMutationBatch(this.serializer, e3)))));
+    }
+    getAllMutationBatchesAffectingDocumentKey(e, t) {
+      const n = __PRIVATE_newDbDocumentMutationPrefixForPath(this.userId, t.path), r = IDBKeyRange.lowerBound(n), i = [];
+      return __PRIVATE_documentMutationsStore(e).ee({
+        range: r
+      }, ((n2, r2, s2) => {
+        const [o, _, a] = n2, u2 = __PRIVATE_decodeResourcePath(_);
+        if (o === this.userId && t.path.isEqual(u2))
+          return __PRIVATE_mutationsStore(e).get(a).next(((e2) => {
+            if (!e2) throw fail(61480, {
+              er: n2,
+              batchId: a
+            });
+            __PRIVATE_hardAssert(e2.userId === this.userId, 10503, "Unexpected user for mutation batch", {
+              userId: e2.userId,
+              batchId: a
+            }), i.push(__PRIVATE_fromDbMutationBatch(this.serializer, e2));
+          }));
+        s2.done();
+      })).next((() => i));
+    }
+    getAllMutationBatchesAffectingDocumentKeys(e, t) {
+      let n = new SortedSet(__PRIVATE_primitiveComparator);
+      const r = [];
+      return t.forEach(((t2) => {
+        const i = __PRIVATE_newDbDocumentMutationPrefixForPath(this.userId, t2.path), s2 = IDBKeyRange.lowerBound(i), o = __PRIVATE_documentMutationsStore(e).ee({
+          range: s2
+        }, ((e2, r2, i2) => {
+          const [s3, o2, _] = e2, a = __PRIVATE_decodeResourcePath(o2);
+          s3 === this.userId && t2.path.isEqual(a) ? n = n.add(_) : i2.done();
+        }));
+        r.push(o);
+      })), PersistencePromise.waitFor(r).next((() => this.tr(e, n)));
+    }
+    getAllMutationBatchesAffectingQuery(e, t) {
+      const n = t.path, r = n.length + 1, i = __PRIVATE_newDbDocumentMutationPrefixForPath(this.userId, n), s2 = IDBKeyRange.lowerBound(i);
+      let o = new SortedSet(__PRIVATE_primitiveComparator);
+      return __PRIVATE_documentMutationsStore(e).ee({
+        range: s2
+      }, ((e2, t2, i2) => {
+        const [s3, _, a] = e2, u2 = __PRIVATE_decodeResourcePath(_);
+        s3 === this.userId && n.isPrefixOf(u2) ? (
+          // Rows with document keys more than one segment longer than the
+          // query path can't be matches. For example, a query on 'rooms'
+          // can't match the document /rooms/abc/messages/xyx.
+          // TODO(mcg): we'll need a different scanner when we implement
+          // ancestor queries.
+          u2.length === r && (o = o.add(a))
+        ) : i2.done();
+      })).next((() => this.tr(e, o)));
+    }
+    tr(e, t) {
+      const n = [], r = [];
+      return t.forEach(((t2) => {
+        r.push(__PRIVATE_mutationsStore(e).get(t2).next(((e2) => {
+          if (null === e2) throw fail(35274, {
+            batchId: t2
+          });
+          __PRIVATE_hardAssert(e2.userId === this.userId, 9748, "Unexpected user for mutation batch", {
+            userId: e2.userId,
+            batchId: t2
+          }), n.push(__PRIVATE_fromDbMutationBatch(this.serializer, e2));
+        })));
+      })), PersistencePromise.waitFor(r).next((() => n));
+    }
+    removeMutationBatch(e, t) {
+      return removeMutationBatch(e.le, this.userId, t).next(((n) => (e.addOnCommittedListener((() => {
+        this.nr(t.batchId);
+      })), PersistencePromise.forEach(n, ((t2) => this.referenceDelegate.markPotentiallyOrphaned(e, t2))))));
+    }
+    /**
+     * Clears the cached keys for a mutation batch. This method should be
+     * called by secondary clients after they process mutation updates.
+     *
+     * Note that this method does not have to be called from primary clients as
+     * the corresponding cache entries are cleared when an acknowledged or
+     * rejected batch is removed from the mutation queue.
+     */
+    // PORTING NOTE: Multi-tab only
+    nr(e) {
+      delete this.Zn[e];
+    }
+    performConsistencyCheck(e) {
+      return this.checkEmpty(e).next(((t) => {
+        if (!t) return PersistencePromise.resolve();
+        const n = IDBKeyRange.lowerBound(
+          /**
+          * Creates a [userId] key for use in the DbDocumentMutations index to iterate
+          * over all of a user's document mutations.
+          */
+          /* @__PURE__ */ (function __PRIVATE_newDbDocumentMutationPrefixForUser(e2) {
+            return [e2];
+          })(this.userId)
+        ), r = [];
+        return __PRIVATE_documentMutationsStore(e).ee({
+          range: n
+        }, ((e2, t2, n2) => {
+          if (e2[0] === this.userId) {
+            const t3 = __PRIVATE_decodeResourcePath(e2[1]);
+            r.push(t3);
+          } else n2.done();
+        })).next((() => {
+          __PRIVATE_hardAssert(0 === r.length, 56720, {
+            rr: r.map(((e2) => e2.canonicalString()))
+          });
+        }));
+      }));
+    }
+    containsKey(e, t) {
+      return __PRIVATE_mutationQueueContainsKey(e, this.userId, t);
+    }
+    // PORTING NOTE: Multi-tab only (state is held in memory in other clients).
+    /** Returns the mutation queue's metadata from IndexedDb. */
+    ir(e) {
+      return __PRIVATE_mutationQueuesStore(e).get(this.userId).next(((e2) => e2 || {
+        userId: this.userId,
+        lastAcknowledgedBatchId: q,
+        lastStreamToken: ""
+      }));
+    }
+  };
+  function __PRIVATE_mutationQueueContainsKey(e, t, n) {
+    const r = __PRIVATE_newDbDocumentMutationPrefixForPath(t, n.path), i = r[1], s2 = IDBKeyRange.lowerBound(r);
+    let o = false;
+    return __PRIVATE_documentMutationsStore(e).ee({
+      range: s2,
+      Y: true
+    }, ((e2, n2, r2) => {
+      const [
+        s3,
+        _,
+        /*batchID*/
+        a
+      ] = e2;
+      s3 === t && _ === i && (o = true), r2.done();
+    })).next((() => o));
+  }
+  function __PRIVATE_mutationsStore(e) {
+    return __PRIVATE_getStore(e, j);
+  }
+  function __PRIVATE_documentMutationsStore(e) {
+    return __PRIVATE_getStore(e, Y);
+  }
+  function __PRIVATE_mutationQueuesStore(e) {
+    return __PRIVATE_getStore(e, G);
+  }
   var __PRIVATE_TargetIdGenerator = class ___PRIVATE_TargetIdGenerator {
     constructor(e) {
       this.sr = e;
@@ -17123,6 +19476,179 @@ var __SnowifyMobile = (() => {
       return new ___PRIVATE_TargetIdGenerator(-1);
     }
   };
+  var __PRIVATE_IndexedDbTargetCache = class {
+    constructor(e, t) {
+      this.referenceDelegate = e, this.serializer = t;
+    }
+    // PORTING NOTE: We don't cache global metadata for the target cache, since
+    // some of it (in particular `highestTargetId`) can be modified by secondary
+    // tabs. We could perhaps be more granular (and e.g. still cache
+    // `lastRemoteSnapshotVersion` in memory) but for simplicity we currently go
+    // to IndexedDb whenever we need to read metadata. We can revisit if it turns
+    // out to have a meaningful performance impact.
+    allocateTargetId(e) {
+      return this.ur(e).next(((t) => {
+        const n = new __PRIVATE_TargetIdGenerator(t.highestTargetId);
+        return t.highestTargetId = n.next(), this.cr(e, t).next((() => t.highestTargetId));
+      }));
+    }
+    getLastRemoteSnapshotVersion(e) {
+      return this.ur(e).next(((e2) => SnapshotVersion.fromTimestamp(new Timestamp(e2.lastRemoteSnapshotVersion.seconds, e2.lastRemoteSnapshotVersion.nanoseconds))));
+    }
+    getHighestSequenceNumber(e) {
+      return this.ur(e).next(((e2) => e2.highestListenSequenceNumber));
+    }
+    setTargetsMetadata(e, t, n) {
+      return this.ur(e).next(((r) => (r.highestListenSequenceNumber = t, n && (r.lastRemoteSnapshotVersion = n.toTimestamp()), t > r.highestListenSequenceNumber && (r.highestListenSequenceNumber = t), this.cr(e, r))));
+    }
+    addTargetData(e, t) {
+      return this.lr(e, t).next((() => this.ur(e).next(((n) => (n.targetCount += 1, this.hr(t, n), this.cr(e, n))))));
+    }
+    updateTargetData(e, t) {
+      return this.lr(e, t);
+    }
+    removeTargetData(e, t) {
+      return this.removeMatchingKeysForTargetId(e, t.targetId).next((() => __PRIVATE_targetsStore(e).delete(t.targetId))).next((() => this.ur(e))).next(((t2) => (__PRIVATE_hardAssert(t2.targetCount > 0, 8065), t2.targetCount -= 1, this.cr(e, t2))));
+    }
+    /**
+     * Drops any targets with sequence number less than or equal to the upper bound, excepting those
+     * present in `activeTargetIds`. Document associations for the removed targets are also removed.
+     * Returns the number of targets removed.
+     */
+    removeTargets(e, t, n) {
+      let r = 0;
+      const i = [];
+      return __PRIVATE_targetsStore(e).ee(((s2, o) => {
+        const _ = __PRIVATE_fromDbTarget(o);
+        _.sequenceNumber <= t && null === n.get(_.targetId) && (r++, i.push(this.removeTargetData(e, _)));
+      })).next((() => PersistencePromise.waitFor(i))).next((() => r));
+    }
+    /**
+     * Call provided function with each `TargetData` that we have cached.
+     */
+    forEachTarget(e, t) {
+      return __PRIVATE_targetsStore(e).ee(((e2, n) => {
+        const r = __PRIVATE_fromDbTarget(n);
+        t(r);
+      }));
+    }
+    ur(e) {
+      return __PRIVATE_globalTargetStore(e).get(Ie).next(((e2) => (__PRIVATE_hardAssert(null !== e2, 2888), e2)));
+    }
+    cr(e, t) {
+      return __PRIVATE_globalTargetStore(e).put(Ie, t);
+    }
+    lr(e, t) {
+      return __PRIVATE_targetsStore(e).put(__PRIVATE_toDbTarget(this.serializer, t));
+    }
+    /**
+     * In-place updates the provided metadata to account for values in the given
+     * TargetData. Saving is done separately. Returns true if there were any
+     * changes to the metadata.
+     */
+    hr(e, t) {
+      let n = false;
+      return e.targetId > t.highestTargetId && (t.highestTargetId = e.targetId, n = true), e.sequenceNumber > t.highestListenSequenceNumber && (t.highestListenSequenceNumber = e.sequenceNumber, n = true), n;
+    }
+    getTargetCount(e) {
+      return this.ur(e).next(((e2) => e2.targetCount));
+    }
+    getTargetData(e, t) {
+      const n = __PRIVATE_canonifyTarget(t), r = IDBKeyRange.bound([n, Number.NEGATIVE_INFINITY], [n, Number.POSITIVE_INFINITY]);
+      let i = null;
+      return __PRIVATE_targetsStore(e).ee({
+        range: r,
+        index: ue
+      }, ((e2, n2, r2) => {
+        const s2 = __PRIVATE_fromDbTarget(n2);
+        __PRIVATE_targetEquals(t, s2.target) && (i = s2, r2.done());
+      })).next((() => i));
+    }
+    addMatchingKeys(e, t, n) {
+      const r = [], i = __PRIVATE_documentTargetStore(e);
+      return t.forEach(((t2) => {
+        const s2 = __PRIVATE_encodeResourcePath(t2.path);
+        r.push(i.put({
+          targetId: n,
+          path: s2
+        })), r.push(this.referenceDelegate.addReference(e, n, t2));
+      })), PersistencePromise.waitFor(r);
+    }
+    removeMatchingKeys(e, t, n) {
+      const r = __PRIVATE_documentTargetStore(e);
+      return PersistencePromise.forEach(t, ((t2) => {
+        const i = __PRIVATE_encodeResourcePath(t2.path);
+        return PersistencePromise.waitFor([r.delete([n, i]), this.referenceDelegate.removeReference(e, n, t2)]);
+      }));
+    }
+    removeMatchingKeysForTargetId(e, t) {
+      const n = __PRIVATE_documentTargetStore(e), r = IDBKeyRange.bound(
+        [t],
+        [t + 1],
+        /*lowerOpen=*/
+        false,
+        /*upperOpen=*/
+        true
+      );
+      return n.delete(r);
+    }
+    getMatchingKeysForTargetId(e, t) {
+      const n = IDBKeyRange.bound(
+        [t],
+        [t + 1],
+        /*lowerOpen=*/
+        false,
+        /*upperOpen=*/
+        true
+      ), r = __PRIVATE_documentTargetStore(e);
+      let i = __PRIVATE_documentKeySet();
+      return r.ee({
+        range: n,
+        Y: true
+      }, ((e2, t2, n2) => {
+        const r2 = __PRIVATE_decodeResourcePath(e2[1]), s2 = new DocumentKey(r2);
+        i = i.add(s2);
+      })).next((() => i));
+    }
+    containsKey(e, t) {
+      const n = __PRIVATE_encodeResourcePath(t.path), r = IDBKeyRange.bound(
+        [n],
+        [__PRIVATE_immediateSuccessor(n)],
+        /*lowerOpen=*/
+        false,
+        /*upperOpen=*/
+        true
+      );
+      let i = 0;
+      return __PRIVATE_documentTargetStore(e).ee({
+        index: Pe,
+        Y: true,
+        range: r
+      }, (([e2, t2], n2, r2) => {
+        0 !== e2 && (i++, r2.done());
+      })).next((() => i > 0));
+    }
+    /**
+     * Looks up a TargetData entry by target ID.
+     *
+     * @param targetId - The target ID of the TargetData entry to look up.
+     * @returns The cached TargetData entry, or null if the cache has no entry for
+     * the target.
+     */
+    // PORTING NOTE: Multi-tab only.
+    At(e, t) {
+      return __PRIVATE_targetsStore(e).get(t).next(((e2) => e2 ? __PRIVATE_fromDbTarget(e2) : null));
+    }
+  };
+  function __PRIVATE_targetsStore(e) {
+    return __PRIVATE_getStore(e, ae);
+  }
+  function __PRIVATE_globalTargetStore(e) {
+    return __PRIVATE_getStore(e, Ee);
+  }
+  function __PRIVATE_documentTargetStore(e) {
+    return __PRIVATE_getStore(e, le);
+  }
   var Dt = "LruGarbageCollector";
   var Ct = 1048576;
   function __PRIVATE_bufferEntryComparator([e, t], [n, r]) {
@@ -17224,6 +19750,114 @@ Total Duration: ${a - u2}ms`);
   function __PRIVATE_newLruGarbageCollector(e, t) {
     return new __PRIVATE_LruGarbageCollectorImpl(e, t);
   }
+  var __PRIVATE_IndexedDbLruDelegateImpl = class {
+    constructor(e, t) {
+      this.db = e, this.garbageCollector = __PRIVATE_newLruGarbageCollector(this, t);
+    }
+    dr(e) {
+      const t = this.pr(e);
+      return this.db.getTargetCache().getTargetCount(e).next(((e2) => t.next(((t2) => e2 + t2))));
+    }
+    pr(e) {
+      let t = 0;
+      return this.mr(e, ((e2) => {
+        t++;
+      })).next((() => t));
+    }
+    forEachTarget(e, t) {
+      return this.db.getTargetCache().forEachTarget(e, t);
+    }
+    mr(e, t) {
+      return this.yr(e, ((e2, n) => t(n)));
+    }
+    addReference(e, t, n) {
+      return __PRIVATE_writeSentinelKey(e, n);
+    }
+    removeReference(e, t, n) {
+      return __PRIVATE_writeSentinelKey(e, n);
+    }
+    removeTargets(e, t, n) {
+      return this.db.getTargetCache().removeTargets(e, t, n);
+    }
+    markPotentiallyOrphaned(e, t) {
+      return __PRIVATE_writeSentinelKey(e, t);
+    }
+    /**
+     * Returns true if anything would prevent this document from being garbage
+     * collected, given that the document in question is not present in any
+     * targets and has a sequence number less than or equal to the upper bound for
+     * the collection run.
+     */
+    wr(e, t) {
+      return (function __PRIVATE_mutationQueuesContainKey(e2, t2) {
+        let n = false;
+        return __PRIVATE_mutationQueuesStore(e2).te(((r) => __PRIVATE_mutationQueueContainsKey(e2, r, t2).next(((e3) => (e3 && (n = true), PersistencePromise.resolve(!e3)))))).next((() => n));
+      })(e, t);
+    }
+    removeOrphanedDocuments(e, t) {
+      const n = this.db.getRemoteDocumentCache().newChangeBuffer(), r = [];
+      let i = 0;
+      return this.yr(e, ((s2, o) => {
+        if (o <= t) {
+          const t2 = this.wr(e, s2).next(((t3) => {
+            if (!t3)
+              return i++, n.getEntry(e, s2).next((() => (n.removeEntry(s2, SnapshotVersion.min()), __PRIVATE_documentTargetStore(e).delete((function __PRIVATE_sentinelKey$1(e2) {
+                return [0, __PRIVATE_encodeResourcePath(e2.path)];
+              })(s2)))));
+          }));
+          r.push(t2);
+        }
+      })).next((() => PersistencePromise.waitFor(r))).next((() => n.apply(e))).next((() => i));
+    }
+    removeTarget(e, t) {
+      const n = t.withSequenceNumber(e.currentSequenceNumber);
+      return this.db.getTargetCache().updateTargetData(e, n);
+    }
+    updateLimboDocument(e, t) {
+      return __PRIVATE_writeSentinelKey(e, t);
+    }
+    /**
+     * Call provided function for each document in the cache that is 'orphaned'. Orphaned
+     * means not a part of any target, so the only entry in the target-document index for
+     * that document will be the sentinel row (targetId 0), which will also have the sequence
+     * number for the last time the document was accessed.
+     */
+    yr(e, t) {
+      const n = __PRIVATE_documentTargetStore(e);
+      let r, i = __PRIVATE_ListenSequence.ce;
+      return n.ee({
+        index: Pe
+      }, (([e2, n2], { path: s2, sequenceNumber: o }) => {
+        0 === e2 ? (
+          // if nextToReport is valid, report it, this is a new key so the
+          // last one must not be a member of any targets.
+          (i !== __PRIVATE_ListenSequence.ce && t(new DocumentKey(__PRIVATE_decodeResourcePath(r)), i), // set nextToReport to be this sequence number. It's the next one we
+          // might report, if we don't find any targets for this document.
+          // Note that the sequence number must be defined when the targetId
+          // is 0.
+          i = o, r = s2)
+        ) : (
+          // set nextToReport to be invalid, we know we don't need to report
+          // this one since we found a target for it.
+          i = __PRIVATE_ListenSequence.ce
+        );
+      })).next((() => {
+        i !== __PRIVATE_ListenSequence.ce && t(new DocumentKey(__PRIVATE_decodeResourcePath(r)), i);
+      }));
+    }
+    getCacheSize(e) {
+      return this.db.getRemoteDocumentCache().getSize(e);
+    }
+  };
+  function __PRIVATE_writeSentinelKey(e, t) {
+    return __PRIVATE_documentTargetStore(e).put((function __PRIVATE_sentinelRow(e2, t2) {
+      return {
+        targetId: 0,
+        path: __PRIVATE_encodeResourcePath(e2.path),
+        sequenceNumber: t2
+      };
+    })(t, e.currentSequenceNumber));
+  }
   var RemoteDocumentChangeBuffer = class {
     constructor() {
       this.changes = new ObjectMap(((e) => e.toString()), ((e, t) => e.isEqual(t))), this.changesApplied = false;
@@ -17286,6 +19920,265 @@ Total Duration: ${a - u2}ms`);
     assertNotApplied() {
     }
   };
+  var __PRIVATE_IndexedDbRemoteDocumentCacheImpl = class {
+    constructor(e) {
+      this.serializer = e;
+    }
+    setIndexManager(e) {
+      this.indexManager = e;
+    }
+    /**
+     * Adds the supplied entries to the cache.
+     *
+     * All calls of `addEntry` are required to go through the RemoteDocumentChangeBuffer
+     * returned by `newChangeBuffer()` to ensure proper accounting of metadata.
+     */
+    addEntry(e, t, n) {
+      return __PRIVATE_remoteDocumentsStore(e).put(n);
+    }
+    /**
+     * Removes a document from the cache.
+     *
+     * All calls of `removeEntry`  are required to go through the RemoteDocumentChangeBuffer
+     * returned by `newChangeBuffer()` to ensure proper accounting of metadata.
+     */
+    removeEntry(e, t, n) {
+      return __PRIVATE_remoteDocumentsStore(e).delete(
+        /**
+        * Returns a key that can be used for document lookups via the primary key of
+        * the DbRemoteDocument object store.
+        */
+        (function __PRIVATE_dbReadTimeKey(e2, t2) {
+          const n2 = e2.path.toArray();
+          return [
+            /* prefix path */
+            n2.slice(0, n2.length - 2),
+            /* collection id */
+            n2[n2.length - 2],
+            __PRIVATE_toDbTimestampKey(t2),
+            /* document id */
+            n2[n2.length - 1]
+          ];
+        })(t, n)
+      );
+    }
+    /**
+     * Updates the current cache size.
+     *
+     * Callers to `addEntry()` and `removeEntry()` *must* call this afterwards to update the
+     * cache's metadata.
+     */
+    updateMetadata(e, t) {
+      return this.getMetadata(e).next(((n) => (n.byteSize += t, this.Sr(e, n))));
+    }
+    getEntry(e, t) {
+      let n = MutableDocument.newInvalidDocument(t);
+      return __PRIVATE_remoteDocumentsStore(e).ee({
+        index: ne,
+        range: IDBKeyRange.only(__PRIVATE_dbKey(t))
+      }, ((e2, r) => {
+        n = this.br(t, r);
+      })).next((() => n));
+    }
+    /**
+     * Looks up an entry in the cache.
+     *
+     * @param documentKey - The key of the entry to look up.
+     * @returns The cached document entry and its size.
+     */
+    Dr(e, t) {
+      let n = {
+        size: 0,
+        document: MutableDocument.newInvalidDocument(t)
+      };
+      return __PRIVATE_remoteDocumentsStore(e).ee({
+        index: ne,
+        range: IDBKeyRange.only(__PRIVATE_dbKey(t))
+      }, ((e2, r) => {
+        n = {
+          document: this.br(t, r),
+          size: __PRIVATE_dbDocumentSize(r)
+        };
+      })).next((() => n));
+    }
+    getEntries(e, t) {
+      let n = __PRIVATE_mutableDocumentMap();
+      return this.Cr(e, t, ((e2, t2) => {
+        const r = this.br(e2, t2);
+        n = n.insert(e2, r);
+      })).next((() => n));
+    }
+    /**
+     * Looks up several entries in the cache.
+     *
+     * @param documentKeys - The set of keys entries to look up.
+     * @returns A map of documents indexed by key and a map of sizes indexed by
+     *     key (zero if the document does not exist).
+     */
+    vr(e, t) {
+      let n = __PRIVATE_mutableDocumentMap(), r = new SortedMap(DocumentKey.comparator);
+      return this.Cr(e, t, ((e2, t2) => {
+        const i = this.br(e2, t2);
+        n = n.insert(e2, i), r = r.insert(e2, __PRIVATE_dbDocumentSize(t2));
+      })).next((() => ({
+        documents: n,
+        Fr: r
+      })));
+    }
+    Cr(e, t, n) {
+      if (t.isEmpty()) return PersistencePromise.resolve();
+      let r = new SortedSet(__PRIVATE_dbKeyComparator);
+      t.forEach(((e2) => r = r.add(e2)));
+      const i = IDBKeyRange.bound(__PRIVATE_dbKey(r.first()), __PRIVATE_dbKey(r.last())), s2 = r.getIterator();
+      let o = s2.getNext();
+      return __PRIVATE_remoteDocumentsStore(e).ee({
+        index: ne,
+        range: i
+      }, ((e2, t2, r2) => {
+        const i2 = DocumentKey.fromSegments([...t2.prefixPath, t2.collectionGroup, t2.documentId]);
+        for (; o && __PRIVATE_dbKeyComparator(o, i2) < 0; ) n(o, null), o = s2.getNext();
+        o && o.isEqual(i2) && // Key found in cache.
+        (n(o, t2), o = s2.hasNext() ? s2.getNext() : null), // Skip to the next key (if there is one).
+        o ? r2.j(__PRIVATE_dbKey(o)) : r2.done();
+      })).next((() => {
+        for (; o; ) n(o, null), o = s2.hasNext() ? s2.getNext() : null;
+      }));
+    }
+    getDocumentsMatchingQuery(e, t, n, r, i) {
+      const s2 = t.path, o = [s2.popLast().toArray(), s2.lastSegment(), __PRIVATE_toDbTimestampKey(n.readTime), n.documentKey.path.isEmpty() ? "" : n.documentKey.path.lastSegment()], _ = [s2.popLast().toArray(), s2.lastSegment(), [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER], ""];
+      return __PRIVATE_remoteDocumentsStore(e).J(IDBKeyRange.bound(o, _, true)).next(((e2) => {
+        i?.incrementDocumentReadCount(e2.length);
+        let n2 = __PRIVATE_mutableDocumentMap();
+        for (const i2 of e2) {
+          const e3 = this.br(DocumentKey.fromSegments(i2.prefixPath.concat(i2.collectionGroup, i2.documentId)), i2);
+          e3.isFoundDocument() && (__PRIVATE_queryMatches(t, e3) || r.has(e3.key)) && // Either the document matches the given query, or it is mutated.
+          (n2 = n2.insert(e3.key, e3));
+        }
+        return n2;
+      }));
+    }
+    getAllFromCollectionGroup(e, t, n, r) {
+      let i = __PRIVATE_mutableDocumentMap();
+      const s2 = __PRIVATE_dbCollectionGroupKey(t, n), o = __PRIVATE_dbCollectionGroupKey(t, IndexOffset.max());
+      return __PRIVATE_remoteDocumentsStore(e).ee({
+        index: ie,
+        range: IDBKeyRange.bound(s2, o, true)
+      }, ((e2, t2, n2) => {
+        const s3 = this.br(DocumentKey.fromSegments(t2.prefixPath.concat(t2.collectionGroup, t2.documentId)), t2);
+        i = i.insert(s3.key, s3), i.size === r && n2.done();
+      })).next((() => i));
+    }
+    newChangeBuffer(e) {
+      return new __PRIVATE_IndexedDbRemoteDocumentChangeBuffer(this, !!e && e.trackRemovals);
+    }
+    getSize(e) {
+      return this.getMetadata(e).next(((e2) => e2.byteSize));
+    }
+    getMetadata(e) {
+      return __PRIVATE_documentGlobalStore(e).get(_e).next(((e2) => (__PRIVATE_hardAssert(!!e2, 20021), e2)));
+    }
+    Sr(e, t) {
+      return __PRIVATE_documentGlobalStore(e).put(_e, t);
+    }
+    /**
+     * Decodes `dbRemoteDoc` and returns the document (or an invalid document if
+     * the document corresponds to the format used for sentinel deletes).
+     */
+    br(e, t) {
+      if (t) {
+        const e2 = __PRIVATE_fromDbRemoteDocument(this.serializer, t);
+        if (!(e2.isNoDocument() && e2.version.isEqual(SnapshotVersion.min()))) return e2;
+      }
+      return MutableDocument.newInvalidDocument(e);
+    }
+  };
+  function __PRIVATE_newIndexedDbRemoteDocumentCache(e) {
+    return new __PRIVATE_IndexedDbRemoteDocumentCacheImpl(e);
+  }
+  var __PRIVATE_IndexedDbRemoteDocumentChangeBuffer = class extends RemoteDocumentChangeBuffer {
+    /**
+     * @param documentCache - The IndexedDbRemoteDocumentCache to apply the changes to.
+     * @param trackRemovals - Whether to create sentinel deletes that can be tracked by
+     * `getNewDocumentChanges()`.
+     */
+    constructor(e, t) {
+      super(), this.Mr = e, this.trackRemovals = t, // A map of document sizes and read times prior to applying the changes in
+      // this buffer.
+      this.Or = new ObjectMap(((e2) => e2.toString()), ((e2, t2) => e2.isEqual(t2)));
+    }
+    applyChanges(e) {
+      const t = [];
+      let n = 0, r = new SortedSet(((e2, t2) => __PRIVATE_primitiveComparator(e2.canonicalString(), t2.canonicalString())));
+      return this.changes.forEach(((i, s2) => {
+        const o = this.Or.get(i);
+        if (t.push(this.Mr.removeEntry(e, i, o.readTime)), s2.isValidDocument()) {
+          const _ = __PRIVATE_toDbRemoteDocument(this.Mr.serializer, s2);
+          r = r.add(i.path.popLast());
+          const a = __PRIVATE_dbDocumentSize(_);
+          n += a - o.size, t.push(this.Mr.addEntry(e, i, _));
+        } else if (n -= o.size, this.trackRemovals) {
+          const n2 = __PRIVATE_toDbRemoteDocument(this.Mr.serializer, s2.convertToNoDocument(SnapshotVersion.min()));
+          t.push(this.Mr.addEntry(e, i, n2));
+        }
+      })), r.forEach(((n2) => {
+        t.push(this.Mr.indexManager.addToCollectionParentIndex(e, n2));
+      })), t.push(this.Mr.updateMetadata(e, n)), PersistencePromise.waitFor(t);
+    }
+    getFromCache(e, t) {
+      return this.Mr.Dr(e, t).next(((e2) => (this.Or.set(t, {
+        size: e2.size,
+        readTime: e2.document.readTime
+      }), e2.document)));
+    }
+    getAllFromCache(e, t) {
+      return this.Mr.vr(e, t).next((({ documents: e2, Fr: t2 }) => (
+        // Note: `getAllFromCache` returns two maps instead of a single map from
+        // keys to `DocumentSizeEntry`s. This is to allow returning the
+        // `MutableDocumentMap` directly, without a conversion.
+        (t2.forEach(((t3, n) => {
+          this.Or.set(t3, {
+            size: n,
+            readTime: e2.get(t3).readTime
+          });
+        })), e2)
+      )));
+    }
+  };
+  function __PRIVATE_documentGlobalStore(e) {
+    return __PRIVATE_getStore(e, oe);
+  }
+  function __PRIVATE_remoteDocumentsStore(e) {
+    return __PRIVATE_getStore(e, ee);
+  }
+  function __PRIVATE_dbKey(e) {
+    const t = e.path.toArray();
+    return [
+      /* prefix path */
+      t.slice(0, t.length - 2),
+      /* collection id */
+      t[t.length - 2],
+      /* document id */
+      t[t.length - 1]
+    ];
+  }
+  function __PRIVATE_dbCollectionGroupKey(e, t) {
+    const n = t.documentKey.path.toArray();
+    return [
+      /* collection id */
+      e,
+      __PRIVATE_toDbTimestampKey(t.readTime),
+      /* prefix path */
+      n.slice(0, n.length - 2),
+      /* document id */
+      n.length > 0 ? n[n.length - 1] : ""
+    ];
+  }
+  function __PRIVATE_dbKeyComparator(e, t) {
+    const n = e.path.toArray(), r = t.path.toArray();
+    let i = 0;
+    for (let e2 = 0; e2 < n.length - 2 && e2 < r.length - 2; ++e2) if (i = __PRIVATE_primitiveComparator(n[e2], r[e2]), i) return i;
+    return i = __PRIVATE_primitiveComparator(n.length, r.length), i || (i = __PRIVATE_primitiveComparator(n[n.length - 2], r[r.length - 2]), i || __PRIVATE_primitiveComparator(n[n.length - 1], r[r.length - 1]));
+  }
   var OverlayedDocument = class {
     constructor(e, t) {
       this.overlayedDocument = e, this.mutatedFields = t;
@@ -18152,6 +21045,606 @@ Total Duration: ${a - u2}ms`);
       return this.persistence.getRemoteDocumentCache().getSize(e);
     }
   };
+  var __PRIVATE_SchemaConverter = class {
+    constructor(e) {
+      this.serializer = e;
+    }
+    /**
+     * Performs database creation and schema upgrades.
+     *
+     * Note that in production, this method is only ever used to upgrade the schema
+     * to SCHEMA_VERSION. Different values of toVersion are only used for testing
+     * and local feature development.
+     */
+    k(e, t, n, r) {
+      const i = new __PRIVATE_SimpleDbTransaction("createOrUpgrade", t);
+      n < 1 && r >= 1 && (!(function __PRIVATE_createPrimaryClientStore(e2) {
+        e2.createObjectStore(W);
+      })(e), (function __PRIVATE_createMutationQueue(e2) {
+        e2.createObjectStore(G, {
+          keyPath: z
+        });
+        const t2 = e2.createObjectStore(j, {
+          keyPath: H,
+          autoIncrement: true
+        });
+        t2.createIndex(J, Z, {
+          unique: true
+        }), e2.createObjectStore(Y);
+      })(e), __PRIVATE_createQueryCache(e), (function __PRIVATE_createLegacyRemoteDocumentCache(e2) {
+        e2.createObjectStore($);
+      })(e));
+      let s2 = PersistencePromise.resolve();
+      return n < 3 && r >= 3 && // Brand new clients don't need to drop and recreate--only clients that
+      // potentially have corrupt data.
+      (0 !== n && (!(function __PRIVATE_dropQueryCache(e2) {
+        e2.deleteObjectStore(le), e2.deleteObjectStore(ae), e2.deleteObjectStore(Ee);
+      })(e), __PRIVATE_createQueryCache(e)), s2 = s2.next((() => (
+        /**
+        * Creates the target global singleton row.
+        *
+        * @param txn - The version upgrade transaction for indexeddb
+        */
+        (function __PRIVATE_writeEmptyTargetGlobalEntry(e2) {
+          const t2 = e2.store(Ee), n2 = {
+            highestTargetId: 0,
+            highestListenSequenceNumber: 0,
+            lastRemoteSnapshotVersion: SnapshotVersion.min().toTimestamp(),
+            targetCount: 0
+          };
+          return t2.put(Ie, n2);
+        })(i)
+      )))), n < 4 && r >= 4 && (0 !== n && // Schema version 3 uses auto-generated keys to generate globally unique
+      // mutation batch IDs (this was previously ensured internally by the
+      // client). To migrate to the new schema, we have to read all mutations
+      // and write them back out. We preserve the existing batch IDs to guarantee
+      // consistency with other object stores. Any further mutation batch IDs will
+      // be auto-generated.
+      (s2 = s2.next((() => (function __PRIVATE_upgradeMutationBatchSchemaAndMigrateData(e2, t2) {
+        const n2 = t2.store(j);
+        return n2.J().next(((n3) => {
+          e2.deleteObjectStore(j);
+          e2.createObjectStore(j, {
+            keyPath: H,
+            autoIncrement: true
+          }).createIndex(J, Z, {
+            unique: true
+          });
+          const r2 = t2.store(j), i2 = n3.map(((e3) => r2.put(e3)));
+          return PersistencePromise.waitFor(i2);
+        }));
+      })(e, i)))), s2 = s2.next((() => {
+        !(function __PRIVATE_createClientMetadataStore(e2) {
+          e2.createObjectStore(Ve, {
+            keyPath: de
+          });
+        })(e);
+      }))), n < 5 && r >= 5 && (s2 = s2.next((() => this.gi(i)))), n < 6 && r >= 6 && (s2 = s2.next((() => ((function __PRIVATE_createDocumentGlobalStore(e2) {
+        e2.createObjectStore(oe);
+      })(e), this.pi(i))))), n < 7 && r >= 7 && (s2 = s2.next((() => this.yi(i)))), n < 8 && r >= 8 && (s2 = s2.next((() => this.wi(e, i)))), n < 9 && r >= 9 && (s2 = s2.next((() => {
+        !(function __PRIVATE_dropRemoteDocumentChangesStore(e2) {
+          e2.objectStoreNames.contains("remoteDocumentChanges") && e2.deleteObjectStore("remoteDocumentChanges");
+        })(e);
+      }))), n < 10 && r >= 10 && (s2 = s2.next((() => this.Si(i)))), n < 11 && r >= 11 && (s2 = s2.next((() => {
+        !(function __PRIVATE_createBundlesStore(e2) {
+          e2.createObjectStore(me, {
+            keyPath: fe
+          });
+        })(e), (function __PRIVATE_createNamedQueriesStore(e2) {
+          e2.createObjectStore(ge, {
+            keyPath: pe
+          });
+        })(e);
+      }))), n < 12 && r >= 12 && (s2 = s2.next((() => {
+        !(function __PRIVATE_createDocumentOverlayStore(e2) {
+          const t2 = e2.createObjectStore(Be, {
+            keyPath: Le
+          });
+          t2.createIndex(ke, Ke, {
+            unique: false
+          }), t2.createIndex(qe, Ue, {
+            unique: false
+          });
+        })(e);
+      }))), n < 13 && r >= 13 && (s2 = s2.next((() => (function __PRIVATE_createRemoteDocumentCache(e2) {
+        const t2 = e2.createObjectStore(ee, {
+          keyPath: te
+        });
+        t2.createIndex(ne, re), t2.createIndex(ie, se);
+      })(e))).next((() => this.bi(e, i))).next((() => e.deleteObjectStore($)))), n < 14 && r >= 14 && (s2 = s2.next((() => this.Di(e, i)))), n < 15 && r >= 15 && (s2 = s2.next((() => (function __PRIVATE_createFieldIndex(e2) {
+        const t2 = e2.createObjectStore(ye, {
+          keyPath: we,
+          autoIncrement: true
+        });
+        t2.createIndex(be, Se, {
+          unique: false
+        });
+        const n2 = e2.createObjectStore(De, {
+          keyPath: Ce
+        });
+        n2.createIndex(ve, Fe, {
+          unique: false
+        });
+        const r2 = e2.createObjectStore(Me, {
+          keyPath: xe
+        });
+        r2.createIndex(Oe, Ne, {
+          unique: false
+        });
+      })(e)))), n < 16 && r >= 16 && // Clear the object stores to remove possibly corrupted index entries
+      (s2 = s2.next((() => {
+        t.objectStore(De).clear();
+      })).next((() => {
+        t.objectStore(Me).clear();
+      }))), n < 17 && r >= 17 && (s2 = s2.next((() => {
+        !(function __PRIVATE_createGlobalsStore(e2) {
+          e2.createObjectStore($e, {
+            keyPath: We
+          });
+        })(e);
+      }))), n < 18 && r >= 18 && isSafariOrWebkit() && (s2 = s2.next((() => {
+        t.objectStore(De).clear();
+      })).next((() => {
+        t.objectStore(Me).clear();
+      }))), s2;
+    }
+    pi(e) {
+      let t = 0;
+      return e.store($).ee(((e2, n) => {
+        t += __PRIVATE_dbDocumentSize(n);
+      })).next((() => {
+        const n = {
+          byteSize: t
+        };
+        return e.store(oe).put(_e, n);
+      }));
+    }
+    gi(e) {
+      const t = e.store(G), n = e.store(j);
+      return t.J().next(((t2) => PersistencePromise.forEach(t2, ((t3) => {
+        const r = IDBKeyRange.bound([t3.userId, q], [t3.userId, t3.lastAcknowledgedBatchId]);
+        return n.J(J, r).next(((n2) => PersistencePromise.forEach(n2, ((n3) => {
+          __PRIVATE_hardAssert(n3.userId === t3.userId, 18650, "Cannot process batch from unexpected user", {
+            batchId: n3.batchId
+          });
+          const r2 = __PRIVATE_fromDbMutationBatch(this.serializer, n3);
+          return removeMutationBatch(e, t3.userId, r2).next((() => {
+          }));
+        }))));
+      }))));
+    }
+    /**
+     * Ensures that every document in the remote document cache has a corresponding sentinel row
+     * with a sequence number. Missing rows are given the most recently used sequence number.
+     */
+    yi(e) {
+      const t = e.store(le), n = e.store($);
+      return e.store(Ee).get(Ie).next(((e2) => {
+        const r = [];
+        return n.ee(((n2, i) => {
+          const s2 = new ResourcePath(n2), o = (function __PRIVATE_sentinelKey(e3) {
+            return [0, __PRIVATE_encodeResourcePath(e3)];
+          })(s2);
+          r.push(t.get(o).next(((n3) => n3 ? PersistencePromise.resolve() : ((n4) => t.put({
+            targetId: 0,
+            path: __PRIVATE_encodeResourcePath(n4),
+            sequenceNumber: e2.highestListenSequenceNumber
+          }))(s2))));
+        })).next((() => PersistencePromise.waitFor(r)));
+      }));
+    }
+    wi(e, t) {
+      e.createObjectStore(Re, {
+        keyPath: Ae
+      });
+      const n = t.store(Re), r = new __PRIVATE_MemoryCollectionParentIndex(), addEntry = (e2) => {
+        if (r.add(e2)) {
+          const t2 = e2.lastSegment(), r2 = e2.popLast();
+          return n.put({
+            collectionId: t2,
+            parent: __PRIVATE_encodeResourcePath(r2)
+          });
+        }
+      };
+      return t.store($).ee({
+        Y: true
+      }, ((e2, t2) => {
+        const n2 = new ResourcePath(e2);
+        return addEntry(n2.popLast());
+      })).next((() => t.store(Y).ee({
+        Y: true
+      }, (([e2, t2, n2], r2) => {
+        const i = __PRIVATE_decodeResourcePath(t2);
+        return addEntry(i.popLast());
+      }))));
+    }
+    Si(e) {
+      const t = e.store(ae);
+      return t.ee(((e2, n) => {
+        const r = __PRIVATE_fromDbTarget(n), i = __PRIVATE_toDbTarget(this.serializer, r);
+        return t.put(i);
+      }));
+    }
+    bi(e, t) {
+      const n = t.store($), r = [];
+      return n.ee(((e2, n2) => {
+        const i = t.store(ee), s2 = (function __PRIVATE_extractKey(e3) {
+          return e3.document ? new DocumentKey(ResourcePath.fromString(e3.document.name).popFirst(5)) : e3.noDocument ? DocumentKey.fromSegments(e3.noDocument.path) : e3.unknownDocument ? DocumentKey.fromSegments(e3.unknownDocument.path) : fail(36783);
+        })(n2).path.toArray(), o = {
+          prefixPath: s2.slice(0, s2.length - 2),
+          collectionGroup: s2[s2.length - 2],
+          documentId: s2[s2.length - 1],
+          readTime: n2.readTime || [0, 0],
+          unknownDocument: n2.unknownDocument,
+          noDocument: n2.noDocument,
+          document: n2.document,
+          hasCommittedMutations: !!n2.hasCommittedMutations
+        };
+        r.push(i.put(o));
+      })).next((() => PersistencePromise.waitFor(r)));
+    }
+    Di(e, t) {
+      const n = t.store(j), r = __PRIVATE_newIndexedDbRemoteDocumentCache(this.serializer), i = new __PRIVATE_MemoryPersistence(__PRIVATE_MemoryEagerDelegate.Vi, this.serializer.yt);
+      return n.J().next(((e2) => {
+        const n2 = /* @__PURE__ */ new Map();
+        return e2.forEach(((e3) => {
+          let t2 = n2.get(e3.userId) ?? __PRIVATE_documentKeySet();
+          __PRIVATE_fromDbMutationBatch(this.serializer, e3).keys().forEach(((e4) => t2 = t2.add(e4))), n2.set(e3.userId, t2);
+        })), PersistencePromise.forEach(n2, ((e3, n3) => {
+          const s2 = new User(n3), o = __PRIVATE_IndexedDbDocumentOverlayCache.wt(this.serializer, s2), _ = i.getIndexManager(s2), a = __PRIVATE_IndexedDbMutationQueue.wt(s2, this.serializer, _, i.referenceDelegate);
+          return new LocalDocumentsView(r, a, o, _).recalculateAndSaveOverlaysForDocumentKeys(new __PRIVATE_IndexedDbTransaction(t, __PRIVATE_ListenSequence.ce), e3).next();
+        }));
+      }));
+    }
+  };
+  function __PRIVATE_createQueryCache(e) {
+    e.createObjectStore(le, {
+      keyPath: he
+    }).createIndex(Pe, Te, {
+      unique: true
+    });
+    e.createObjectStore(ae, {
+      keyPath: "targetId"
+    }).createIndex(ue, ce, {
+      unique: true
+    }), e.createObjectStore(Ee);
+  }
+  var vt = "IndexedDbPersistence";
+  var Ft = 18e5;
+  var Mt = 5e3;
+  var xt = "Failed to obtain exclusive access to the persistence layer. To allow shared access, multi-tab synchronization has to be enabled in all tabs. If you are using `experimentalForceOwningTab:true`, make sure that only one tab has persistence enabled at any given time.";
+  var Ot = "main";
+  var __PRIVATE_IndexedDbPersistence = class ___PRIVATE_IndexedDbPersistence {
+    constructor(e, t, n, r, i, s2, o, _, a, u2, c = 18) {
+      if (this.allowTabSynchronization = e, this.persistenceKey = t, this.clientId = n, this.Ci = i, this.window = s2, this.document = o, this.Fi = a, this.Mi = u2, this.xi = c, this.ai = null, this.ui = false, this.isPrimary = false, this.networkEnabled = true, /** Our window.unload handler, if registered. */
+      this.Oi = null, this.inForeground = false, /** Our 'visibilitychange' listener if registered. */
+      this.Ni = null, /** The client metadata refresh task. */
+      this.Bi = null, /** The last time we garbage collected the client metadata object store. */
+      this.Li = Number.NEGATIVE_INFINITY, /** A listener to notify on primary state changes. */
+      this.ki = (e2) => Promise.resolve(), !___PRIVATE_IndexedDbPersistence.v()) throw new FirestoreError(D.UNIMPLEMENTED, "This platform is either missing IndexedDB or is known to have an incomplete implementation. Offline persistence has been disabled.");
+      this.referenceDelegate = new __PRIVATE_IndexedDbLruDelegateImpl(this, r), this.qi = t + Ot, this.serializer = new __PRIVATE_LocalSerializer(_), this.Ki = new __PRIVATE_SimpleDb(this.qi, this.xi, new __PRIVATE_SchemaConverter(this.serializer)), this.ci = new __PRIVATE_IndexedDbGlobalsCache(), this.li = new __PRIVATE_IndexedDbTargetCache(this.referenceDelegate, this.serializer), this.remoteDocumentCache = __PRIVATE_newIndexedDbRemoteDocumentCache(this.serializer), this.Pi = new __PRIVATE_IndexedDbBundleCache(), this.window && this.window.localStorage ? this.Ui = this.window.localStorage : (this.Ui = null, false === u2 && __PRIVATE_logError(vt, "LocalStorage is unavailable. As a result, persistence may not work reliably. In particular enablePersistence() could fail immediately after refreshing the page."));
+    }
+    /**
+     * Attempt to start IndexedDb persistence.
+     *
+     * @returns Whether persistence was enabled.
+     */
+    start() {
+      return this.$i().then((() => {
+        if (!this.isPrimary && !this.allowTabSynchronization)
+          throw new FirestoreError(D.FAILED_PRECONDITION, xt);
+        return this.Wi(), this.Qi(), this.Gi(), this.runTransaction("getHighestListenSequenceNumber", "readonly", ((e) => this.li.getHighestSequenceNumber(e)));
+      })).then(((e) => {
+        this.ai = new __PRIVATE_ListenSequence(e, this.Fi);
+      })).then((() => {
+        this.ui = true;
+      })).catch(((e) => (this.Ki && this.Ki.close(), Promise.reject(e))));
+    }
+    /**
+     * Registers a listener that gets called when the primary state of the
+     * instance changes. Upon registering, this listener is invoked immediately
+     * with the current primary state.
+     *
+     * PORTING NOTE: This is only used for Web multi-tab.
+     */
+    zi(e) {
+      return this.ki = async (t) => {
+        if (this.started) return e(t);
+      }, e(this.isPrimary);
+    }
+    /**
+     * Registers a listener that gets called when the database receives a
+     * version change event indicating that it has deleted.
+     *
+     * PORTING NOTE: This is only used for Web multi-tab.
+     */
+    setDatabaseDeletedListener(e) {
+      this.Ki.K((async (t) => {
+        null === t.newVersion && await e();
+      }));
+    }
+    /**
+     * Adjusts the current network state in the client's metadata, potentially
+     * affecting the primary lease.
+     *
+     * PORTING NOTE: This is only used for Web multi-tab.
+     */
+    setNetworkEnabled(e) {
+      this.networkEnabled !== e && (this.networkEnabled = e, // Schedule a primary lease refresh for immediate execution. The eventual
+      // lease update will be propagated via `primaryStateListener`.
+      this.Ci.enqueueAndForget((async () => {
+        this.started && await this.$i();
+      })));
+    }
+    /**
+     * Updates the client metadata in IndexedDb and attempts to either obtain or
+     * extend the primary lease for the local client. Asynchronously notifies the
+     * primary state listener if the client either newly obtained or released its
+     * primary lease.
+     */
+    $i() {
+      return this.runTransaction("updateClientMetadataAndTryBecomePrimary", "readwrite", ((e) => __PRIVATE_clientMetadataStore(e).put({
+        clientId: this.clientId,
+        updateTimeMs: Date.now(),
+        networkEnabled: this.networkEnabled,
+        inForeground: this.inForeground
+      }).next((() => {
+        if (this.isPrimary) return this.ji(e).next(((e2) => {
+          e2 || (this.isPrimary = false, this.Ci.enqueueRetryable((() => this.ki(false))));
+        }));
+      })).next((() => this.Ji(e))).next(((t) => this.isPrimary && !t ? this.Hi(e).next((() => false)) : !!t && this.Zi(e).next((() => true)))))).catch(((e) => {
+        if (__PRIVATE_isIndexedDbTransactionError(e))
+          return __PRIVATE_logDebug(vt, "Failed to extend owner lease: ", e), this.isPrimary;
+        if (!this.allowTabSynchronization) throw e;
+        return __PRIVATE_logDebug(vt, "Releasing owner lease after error during lease refresh", e), /* isPrimary= */
+        false;
+      })).then(((e) => {
+        this.isPrimary !== e && this.Ci.enqueueRetryable((() => this.ki(e))), this.isPrimary = e;
+      }));
+    }
+    ji(e) {
+      return __PRIVATE_primaryClientStore(e).get(Q).next(((e2) => PersistencePromise.resolve(this.Xi(e2))));
+    }
+    Yi(e) {
+      return __PRIVATE_clientMetadataStore(e).delete(this.clientId);
+    }
+    /**
+     * If the garbage collection threshold has passed, prunes the
+     * RemoteDocumentChanges and the ClientMetadata store based on the last update
+     * time of all clients.
+     */
+    async es() {
+      if (this.isPrimary && !this.ts(this.Li, Ft)) {
+        this.Li = Date.now();
+        const e = await this.runTransaction("maybeGarbageCollectMultiClientState", "readwrite-primary", ((e2) => {
+          const t = __PRIVATE_getStore(e2, Ve);
+          return t.J().next(((e3) => {
+            const n = this.ns(e3, Ft), r = e3.filter(((e4) => -1 === n.indexOf(e4)));
+            return PersistencePromise.forEach(r, ((e4) => t.delete(e4.clientId))).next((() => r));
+          }));
+        })).catch((() => []));
+        if (this.Ui) for (const t of e) this.Ui.removeItem(this.rs(t.clientId));
+      }
+    }
+    /**
+     * Schedules a recurring timer to update the client metadata and to either
+     * extend or acquire the primary lease if the client is eligible.
+     */
+    Gi() {
+      this.Bi = this.Ci.enqueueAfterDelay("client_metadata_refresh", 4e3, (() => this.$i().then((() => this.es())).then((() => this.Gi()))));
+    }
+    /** Checks whether `client` is the local client. */
+    Xi(e) {
+      return !!e && e.ownerId === this.clientId;
+    }
+    /**
+     * Evaluate the state of all active clients and determine whether the local
+     * client is or can act as the holder of the primary lease. Returns whether
+     * the client is eligible for the lease, but does not actually acquire it.
+     * May return 'false' even if there is no active leaseholder and another
+     * (foreground) client should become leaseholder instead.
+     */
+    Ji(e) {
+      if (this.Mi) return PersistencePromise.resolve(true);
+      return __PRIVATE_primaryClientStore(e).get(Q).next(((t) => {
+        if (null !== t && this.ts(t.leaseTimestampMs, Mt) && !this.ss(t.ownerId)) {
+          if (this.Xi(t) && this.networkEnabled) return true;
+          if (!this.Xi(t)) {
+            if (!t.allowTabSynchronization)
+              throw new FirestoreError(D.FAILED_PRECONDITION, xt);
+            return false;
+          }
+        }
+        return !(!this.networkEnabled || !this.inForeground) || __PRIVATE_clientMetadataStore(e).J().next(((e2) => void 0 === this.ns(e2, Mt).find(((e3) => {
+          if (this.clientId !== e3.clientId) {
+            const t2 = !this.networkEnabled && e3.networkEnabled, n = !this.inForeground && e3.inForeground, r = this.networkEnabled === e3.networkEnabled;
+            if (t2 || n && r) return true;
+          }
+          return false;
+        }))));
+      })).next(((e2) => (this.isPrimary !== e2 && __PRIVATE_logDebug(vt, `Client ${e2 ? "is" : "is not"} eligible for a primary lease.`), e2)));
+    }
+    async shutdown() {
+      this.ui = false, this._s(), this.Bi && (this.Bi.cancel(), this.Bi = null), this.us(), this.cs(), // Use `SimpleDb.runTransaction` directly to avoid failing if another tab
+      // has obtained the primary lease.
+      await this.Ki.runTransaction("shutdown", "readwrite", [W, Ve], ((e) => {
+        const t = new __PRIVATE_IndexedDbTransaction(e, __PRIVATE_ListenSequence.ce);
+        return this.Hi(t).next((() => this.Yi(t)));
+      })), this.Ki.close(), // Remove the entry marking the client as zombied from LocalStorage since
+      // we successfully deleted its metadata from IndexedDb.
+      this.ls();
+    }
+    /**
+     * Returns clients that are not zombied and have an updateTime within the
+     * provided threshold.
+     */
+    ns(e, t) {
+      return e.filter(((e2) => this.ts(e2.updateTimeMs, t) && !this.ss(e2.clientId)));
+    }
+    /**
+     * Returns the IDs of the clients that are currently active. If multi-tab
+     * is not supported, returns an array that only contains the local client's
+     * ID.
+     *
+     * PORTING NOTE: This is only used for Web multi-tab.
+     */
+    hs() {
+      return this.runTransaction("getActiveClients", "readonly", ((e) => __PRIVATE_clientMetadataStore(e).J().next(((e2) => this.ns(e2, Ft).map(((e3) => e3.clientId))))));
+    }
+    get started() {
+      return this.ui;
+    }
+    getGlobalsCache() {
+      return this.ci;
+    }
+    getMutationQueue(e, t) {
+      return __PRIVATE_IndexedDbMutationQueue.wt(e, this.serializer, t, this.referenceDelegate);
+    }
+    getTargetCache() {
+      return this.li;
+    }
+    getRemoteDocumentCache() {
+      return this.remoteDocumentCache;
+    }
+    getIndexManager(e) {
+      return new __PRIVATE_IndexedDbIndexManager(e, this.serializer.yt.databaseId);
+    }
+    getDocumentOverlayCache(e) {
+      return __PRIVATE_IndexedDbDocumentOverlayCache.wt(this.serializer, e);
+    }
+    getBundleCache() {
+      return this.Pi;
+    }
+    runTransaction(e, t, n) {
+      __PRIVATE_logDebug(vt, "Starting transaction:", e);
+      const r = "readonly" === t ? "readonly" : "readwrite", i = (
+        /** Returns the object stores for the provided schema. */
+        (function __PRIVATE_getObjectStores(e2) {
+          return 18 === e2 ? Xe : 17 === e2 ? Ze : 16 === e2 ? Je : 15 === e2 ? He : 14 === e2 ? je : 13 === e2 ? ze : 12 === e2 ? Ge : 11 === e2 ? Qe : void fail(60245);
+        })(this.xi)
+      );
+      let s2;
+      return this.Ki.runTransaction(e, r, i, ((r2) => (s2 = new __PRIVATE_IndexedDbTransaction(r2, this.ai ? this.ai.next() : __PRIVATE_ListenSequence.ce), "readwrite-primary" === t ? this.ji(s2).next(((e2) => !!e2 || this.Ji(s2))).next(((t2) => {
+        if (!t2) throw __PRIVATE_logError(`Failed to obtain primary lease for action '${e}'.`), this.isPrimary = false, this.Ci.enqueueRetryable((() => this.ki(false))), new FirestoreError(D.FAILED_PRECONDITION, B);
+        return n(s2);
+      })).next(((e2) => this.Zi(s2).next((() => e2)))) : this.Ps(s2).next((() => n(s2)))))).then(((e2) => (s2.raiseOnCommittedEvent(), e2)));
+    }
+    /**
+     * Verifies that the current tab is the primary leaseholder or alternatively
+     * that the leaseholder has opted into multi-tab synchronization.
+     */
+    // TODO(b/114226234): Remove this check when `synchronizeTabs` can no longer
+    // be turned off.
+    Ps(e) {
+      return __PRIVATE_primaryClientStore(e).get(Q).next(((e2) => {
+        if (null !== e2 && this.ts(e2.leaseTimestampMs, Mt) && !this.ss(e2.ownerId) && !this.Xi(e2) && !(this.Mi || this.allowTabSynchronization && e2.allowTabSynchronization)) throw new FirestoreError(D.FAILED_PRECONDITION, xt);
+      }));
+    }
+    /**
+     * Obtains or extends the new primary lease for the local client. This
+     * method does not verify that the client is eligible for this lease.
+     */
+    Zi(e) {
+      const t = {
+        ownerId: this.clientId,
+        allowTabSynchronization: this.allowTabSynchronization,
+        leaseTimestampMs: Date.now()
+      };
+      return __PRIVATE_primaryClientStore(e).put(Q, t);
+    }
+    static v() {
+      return __PRIVATE_SimpleDb.v();
+    }
+    /** Checks the primary lease and removes it if we are the current primary. */
+    Hi(e) {
+      const t = __PRIVATE_primaryClientStore(e);
+      return t.get(Q).next(((e2) => this.Xi(e2) ? (__PRIVATE_logDebug(vt, "Releasing primary lease."), t.delete(Q)) : PersistencePromise.resolve()));
+    }
+    /** Verifies that `updateTimeMs` is within `maxAgeMs`. */
+    ts(e, t) {
+      const n = Date.now();
+      return !(e < n - t) && (!(e > n) || (__PRIVATE_logError(`Detected an update time that is in the future: ${e} > ${n}`), false));
+    }
+    Wi() {
+      null !== this.document && "function" == typeof this.document.addEventListener && (this.Ni = () => {
+        this.Ci.enqueueAndForget((() => (this.inForeground = "visible" === this.document.visibilityState, this.$i())));
+      }, this.document.addEventListener("visibilitychange", this.Ni), this.inForeground = "visible" === this.document.visibilityState);
+    }
+    us() {
+      this.Ni && (this.document.removeEventListener("visibilitychange", this.Ni), this.Ni = null);
+    }
+    /**
+     * Attaches a window.unload handler that will synchronously write our
+     * clientId to a "zombie client id" location in LocalStorage. This can be used
+     * by tabs trying to acquire the primary lease to determine that the lease
+     * is no longer valid even if the timestamp is recent. This is particularly
+     * important for the refresh case (so the tab correctly re-acquires the
+     * primary lease). LocalStorage is used for this rather than IndexedDb because
+     * it is a synchronous API and so can be used reliably from  an unload
+     * handler.
+     */
+    Qi() {
+      "function" == typeof this.window?.addEventListener && (this.Oi = () => {
+        this._s();
+        const e = /(?:Version|Mobile)\/1[456]/;
+        isSafari() && (navigator.appVersion.match(e) || navigator.userAgent.match(e)) && // On Safari 14, 15, and 16, we do not run any cleanup actions as it might
+        // trigger a bug that prevents Safari from re-opening IndexedDB during
+        // the next page load.
+        // See https://bugs.webkit.org/show_bug.cgi?id=226547
+        this.Ci.enterRestrictedMode(
+          /* purgeExistingTasks= */
+          true
+        ), this.Ci.enqueueAndForget((() => this.shutdown()));
+      }, this.window.addEventListener("pagehide", this.Oi));
+    }
+    cs() {
+      this.Oi && (this.window.removeEventListener("pagehide", this.Oi), this.Oi = null);
+    }
+    /**
+     * Returns whether a client is "zombied" based on its LocalStorage entry.
+     * Clients become zombied when their tab closes without running all of the
+     * cleanup logic in `shutdown()`.
+     */
+    ss(e) {
+      try {
+        const t = null !== this.Ui?.getItem(this.rs(e));
+        return __PRIVATE_logDebug(vt, `Client '${e}' ${t ? "is" : "is not"} zombied in LocalStorage`), t;
+      } catch (e2) {
+        return __PRIVATE_logError(vt, "Failed to get zombied client id.", e2), false;
+      }
+    }
+    /**
+     * Record client as zombied (a client that had its tab closed). Zombied
+     * clients are ignored during primary tab selection.
+     */
+    _s() {
+      if (this.Ui) try {
+        this.Ui.setItem(this.rs(this.clientId), String(Date.now()));
+      } catch (e) {
+        __PRIVATE_logError("Failed to set zombie client id.", e);
+      }
+    }
+    /** Removes the zombied client entry if it exists. */
+    ls() {
+      if (this.Ui) try {
+        this.Ui.removeItem(this.rs(this.clientId));
+      } catch (e) {
+      }
+    }
+    rs(e) {
+      return `firestore_zombie_${this.persistenceKey}_${e}`;
+    }
+  };
+  function __PRIVATE_primaryClientStore(e) {
+    return __PRIVATE_getStore(e, W);
+  }
+  function __PRIVATE_clientMetadataStore(e) {
+    return __PRIVATE_getStore(e, Ve);
+  }
+  function __PRIVATE_indexedDbStoragePrefix(e, t) {
+    let n = e.projectId;
+    return e.isDefaultDatabase || (n += "." + e.database), "firestore/" + t + "/" + n + "/";
+  }
   var __PRIVATE_LocalViewChanges = class ___PRIVATE_LocalViewChanges {
     constructor(e, t, n, r) {
       this.targetId = e, this.fromCache = t, this.Ts = n, this.Es = r;
@@ -18920,6 +22413,9 @@ Total Duration: ${a - u2}ms`);
   };
   function __PRIVATE_newConnection(e) {
     return new __PRIVATE_WebChannelConnection(e);
+  }
+  function __PRIVATE_getWindow() {
+    return "undefined" != typeof window ? window : null;
   }
   function getDocument() {
     return "undefined" != typeof document ? document : null;
@@ -20772,6 +24268,35 @@ This typically indicates that your device does not have a healthy Internet conne
       return new __PRIVATE_MemoryPersistence(((e2) => __PRIVATE_MemoryLruDelegate.Vi(e2, t)), this.serializer);
     }
   };
+  var __PRIVATE_IndexedDbOfflineComponentProvider = class extends __PRIVATE_MemoryOfflineComponentProvider {
+    constructor(e, t, n) {
+      super(), this.xu = e, this.cacheSizeBytes = t, this.forceOwnership = n, this.kind = "persistent", this.synchronizeTabs = false;
+    }
+    async initialize(e) {
+      await super.initialize(e), await this.xu.initialize(this, e), // Enqueue writes from a previous session
+      await __PRIVATE_syncEngineEnsureWriteCallbacks(this.xu.syncEngine), await __PRIVATE_fillWritePipeline(this.xu.remoteStore), // NOTE: This will immediately call the listener, so we make sure to
+      // set it after localStore / remoteStore are started.
+      await this.persistence.zi((() => (this.gcScheduler && !this.gcScheduler.started && this.gcScheduler.start(), this.indexBackfillerScheduler && !this.indexBackfillerScheduler.started && this.indexBackfillerScheduler.start(), Promise.resolve())));
+    }
+    vu(e) {
+      return __PRIVATE_newLocalStore(this.persistence, new __PRIVATE_QueryEngine(), e.initialUser, this.serializer);
+    }
+    Fu(e, t) {
+      const n = this.persistence.referenceDelegate.garbageCollector;
+      return new __PRIVATE_LruScheduler(n, e.asyncQueue, t);
+    }
+    Mu(e, t) {
+      const n = new __PRIVATE_IndexBackfiller(t, this.persistence);
+      return new __PRIVATE_IndexBackfillerScheduler(e.asyncQueue, n);
+    }
+    Cu(e) {
+      const t = __PRIVATE_indexedDbStoragePrefix(e.databaseInfo.databaseId, e.databaseInfo.persistenceKey), n = void 0 !== this.cacheSizeBytes ? LruParams.withCacheSize(this.cacheSizeBytes) : LruParams.DEFAULT;
+      return new __PRIVATE_IndexedDbPersistence(this.synchronizeTabs, t, e.clientId, n, e.asyncQueue, __PRIVATE_getWindow(), getDocument(), this.serializer, this.sharedClientState, !!this.forceOwnership);
+    }
+    Du(e) {
+      return new __PRIVATE_MemorySharedClientState();
+    }
+  };
   var OnlineComponentProvider = class {
     async initialize(e, t) {
       this.localStore || (this.localStore = e.localStore, this.sharedClientState = e.sharedClientState, this.datastore = this.createDatastore(t), this.remoteStore = this.createRemoteStore(t), this.eventManager = this.createEventManager(t), this.syncEngine = this.createSyncEngine(
@@ -22207,6 +25732,41 @@ This typically indicates that your device does not have a healthy Internet conne
     let r;
     return r = t ? n && (n.merge || n.mergeFields) ? t.toFirestore(e, n) : t.toFirestore(e) : e, r;
   }
+  var __PRIVATE_PersistentLocalCacheImpl = class {
+    constructor(t) {
+      let e;
+      this.kind = "persistent", t?.tabManager ? (t.tabManager._initialize(t), e = t.tabManager) : (e = persistentSingleTabManager(void 0), e._initialize(t)), this._onlineComponentProvider = e._onlineComponentProvider, this._offlineComponentProvider = e._offlineComponentProvider;
+    }
+    toJSON() {
+      return {
+        kind: this.kind
+      };
+    }
+  };
+  function persistentLocalCache(t) {
+    return new __PRIVATE_PersistentLocalCacheImpl(t);
+  }
+  var __PRIVATE_SingleTabManagerImpl = class {
+    constructor(t) {
+      this.forceOwnership = t, this.kind = "persistentSingleTab";
+    }
+    toJSON() {
+      return {
+        kind: this.kind
+      };
+    }
+    /**
+     * @internal
+     */
+    _initialize(t) {
+      this._onlineComponentProvider = OnlineComponentProvider.provider, this._offlineComponentProvider = {
+        build: (e) => new __PRIVATE_IndexedDbOfflineComponentProvider(e, t?.cacheSizeBytes, this.forceOwnership)
+      };
+    }
+  };
+  function persistentSingleTabManager(t) {
+    return new __PRIVATE_SingleTabManagerImpl(t?.forceOwnership);
+  }
   var SnapshotMetadata = class {
     /** @hideconstructor */
     constructor(t, e) {
@@ -22475,12 +26035,12 @@ This typically indicates that your device does not have a healthy Internet conne
   // src/mobile/lyrics-client.js
   var LRCLIB = "https://lrclib.net/api";
   var _cache = /* @__PURE__ */ new Map();
-  function cacheGet(k) {
-    return _cache.get(k);
+  function cacheGet(k2) {
+    return _cache.get(k2);
   }
-  function cacheSet(k, v2) {
+  function cacheSet(k2, v2) {
     if (_cache.size >= 50) _cache.delete(_cache.keys().next().value);
-    _cache.set(k, v2);
+    _cache.set(k2, v2);
   }
   async function getLyrics(trackName, artistName, albumName, durationSec) {
     const key = `${trackName}|${artistName}|${durationSec}`;
@@ -22575,6 +26135,12 @@ This typically indicates that your device does not have a healthy Internet conne
     web: () => Promise.resolve().then(() => (init_web(), web_exports)).then((m) => new m.FilesystemWeb())
   });
   f();
+
+  // node_modules/@capacitor/app/dist/esm/index.js
+  init_dist();
+  var App = registerPlugin("App", {
+    web: () => Promise.resolve().then(() => (init_web2(), web_exports2)).then((m) => new m.AppWeb())
+  });
 
   // node_modules/@capacitor/status-bar/dist/esm/index.js
   init_dist();
@@ -22673,7 +26239,8 @@ This typically indicates that your device does not have a healthy Internet conne
   var firebaseAuth = getAuth(firebaseApp);
   var firebaseDb = initializeFirestore(firebaseApp, {
     experimentalForceLongPolling: true,
-    useFetchStreams: false
+    useFetchStreams: false,
+    localCache: persistentLocalCache()
   });
   var SYNC_COLLECTION_V2 = "users_v2";
   var SYNC_COLLECTION_LEGACY = "users";
@@ -22874,6 +26441,10 @@ This typically indicates that your device does not have a healthy Internet conne
   var THEMES_DIR = "snowify/themes";
   var MKT_META_FILE = "snowify/themes/marketplace.json";
   async function scanThemes() {
+    try {
+      await Filesystem.mkdir({ path: THEMES_DIR, directory: DATA_DIR, recursive: true });
+    } catch (_) {
+    }
     const files = await fsList(THEMES_DIR);
     return files.filter((f2) => (f2.name || f2).endsWith(".css")).map((f2) => {
       const n = f2.name || f2;
@@ -23523,6 +27094,20 @@ This typically indicates that your device does not have a healthy Internet conne
       },
       onThumbarPlayPause: () => {
       },
+      // App lifecycle — fire registered callback when the app goes to background
+      // so pending saves (localStorage + cloud) are flushed before the OS can kill the process.
+      // Use 'pause' (maps to Android onPause) rather than appStateChange (onStop): onPause fires
+      // earlier and Android guarantees it won't kill the process during onPause, giving JS time to run.
+      onBeforeClose: (callback) => {
+        App.addListener("pause", async () => {
+          try {
+            await callback();
+          } catch (_) {
+          }
+        });
+      },
+      closeReady: () => {
+      },
       onThumbarNext: () => {
       },
       // Discord (no-op)
@@ -23530,11 +27115,6 @@ This typically indicates that your device does not have a healthy Internet conne
       disconnectDiscord: () => Promise.resolve(null),
       updatePresence: () => Promise.resolve(null),
       clearPresence: () => Promise.resolve(null),
-      // Graceful close (no-op — no beforeunload hook needed on mobile)
-      onBeforeClose: () => {
-      },
-      closeReady: () => {
-      },
       // Debug logs
       getLogs: () => Promise.resolve([]),
       appendLog: (entry) => {
@@ -23592,14 +27172,6 @@ This typically indicates that your device does not have a healthy Internet conne
 @firebase/firestore/dist/common-edb5d170.esm.js:
 @firebase/firestore/dist/common-edb5d170.esm.js:
 @firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
 @firebase/firestore/dist/index.esm.js:
   (**
    * @license
@@ -23620,11 +27192,6 @@ This typically indicates that your device does not have a healthy Internet conne
 
 @firebase/util/dist/index.esm.js:
 @firebase/util/dist/index.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
 @firebase/firestore/dist/index.esm.js:
 @firebase/firestore/dist/index.esm.js:
 @firebase/firestore/dist/index.esm.js:
@@ -23688,8 +27255,6 @@ This typically indicates that your device does not have a healthy Internet conne
 @firebase/auth/dist/esm/index-dfb5c973.js:
 @firebase/firestore/dist/common-edb5d170.esm.js:
 @firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
   (**
    * @license
    * Copyright 2019 Google LLC
@@ -23739,9 +27304,6 @@ firebase/app/dist/esm/index.esm.js:
 @firebase/auth/dist/esm/index-dfb5c973.js:
 @firebase/auth/dist/esm/index-dfb5c973.js:
 @firebase/auth/dist/esm/index-dfb5c973.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
 @firebase/firestore/dist/common-edb5d170.esm.js:
 @firebase/firestore/dist/common-edb5d170.esm.js:
 @firebase/firestore/dist/common-edb5d170.esm.js:
@@ -24257,9 +27819,6 @@ firebase/app/dist/esm/index.esm.js:
 
 @firebase/firestore/dist/common-edb5d170.esm.js:
 @firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
-@firebase/firestore/dist/common-edb5d170.esm.js:
   (**
    * @license
    * Copyright 2020 Google LLC
@@ -24346,40 +27905,6 @@ firebase/app/dist/esm/index.esm.js:
 @firebase/firestore/dist/common-edb5d170.esm.js:
   (**
    * @license
-   * Copyright 2018 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-  (**
-   * @license
-   * Copyright 2017 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/firestore/dist/common-edb5d170.esm.js:
-  (**
-   * @license
    * Copyright 2020 Google LLC
    *
    * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24396,75 +27921,7 @@ firebase/app/dist/esm/index.esm.js:
    *)
   (**
    * @license
-   * Copyright 2023 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/firestore/dist/common-edb5d170.esm.js:
-  (**
-   * @license
    * Copyright 2017 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-  (**
-   * @license
-   * Copyright 2022 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/firestore/dist/common-edb5d170.esm.js:
-  (**
-   * @license
-   * Copyright 2017 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-  (**
-   * @license
-   * Copyright 2020 Google LLC
    *
    * Licensed under the Apache License, Version 2.0 (the "License");
    * you may not use this file except in compliance with the License.
@@ -24530,6 +27987,204 @@ firebase/app/dist/esm/index.esm.js:
    *)
   (**
    * @license
+   * Copyright 2020 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+
+@firebase/firestore/dist/common-edb5d170.esm.js:
+  (**
+   * @license
+   * Copyright 2017 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+  (**
+   * @license
+   * Copyright 2020 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+  (**
+   * @license
+   * Copyright 2023 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+
+@firebase/firestore/dist/common-edb5d170.esm.js:
+  (**
+   * @license
+   * Copyright 2020 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+  (**
+   * @license
+   * Copyright 2017 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+  (**
+   * @license
+   * Copyright 2022 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+  (**
+   * @license
+   * Copyright 2019 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+
+@firebase/firestore/dist/common-edb5d170.esm.js:
+  (**
+   * @license
+   * Copyright 2017 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+  (**
+   * @license
+   * Copyright 2020 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+  (**
+   * @license
+   * Copyright 2018 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+  (**
+   * @license
+   * Copyright 2022 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+  (**
+   * @license
    * Copyright 2023 Google LLC
    *
    * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24630,6 +28285,54 @@ firebase/app/dist/esm/index.esm.js:
    *)
 
 @firebase/firestore/dist/common-edb5d170.esm.js:
+  (**
+   * @license
+   * Copyright 2017 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+  (**
+   * @license
+   * Copyright 2020 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+  (**
+   * @license
+   * Copyright 2022 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
   (**
    * @license
    * Copyright 2024 Google LLC
@@ -24646,8 +28349,6 @@ firebase/app/dist/esm/index.esm.js:
    * See the License for the specific language governing permissions and
    * limitations under the License.
    *)
-
-@firebase/firestore/dist/common-edb5d170.esm.js:
   (**
    * @license
    * Copyright 2021 Google LLC
@@ -24680,140 +28381,6 @@ firebase/app/dist/esm/index.esm.js:
    * See the License for the specific language governing permissions and
    * limitations under the License.
    *)
-
-@firebase/firestore/dist/common-edb5d170.esm.js:
-  (**
-   * @license
-   * Copyright 2018 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-  (**
-   * @license
-   * Copyright 2020 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/firestore/dist/common-edb5d170.esm.js:
-  (**
-   * @license
-   * Copyright 2017 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-  (**
-   * @license
-   * Copyright 2022 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-  (**
-   * @license
-   * Copyright 2020 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-  (**
-   * @license
-   * Copyright 2024 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-
-@firebase/firestore/dist/common-edb5d170.esm.js:
-  (**
-   * @license
-   * Copyright 2017 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
-  (**
-   * @license
-   * Copyright 2023 Google LLC
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
-   *
-   *   http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
-   *)
   (**
    * @license
    * Copyright 2019 Google LLC
@@ -24832,7 +28399,23 @@ firebase/app/dist/esm/index.esm.js:
    *)
   (**
    * @license
-   * Copyright 2020 Google LLC
+   * Copyright 2018 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+  (**
+   * @license
+   * Copyright 2023 Google LLC
    *
    * Licensed under the Apache License, Version 2.0 (the "License");
    * you may not use this file except in compliance with the License.

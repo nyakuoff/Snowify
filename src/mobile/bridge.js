@@ -29,6 +29,7 @@ import {
 } from 'firebase/auth';
 import {
   initializeFirestore,
+  persistentLocalCache,
   doc,
   getDoc,
   setDoc,
@@ -123,10 +124,13 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const firebaseAuth = getAuth(firebaseApp);
 // Capacitor WebViews are more reliable with Firestore long-polling than the
-// default streaming transport.
+// default streaming transport.  persistentLocalCache enables IndexedDB offline
+// persistence so setDoc() commits to local cache immediately (fast, offline-safe)
+// and syncs to the server in the background — surviving app suspend/kill.
 const firebaseDb = initializeFirestore(firebaseApp, {
   experimentalForceLongPolling: true,
   useFetchStreams: false,
+  localCache: persistentLocalCache(),
 });
 
 const SYNC_COLLECTION_V2 = 'users_v2';
@@ -260,6 +264,7 @@ function ensureAuthSubscription() {
 }
 import { getLyrics }   from './lyrics-client.js';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
 // ─── Filesystem helpers ───────────────────────────────────────────────────
@@ -356,6 +361,7 @@ const THEMES_DIR    = 'snowify/themes';
 const MKT_META_FILE = 'snowify/themes/marketplace.json';
 
 async function scanThemes() {
+  try { await Filesystem.mkdir({ path: THEMES_DIR, directory: DATA_DIR, recursive: true }); } catch (_) {}
   const files = await fsList(THEMES_DIR);
   return files
     .filter(f => (f.name || f).endsWith('.css'))
@@ -1057,6 +1063,17 @@ export function installMobileBridge() {
     updateThumbar:    () => {},
     onThumbarPrev:    () => {},
     onThumbarPlayPause: () => {},
+
+    // App lifecycle — fire registered callback when the app goes to background
+    // so pending saves (localStorage + cloud) are flushed before the OS can kill the process.
+    // Use 'pause' (maps to Android onPause) rather than appStateChange (onStop): onPause fires
+    // earlier and Android guarantees it won't kill the process during onPause, giving JS time to run.
+    onBeforeClose: (callback) => {
+      CapacitorApp.addListener('pause', async () => {
+        try { await callback(); } catch (_) {}
+      });
+    },
+    closeReady: () => {},
     onThumbarNext:    () => {},
 
     // Discord (no-op)
@@ -1064,10 +1081,6 @@ export function installMobileBridge() {
     disconnectDiscord: () => Promise.resolve(null),
     updatePresence:    () => Promise.resolve(null),
     clearPresence:     () => Promise.resolve(null),
-
-    // Graceful close (no-op — no beforeunload hook needed on mobile)
-    onBeforeClose: () => {},
-    closeReady:    () => {},
 
     // Debug logs
     getLogs:    () => Promise.resolve([]),
