@@ -8,7 +8,6 @@ A desktop music player built with Electron that streams audio from YouTube Music
 </p>
 <p align="center">
 <a href="https://discord.gg/JHDZraE5TD"><img src="https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord" /></a>
-<a href="https://github.com/nyakuoff/Snowify-Android"><img src="https://img.shields.io/badge/Android-Get%20the%20App-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" /></a>
 </p>
 
 > [!WARNING]
