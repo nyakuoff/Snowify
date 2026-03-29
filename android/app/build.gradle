@@ -1,9 +1,8 @@
 apply plugin: 'com.android.application'
 
 // Read version from package.json so it stays in sync with the JS release.
-def packageJson = new groovy.json.JsonSlurper().parse(file('../../package.json'))
-def pkgVersion = packageJson.version as String
-// Convert semver "X.Y.Z" to an integer versionCode (e.g. 2.1.3 → 20103).
+def pkgText = file('../../package.json').text
+def pkgVersion = (pkgText =~ /"version"\s*:\s*"([^"]+)"/)[0][1]
 def (major, minor, patch) = pkgVersion.tokenize('.').collect { it.toInteger() }
 def computedVersionCode = major * 10000 + minor * 100 + patch
 
