@@ -13,6 +13,9 @@ A desktop music player built with Electron that streams audio from YouTube Music
 > [!WARNING]
 > The app is still constantly being worked on and may contain a few bugs or experimental features, use at your own discretion.
 
+> [!IMPORTANT]
+> **Cloud Sync will stop working on any version prior to 2.0.** Please update to v2.0 or later to continue using Cloud Sync.
+
 ## Features
 
 - **Search** — Find songs, artists, and albums via YouTube Music
