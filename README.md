@@ -106,25 +106,7 @@ Every contribution keeps Snowify ad-free and fully open source. Thank you for be
 
 ## Contributing
 
-If you find bugs, have ideas, or want to clean something up, feel free to open an issue or a PR. All skill levels welcome.
-
-### Translating
-
-Snowify supports multiple languages through JSON translation files in `src/renderer/locales/`. To contribute a translation:
-
-1. **Copy the English file** — Duplicate `src/renderer/locales/en.json` and rename it to your language's [ISO 639-1 code](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) (e.g. `nl.json` for Dutch).
-
-2. **Translate the values** — Each file is a flat `"key": "value"` JSON object. Translate only the **values**, never the keys. Keep any `{{placeholder}}` variables intact:
-   ```json
-   "home.greeting.morning": "Goedemorgen",
-   "queue.trackCount": "{{count}} nummers"
-   ```
-
-3. **Register the language** — Add the new language code to the `SUPPORTED` array in `src/renderer/i18n.js` add a `<option>` for it in the language selector in `src/renderer/index.html` and add it to the supported languages in the README.
-
-4. **Open a PR** — Submit your translation file along with the registration changes.
-
-**Currently supported:** English, Spanish, Portuguese, French, German, Japanese, Korean, Chinese, Italian, Turkish, Russian, Hindi.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on reporting bugs, suggesting features, submitting pull requests, and translating.
 
 > [!NOTE]
 > **AI Disclaimer**: Parts of this project were assisted or written by AI. If that's something you're not comfortable with, no hard feelings, I understand and I don't force anyone to use it. The code may have flaws. If you spot something that could be better, contributions are very welcome. I'm still learning and would appreciate the help.

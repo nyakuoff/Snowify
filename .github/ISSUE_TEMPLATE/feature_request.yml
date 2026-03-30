@@ -1,0 +1,42 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, please check existing issues and the roadmap to see if this has already been suggested.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the use case or pain point. "I want X" is less useful than "I can't do Y because...".
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe what you'd like to see. Screenshots, mockups, or examples from other apps are helpful.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any other approaches you thought about?
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform relevance
+      description: Is this specific to a platform, or general?
+      options:
+        - All platforms
+        - Desktop only (Windows / macOS / Linux)
+        - Android only
+        - iOS only
+      default: 0
