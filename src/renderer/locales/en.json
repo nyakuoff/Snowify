@@ -402,6 +402,7 @@
   "dialog.showLogs": "Show Logs",
   "dialog.ytdlpInstallFailed": "Installation failed (exit code {{code}}). Try manually: brew install yt-dlp",
   "dialog.ytdlpInstalled": "yt-dlp installed successfully!",
+  "dialog.saveSong": "Save song",
   "explore.backToMoods": "← Back to Moods & Genres",
   "explore.noData": "No explore data available.",
   "explore.couldNotLoad": "Could not load explore data.",
