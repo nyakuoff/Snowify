@@ -949,20 +949,22 @@ export async function initSettings() {
   $('#btn-clear-logs').addEventListener('click', () => { _rendererLogs.length = 0; logsOutput.innerHTML = ''; showToast(I18n.t('settings.logsCleared')); });
 
   // ── Wrapped dev preview ──
-  const devWrappedBtn = document.createElement('div');
-  devWrappedBtn.className = 'setting-row';
-  devWrappedBtn.innerHTML = `
+  if (!document.getElementById('btn-preview-wrapped')) {
+    const devWrappedBtn = document.createElement('div');
+    devWrappedBtn.className = 'setting-row';
+    devWrappedBtn.innerHTML = `
     <div class="setting-info">
       <span class="setting-label" data-i18n="settings.devWrapped">${I18n.t('settings.devWrapped')}</span>
       <span class="setting-desc" data-i18n="settings.devWrappedDesc">${I18n.t('settings.devWrappedDesc')}</span>
     </div>
     <button class="btn-setting-action" id="btn-preview-wrapped" data-i18n="settings.devWrappedBtn">${I18n.t('settings.devWrappedBtn')}</button>`;
-  devModeContent.appendChild(devWrappedBtn);
-  document.getElementById('btn-preview-wrapped')?.addEventListener('click', () => {
-    const year = new Date().getFullYear();
-    const targetYear = state.playLog.some(e => new Date(e.ts).getFullYear() === year) ? year : year - 1;
-    window.WrappedManager?.show(targetYear, true);
-  });
+    devModeContent.appendChild(devWrappedBtn);
+    document.getElementById('btn-preview-wrapped')?.addEventListener('click', () => {
+      const year = new Date().getFullYear();
+      const targetYear = state.playLog.some(e => new Date(e.ts).getFullYear() === year) ? year : year - 1;
+      window.WrappedManager?.show(targetYear, true);
+    });
+  }
 
   // ── Source lists ──
   function renderSourceList(listEl, available, enabled, onChange) {
