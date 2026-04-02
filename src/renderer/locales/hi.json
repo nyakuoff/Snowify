@@ -40,6 +40,7 @@
   "library.emptyTitle": "अपनी पहली प्लेलिस्ट बनाएँ",
   "library.emptyDesc": "यह आसान है — हम आपकी मदद करेंगे",
   "library.createPlaylist": "प्लेलिस्ट बनाएँ",
+  "sidebar.yourLibrary": "आपकी लाइब्रेरी",
   "sidebar.playlists": "प्लेलिस्ट",
   "sidebar.likedSongs": "पसंदीदा गाने",
   "sidebar.songCount.one": "{{count}} गाना",

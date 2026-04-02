@@ -40,6 +40,7 @@
   "library.emptyTitle": "Создайте свой первый плейлист",
   "library.emptyDesc": "Это просто — мы поможем",
   "library.createPlaylist": "Создать плейлист",
+  "sidebar.yourLibrary": "Ваша библиотека",
   "sidebar.playlists": "Плейлисты",
   "sidebar.likedSongs": "Избранные треки",
   "sidebar.songCount.one": "{{count}} трек",

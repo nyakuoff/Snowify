@@ -43,6 +43,7 @@
   "library.emptyTitle": "Create your first playlist",
   "library.emptyDesc": "It’s easy — we’ll help you",
   "library.createPlaylist": "Create playlist",
+  "sidebar.yourLibrary": "Your Library",
   "sidebar.playlists": "Playlists",
   "sidebar.likedSongs": "Liked Songs",
   "sidebar.songCount.one": "{{count}} song",
