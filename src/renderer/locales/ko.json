@@ -40,6 +40,7 @@
   "library.emptyTitle": "첫 번째 플레이리스트를 만들어 보세요",
   "library.emptyDesc": "간단해요 — 도와드릴게요",
   "library.createPlaylist": "플레이리스트 만들기",
+  "sidebar.yourLibrary": "내 라이브러리",
   "sidebar.playlists": "플레이리스트",
   "sidebar.likedSongs": "좋아요한 노래",
   "sidebar.songCount.one": "{{count}}곡",

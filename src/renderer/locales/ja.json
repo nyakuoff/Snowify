@@ -40,6 +40,7 @@
   "library.emptyTitle": "最初のプレイリストを作成",
   "library.emptyDesc": "簡単です — お手伝いします",
   "library.createPlaylist": "プレイリストを作成",
+  "sidebar.yourLibrary": "あなたのライブラリ",
   "sidebar.playlists": "プレイリスト",
   "sidebar.likedSongs": "お気に入りの曲",
   "sidebar.songCount.one": "{{count}}曲",

@@ -40,6 +40,7 @@
   "library.emptyTitle": "İlk çalma listenizi oluşturun",
   "library.emptyDesc": "Çok kolay — size yardımcı olacağız",
   "library.createPlaylist": "Playlist oluştur",
+  "sidebar.yourLibrary": "Kütüphaneniz",
   "sidebar.playlists": "Playlist'ler",
   "sidebar.likedSongs": "Beğenilen Şarkılar",
   "sidebar.songCount.one": "{{count}} şarkı",
