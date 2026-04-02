@@ -1681,7 +1681,7 @@ body.audio-playing .play-btn {
 .progress-bar:hover { height: 6px; }
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), rgba(var(--ambient-rgb), 0.95));
+  background: rgb(var(--ambient-rgb));
   border-radius: 2px;
   width: 0%;
   position: relative;
