@@ -840,7 +840,7 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
   // ── Sidebar collapse toggle ──
   const btnToggleSidebar = $('#btn-toggle-sidebar');
   const SIDEBAR_COLLAPSED_KEY = 'snowify_sidebar_collapsed';
-  let _sidebarCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
+  let _sidebarCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '0';
 
   function applySidebarCollapsed(collapsed) {
     document.body.classList.toggle('sidebar-collapsed', collapsed);
@@ -851,7 +851,7 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
 
   btnToggleSidebar?.addEventListener('click', () => {
     _sidebarCollapsed = !_sidebarCollapsed;
-    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, _sidebarCollapsed ? '1' : '0');
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, _sidebarCollapsed ? '0' : '1');
     applySidebarCollapsed(_sidebarCollapsed);
   });
 

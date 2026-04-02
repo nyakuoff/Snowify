@@ -424,12 +424,13 @@ body.sidebar-collapsed .playlist-item {
 }
 body.sidebar-collapsed .playlist-item:hover { transform: none; }
 body.sidebar-collapsed .playlist-info { display: none; }
+body.sidebar-collapsed .playlist-cover-overlay { display: none; }
 
 /* ── Sidebar header (Your Library + collapse btn) ── */
 .sidebar-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   padding: 14px 12px 8px 10px;
   flex-shrink: 0;
   overflow: hidden;
@@ -444,7 +445,7 @@ body.sidebar-collapsed .playlist-info { display: none; }
 }
 .sidebar-collapse-btn {
   flex-shrink: 0;
-  padding: 6px;
+  padding: 5px;
   max-width: 0;
   overflow: hidden;
   opacity: 0;
@@ -453,7 +454,7 @@ body.sidebar-collapsed .playlist-info { display: none; }
 }
 #sidebar:hover .sidebar-collapse-btn,
 body.sidebar-collapsed .sidebar-collapse-btn {
-  max-width: 40px;
+  max-width: 36px;
   opacity: 1;
   pointer-events: auto;
 }
