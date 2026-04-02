@@ -1597,7 +1597,8 @@ body.audio-playing .track-row.playing .track-eq { display: flex; justify-content
   align-items: center;
   gap: 16px;
   padding-left: 8px;
-  overflow: hidden;
+  overflow: visible;
+  min-width: 0;
 }
 #np-thumbnail {
   width: 60px;
@@ -1617,13 +1618,14 @@ body.audio-playing #np-thumbnail {
   animation: artPulse 3.5s ease-in-out infinite;
 }
 @keyframes artPulse {
-  0%, 100% { box-shadow: 0 4px 16px rgba(0,0,0,0.45), 0 0 0 0px rgba(var(--ambient-rgb), 0.28); }
-  50%       { box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 0 5px rgba(var(--ambient-rgb), 0); }
+  0%, 100% { box-shadow: 0 4px 16px rgba(0,0,0,0.45), 0 0 0 0px rgba(var(--ambient-rgb), 0.5); }
+  50%       { box-shadow: 0 6px 24px rgba(0,0,0,0.5), 0 0 0 7px rgba(var(--ambient-rgb), 0); }
 }
 .np-text {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 .np-title {
   font-size: 14px;
@@ -1712,8 +1714,8 @@ body.audio-playing .play-btn {
   animation: playPulse 2.2s ease-in-out infinite;
 }
 @keyframes playPulse {
-  0%, 100% { box-shadow: 0 2px 12px rgba(255,255,255,0.15), 0 0 0 0px rgba(var(--ambient-rgb), 0.18); }
-  50%       { box-shadow: 0 2px 18px rgba(255,255,255,0.20), 0 0 0 7px rgba(var(--ambient-rgb), 0); }
+  0%, 100% { box-shadow: 0 2px 12px rgba(255,255,255,0.15), 0 0 0 0px rgba(var(--ambient-rgb), 0.4); }
+  50%       { box-shadow: 0 2px 20px rgba(255,255,255,0.25), 0 0 0 8px rgba(var(--ambient-rgb), 0); }
 }
 
 /* ── No miniplayer glow ── */
