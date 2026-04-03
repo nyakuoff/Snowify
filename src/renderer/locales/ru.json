@@ -42,6 +42,7 @@
   "library.createPlaylist": "Создать плейлист",
   "sidebar.yourLibrary": "Ваша библиотека",
   "sidebar.playlists": "Плейлисты",
+  "sidebar.following": "Подписки",
   "sidebar.likedSongs": "Избранные треки",
   "sidebar.songCount.one": "{{count}} трек",
   "sidebar.songCount.other": "{{count}} треков",

@@ -42,6 +42,7 @@
   "library.createPlaylist": "Criar playlist",
   "sidebar.yourLibrary": "Sua biblioteca",
   "sidebar.playlists": "Playlists",
+  "sidebar.following": "Seguindo",
   "sidebar.likedSongs": "Músicas curtidas",
   "sidebar.songCount.one": "{{count}} música",
   "sidebar.songCount.other": "{{count}} músicas",

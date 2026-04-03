@@ -154,6 +154,7 @@ export async function openArtistPage(artistId) {
     invalidateReleasesCache();
     callbacks.saveState();
     updateFollowBtn();
+    import('./library.js').then(m => m.renderSidebarArtists());
   };
 
   // Share button

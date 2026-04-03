@@ -14,7 +14,7 @@ import {
 } from './player.js';
 import { getLikedSongsPlaylist, handlePlayNext, handleAddToQueue, startRadio } from './queue.js';
 import { renderTrackList, showContextMenu, removeContextMenu, findTrackAlternatives } from './context-menus.js';
-import { bindArtistLinks } from './artist.js';
+import { bindArtistLinks, openArtistPage } from './artist.js';
 import { openSpotifyImport } from './csv-import.js';
 
 const $ = (sel, ctx = document) => ctx.querySelector(sel);
@@ -427,6 +427,32 @@ export function renderPlaylists() {
     item.addEventListener('drop',      (e) => { e.preventDefault(); item.classList.remove('drag-over'); handleTrackDrop(e, item.dataset.playlist); });
   });
   updatePlaylistHighlight();
+}
+
+// ─── renderSidebarArtists ─────────────────────────────────────────────────────
+
+export function renderSidebarArtists() {
+  const section   = document.getElementById('section-followed-artists');
+  const container = document.getElementById('artist-list');
+  if (!section || !container) return;
+  if (!state.followedArtists.length) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+  container.innerHTML = state.followedArtists.map(a => `
+    <div class="artist-item" data-artist-id="${escapeHtml(a.artistId)}">
+      <div class="artist-item-avatar">
+        ${a.avatar
+          ? `<img src="${escapeHtml(a.avatar)}" alt="" />`
+          : `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>`}
+      </div>
+      <span class="artist-item-name">${escapeHtml(a.name)}</span>
+    </div>
+  `).join('');
+  container.querySelectorAll('.artist-item').forEach(item => {
+    item.addEventListener('click', () => openArtistPage(item.dataset.artistId));
+  });
 }
 
 // ─── showPlaylistDetail ───────────────────────────────────────────────────────

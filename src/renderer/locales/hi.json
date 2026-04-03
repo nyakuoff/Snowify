@@ -42,6 +42,7 @@
   "library.createPlaylist": "प्लेलिस्ट बनाएँ",
   "sidebar.yourLibrary": "आपकी लाइब्रेरी",
   "sidebar.playlists": "प्लेलिस्ट",
+  "sidebar.following": "फ़ॉलो किया",
   "sidebar.likedSongs": "पसंदीदा गाने",
   "sidebar.songCount.one": "{{count}} गाना",
   "sidebar.songCount.other": "{{count}} गाने",

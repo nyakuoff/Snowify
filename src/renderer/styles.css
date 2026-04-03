@@ -385,9 +385,11 @@ html, body {
   border-right: 1px solid rgba(255, 255, 255, 0.04);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
+  padding-bottom: 114px;
 }
 
 /* ── Sidebar collapsed ── */
@@ -516,10 +518,9 @@ body.sidebar-collapsed .sidebar-collapse-btn svg {
 }
 
 .sidebar-section {
-  flex: 1;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   padding: 0 8px;
   margin-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.04);
@@ -548,10 +549,47 @@ body.sidebar-collapsed .sidebar-collapse-btn svg {
   gap: 4px;
 }
 
+/* ─── Collapsible section toggle ─────────────────────────────────────────── */
+.section-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font-family: var(--font);
+  text-align: left;
+  min-width: 0;
+}
+.section-toggle-btn:hover h3 { color: var(--text-primary); }
+.section-chevron {
+  flex-shrink: 0;
+  color: var(--text-subdued);
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.sidebar-section.section-collapsed .section-chevron {
+  transform: rotate(-90deg);
+}
+.sidebar-section-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  overflow: hidden;
+  transition: grid-template-rows 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.sidebar-section.section-collapsed .sidebar-section-body {
+  grid-template-rows: 0fr;
+}
+.sidebar-section-body > * { min-height: 0; }
+/* In icon-only collapsed sidebar, keep sections always open */
+body.sidebar-collapsed .section-toggle-btn { pointer-events: none; }
+body.sidebar-collapsed .section-chevron { display: none; }
+body.sidebar-collapsed .sidebar-section.section-collapsed .sidebar-section-body {
+  grid-template-rows: 1fr;
+}
+
 .playlist-list {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -649,6 +687,61 @@ body.sidebar-collapsed .sidebar-collapse-btn svg {
   font-size: 12px;
   color: var(--text-subdued);
 }
+
+/* ─── Followed artists in sidebar ─────────────────────────────────────────── */
+.artist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.artist-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+}
+.artist-item:hover {
+  background: rgba(255, 255, 255, 0.055);
+  transform: translateX(3px);
+}
+[data-theme="light"] .artist-item:hover { background: rgba(0, 0, 0, 0.04); }
+.artist-item-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-elevated);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  color: var(--text-subdued);
+}
+.artist-item-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.artist-item-name {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+body.sidebar-collapsed .artist-item {
+  justify-content: center;
+  padding: 6px 0;
+  gap: 0;
+}
+body.sidebar-collapsed .artist-item:hover { transform: none; }
+body.sidebar-collapsed .artist-item-name { display: none; }
+body.sidebar-collapsed #section-followed-artists .sidebar-section-header { display: none; }
 
 /* ═══════ Main Content ═══════ */
 .update-banner {

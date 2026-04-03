@@ -42,6 +42,7 @@
   "library.createPlaylist": "创建播放列表",
   "sidebar.yourLibrary": "你的音乐库",
   "sidebar.playlists": "播放列表",
+  "sidebar.following": "关注",
   "sidebar.likedSongs": "喜欢的歌曲",
   "sidebar.songCount.one": "{{count}} 首歌曲",
   "sidebar.songCount.other": "{{count}} 首歌曲",

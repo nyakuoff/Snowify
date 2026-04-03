@@ -7,7 +7,7 @@ import { closeLyricsPanel } from './modules/lyrics.js';
 import { extractDominantColor, openMaxNP, closeMaxNP } from './modules/now-playing.js';
 import { setVolume, togglePlay, playNext, playPrev, playTrack, updateRepeatButton, showNowPlaying, getPrefetchCache } from './modules/player.js';
 import { renderQueue } from './modules/queue.js';
-import { renderPlaylists, renderLibrary } from './modules/library.js';
+import { renderPlaylists, renderLibrary, renderSidebarArtists } from './modules/library.js';
 import { renderHome } from './modules/home.js';
 import { renderExplore } from './modules/explore.js';
 import { showAlbumDetail } from './modules/album.js';
@@ -545,6 +545,7 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
     _cloudSyncPaused = false;
 
     renderPlaylists();
+    renderSidebarArtists();
     renderHome();
     applyTheme(state.theme);
 
@@ -855,6 +856,13 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
     applySidebarCollapsed(_sidebarCollapsed);
   });
 
+  // ── Sidebar section collapse toggles ──
+  document.querySelectorAll('.section-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.closest('.sidebar-section').classList.toggle('section-collapsed');
+    });
+  });
+
   // ── Floating search pill ──
   const floatingSearch = $('#floating-search');
   floatingSearch.addEventListener('click', () => switchView('search'));
@@ -1086,6 +1094,7 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
     $('#btn-repeat').classList.toggle('active', state.repeat !== 'off');
     updateRepeatButton();
     renderPlaylists();
+    renderSidebarArtists();
     renderHome();
     initSettings().catch(err => {
       console.error('[initSettings crashed]', err);
@@ -1271,6 +1280,7 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
   I18n.onChange(() => {
     updateGreeting();
     renderPlaylists();
+    renderSidebarArtists();
     renderHome();
     renderQueue();
     const view = state.currentView;

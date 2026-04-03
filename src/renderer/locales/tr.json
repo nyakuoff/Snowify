@@ -42,6 +42,7 @@
   "library.createPlaylist": "Playlist oluştur",
   "sidebar.yourLibrary": "Kütüphaneniz",
   "sidebar.playlists": "Playlist'ler",
+  "sidebar.following": "Takip Edilenler",
   "sidebar.likedSongs": "Beğenilen Şarkılar",
   "sidebar.songCount.one": "{{count}} şarkı",
   "sidebar.songCount.other": "{{count}} şarkı",
