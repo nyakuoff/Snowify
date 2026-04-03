@@ -392,6 +392,7 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
   let _cloudSaveTimeout = null;
   let _cloudUser = null;
   let _cloudSyncPaused = false;
+  let _cloudInitialLoadDone = false; // true after first cloudLoad attempt completes
   let _cloudLastPayloadHash = null;
   let _cloudLastSentAt = 0;
   let _cloudLastErrorToastAt = 0;
@@ -544,6 +545,9 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
 
   async function cloudLoadAndMerge({ forceCloud = false } = {}) {
     const cloudRaw = await window.snowify.cloudLoad();
+    // Mark that we've completed a cloud load attempt regardless of outcome —
+    // this unblocks cloud saves so we don't keep writing stale local state.
+    _cloudInitialLoadDone = true;
     if (!cloudRaw) return false;
     const cloud = normalizeForCloud(cloudRaw);
 
@@ -1342,14 +1346,15 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
   window.snowify.onBeforeClose(async () => {
     getPrefetchCache().destroy();
     _flushSaveState();
-    await forceCloudSave();
+    // On mobile, if the initial cloud load never completed (e.g. backgrounded during
+    // startup), skip the cloud save to avoid clobbering a newer desktop session.
+    if (!IS_MOBILE_RUNTIME || _cloudInitialLoadDone) {
+      await forceCloudSave();
+    }
     window.snowify.closeReady();
   });
 
-  // visibilitychange fires in the WebView when Android backgrounds the app.
-  // Always flush and attempt cloud save — don't gate on _cloudSaveTimeout being set:
-  // if the user changed something and closed within the 300ms saveState debounce window,
-  // _cloudSaveTimeout is still null but the change still needs to be cloud-saved.
+  // visibilitychange fires in the WebView when Android backgrounds/foregrounds the app.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
       _flushSaveState(); // sync localStorage write, also clears the 300ms timer
@@ -1357,7 +1362,15 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
         clearTimeout(_cloudSaveTimeout);
         _cloudSaveTimeout = null;
       }
-      _performCloudSave({ force: false }).catch(() => {}); // hash-check guards redundant writes
+      // Guard: don't save stale local state to cloud if the initial load hasn't
+      // completed yet — that would clobber a newer desktop session.
+      if (_cloudInitialLoadDone) {
+        _performCloudSave({ force: false }).catch(() => {}); // hash-check guards redundant writes
+      }
+    } else if (document.visibilityState === 'visible' && IS_MOBILE_RUNTIME && _cloudUser) {
+      // App came back to foreground on mobile — reload from cloud so any changes
+      // made on another device while this one was backgrounded are picked up.
+      cloudLoadAndMerge({ forceCloud: !_cloudInitialLoadDone }).catch(() => {});
     }
   });
   I18n.onChange(() => {
