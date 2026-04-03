@@ -667,7 +667,10 @@ body.sidebar-collapsed .sidebar-section.section-collapsed .sidebar-section-body 
   overflow: hidden;
 }
 .liked-cover {
-  background: linear-gradient(135deg, #0e0820 0%, #2c0f65 55%, #6d28d9 100%);
+  background: linear-gradient(135deg, #ff6a00 0%, #ee0979 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .playlist-info {
@@ -1538,7 +1541,7 @@ body.audio-playing .track-row.playing .track-eq { display: flex; justify-content
   width: 200px;
   height: 200px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, #0e0820 0%, #2c0f65 55%, #6d28d9 100%);
+  background: linear-gradient(135deg, #ff6a00 0%, #ee0979 100%);
   position: relative;
   flex-shrink: 0;
   display: flex;
@@ -3771,7 +3774,7 @@ body.audio-playing .play-btn {
   transform: scale(1.02);
 }
 .lib-card-cover.liked-cover {
-  background: linear-gradient(135deg, #0e0820 0%, #2c0f65 55%, #6d28d9 100%);
+  background: linear-gradient(135deg, #ff6a00 0%, #ee0979 100%);
 }
 .lib-card-cover img {
   width: 100%;
