@@ -339,7 +339,7 @@ export function renderPlaylists() {
   let html = `
     <div class="playlist-item" data-playlist="liked">
       <div class="playlist-cover liked-cover">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="rgba(255,255,255,0.88)"><path d="M12 2L14.8 9.2L22 12L14.8 14.8L12 22L9.2 14.8L2 12L9.2 9.2Z"/></svg>
         <div class="playlist-cover-overlay">${SIDEBAR_PLAY_SVG}</div>
       </div>
       <div class="playlist-info">
@@ -471,9 +471,11 @@ export function showPlaylistDetail(playlist, isLiked) {
   heroCount.textContent = I18n.tp('sidebar.songCount', playlist.tracks.length);
 
   if (isLiked) {
-    heroCover.innerHTML = `<svg width="64" height="64" viewBox="0 0 24 24" fill="#fff"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
-    heroCover.style.background = 'linear-gradient(135deg, #450af5, #c4efd9)';
+    heroCover.innerHTML = `<svg width="64" height="64" viewBox="0 0 24 24" fill="rgba(255,255,255,0.88)"><path d="M12 2L14.8 9.2L22 12L14.8 14.8L12 22L9.2 14.8L2 12L9.2 9.2Z"/></svg>`;
+    heroCover.style.background = 'linear-gradient(135deg, #0e0820 0%, #2c0f65 55%, #6d28d9 100%)';
+    heroCover.classList.add('liked-hero-cover');
   } else {
+    heroCover.classList.remove('liked-hero-cover');
     const coverContent = getPlaylistCoverHtml(playlist, 'large');
     const hasCover     = playlist.coverImage || playlist.tracks.length > 0;
     heroCover.innerHTML        = coverContent;
