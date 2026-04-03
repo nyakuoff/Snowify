@@ -3001,12 +3001,10 @@ body.audio-playing .play-btn {
   border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: var(--radius-lg);
   padding: 20px 24px;
-  box-shadow: inset 3px 0 0 var(--accent-border);
-  transition: border-color var(--transition), box-shadow var(--transition);
+  transition: border-color var(--transition);
 }
 .settings-group:hover {
   border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 3px 0 0 var(--accent);
 }
 .settings-group h3 {
   font-size: 11px;
