@@ -6314,6 +6314,7 @@ body.i18n-switching { opacity: 0; }
 .platform-mobile #titlebar,
 .platform-mobile #floating-search,
 .platform-mobile .floating-search,
+.platform-mobile .sidebar-header,
 .platform-mobile #update-banner,
 .platform-mobile .sidebar-resize-handle { display: none !important; }
 
