@@ -1,13 +1,13 @@
 :root {
-  /* ── Base palette — Dark (neutral, Spotify-style) ── */
-  --bg-base: #0a0a0a;
-  --bg-surface: #121212;
-  --bg-elevated: #1a1a1a;
-  --bg-highlight: #262626;
-  --bg-card: #161616;
+  /* ── Base palette — Dark ── */
+  --bg-base: #030303;
+  --bg-surface: #080808;
+  --bg-elevated: #101010;
+  --bg-highlight: #1a1a1a;
+  --bg-card: #0c0c0c;
   --bg-gradient-1: transparent;
   --bg-gradient-2: transparent;
-  --bg-surface-top: #121212;
+  --bg-surface-top: #080808;
   --text-primary: #ffffff;
   --text-secondary: #b3b3b3;
   --text-subdued: #6a6a6a;
@@ -23,7 +23,7 @@
   --radius-lg: 16px;
   --transition: 220ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-bounce: 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  --sidebar-width: 280px;
+  --sidebar-width: 240px;
   --titlebar-height: 38px;
   --now-playing-height: 114px;
   --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -667,7 +667,10 @@ body.sidebar-collapsed .sidebar-section.section-collapsed .sidebar-section-body 
   overflow: hidden;
 }
 .liked-cover {
-  background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+  background: linear-gradient(135deg, #ff6a00 0%, #ee0979 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .playlist-info {
@@ -925,20 +928,17 @@ body.sidebar-collapsed #section-followed-artists .sidebar-section-header { displ
   display: flex;
   align-items: center;
   background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: none;
   border-radius: var(--radius);
   overflow: hidden;
   cursor: pointer;
-  transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+  transition: background var(--transition), transform var(--transition);
   position: relative;
   will-change: transform;
 }
 .quick-pick-card:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
   transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .quick-pick-card img {
@@ -986,12 +986,10 @@ body.sidebar-collapsed #section-followed-artists .sidebar-section-header { displ
   margin-bottom: 40px;
 }
 .section h2 {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   margin-bottom: 16px;
   letter-spacing: -0.2px;
-  padding-left: 12px;
-  border-left: 3px solid var(--accent);
   line-height: 1.25;
 }
 .library-header-actions {
@@ -1006,7 +1004,7 @@ body.sidebar-collapsed #section-followed-artists .sidebar-section-header { displ
 
 .track-card {
   background: var(--bg-card);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: none;
   border-radius: var(--radius-lg);
   padding: 14px;
   cursor: pointer;
@@ -1018,6 +1016,16 @@ body.sidebar-collapsed #section-followed-artists .sidebar-section-header { displ
   transform: translateY(-3px);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
 }
+/* Fallback for images whose CDN URL has expired / permanently failed.
+   Works on <img alt=""> — background is visible when the image doesn't render. */
+.img-error {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff22'%3E%3Cpath d='M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 38% !important;
+  background-color: var(--bg-highlight) !important;
+}
+
 .track-card .card-thumb {
   width: 100%;
   aspect-ratio: 1;
@@ -1375,13 +1383,11 @@ body.sidebar-collapsed #section-followed-artists .sidebar-section-header { displ
   transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
 }
 .track-row:hover {
-  background: rgba(255, 255, 255, 0.05);
-  transform: translateX(3px);
-  box-shadow: -3px 0 0 var(--accent-border);
+  background: rgba(255, 255, 255, 0.04);
+  transform: translateX(2px);
 }
 .track-row.playing {
   background: var(--accent-dim);
-  box-shadow: -3px 0 0 var(--accent);
 }
 
 .track-num {
@@ -1545,7 +1551,7 @@ body.audio-playing .track-row.playing .track-eq { display: flex; justify-content
   width: 200px;
   height: 200px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+  background: linear-gradient(135deg, #ff6a00 0%, #ee0979 100%);
   position: relative;
   flex-shrink: 0;
   display: flex;
@@ -2286,6 +2292,13 @@ body.audio-playing .play-btn {
   background: var(--accent-dim);
   transform: translateX(2px);
 }
+.ctx-dev-item {
+  color: var(--accent) !important;
+  opacity: 0.8;
+}
+.ctx-dev-item:hover {
+  opacity: 1;
+}
 .context-menu-divider {
   height: 1px;
   background: rgba(255, 255, 255, 0.05);
@@ -2709,18 +2722,17 @@ body.audio-playing .play-btn {
   flex: 0 0 180px;
   width: 180px;
   background: var(--bg-card);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: none;
   border-radius: var(--radius-lg);
   padding: 14px;
   cursor: pointer;
-  transition: background var(--transition), transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow var(--transition), border-color var(--transition);
+  transition: background var(--transition), transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow var(--transition);
   position: relative;
 }
 .album-card:hover {
   background: var(--bg-elevated);
-  transform: translateY(-6px) scale(1.02);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(var(--ambient-rgb), 0.2);
-  border-color: rgba(255, 255, 255, 0.08);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
 }
 .album-card-cover {
   width: 100%;
@@ -2998,13 +3010,13 @@ body.audio-playing .play-btn {
 .settings-group {
   margin-bottom: 32px;
   background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: none;
   border-radius: var(--radius-lg);
   padding: 20px 24px;
-  transition: border-color var(--transition);
+  transition: background var(--transition);
 }
 .settings-group:hover {
-  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
 }
 .settings-group h3 {
   font-size: 11px;
@@ -3750,7 +3762,7 @@ body.audio-playing .play-btn {
 }
 .lib-card {
   background: var(--bg-card);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: none;
   border-radius: var(--radius-lg);
   padding: 14px;
   cursor: pointer;
@@ -3778,7 +3790,7 @@ body.audio-playing .play-btn {
   transform: scale(1.02);
 }
 .lib-card-cover.liked-cover {
-  background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+  background: linear-gradient(135deg, #ff6a00 0%, #ee0979 100%);
 }
 .lib-card-cover img {
   width: 100%;
@@ -4958,7 +4970,7 @@ body.audio-playing .play-btn {
   flex: 0 0 240px;
   width: 240px;
   background: var(--bg-card);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: none;
   border-radius: var(--radius-lg);
   padding: 10px;
   cursor: pointer;
@@ -5510,7 +5522,7 @@ body.i18n-switching { opacity: 0; }
 }
 .plugin-card {
   background: var(--bg-card);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: none;
   border-radius: var(--radius-lg);
   padding: 20px;
   display: flex;
@@ -5670,7 +5682,7 @@ body.i18n-switching { opacity: 0; }
   gap: 14px;
   padding: 12px 16px;
   background: var(--bg-card);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: none;
   border-radius: var(--radius-lg);
   transition: background var(--transition);
 }
@@ -5813,7 +5825,7 @@ body.i18n-switching { opacity: 0; }
 /* ── Theme cards ── */
 .theme-card {
   background: var(--bg-card);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: none;
   border-radius: var(--radius-lg);
   padding: 0;
   display: flex;
@@ -6319,6 +6331,7 @@ body.i18n-switching { opacity: 0; }
 .platform-mobile #titlebar,
 .platform-mobile #floating-search,
 .platform-mobile .floating-search,
+.platform-mobile .sidebar-header,
 .platform-mobile #update-banner,
 .platform-mobile .sidebar-resize-handle { display: none !important; }
 

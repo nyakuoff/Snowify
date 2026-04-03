@@ -15,4 +15,7 @@ export const callbacks = {
 
   /** Switch the main view — set by app.js */
   switchView: (_view) => {},
+
+  /** Dev-mode: force-reload metadata + thumbnail for a track — set by app.js */
+  forceReloadTrack: (_track) => {},
 };

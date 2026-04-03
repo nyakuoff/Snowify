@@ -52,37 +52,22 @@
       "path": "song-downloader",
       "branch": "main",
       "official": true
-    },
-    {
-      "id": "soundcloud-source",
-      "name": "SoundCloud Source",
-      "description": "Adds SoundCloud as a fallback song source. When YouTube is unavailable, Snowify streams from SoundCloud automatically.",
-      "author": "Snowify Team",
-      "version": "1.0.0",
-      "icon": "☁️",
-      "logoUrl": "logo.png",
-      "category": "sources",
-      "repo": "nyakuoff/Snowify-Plugins",
-      "path": "soundcloud-source",
-      "branch": "main",
-      "official": true
-    },
-    {
-      "id": "spotify-metadata",
-      "name": "Spotify Metadata",
-      "description": "Enriches tracks with Spotify metadata: genres, popularity, and artist images.",
-      "author": "Snowify Team",
-      "version": "1.0.0",
-      "icon": "🎵",
-      "logoUrl": "logo.png",
-      "category": "metadata",
-      "repo": "nyakuoff/Snowify-Plugins",
-      "path": "spotify-metadata",
-      "branch": "main",
-      "official": true
     }
   ],
   "themes": [
+    {
+      "id": "snowify-legacy",
+      "name": "Snowify Legacy",
+      "description": "Restores the classic Snowify look: original color palette, wider sidebar, purple Liked Songs cover, accent-bar decorations, and card hover effects.",
+      "author": "Snowify Team",
+      "version": "1.0.0",
+      "file": "theme.css",
+      "preview": ["#121212", "#aa55e6", "#a29bfe", "#6c5ce7"],
+      "repo": "nyakuoff/Snowify",
+      "path": "plugins/themes/snowify-legacy",
+      "branch": "main",
+      "official": true
+    },
     {
       "id": "nord",
       "name": "Nord",
@@ -91,8 +76,8 @@
       "version": "1.0.0",
       "file": "theme.css",
       "preview": ["#2e3440", "#88c0d0", "#eceff4", "#d8dee9"],
-      "repo": "nyakuoff/Snowify-Themes",
-      "path": "nord",
+      "repo": "nyakuoff/Snowify",
+      "path": "plugins/themes/nord",
       "branch": "main",
       "official": true
     },
@@ -104,8 +89,8 @@
       "version": "1.0.0",
       "file": "theme.css",
       "preview": ["#1a1b2e", "#7aa2f7", "#c0caf5", "#a9b1d6"],
-      "repo": "nyakuoff/Snowify-Themes",
-      "path": "tokyo-night",
+      "repo": "nyakuoff/Snowify",
+      "path": "plugins/themes/tokyo-night",
       "branch": "main",
       "official": true
     },
@@ -117,8 +102,8 @@
       "version": "1.0.0",
       "file": "theme.css",
       "preview": ["#1e1e2e", "#cba6f7", "#cdd6f4", "#a6adc8"],
-      "repo": "nyakuoff/Snowify-Themes",
-      "path": "catppuccin-mocha",
+      "repo": "nyakuoff/Snowify",
+      "path": "plugins/themes/catppuccin-mocha",
       "branch": "main",
       "official": true
     }

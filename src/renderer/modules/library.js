@@ -339,7 +339,7 @@ export function renderPlaylists() {
   let html = `
     <div class="playlist-item" data-playlist="liked">
       <div class="playlist-cover liked-cover">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="rgba(255,255,255,0.88)"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
         <div class="playlist-cover-overlay">${SIDEBAR_PLAY_SVG}</div>
       </div>
       <div class="playlist-info">
@@ -471,9 +471,11 @@ export function showPlaylistDetail(playlist, isLiked) {
   heroCount.textContent = I18n.tp('sidebar.songCount', playlist.tracks.length);
 
   if (isLiked) {
-    heroCover.innerHTML = `<svg width="64" height="64" viewBox="0 0 24 24" fill="#fff"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
-    heroCover.style.background = 'linear-gradient(135deg, #450af5, #c4efd9)';
+    heroCover.innerHTML = `<svg width="64" height="64" viewBox="0 0 24 24" fill="rgba(255,255,255,0.88)"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
+    heroCover.style.background = '';
+    heroCover.classList.add('liked-hero-cover', 'liked-cover');
   } else {
+    heroCover.classList.remove('liked-hero-cover', 'liked-cover');
     const coverContent = getPlaylistCoverHtml(playlist, 'large');
     const hasCover     = playlist.coverImage || playlist.tracks.length > 0;
     heroCover.innerHTML        = coverContent;
@@ -598,6 +600,7 @@ export function showPlaylistTrackMenu(e, track, playlist, isLiked, idx) {
     ${!isLiked && idx > 0 ? `<div class="context-menu-item" data-action="move-up">${I18n.t('context.moveUp')}</div>` : ''}
     ${!isLiked && idx < playlist.tracks.length - 1 ? `<div class="context-menu-item" data-action="move-down">${I18n.t('context.moveDown')}</div>` : ''}
     ${isLocal ? '' : `<div class="context-menu-divider"></div><div class="context-menu-item" data-action="share">${I18n.t('context.copyLink')}</div>`}
+    ${localStorage.getItem('snowify_dev_mode') === '1' ? `<div class="context-menu-divider"></div><div class="context-menu-item ctx-dev-item" data-action="force-reload">${I18n.t('context.forceReload')}</div>` : ''}
   `;
 
   if (isMobile) {
@@ -688,6 +691,10 @@ export function showPlaylistTrackMenu(e, track, playlist, isLiked, idx) {
       case 'share':
         navigator.clipboard.writeText(`https://snowify.cc/track/${track.id}`);
         showToast(I18n.t('toast.linkCopied'));
+        break;
+      case 'force-reload':
+        callbacks.forceReloadTrack(track);
+        showToast(I18n.t('toast.reloading'));
         break;
     }
     removeContextMenu();
