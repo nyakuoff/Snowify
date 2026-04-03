@@ -928,7 +928,7 @@ body.sidebar-collapsed #section-followed-artists .sidebar-section-header { displ
   display: flex;
   align-items: center;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: none;
   border-radius: var(--radius);
   overflow: hidden;
   cursor: pointer;
@@ -1004,7 +1004,7 @@ body.sidebar-collapsed #section-followed-artists .sidebar-section-header { displ
 
 .track-card {
   background: var(--bg-card);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: none;
   border-radius: var(--radius-lg);
   padding: 14px;
   cursor: pointer;
@@ -2705,18 +2705,17 @@ body.audio-playing .play-btn {
   flex: 0 0 180px;
   width: 180px;
   background: var(--bg-card);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: none;
   border-radius: var(--radius-lg);
   padding: 14px;
   cursor: pointer;
-  transition: background var(--transition), transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow var(--transition), border-color var(--transition);
+  transition: background var(--transition), transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow var(--transition);
   position: relative;
 }
 .album-card:hover {
   background: var(--bg-elevated);
   transform: translateY(-4px);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
-  border-color: rgba(255, 255, 255, 0.08);
 }
 .album-card-cover {
   width: 100%;
@@ -2994,13 +2993,13 @@ body.audio-playing .play-btn {
 .settings-group {
   margin-bottom: 32px;
   background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: none;
   border-radius: var(--radius-lg);
   padding: 20px 24px;
-  transition: border-color var(--transition);
+  transition: background var(--transition);
 }
 .settings-group:hover {
-  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
 }
 .settings-group h3 {
   font-size: 11px;
@@ -3746,7 +3745,7 @@ body.audio-playing .play-btn {
 }
 .lib-card {
   background: var(--bg-card);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: none;
   border-radius: var(--radius-lg);
   padding: 14px;
   cursor: pointer;
@@ -4954,7 +4953,7 @@ body.audio-playing .play-btn {
   flex: 0 0 240px;
   width: 240px;
   background: var(--bg-card);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: none;
   border-radius: var(--radius-lg);
   padding: 10px;
   cursor: pointer;
@@ -5506,7 +5505,7 @@ body.i18n-switching { opacity: 0; }
 }
 .plugin-card {
   background: var(--bg-card);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: none;
   border-radius: var(--radius-lg);
   padding: 20px;
   display: flex;
@@ -5666,7 +5665,7 @@ body.i18n-switching { opacity: 0; }
   gap: 14px;
   padding: 12px 16px;
   background: var(--bg-card);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: none;
   border-radius: var(--radius-lg);
   transition: background var(--transition);
 }
@@ -5809,7 +5808,7 @@ body.i18n-switching { opacity: 0; }
 /* ── Theme cards ── */
 .theme-card {
   background: var(--bg-card);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: none;
   border-radius: var(--radius-lg);
   padding: 0;
   display: flex;
