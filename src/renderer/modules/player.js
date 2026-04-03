@@ -783,13 +783,15 @@ export function updatePlayAllBtn(btn, tracks, sourcePlaylistId) {
 
 function updateMediaSession(track) {
   if (!('mediaSession' in navigator)) return;
+  const thumb = track.thumbnail || '';
+  const isValidScheme = /^(https?:|data:|blob:)/i.test(thumb);
   navigator.mediaSession.metadata = new MediaMetadata({
     title: track.title, artist: track.artist,
-    artwork: [
-      { src: track.thumbnail, sizes: '96x96',   type: 'image/jpeg' },
-      { src: track.thumbnail, sizes: '256x256', type: 'image/jpeg' },
-      { src: track.thumbnail, sizes: '512x512', type: 'image/jpeg' },
-    ],
+    artwork: isValidScheme ? [
+      { src: thumb, sizes: '96x96',   type: 'image/jpeg' },
+      { src: thumb, sizes: '256x256', type: 'image/jpeg' },
+      { src: thumb, sizes: '512x512', type: 'image/jpeg' },
+    ] : [],
   });
   navigator.mediaSession.setActionHandler('play', togglePlay);
   navigator.mediaSession.setActionHandler('pause', togglePlay);

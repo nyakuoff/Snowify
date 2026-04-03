@@ -16,7 +16,7 @@ import {
 } from './player.js';
 import { handlePlayNext, handleAddToQueue, startRadio, getLikedSongsPlaylist, renderQueue } from './queue.js';
 import { openVideoPlayer } from './video-player.js';
-import { bindArtistLinks } from './artist.js';
+import { bindArtistLinks, openArtistPage } from './artist.js';
 import { startTrackDrag } from './library.js';
 import { renderPlaylists, renderLibrary, showPlaylistDetail, createPlaylist } from './library.js';
 
@@ -350,6 +350,8 @@ export function showContextMenu(e, track, { hideAddQueue = false, hidePlayNext =
     <div class="context-menu-divider"></div>
   ` : '';
 
+  const isDevMode = localStorage.getItem('snowify_dev_mode') === '1';
+
   menu.innerHTML = mobileHeader + `
     <div class="context-menu-item" data-action="play">${I18n.t('context.play')}</div>
     ${playNextHtml}
@@ -360,6 +362,7 @@ export function showContextMenu(e, track, { hideAddQueue = false, hidePlayNext =
     <div class="context-menu-item" data-action="like">${isLiked ? I18n.t('context.unlike') : I18n.t('context.like')}</div>
     ${playlistSection}
     ${isLocal ? '' : `<div class="context-menu-divider"></div><div class="context-menu-item" data-action="share">${I18n.t('context.copyLink')}</div>`}
+    ${isDevMode ? `<div class="context-menu-divider"></div><div class="context-menu-item ctx-dev-item" data-action="force-reload">${I18n.t('context.forceReload')}</div>` : ''}
   `;
 
   positionContextMenu(menu);
@@ -423,6 +426,10 @@ export function showContextMenu(e, track, { hideAddQueue = false, hidePlayNext =
       case 'share':
         navigator.clipboard.writeText(`https://snowify.cc/track/${track.id}`);
         showToast(I18n.t('toast.linkCopied'));
+        break;
+      case 'force-reload':
+        callbacks.forceReloadTrack(track);
+        showToast(I18n.t('toast.reloading'));
         break;
     }
     removeContextMenu();
@@ -545,6 +552,7 @@ export function showCollectionContextMenu(e, externalId, meta, options) {
 
 export function showArtistContextMenu(e, artistId, artistName) {
   removeContextMenu();
+  const isDevMode = localStorage.getItem('snowify_dev_mode') === '1';
   const menu     = document.createElement('div');
   menu.className = 'context-menu';
   menu.style.left = e.clientX + 'px';
@@ -552,6 +560,7 @@ export function showArtistContextMenu(e, artistId, artistName) {
   menu.innerHTML = `
     <div class="context-menu-item" data-action="start-radio">${I18n.t('context.startRadio')}</div>
     <div class="context-menu-item" data-action="share">${I18n.t('context.copyLink')}</div>
+    ${isDevMode ? `<div class="context-menu-divider"></div><div class="context-menu-item ctx-dev-item" data-action="force-reload">${I18n.t('context.forceReload')}</div>` : ''}
   `;
   document.body.appendChild(menu);
   const rect = menu.getBoundingClientRect();
@@ -566,6 +575,8 @@ export function showArtistContextMenu(e, artistId, artistName) {
     } else if (item.dataset.action === 'share') {
       navigator.clipboard.writeText(`https://snowify.cc/artist/${artistId}`);
       showToast(I18n.t('toast.linkCopied'));
+    } else if (item.dataset.action === 'force-reload') {
+      openArtistPage(artistId);
     }
     removeContextMenu();
   });

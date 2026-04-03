@@ -66,6 +66,7 @@ const _imgQ = (() => {
   const _queued = new Set();
   const _loaded = new Set();                // URLs known to be loaded successfully
   const _inFlight = new Map();              // src -> { els:Set<HTMLImageElement>, attempt:number }
+  const _forceReloadEls = new WeakSet();    // elements that should bypass currentSrc check in _applySrc
   let _errorStreak = 0;
   let _resumeAt = 0;
 
@@ -75,9 +76,12 @@ const _imgQ = (() => {
     if (!el || !el.isConnected) return;
     if (el.dataset.src === src) el.removeAttribute('data-src');
     const resolvedSrc = resolveImageUrl(src);
-    if (el.getAttribute('src') === resolvedSrc || el.currentSrc === resolvedSrc) return;
+    const forced = _forceReloadEls.has(el);
+    if (forced) _forceReloadEls.delete(el);
+    if (!forced && (el.getAttribute('src') === resolvedSrc || el.currentSrc === resolvedSrc)) return;
     el.loading = 'lazy';
     el.decoding = 'async';
+    el.classList.remove('img-error');
     el.src = resolvedSrc;
   }
 
@@ -119,40 +123,78 @@ const _imgQ = (() => {
     };
     probe.onerror = () => {
       _active--;
-      _errorStreak = Math.min(10, _errorStreak + 1);
-      if (IS_MOBILE_RUNTIME) {
-        // Brief global cooldown helps avoid repeated host throttling bursts.
-        const cooldown = Math.min(12000, 1200 + (_errorStreak * 900));
-        _resumeAt = Math.max(_resumeAt, Date.now() + cooldown);
-      }
       const entry = _inFlight.get(src);
       _inFlight.delete(src);
       const liveEls = [...(entry?.els || [])].filter(el => el && el.isConnected);
-      if (attempt < RETRY_MS.length && liveEls.length) {
-        setTimeout(() => {
-          if (!liveEls.some(el => el.isConnected)) return;
-          _inFlight.set(src, { els: new Set(liveEls.filter(el => el.isConnected)), attempt: attempt + 1 });
-          if (!_queued.has(src)) {
-            _queued.add(src);
-            _queue.push({ src, attempt: attempt + 1 });
-          }
-          _drain();
-        }, _jitter(RETRY_MS[attempt]));
-      } else if (liveEls.length) {
-        // Keep slow-retrying every ~18s indefinitely instead of giving up
-        setTimeout(() => {
-          const stillLive = liveEls.filter(el => el.isConnected);
-          if (!stillLive.length) return;
-          if (_loaded.has(src)) { stillLive.forEach(el => _applySrc(el, src)); return; }
-          _inFlight.set(src, { els: new Set(stillLive), attempt: RETRY_MS.length - 1 });
-          if (!_queued.has(src)) {
-            _queued.add(src);
-            _queue.push({ src, attempt: RETRY_MS.length - 1 });
-          }
-          _drain();
-        }, _jitter(RETRY_MS[RETRY_MS.length - 1]));
+
+      const _applyError = () => {
+        // Show placeholder immediately — don't leave a blank dark box while retrying.
+        liveEls.forEach(el => el.classList.add('img-error'));
+        _errorStreak = Math.min(10, _errorStreak + 1);
+        if (IS_MOBILE_RUNTIME) {
+          // Brief global cooldown helps avoid repeated host throttling bursts.
+          const cooldown = Math.min(12000, 1200 + (_errorStreak * 900));
+          _resumeAt = Math.max(_resumeAt, Date.now() + cooldown);
+        }
+        if (attempt < RETRY_MS.length && liveEls.length) {
+          setTimeout(() => {
+            if (!liveEls.some(el => el.isConnected)) return;
+            _inFlight.set(src, { els: new Set(liveEls.filter(el => el.isConnected)), attempt: attempt + 1 });
+            if (!_queued.has(src)) {
+              _queued.add(src);
+              _queue.push({ src, attempt: attempt + 1 });
+            }
+            _drain();
+          }, _jitter(RETRY_MS[attempt]));
+        } else if (liveEls.length) {
+          // Keep slow-retrying every ~18s indefinitely instead of giving up
+          setTimeout(() => {
+            const stillLive = liveEls.filter(el => el.isConnected);
+            if (!stillLive.length) return;
+            if (_loaded.has(src)) { stillLive.forEach(el => _applySrc(el, src)); return; }
+            _inFlight.set(src, { els: new Set(stillLive), attempt: RETRY_MS.length - 1 });
+            if (!_queued.has(src)) {
+              _queued.add(src);
+              _queue.push({ src, attempt: RETRY_MS.length - 1 });
+            }
+            _drain();
+          }, _jitter(RETRY_MS[RETRY_MS.length - 1]));
+        }
+        _drain();
+      };
+
+      if (IS_MOBILE_RUNTIME) {
+        // On mobile all images go through the local proxy. Use fetch to distinguish
+        // dead images (4xx — give up silently, no error-streak penalty so a handful
+        // of expired CDN URLs don't cascade-stall the whole queue) from genuine
+        // proxy / network failures (retryable with normal streak + cooldown).
+        // Show placeholder while the probe is in flight.
+        liveEls.forEach(el => el.classList.add('img-error'));
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 5000);
+        fetch(resolvedSrc, { signal: ctrl.signal, cache: 'no-store' })
+          .then(res => {
+            clearTimeout(timer);
+            if (res.ok) {
+              // Recovered during probe — apply to waiters without penalising streak.
+              _loaded.add(src);
+              liveEls.forEach(el => _applySrc(el, src));
+              _drain();
+            } else if (res.status >= 400 && res.status < 500) {
+              // Dead image (404 / 410 / etc.) — give up silently.
+              _drain();
+            } else {
+              _applyError(); // 5xx — treat as transient
+            }
+          })
+          .catch(() => {
+            clearTimeout(timer);
+            _applyError(); // Network / proxy error — apply streak and retry.
+          });
+        return; // _drain is called inside fetch callbacks above
       }
-      _drain();
+
+      _applyError();
     };
     probe.src = resolvedSrc;
   }
@@ -167,6 +209,8 @@ const _imgQ = (() => {
       _io.unobserve(el);
       const src = el.dataset.src;
       if (!src) continue;
+      // data: URIs are self-contained — never need a network probe.
+      if (src.startsWith('data:')) { _applySrc(el, src); continue; }
       if (el.getAttribute('src') === src || el.currentSrc === src) {
         el.removeAttribute('data-src');
         _loaded.add(src);
@@ -197,6 +241,8 @@ const _imgQ = (() => {
       if (!el.dataset.src) return;
       const src = el.dataset.src;
       if (!src) return;
+      // data: URIs are self-contained — apply immediately, no network probe needed.
+      if (src.startsWith('data:')) { _applySrc(el, src); return; }
       if (el.getAttribute('src') === src || el.currentSrc === src || _loaded.has(src)) {
         _applySrc(el, src);
         return;
@@ -212,7 +258,27 @@ const _imgQ = (() => {
         return;
       }
       _io.observe(el); // defer until near viewport
-    }
+    },
+    bust(src) {
+      _loaded.delete(src);
+      _queued.delete(src);
+      _inFlight.delete(src);
+    },
+    // Force-reload: bypasses _loaded / currentSrc checks and goes straight to probe.
+    reload(el, src) {
+      if (!src || src.startsWith('data:')) return;
+      _loaded.delete(src);
+      _queued.delete(src);
+      _inFlight.delete(src);
+      _io.unobserve(el);
+      // Mark so _applySrc skips the currentSrc short-circuit for this element.
+      _forceReloadEls.add(el);
+      el.dataset.src = src;
+      _inFlight.set(src, { els: new Set([el]), attempt: 0 });
+      _queued.add(src);
+      _queue.push({ src, attempt: 0 });
+      _drain();
+    },
   };
 })();
 
@@ -385,7 +451,11 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
   }
 
   function _buildCloudPayload() {
-    const stripLocal = (tracks = []) => tracks.filter(t => !t?.isLocal);
+    const stripLocal = (tracks = []) => tracks.filter(t => !t?.isLocal)
+      // Strip data: URI thumbnails — they're plugin-sourced local blobs that can be
+      // multiple MB and have no cross-device meaning.  Keeping them would bloat the
+      // Firestore document past the 1 MB limit and silently break cloud saves.
+      .map(t => t?.thumbnail?.startsWith('data:') ? { ...t, thumbnail: '' } : t);
     return normalizeForCloud({
       playlists: state.playlists.map(p => ({ ...p, tracks: stripLocal(p.tracks) })),
       likedSongs: stripLocal(state.likedSongs),
@@ -1075,6 +1145,19 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
     callbacks.saveState = saveState;
     callbacks.maybeEnrichTrackMeta = maybeEnrichTrackMeta;
     callbacks.switchView = switchView;
+    callbacks.forceReloadTrack = async (track) => {
+      delete state.trackGenreCache[track.id];
+      try { localStorage.setItem('snowify_genre_cache', JSON.stringify(state.trackGenreCache)); } catch (_) {}
+      const thumbBefore = track.thumbnail;
+      if (thumbBefore && !thumbBefore.startsWith('data:')) _imgQ.bust(thumbBefore);
+      await maybeEnrichTrackMeta(track);
+      const thumbAfter = track.thumbnail || thumbBefore;
+      if (thumbAfter) {
+        document.querySelectorAll(`[data-track-id="${track.id}"] img`).forEach(el => {
+          _imgQ.reload(el, thumbAfter);
+        });
+      }
+    };
     settingsCallbacks.forceCloudSave = forceCloudSave;
     settingsCallbacks.cloudLoadAndMerge = cloudLoadAndMerge;
     settingsCallbacks.updateSyncStatus = updateSyncStatus;

@@ -600,6 +600,7 @@ export function showPlaylistTrackMenu(e, track, playlist, isLiked, idx) {
     ${!isLiked && idx > 0 ? `<div class="context-menu-item" data-action="move-up">${I18n.t('context.moveUp')}</div>` : ''}
     ${!isLiked && idx < playlist.tracks.length - 1 ? `<div class="context-menu-item" data-action="move-down">${I18n.t('context.moveDown')}</div>` : ''}
     ${isLocal ? '' : `<div class="context-menu-divider"></div><div class="context-menu-item" data-action="share">${I18n.t('context.copyLink')}</div>`}
+    ${localStorage.getItem('snowify_dev_mode') === '1' ? `<div class="context-menu-divider"></div><div class="context-menu-item ctx-dev-item" data-action="force-reload">${I18n.t('context.forceReload')}</div>` : ''}
   `;
 
   if (isMobile) {
@@ -690,6 +691,10 @@ export function showPlaylistTrackMenu(e, track, playlist, isLiked, idx) {
       case 'share':
         navigator.clipboard.writeText(`https://snowify.cc/track/${track.id}`);
         showToast(I18n.t('toast.linkCopied'));
+        break;
+      case 'force-reload':
+        callbacks.forceReloadTrack(track);
+        showToast(I18n.t('toast.reloading'));
         break;
     }
     removeContextMenu();
