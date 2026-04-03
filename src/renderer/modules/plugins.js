@@ -285,7 +285,7 @@ export async function renderMarketplaceThemes(registry) {
   const themesInstalledSection = $('#themes-installed-section');
   const themesInstalledList    = $('#themes-installed-list');
 
-  const availableThemes = registry.themes || [];
+  const availableThemes = (registry.themes || []).filter(t => !t.disabled);
 
   let installedMeta = {};
   try { installedMeta = await window.snowify.getInstalledMarketplaceThemes(); } catch {}

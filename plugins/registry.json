@@ -58,7 +58,7 @@
     {
       "id": "snowify-legacy",
       "name": "Snowify Legacy",
-      "description": "Restores the classic Snowify look: original color palette, wider sidebar, purple Liked Songs cover, accent-bar decorations, and card hover effects.",
+      "description": "Restores the classic Snowify look.",
       "author": "Snowify Team",
       "version": "1.0.0",
       "file": "theme.css",
@@ -66,7 +66,8 @@
       "repo": "nyakuoff/Snowify",
       "path": "plugins/themes/snowify-legacy",
       "branch": "main",
-      "official": true
+      "official": true,
+      "disabled": true
     },
     {
       "id": "nord",
