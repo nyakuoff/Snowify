@@ -17,8 +17,6 @@ const npSideTrackArtist = $('#np-side-track-artist');
 const npSideArtistAvatar = $('#np-side-artist-avatar');
 const npSideAboutName = $('#np-side-about-name');
 const npSideAboutAudience = $('#np-side-about-audience');
-const npSideAboutBio = $('#np-side-about-bio');
-const npSideMoreBtn = $('#btn-np-side-more');
 const npSideCreditsCard = $('#np-side-credits-card');
 const npSideCreditsList = $('#np-side-credits-list');
 const npSideNextCard = $('#np-side-next-card');
@@ -34,9 +32,13 @@ let _currentTrack = null;
 let _getCurrentTrack = () => state.queue[state.queueIndex] || null;
 let _initialized = false;
 let _lastNextCardKey = '';
+let _loopStartTime = 0;
+let _loopEndTime = 0;
 
 const _npSideArtistInfoCache = new Map();
+const _npSideArtistInfoInflight = new Map();
 const _npSideVideoIdCache = new Map();
+const _npSideImagePrefetchCache = new Set();
 
 let _npSideCollapsed = false;
 try { _npSideCollapsed = localStorage.getItem(NP_SIDE_COLLAPSED_KEY) === '1'; } catch {}
@@ -44,6 +46,16 @@ try { _npSideCollapsed = localStorage.getItem(NP_SIDE_COLLAPSED_KEY) === '1'; } 
 function _resolveImageUrl(url) {
   if (!url) return url;
   return window.snowify?.resolveImageUrl?.(url) || url;
+}
+
+function _preloadImage(url) {
+  const resolved = _resolveImageUrl(url || '');
+  if (!resolved || _npSideImagePrefetchCache.has(resolved)) return;
+  _npSideImagePrefetchCache.add(resolved);
+  const img = new Image();
+  img.decoding = 'async';
+  img.loading = 'eager';
+  img.src = resolved;
 }
 
 function _withTimeout(promise, ms, fallback = null) {
@@ -70,6 +82,33 @@ function _hideNPSideVideo() {
   npSideVideo.load();
   npSideVideo.classList.add('hidden');
   npSideCover.classList.remove('hidden');
+  _loopStartTime = 0;
+  _loopEndTime = 0;
+}
+
+function _computeHighlightLoopWindow(duration) {
+  const total = Number(duration) || 0;
+  if (!total || !isFinite(total) || total < 18) return { start: 0, end: 0 };
+
+  const minimumStart = Math.min(12, total * 0.2);
+  const preferredStart = Math.max(minimumStart, total * 0.3);
+  const targetLength = Math.min(22, Math.max(10, total * 0.16));
+  const maxEnd = Math.max(preferredStart + 6, total - Math.min(8, total * 0.12));
+  const end = Math.min(total - 2, preferredStart + targetLength, maxEnd);
+  const start = Math.max(0, Math.min(preferredStart, end - 6));
+
+  if (end - start < 6) return { start: 0, end: 0 };
+  return { start, end };
+}
+
+function _applyHighlightLoopWindow() {
+  if (!npSideVideo?.duration || !isFinite(npSideVideo.duration)) return;
+  const { start, end } = _computeHighlightLoopWindow(npSideVideo.duration);
+  _loopStartTime = start;
+  _loopEndTime = end;
+  if (_loopEndTime > _loopStartTime && npSideVideo.currentTime < _loopStartTime) {
+    npSideVideo.currentTime = _loopStartTime;
+  }
 }
 
 function _updateNPSideOpenBtn() {
@@ -108,6 +147,38 @@ function _setSingleArtistClickTarget(el, artistName, artistId) {
       e.preventDefault();
       openArtistPage(artistId);
     };
+  }
+}
+
+async function _ensureArtistInfoCached(artistId) {
+  if (!artistId || !window.snowify?.artistInfo) return null;
+  if (_npSideArtistInfoCache.has(artistId)) return _npSideArtistInfoCache.get(artistId);
+  if (_npSideArtistInfoInflight.has(artistId)) return _npSideArtistInfoInflight.get(artistId);
+
+  const pending = _withTimeout(window.snowify.artistInfo(artistId), ASYNC_FETCH_TIMEOUT_MS, null)
+    .then((info) => {
+      _npSideArtistInfoCache.set(artistId, info || null);
+      _npSideArtistInfoInflight.delete(artistId);
+      if (info?.avatar) _preloadImage(info.avatar);
+      return info || null;
+    })
+    .catch(() => {
+      _npSideArtistInfoInflight.delete(artistId);
+      _npSideArtistInfoCache.set(artistId, null);
+      return null;
+    });
+
+  _npSideArtistInfoInflight.set(artistId, pending);
+  return pending;
+}
+
+function _prefetchTrackPanelAssets(track) {
+  if (!track || typeof track !== 'object') return;
+  if (track.thumbnail) _preloadImage(track.thumbnail);
+  const artists = _collectTrackArtists(track);
+  const primaryArtistId = artists[0]?.id || track.artistId || null;
+  if (primaryArtistId) {
+    _ensureArtistInfoCached(primaryArtistId).catch(() => {});
   }
 }
 
@@ -196,8 +267,24 @@ function _isOfficialMv(videoTitle) {
   const t = String(videoTitle || '').toLowerCase();
   const hasOfficial = /official/.test(t) && /(music video|\bmv\b)/.test(t);
   if (!hasOfficial) return false;
-  const banned = /(lyric|audio|live|performance|dance practice|teaser|trailer|reaction|cover|fancam|behind|sped up|slowed|instrumental|karaoke|fanmade|mashup|remix)/;
+  const banned = /(lyric|audio|live|performance|dance practice|teaser|trailer|reaction|cover|fancam|behind|sped up|slowed|instrumental|karaoke|fanmade|mashup|remix|roblox|minecraft|gacha|nightcore|edit)/;
   return !banned.test(t);
+}
+
+function _matchesOfficialMv(video, titleNorm, artistsNorm) {
+  if (!video?.id || !_isOfficialMv(video.title)) return false;
+
+  const vTitle = _normalizeTextForMatch(video?.title || '');
+  const vArtist = _normalizeTextForMatch(video?.artist || '');
+  const titleWords = titleNorm.split(' ').filter(w => w.length > 2);
+  const matchedTitleWords = titleWords.filter(w => vTitle.includes(w)).length;
+  const titleRatio = titleWords.length ? matchedTitleWords / titleWords.length : 0;
+  const artistMatched = artistsNorm.some((artist) => artist && (vArtist.includes(artist) || vTitle.includes(artist)));
+
+  if (!artistMatched) return false;
+  if (titleNorm && !vTitle.includes(titleNorm) && titleRatio < 0.72) return false;
+  if (vArtist && !artistsNorm.some((artist) => artist && vArtist.includes(artist))) return false;
+  return true;
 }
 
 function _scoreOfficialVideoCandidate(video, titleNorm, artistsNorm) {
@@ -243,7 +330,7 @@ async function _resolveOfficialMvVideoId(track) {
     try {
       const results = await _withTimeout(window.snowify.searchVideos(query), ASYNC_FETCH_TIMEOUT_MS, []);
       if (!Array.isArray(results) || !results.length) continue;
-      const official = results.filter(v => v?.id && _isOfficialMv(v.title));
+      const official = results.filter(v => _matchesOfficialMv(v, titleNorm, artistsNorm));
       if (!official.length) continue;
       official.sort((a, b) =>
         _scoreOfficialVideoCandidate(b, titleNorm, artistsNorm) - _scoreOfficialVideoCandidate(a, titleNorm, artistsNorm)
@@ -291,6 +378,7 @@ function _updatePanelShell(track) {
 
   const artists = _collectTrackArtists(track);
   const primaryArtist = artists[0] || { name: track.artist || I18n.t('common.unknownArtist'), id: track.artistId || null };
+  const cachedArtistInfo = primaryArtist.id ? _npSideArtistInfoCache.get(primaryArtist.id) : null;
 
   npSidePanel.classList.remove('hidden');
   _updateNPSideOpenBtn();
@@ -302,10 +390,8 @@ function _updatePanelShell(track) {
   _setSingleArtistClickTarget(npSideArtistLink, primaryArtist.name, primaryArtist.id);
   _setSingleArtistClickTarget(npSideAboutName, primaryArtist.name, primaryArtist.id);
 
-  npSideAboutAudience.textContent = '';
-  npSideAboutBio.textContent = I18n.t('common.loading');
-  npSideMoreBtn.classList.add('hidden');
-  npSideMoreBtn.onclick = null;
+  npSideAboutAudience.textContent = cachedArtistInfo?.monthlyListeners || '';
+  npSideArtistAvatar.src = _resolveImageUrl(cachedArtistInfo?.avatar || track.thumbnail || '');
 
   _renderCredits(track);
   _renderNextQueueCard();
@@ -331,7 +417,7 @@ async function _updatePanelAsync(track, reqGen) {
           if (reqGen !== _npSideRequestGen) return;
           if (stream?.videoUrl) {
             npSideVideo.src = stream.videoUrl;
-            npSideVideo.loop = true;
+            npSideVideo.loop = false;
             npSideVideo.classList.remove('hidden');
             npSideCover.classList.add('hidden');
             const playPromise = npSideVideo.play();
@@ -343,62 +429,14 @@ async function _updatePanelAsync(track, reqGen) {
       }
     }
 
-    let artistInfo = null;
-    if (primaryArtist.id && window.snowify?.artistInfo) {
-      if (_npSideArtistInfoCache.has(primaryArtist.id)) {
-        artistInfo = _npSideArtistInfoCache.get(primaryArtist.id);
-      } else {
-        artistInfo = await _withTimeout(window.snowify.artistInfo(primaryArtist.id), ASYNC_FETCH_TIMEOUT_MS, null);
-        _npSideArtistInfoCache.set(primaryArtist.id, artistInfo || null);
-      }
-    }
+    const artistInfo = primaryArtist.id ? await _ensureArtistInfoCached(primaryArtist.id) : null;
     if (reqGen !== _npSideRequestGen) return;
 
-    let metaOverlay = null;
-    try {
-      const pluginsModule = await _withTimeout(import('./plugins.js'), ASYNC_FETCH_TIMEOUT_MS, null);
-      metaOverlay = pluginsModule?.resolvePluginArtistMeta
-        ? await _withTimeout(pluginsModule.resolvePluginArtistMeta(primaryArtist.name || ''), ASYNC_FETCH_TIMEOUT_MS, null)
-        : null;
-    } catch {
-      metaOverlay = null;
-    }
-    if (reqGen !== _npSideRequestGen) return;
-
-    const avatar = _resolveImageUrl(metaOverlay?.avatar || artistInfo?.avatar || track.thumbnail || '');
+    const avatar = _resolveImageUrl(artistInfo?.avatar || track.thumbnail || '');
     npSideArtistAvatar.src = avatar;
     npSideAboutAudience.textContent = artistInfo?.monthlyListeners || '';
-
-    const fullBio = String(metaOverlay?.bio || artistInfo?.description || '').trim();
-    if (!fullBio) {
-      npSideAboutBio.textContent = I18n.t('player.noArtistBio');
-      return;
-    }
-
-    const limit = 190;
-    if (fullBio.length <= limit) {
-      npSideAboutBio.textContent = fullBio;
-      return;
-    }
-
-    let expanded = false;
-    const renderBio = () => {
-      npSideAboutBio.textContent = expanded ? fullBio : `${fullBio.slice(0, limit).trim()}...`;
-      npSideMoreBtn.textContent = expanded ? I18n.t('common.showLess') : I18n.t('common.showMore');
-    };
-
-    npSideMoreBtn.classList.remove('hidden');
-    npSideMoreBtn.onclick = () => {
-      expanded = !expanded;
-      renderBio();
-    };
-    renderBio();
   } catch {
-    if (reqGen === _npSideRequestGen) {
-      npSideAboutBio.textContent = I18n.t('player.noArtistBio');
-      npSideMoreBtn.classList.add('hidden');
-      npSideMoreBtn.onclick = null;
-    }
+    // About metadata can fail silently.
   }
 }
 
@@ -431,22 +469,35 @@ export function initNowPlayingSidePanel({ isMobileRuntime = false, getCurrentTra
   npSideVideo?.addEventListener('error', () => {
     npSideVideo.classList.add('hidden');
     npSideCover?.classList.remove('hidden');
+    _loopStartTime = 0;
+    _loopEndTime = 0;
+  });
+
+  npSideVideo?.addEventListener('loadedmetadata', () => {
+    _applyHighlightLoopWindow();
   });
 
   npSideVideo?.addEventListener('ended', () => {
-    npSideVideo.currentTime = 0;
+    npSideVideo.currentTime = _loopEndTime > _loopStartTime ? _loopStartTime : 0;
     const p = npSideVideo.play();
     if (p && typeof p.catch === 'function') p.catch(() => {});
   });
 
   npSideVideo?.addEventListener('timeupdate', () => {
     if (!npSideVideo.duration || !isFinite(npSideVideo.duration)) return;
-    if (npSideVideo.duration - npSideVideo.currentTime > 0.12) return;
-    npSideVideo.currentTime = 0;
+    if (_loopEndTime > _loopStartTime) {
+      if (npSideVideo.currentTime < _loopStartTime) npSideVideo.currentTime = _loopStartTime;
+      if (npSideVideo.currentTime >= _loopEndTime - 0.08) npSideVideo.currentTime = _loopStartTime;
+      return;
+    }
+    if (npSideVideo.duration - npSideVideo.currentTime <= 0.12) npSideVideo.currentTime = 0;
   });
 
   document.addEventListener(QUEUE_CHANGED_EVENT, () => {
-    if (_currentTrack) _renderNextQueueCard();
+    if (_currentTrack) {
+      _renderNextQueueCard();
+      _prefetchTrackPanelAssets(state.queue[state.queueIndex + 1] || null);
+    }
   });
 }
 
@@ -456,14 +507,13 @@ export function updateNowPlayingSidePanel(track, { deferAsync = true } = {}) {
   _lastNextCardKey = '';
   const reqGen = ++_npSideRequestGen;
 
+  _prefetchTrackPanelAssets(track);
+  _prefetchTrackPanelAssets(state.queue[state.queueIndex + 1] || null);
+
   _updatePanelShell(track);
 
   const runAsyncUpdate = () => {
-    _updatePanelAsync(track, reqGen).catch(() => {
-      if (reqGen === _npSideRequestGen && npSideAboutBio?.textContent === I18n.t('common.loading')) {
-        npSideAboutBio.textContent = I18n.t('player.noArtistBio');
-      }
-    });
+    _updatePanelAsync(track, reqGen).catch(() => {});
   };
 
   if (deferAsync) {

@@ -891,7 +891,11 @@ body.sidebar-collapsed #section-followed-artists .sidebar-section-header { displ
   transition: transform var(--transition), max-width var(--transition);
 }
 
-.np-side-artist-link:hover { text-decoration: underline; }
+.np-side-artist-link.clickable:hover,
+.np-side-artist-link.clickable:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
+}
 
 .np-side-collapse-btn {
   position: absolute;
@@ -958,6 +962,7 @@ body.sidebar-collapsed #section-followed-artists .sidebar-section-header { displ
 }
 
 .np-side-inline-artist.clickable:hover {
+  color: var(--accent);
   text-decoration: underline;
 }
 
@@ -1030,6 +1035,7 @@ body.sidebar-collapsed #section-followed-artists .sidebar-section-header { displ
 }
 
 .np-side-about-name.clickable:hover {
+  color: var(--accent);
   text-decoration: underline;
 }
 
@@ -1037,26 +1043,6 @@ body.sidebar-collapsed #section-followed-artists .sidebar-section-header { displ
   font-size: 12px;
   color: var(--text-secondary);
 }
-
-.np-side-about-bio {
-  margin-top: 10px;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--text-secondary);
-}
-
-.np-side-more-btn {
-  margin-top: 8px;
-  border: none;
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  padding: 0;
-}
-
-.np-side-more-btn:hover { text-decoration: underline; }
 
 .np-side-credits-list {
   display: grid;
