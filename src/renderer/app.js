@@ -1474,8 +1474,7 @@ setTimeout(scheduleAutoMarqueeRefresh, 250);
       lyricsPanelEl.addEventListener('touchend', (e) => {
         const dy = e.changedTouches[0].clientY - _lTouchStart;
         if (dy > 80) {
-          lyricsPanelEl.classList.add('hidden');
-          lyricsPanelEl.classList.remove('visible');
+          closeLyricsPanel();
         }
       }, { passive: true });
     }

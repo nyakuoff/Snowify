@@ -266,11 +266,14 @@ export function startLyricsSyncLoop() {
   // We use a synchronously-evaluated import here: by the time startLyricsSyncLoop
   // is first invoked, now-playing.js is already fully initialized.
   let _nowPlaying = null;
+  let _npLoading = false;
   const getNP = () => {
     if (!_nowPlaying) {
+      if (_npLoading) return null;
+      _npLoading = true;
       // Use the module cache — this is a synchronous access after first load.
       // The dynamic import() call below is a one-time async bootstrap.
-      import('./now-playing.js').then(m => { _nowPlaying = m; });
+      import('./now-playing.js').then(m => { _nowPlaying = m; }).finally(() => { _npLoading = false; });
     }
     return _nowPlaying;
   };
@@ -279,7 +282,9 @@ export function startLyricsSyncLoop() {
     const np = getNP();
     const maxSyncActive = np ? np.maxNPState.lyricsSyncActive : false;
 
-    if (!lyricsState.syncActive && !maxSyncActive) {
+    // If now-playing module is still loading, keep the loop alive; max lyrics
+    // sync can otherwise stop before we can read maxNPState.
+    if (!lyricsState.syncActive && !maxSyncActive && !_npLoading) {
       _lyricsSyncRAF = null;
       return; // both stopped — exit loop
     }
