@@ -108,7 +108,13 @@ function _getCredentialsPath() {
 
 function _saveCredentials(email, password) {
   try {
-    fs.writeFileSync(_getCredentialsPath(), JSON.stringify({ email, password }), 'utf8');
+    const { safeStorage } = require('electron');
+    const payload = { email: String(email || '').trim() };
+    if (safeStorage.isEncryptionAvailable()) {
+      payload.passwordEnc = safeStorage.encryptString(String(password || '')).toString('base64');
+      payload.enc = 'safeStorage-v1';
+    }
+    fs.writeFileSync(_getCredentialsPath(), JSON.stringify(payload), 'utf8');
   } catch (err) {
     console.warn('[Auth] Failed to save credentials:', err.message);
   }
@@ -116,9 +122,27 @@ function _saveCredentials(email, password) {
 
 function _loadCredentials() {
   try {
+    const { safeStorage } = require('electron');
     const p = _getCredentialsPath();
     if (!fs.existsSync(p)) return null;
-    return JSON.parse(fs.readFileSync(p, 'utf8'));
+    const parsed = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const email = String(parsed?.email || '').trim();
+    if (!email) return null;
+
+    // Legacy migration path: previously stored plaintext password.
+    if (typeof parsed.password === 'string' && parsed.password) {
+      if (safeStorage.isEncryptionAvailable()) {
+        _saveCredentials(email, parsed.password);
+      } else {
+        _clearCredentials();
+      }
+      return { email, password: parsed.password };
+    }
+
+    if (!parsed?.passwordEnc || !safeStorage.isEncryptionAvailable()) return null;
+    const password = safeStorage.decryptString(Buffer.from(parsed.passwordEnc, 'base64'));
+    if (!password) return null;
+    return { email, password };
   } catch {
     return null;
   }
