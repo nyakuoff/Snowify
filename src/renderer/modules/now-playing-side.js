@@ -1,12 +1,12 @@
 import state from './state.js';
 import { openArtistPage } from './artist.js';
-import { escapeHtml } from './utils.js';
 
 const $ = (sel, ctx = document) => ctx.querySelector(sel);
 
 const NP_SIDE_COLLAPSED_KEY = 'snowify_np_side_collapsed';
 const QUEUE_CHANGED_EVENT = 'snowify:queue-changed';
 const ASYNC_FETCH_TIMEOUT_MS = 6500;
+const IMAGE_PREFETCH_CACHE_LIMIT = 48;
 
 const npSidePanel = $('#np-side-panel');
 const npSideVideo = $('#np-side-video');
@@ -17,8 +17,6 @@ const npSideTrackArtist = $('#np-side-track-artist');
 const npSideArtistAvatar = $('#np-side-artist-avatar');
 const npSideAboutName = $('#np-side-about-name');
 const npSideAboutAudience = $('#np-side-about-audience');
-const npSideCreditsCard = $('#np-side-credits-card');
-const npSideCreditsList = $('#np-side-credits-list');
 const npSideNextCard = $('#np-side-next-card');
 const npSideNextThumb = $('#np-side-next-thumb');
 const npSideNextTitle = $('#np-side-next-title');
@@ -32,6 +30,7 @@ let _currentTrack = null;
 let _getCurrentTrack = () => state.queue[state.queueIndex] || null;
 let _initialized = false;
 let _lastNextCardKey = '';
+let _lastPanelTrackKey = '';
 let _loopStartTime = 0;
 let _loopEndTime = 0;
 
@@ -51,11 +50,20 @@ function _resolveImageUrl(url) {
 function _preloadImage(url) {
   const resolved = _resolveImageUrl(url || '');
   if (!resolved || _npSideImagePrefetchCache.has(resolved)) return;
+  if (_npSideImagePrefetchCache.size >= IMAGE_PREFETCH_CACHE_LIMIT) {
+    const oldest = _npSideImagePrefetchCache.values().next().value;
+    if (oldest) _npSideImagePrefetchCache.delete(oldest);
+  }
   _npSideImagePrefetchCache.add(resolved);
   const img = new Image();
   img.decoding = 'async';
   img.loading = 'eager';
   img.src = resolved;
+}
+
+function _getTrackRenderKey(track) {
+  if (!track || typeof track !== 'object') return 'none';
+  return [track.id || '', track.title || '', track.artist || '', track.thumbnail || '', track.artistId || ''].join('|');
 }
 
 function _withTimeout(promise, ms, fallback = null) {
@@ -209,54 +217,6 @@ function _renderArtistList(container, artists) {
       container.appendChild(sep);
     }
   });
-}
-
-function _extractTrackCredits(track) {
-  const out = [];
-  const pushPair = (role, name) => {
-    const r = String(role || '').trim();
-    const n = String(name || '').trim();
-    if (!r || !n) return;
-    out.push({ role: r, name: n });
-  };
-
-  if (!track || typeof track !== 'object') return out;
-
-  if (Array.isArray(track.credits)) {
-    track.credits.forEach(c => {
-      if (!c) return;
-      if (typeof c === 'object') pushPair(c.role || c.type || c.label, c.name || c.value);
-      else if (typeof c === 'string') pushPair(I18n.t('player.credits'), c);
-    });
-  }
-
-  const creditMap = track.creditMap || track.creditRoles || null;
-  if (creditMap && typeof creditMap === 'object') {
-    for (const [role, value] of Object.entries(creditMap)) {
-      if (Array.isArray(value)) pushPair(role, value.filter(Boolean).join(', '));
-      else pushPair(role, value);
-    }
-  }
-
-  return out.slice(0, 6);
-}
-
-function _renderCredits(track) {
-  if (!npSideCreditsCard || !npSideCreditsList) return;
-  const credits = _extractTrackCredits(track);
-  if (!credits.length) {
-    npSideCreditsCard.classList.add('hidden');
-    npSideCreditsList.innerHTML = '';
-    return;
-  }
-
-  npSideCreditsCard.classList.remove('hidden');
-  npSideCreditsList.innerHTML = credits.map(c => `
-    <div class="np-side-credit-row">
-      <span class="np-side-credit-role">${escapeHtml(c.role)}</span>
-      <span class="np-side-credit-name">${escapeHtml(c.name)}</span>
-    </div>
-  `).join('');
 }
 
 function _normalizeTextForMatch(text) {
@@ -428,6 +388,8 @@ function _renderNextQueueCard() {
 function _updatePanelShell(track) {
   if (!npSidePanel || !track) return;
 
+  const trackKey = _getTrackRenderKey(track);
+
   const artists = _collectTrackArtists(track);
   const primaryArtist = artists[0] || { name: track.artist || I18n.t('common.unknownArtist'), id: track.artistId || null };
   const cachedArtistInfo = primaryArtist.id ? _npSideArtistInfoCache.get(primaryArtist.id) : null;
@@ -435,17 +397,19 @@ function _updatePanelShell(track) {
   npSidePanel.classList.remove('hidden');
   _updateNPSideOpenBtn();
 
-  npSideCover.src = _resolveImageUrl(track.thumbnail || '');
-  npSideTrackTitle.textContent = track.title || '—';
-  _renderArtistList(npSideTrackArtist, artists);
+  if (trackKey !== _lastPanelTrackKey) {
+    npSideCover.src = _resolveImageUrl(track.thumbnail || '');
+    npSideTrackTitle.textContent = track.title || '—';
+    _renderArtistList(npSideTrackArtist, artists);
 
-  _setSingleArtistClickTarget(npSideArtistLink, primaryArtist.name, primaryArtist.id);
-  _setSingleArtistClickTarget(npSideAboutName, primaryArtist.name, primaryArtist.id);
+    _setSingleArtistClickTarget(npSideArtistLink, primaryArtist.name, primaryArtist.id);
+    _setSingleArtistClickTarget(npSideAboutName, primaryArtist.name, primaryArtist.id);
 
-  npSideAboutAudience.textContent = cachedArtistInfo?.monthlyListeners || '';
-  npSideArtistAvatar.src = _resolveImageUrl(cachedArtistInfo?.avatar || track.thumbnail || '');
+    npSideAboutAudience.textContent = cachedArtistInfo?.monthlyListeners || '';
+    npSideArtistAvatar.src = _resolveImageUrl(cachedArtistInfo?.avatar || track.thumbnail || '');
+    _lastPanelTrackKey = trackKey;
+  }
 
-  _renderCredits(track);
   _renderNextQueueCard();
 }
 

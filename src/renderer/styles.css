@@ -809,8 +809,8 @@ body.sidebar-collapsed #section-followed-artists .sidebar-section-header { displ
 .np-side-panel {
   width: 352px;
   min-width: 352px;
-  height: calc(100vh - var(--titlebar-height) - 114px);
-  margin: 0 12px 102px 0;
+  height: calc(100vh - var(--titlebar-height) - var(--now-playing-height) - 16px);
+  margin: 0 12px 16px 0;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.07);
   background: var(--bg-surface);
@@ -824,8 +824,8 @@ body.sidebar-collapsed #section-followed-artists .sidebar-section-header { displ
 
 .np-side-media {
   position: relative;
-  height: 58%;
-  min-height: 260px;
+  height: 60%;
+  min-height: 320px;
   overflow: hidden;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -1042,28 +1042,6 @@ body.sidebar-collapsed #section-followed-artists .sidebar-section-header { displ
 .np-side-about-audience {
   font-size: 12px;
   color: var(--text-secondary);
-}
-
-.np-side-credits-list {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-}
-
-.np-side-credit-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 13px;
-}
-
-.np-side-credit-role { color: var(--text-subdued); }
-.np-side-credit-name {
-  color: var(--text-primary);
-  text-align: right;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .np-side-next-row {
