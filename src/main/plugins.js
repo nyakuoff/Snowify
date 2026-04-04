@@ -10,6 +10,31 @@ function getPluginsDir() {
   return dir;
 }
 
+function sanitizePluginId(id) {
+  const value = String(id || '').trim();
+  if (!value) return null;
+  if (!/^[a-z0-9._-]+$/i.test(value)) return null;
+  return value;
+}
+
+function safeJoinUnder(baseDir, relativePath) {
+  const normalized = path.posix.normalize(String(relativePath || ''));
+  if (!normalized || normalized === '.' || normalized.startsWith('../') || normalized.includes('/../')) {
+    throw new Error('Invalid path');
+  }
+  const target = path.resolve(baseDir, normalized);
+  const root = path.resolve(baseDir) + path.sep;
+  if (!target.startsWith(root)) throw new Error('Invalid path');
+  return target;
+}
+
+function encodePathForUrl(relPath) {
+  return String(relPath)
+    .split('/')
+    .map(seg => encodeURIComponent(seg))
+    .join('/');
+}
+
 function resolveLogoUrl(manifest, pluginDir) {
   if (!manifest.logoUrl) return manifest;
   const logo = manifest.logoUrl;
@@ -104,10 +129,12 @@ function register(ipcMain) {
 
   ipcMain.handle('plugins:install', async (_event, registryEntry) => {
     try {
-      const { repo, id } = registryEntry;
+      const { repo } = registryEntry;
+      const safeEntryId = sanitizePluginId(registryEntry?.id);
+      if (!safeEntryId) return { error: 'Invalid plugin id' };
       const branch = registryEntry.branch || 'main';
       const subPath = registryEntry.path || '';
-      const localSrc = path.join(__dirname, '..', '..', 'plugins', id);
+      const localSrc = path.join(__dirname, '..', '..', 'plugins', safeEntryId);
       const useLocal = isDev && fs.existsSync(path.join(localSrc, 'snowify-plugin.json'));
       const rawBase = `https://raw.githubusercontent.com/${repo}/${branch}${subPath ? '/' + subPath : ''}`;
 
@@ -116,30 +143,49 @@ function register(ipcMain) {
       else manifestRaw = await httpsGet(`${rawBase}/snowify-plugin.json`);
       const manifest = JSON.parse(manifestRaw);
 
-      const pluginDir = path.join(getPluginsDir(), manifest.id || id);
+      const safeManifestId = sanitizePluginId(manifest.id || safeEntryId);
+      if (!safeManifestId) return { error: 'Invalid plugin manifest id' };
+      const pluginDir = safeJoinUnder(getPluginsDir(), safeManifestId);
       if (fs.existsSync(pluginDir)) fs.rmSync(pluginDir, { recursive: true });
       fs.mkdirSync(pluginDir, { recursive: true });
       fs.writeFileSync(path.join(pluginDir, 'snowify-plugin.json'), manifestRaw, 'utf-8');
 
       if (manifest.renderer) {
-        if (useLocal) fs.copyFileSync(path.join(localSrc, manifest.renderer), path.join(pluginDir, manifest.renderer));
-        else fs.writeFileSync(path.join(pluginDir, manifest.renderer), await httpsGet(`${rawBase}/${manifest.renderer}`), 'utf-8');
+        const rendererPath = String(manifest.renderer);
+        const dstRenderer = safeJoinUnder(pluginDir, rendererPath);
+        fs.mkdirSync(path.dirname(dstRenderer), { recursive: true });
+        if (useLocal) {
+          const srcRenderer = safeJoinUnder(localSrc, rendererPath);
+          fs.copyFileSync(srcRenderer, dstRenderer);
+        } else {
+          fs.writeFileSync(dstRenderer, await httpsGet(`${rawBase}/${encodePathForUrl(rendererPath)}`), 'utf-8');
+        }
       }
       if (manifest.styles) {
         try {
-          if (useLocal) fs.copyFileSync(path.join(localSrc, manifest.styles), path.join(pluginDir, manifest.styles));
-          else fs.writeFileSync(path.join(pluginDir, manifest.styles), await httpsGet(`${rawBase}/${manifest.styles}`), 'utf-8');
+          const stylesPath = String(manifest.styles);
+          const dstStyles = safeJoinUnder(pluginDir, stylesPath);
+          fs.mkdirSync(path.dirname(dstStyles), { recursive: true });
+          if (useLocal) {
+            const srcStyles = safeJoinUnder(localSrc, stylesPath);
+            fs.copyFileSync(srcStyles, dstStyles);
+          } else {
+            fs.writeFileSync(dstStyles, await httpsGet(`${rawBase}/${encodePathForUrl(stylesPath)}`), 'utf-8');
+          }
         } catch {}
       }
       // Download logo file if logoUrl is a relative path
       if (manifest.logoUrl && !manifest.logoUrl.startsWith('http') && !manifest.logoUrl.startsWith('data:')) {
         try {
+          const logoPath = String(manifest.logoUrl);
+          const dstLogo = safeJoinUnder(pluginDir, logoPath);
+          fs.mkdirSync(path.dirname(dstLogo), { recursive: true });
           if (useLocal) {
-            const srcLogo = path.join(localSrc, manifest.logoUrl);
-            if (fs.existsSync(srcLogo)) fs.copyFileSync(srcLogo, path.join(pluginDir, manifest.logoUrl));
+            const srcLogo = safeJoinUnder(localSrc, logoPath);
+            if (fs.existsSync(srcLogo)) fs.copyFileSync(srcLogo, dstLogo);
           } else {
-            const logoData = await httpsGet(`${rawBase}/${manifest.logoUrl}`, true);
-            fs.writeFileSync(path.join(pluginDir, manifest.logoUrl), logoData);
+            const logoData = await httpsGet(`${rawBase}/${encodePathForUrl(logoPath)}`, true);
+            fs.writeFileSync(dstLogo, logoData);
           }
         } catch {}
       }
@@ -149,7 +195,9 @@ function register(ipcMain) {
 
   ipcMain.handle('plugins:uninstall', async (_event, pluginId) => {
     try {
-      const dir = path.join(getPluginsDir(), pluginId);
+      const safeId = sanitizePluginId(pluginId);
+      if (!safeId) return { error: 'Invalid plugin id' };
+      const dir = safeJoinUnder(getPluginsDir(), safeId);
       if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true });
       return { success: true };
     } catch (err) { return { error: err.message }; }
@@ -157,17 +205,25 @@ function register(ipcMain) {
 
   ipcMain.handle('plugins:getFiles', (_event, pluginId) => {
     try {
-      let dir = path.join(getPluginsDir(), pluginId);
+      const safeId = sanitizePluginId(pluginId);
+      if (!safeId) return null;
+      let dir = safeJoinUnder(getPluginsDir(), safeId);
       if (isDev) {
-        const localDir = path.join(__dirname, '..', '..', 'plugins', pluginId);
+        const localDir = safeJoinUnder(path.join(__dirname, '..', '..', 'plugins'), safeId);
         if (fs.existsSync(path.join(localDir, 'snowify-plugin.json'))) dir = localDir;
       }
       const manifestPath = path.join(dir, 'snowify-plugin.json');
       if (!fs.existsSync(manifestPath)) return null;
       const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
       const result = { manifest };
-      if (manifest.renderer) { const jsPath = path.join(dir, manifest.renderer); if (fs.existsSync(jsPath)) result.js = fs.readFileSync(jsPath, 'utf-8'); }
-      if (manifest.styles) { const cssPath = path.join(dir, manifest.styles); if (fs.existsSync(cssPath)) result.css = fs.readFileSync(cssPath, 'utf-8'); }
+      if (manifest.renderer) {
+        const jsPath = safeJoinUnder(dir, manifest.renderer);
+        if (fs.existsSync(jsPath)) result.js = fs.readFileSync(jsPath, 'utf-8');
+      }
+      if (manifest.styles) {
+        const cssPath = safeJoinUnder(dir, manifest.styles);
+        if (fs.existsSync(cssPath)) result.css = fs.readFileSync(cssPath, 'utf-8');
+      }
       return result;
     } catch (err) { console.error('Get plugin files error:', err); return null; }
   });
