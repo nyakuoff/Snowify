@@ -500,14 +500,8 @@ export function showPlaylistDetail(playlist, isLiked) {
   }
 
   if (playlist.tracks.length) {
-    renderTrackList(tracksContainer, playlist.tracks, 'playlist', playlist.id);
-    tracksContainer.querySelectorAll('.track-row').forEach(row => {
-      row.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        const idx   = parseInt(row.dataset.index);
-        const track = playlist.tracks[idx];
-        showPlaylistTrackMenu(e, track, playlist, isLiked, idx);
-      });
+    renderTrackList(tracksContainer, playlist.tracks, 'playlist', playlist.id, (e, track, idx) => {
+      showPlaylistTrackMenu(e, track, playlist, isLiked, idx);
     });
   } else {
     tracksContainer.innerHTML = `
