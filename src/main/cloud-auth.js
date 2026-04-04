@@ -283,9 +283,26 @@ function register(ipcMain, ctx) {
 
   ipcMain.handle('profile:readImage', async (_event, filePath) => {
     try {
-      const ext = path.extname(filePath).toLowerCase();
-      if (ext === '.gif') return null;
-      const buffer = fs.readFileSync(filePath);
+      const { app } = require('electron');
+      const ext = path.extname(String(filePath)).toLowerCase();
+      const allowedExt = new Set(['.png', '.jpg', '.jpeg', '.webp']);
+      if (!allowedExt.has(ext)) return null;
+
+      const resolved = fs.realpathSync(String(filePath));
+      const allowedRoots = [
+        app.getPath('pictures'),
+        app.getPath('downloads'),
+        app.getPath('desktop'),
+      ]
+        .filter(Boolean)
+        .map(p => path.resolve(p) + path.sep);
+
+      if (!allowedRoots.some(root => resolved.startsWith(root))) return null;
+
+      const stats = fs.statSync(resolved);
+      if (!stats.isFile() || stats.size > 8 * 1024 * 1024) return null;
+
+      const buffer = fs.readFileSync(resolved);
       const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
       return `data:${mime};base64,${buffer.toString('base64')}`;
     } catch {
