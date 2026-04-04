@@ -666,6 +666,31 @@ function register(ipcMain, ctx) {
       const https = require('https');
       const parsed = new URL(rawUrl);
       if (parsed.protocol !== 'https:') throw new Error('Only HTTPS URLs are supported');
+      const HTTP_GET_ALLOWLIST = new Set([
+        'api.github.com',
+        'raw.githubusercontent.com',
+      ]);
+      if (!HTTP_GET_ALLOWLIST.has(parsed.hostname)) throw new Error('Host is not allowed');
+
+      const BLOCKED_REQUEST_HEADERS = new Set([
+        'authorization',
+        'cookie',
+        'proxy-authorization',
+        'host',
+        'connection',
+        'content-length',
+      ]);
+
+      const safeHeaders = {};
+      if (reqHeaders && typeof reqHeaders === 'object' && !Array.isArray(reqHeaders)) {
+        for (const [k, v] of Object.entries(reqHeaders)) {
+          const name = String(k || '').trim();
+          if (!name || BLOCKED_REQUEST_HEADERS.has(name.toLowerCase())) continue;
+          if (!/^[a-z0-9-]+$/i.test(name)) continue;
+          safeHeaders[name] = String(v);
+        }
+      }
+
       return await new Promise((resolve, reject) => {
         const req = https.request({
           hostname: parsed.hostname,
@@ -675,7 +700,7 @@ function register(ipcMain, ctx) {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
             'Accept': 'application/json',
             'Accept-Language': 'en',
-            ...reqHeaders,
+            ...safeHeaders,
           },
         }, (res) => {
           let data = '';

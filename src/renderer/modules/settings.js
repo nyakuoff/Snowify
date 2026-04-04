@@ -185,14 +185,22 @@ function openCropModal({ dataUrl, title, circle, aspectRatio, outputWidth, outpu
 // ─── Markdown → HTML (for changelog) ─────────────────────────────────────────
 
 function renderMarkdown(md) {
+  const safeHref = (url) => {
+    try {
+      const parsed = new URL(String(url || ''), 'https://snowify.invalid');
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.href;
+    } catch {}
+    return '#';
+  };
+
   const tokens = [];
   let tIdx = 0;
   const stash = (html) => { const k = `\x00T${tIdx++}\x00`; tokens.push({ k, html }); return k; };
 
   md = md.replace(/`([^`]+)`/g, (_, c) => stash(`<code>${escapeHtml(c)}</code>`));
   md = md.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => stash(`<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" />`));
-  md = md.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) => stash(`<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(text)}</a>`));
-  md = md.replace(/(^|[\s(])((https?:\/\/)[^\s)<]+)/gm, (_, pre, url) => pre + stash(`<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>`));
+  md = md.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) => stash(`<a href="${escapeHtml(safeHref(url))}" target="_blank" rel="noopener noreferrer">${escapeHtml(text)}</a>`));
+  md = md.replace(/(^|[\s(])((https?:\/\/)[^\s)<]+)/gm, (_, pre, url) => pre + stash(`<a href="${escapeHtml(safeHref(url))}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>`));
   md = md.replace(/(^|[\s(])@([a-zA-Z0-9_-]+)/gm, (_, pre, user) => pre + stash(`<a href="https://github.com/${escapeHtml(user)}" target="_blank" rel="noopener">@${escapeHtml(user)}</a>`));
 
   let html = escapeHtml(md);

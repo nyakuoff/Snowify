@@ -33,83 +33,153 @@ function trackPlaysLabel(track) {
 
 // ─── renderTrackList ──────────────────────────────────────────────────────────
 
-export function renderTrackList(container, tracks, context, sourcePlaylistId = null) {
+// Optional 5th arg: contextMenuCb(e, track, idx) — overrides default showContextMenu.
+// Used by playlist detail view to show the "remove from playlist" menu.
+export function renderTrackList(container, tracks, context, sourcePlaylistId = null, contextMenuCb = null) {
   const isArtistCtx = context === 'artist-popular';
+  const _likedIds   = new Set(state.likedSongs.map(t => t.id));
 
-  let html = `
-    <div class="track-list-header">
-      <span>#</span>
-      <span>${I18n.t('trackList.title')}</span>
-      ${!isArtistCtx ? `<span>${I18n.t('trackList.artist')}</span>` : ''}
-      <span></span>
-    </div>`;
+  const headerHtml = `<div class="track-list-header">
+    <span>#</span>
+    <span>${I18n.t('trackList.title')}</span>
+    ${!isArtistCtx ? `<span>${I18n.t('trackList.artist')}</span>` : ''}
+    <span></span>
+  </div>`;
 
-  const _currentId = state.queue[state.queueIndex]?.id;
-  const _likedIds  = new Set(state.likedSongs.map(t => t.id));
-  tracks.forEach((track, i) => {
-    const isPlaying = _currentId === track.id;
+  // ── Row HTML builder (reads currentId live so highlight is always fresh) ──
+  function buildRow(track, i) {
+    const isPlaying = state.queue[state.queueIndex]?.id === track.id;
     const isLiked   = _likedIds.has(track.id);
     const playsText = trackPlaysLabel(track);
-    html += `
-      <div class="track-row ${isPlaying ? 'playing' : ''}${isArtistCtx ? ' track-row--artist' : ''}"
-           data-track-id="${track.id}" data-context="${context}" data-index="${i}" draggable="true">
-        <div class="track-num">
-          <span class="track-num-text">${i + 1}</span>
-          ${NOW_PLAYING_EQ_HTML}
-          <span class="track-num-play">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
-          </span>
+    return `<div class="track-row${isPlaying ? ' playing' : ''}${isArtistCtx ? ' track-row--artist' : ''}" data-track-id="${track.id}" data-context="${context}" data-index="${i}" draggable="true">
+      <div class="track-num">
+        <span class="track-num-text">${i + 1}</span>
+        ${NOW_PLAYING_EQ_HTML}
+        <span class="track-num-play"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg></span>
+      </div>
+      <div class="track-main">
+        <img class="track-thumb" data-src="${escapeHtml(resolveImageUrl(track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : '')) || '')}" alt="" />
+        <div class="track-details">
+          <div class="track-title">${escapeHtml(track.title)}${track.isLocal ? '<span class="local-badge">LOCAL</span>' : ''}</div>
+          ${playsText ? `<div class="track-inline-plays">${escapeHtml(playsText)}</div>` : ''}
+          ${!isArtistCtx && track.artist ? `<div class="track-artist-sub">${escapeHtml(track.artist)}</div>` : ''}
         </div>
-        <div class="track-main">
-          <img class="track-thumb" data-src="${escapeHtml(resolveImageUrl(track.thumbnail || (track.isLocal ? LOCAL_THUMB_FALLBACK : '')) || '')}" alt="" />
-          <div class="track-details">
-            <div class="track-title">${escapeHtml(track.title)}${track.isLocal ? '<span class="local-badge">LOCAL</span>' : ''}</div>
-            ${playsText ? `<div class="track-inline-plays">${escapeHtml(playsText)}</div>` : ''}
-            ${!isArtistCtx && track.artist ? `<div class="track-artist-sub">${escapeHtml(track.artist)}</div>` : ''}
-          </div>
-        </div>
-        ${!isArtistCtx ? `<div class="track-artist-col">${renderArtistLinks(track)}</div>` : ''}
-        <div class="track-like-col">
-          <button class="track-like-btn${isLiked ? ' liked' : ''}" title="${I18n.t('player.like')}">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-            </svg>
-          </button>
-        </div>
-      </div>`;
-  });
+      </div>
+      ${!isArtistCtx ? `<div class="track-artist-col">${renderArtistLinks(track)}</div>` : ''}
+      <div class="track-like-col">
+        <button class="track-like-btn${isLiked ? ' liked' : ''}" title="${I18n.t('player.like')}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+        </button>
+      </div>
+    </div>`;
+  }
 
-  container.innerHTML = html;
-
-  container.querySelectorAll('.track-row').forEach(row => {
-    const idx   = parseInt(row.dataset.index);
-    const track = tracks[idx];
-    row.addEventListener('click', () => {
-      if (context === 'playlist' || context === 'album') {
-        playFromList(tracks, idx, sourcePlaylistId);
-      } else {
-        playFromList([track], 0);
-      }
-    });
-    row.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      showContextMenu(e, tracks[idx]);
-    });
-    row.addEventListener('dragstart', (e) => {
-      if (track) startTrackDrag(e, track);
-    });
-    const likeBtn = row.querySelector('.track-like-btn');
-    if (likeBtn && track) {
-      likeBtn.addEventListener('click', (e) => {
+  // ── Delegated event wiring (one listener set per container, not per row) ──
+  function wireEvents(el) {
+    el.addEventListener('click', e => {
+      // Like button
+      const likeBtn = e.target.closest('.track-like-btn');
+      if (likeBtn) {
         e.stopPropagation();
+        const row = likeBtn.closest('.track-row');
+        if (!row) return;
+        const track = tracks[parseInt(row.dataset.index)];
+        if (!track) return;
         const wasLiked = toggleLike(track);
         likeBtn.classList.toggle('liked', state.likedSongs.some(t => t.id === track.id));
         if (wasLiked) spawnHeartParticles(likeBtn); else spawnBrokenHeart(likeBtn);
-      });
-    }
-  });
+        return;
+      }
+      // Artist link
+      const link = e.target.closest('.artist-link[data-artist-id]');
+      if (link) { e.stopPropagation(); openArtistPage(link.dataset.artistId); return; }
+      // Row play
+      const row = e.target.closest('.track-row');
+      if (!row) return;
+      const idx = parseInt(row.dataset.index);
+      const track = tracks[idx];
+      if (!track) return;
+      if (context === 'playlist' || context === 'album') playFromList(tracks, idx, sourcePlaylistId);
+      else playFromList([track], 0);
+    });
+    el.addEventListener('contextmenu', e => {
+      const row = e.target.closest('.track-row');
+      if (!row) return;
+      e.preventDefault();
+      const idx = parseInt(row.dataset.index);
+      const track = tracks[idx];
+      if (!track) return;
+      if (contextMenuCb) contextMenuCb(e, track, idx);
+      else showContextMenu(e, track);
+    });
+    el.addEventListener('dragstart', e => {
+      const row = e.target.closest('.track-row');
+      if (!row) return;
+      const track = tracks[parseInt(row.dataset.index)];
+      if (track) startTrackDrag(e, track);
+    });
+  }
 
-  bindArtistLinks(container);
+  // ── Small list: render all rows at once ───────────────────────────────────
+  const VLIST_THRESHOLD = 200;
+  if (tracks.length < VLIST_THRESHOLD) {
+    let html = headerHtml;
+    tracks.forEach((t, i) => { html += buildRow(t, i); });
+    container.innerHTML = html;
+    wireEvents(container);
+    return;
+  }
+
+  // ── Large list: virtual scrolling ────────────────────────────────────────
+  // Only render the visible window of rows. Spacer divs hold the height for
+  // the off-screen tracks so the scrollbar thumb size / position is correct.
+  const ROW_H    = 56;  // px — matches CSS: padding 8px×2 + img 40px
+  const OVERSCAN = 8;   // extra rows buffered above and below the viewport
+  const scrollEl = document.getElementById('main-content');
+
+  // Tear down any previous virtual list attached to this scroll container
+  scrollEl._vlistCleanup?.();
+
+  container.innerHTML = `${headerHtml}<div class="vlist-top"></div><div class="vlist-rows"></div><div class="vlist-bot"></div>`;
+  const topSpacer = container.querySelector('.vlist-top');
+  const rowsEl    = container.querySelector('.vlist-rows');
+  const botSpacer = container.querySelector('.vlist-bot');
+
+  wireEvents(rowsEl);
+
+  let offsetTop = null; // absolute Y of rowsEl within scrollEl — computed once
+
+  function renderWindow() {
+    if (offsetTop === null) {
+      const headerH = container.querySelector('.track-list-header')?.offsetHeight ?? 40;
+      const cRect   = container.getBoundingClientRect();
+      const sRect   = scrollEl.getBoundingClientRect();
+      offsetTop = scrollEl.scrollTop + (cRect.top - sRect.top) + headerH;
+    }
+    const scrollTop  = scrollEl.scrollTop;
+    const viewHeight = scrollEl.clientHeight;
+    const first = Math.max(0, Math.floor((scrollTop - offsetTop) / ROW_H) - OVERSCAN);
+    const last  = Math.min(tracks.length, first + OVERSCAN * 2 + Math.ceil(viewHeight / ROW_H) + 1);
+
+    topSpacer.style.height = (first * ROW_H) + 'px';
+    botSpacer.style.height = ((tracks.length - last) * ROW_H) + 'px';
+
+    let html = '';
+    for (let i = first; i < last; i++) html += buildRow(tracks[i], i);
+    rowsEl.innerHTML = html;
+  }
+
+  const onScroll = () => renderWindow();
+  scrollEl.addEventListener('scroll', onScroll, { passive: true });
+  scrollEl._vlistCleanup = () => {
+    scrollEl.removeEventListener('scroll', onScroll);
+    scrollEl._vlistCleanup = null;
+  };
+
+  // Defer first render one frame so container is in its final layout position
+  requestAnimationFrame(renderWindow);
 }
 
 // ─── Playlist section HTML ────────────────────────────────────────────────────
