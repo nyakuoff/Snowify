@@ -5633,6 +5633,7 @@ body.i18n-switching { opacity: 0; }
   margin-bottom: 4px;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -5640,6 +5641,7 @@ body.i18n-switching { opacity: 0; }
   display: block;
   overflow: visible;
   -webkit-line-clamp: unset;
+  line-clamp: unset;
 }
 .plugin-card-readmore {
   background: none;
@@ -5887,6 +5889,7 @@ body.i18n-switching { opacity: 0; }
   margin-bottom: 4px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -5894,6 +5897,7 @@ body.i18n-switching { opacity: 0; }
   display: block;
   overflow: visible;
   -webkit-line-clamp: unset;
+  line-clamp: unset;
 }
 .theme-card-readmore {
   background: none;
@@ -6644,6 +6648,7 @@ body.i18n-switching { opacity: 0; }
   font-size: 12px;
   font-weight: 600;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   overflow: hidden;
