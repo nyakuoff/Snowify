@@ -43,7 +43,7 @@ export async function renderHome() {
     if (changed) callbacks.saveState();
   }
   renderRecentTracks();
-  await renderQuickPicks();
+  renderQuickPicks();
   renderNewReleases();
   renderRecommendations();
 }
@@ -172,40 +172,42 @@ export function renderRecentTracks() {
   });
 }
 
+// ─── Quick Picks: module-level state ──────────────────────────────────────────
+// Keyed by mix id — updated in-place so click handlers always see latest tracks.
+const _picksMap = new Map();
+// Artist radio cache: artistId → { avatar, tracks, ts }
+const _qpArtistCache = new Map();
+const _QP_ARTIST_TTL = 30 * 60 * 1000; // 30 min
+
 // ─── renderQuickPicks ─────────────────────────────────────────────────────────
 
-export async function renderQuickPicks() {
+export function renderQuickPicks() {
   const container = document.querySelector('#quick-picks');
   const recent    = state.recentTracks;
   const liked     = state.likedSongs || [];
 
-  if (!recent.length && !liked.length) { container.innerHTML = ''; return; }
+  if (!recent.length && !liked.length) { container.innerHTML = ''; _picksMap.clear(); return; }
 
-  const mixes = [];
+  _picksMap.clear();
+  const mixes     = [];
   const allTracks = [...recent, ...liked];
 
   // Mix 1: Recently Played shuffle
   if (recent.length) {
-    mixes.push({
-      id: 'mix-recent',
-      title: I18n.t('home.mixRecent'),
-      sub: I18n.t('home.mixShuffle'),
-      avatar: null,
-      thumbs: _qpCollage(recent),
-      tracks: _qpShuffle([...recent]),
-    });
+    const m = {
+      id: 'mix-recent', title: I18n.t('home.mixRecent'), sub: I18n.t('home.mixShuffle'),
+      avatar: null, thumbs: _qpCollage(recent), tracks: _qpShuffle([...recent]),
+    };
+    mixes.push(m); _picksMap.set(m.id, m);
   }
 
   // Mix 2: Liked Songs shuffle
   if (liked.length >= 2) {
-    mixes.push({
-      id: 'mix-liked',
-      title: I18n.t('home.mixLiked'),
-      sub: I18n.t('home.mixShuffle'),
-      avatar: null,
-      thumbs: _qpCollage(liked),
-      tracks: _qpShuffle([...liked]),
-    });
+    const m = {
+      id: 'mix-liked', title: I18n.t('home.mixLiked'), sub: I18n.t('home.mixShuffle'),
+      avatar: null, thumbs: _qpCollage(liked), tracks: _qpShuffle([...liked]),
+    };
+    mixes.push(m); _picksMap.set(m.id, m);
   }
 
   // Artist radios: collect top artists by play frequency
@@ -218,59 +220,95 @@ export async function renderQuickPicks() {
     if (!artistMap[id].localTracks.find(x => x.id === t.id)) artistMap[id].localTracks.push(t);
   });
 
-  const slotsLeft = 8 - mixes.length;
+  const slotsLeft  = 8 - mixes.length;
   const topArtists = Object.values(artistMap)
     .sort((a, b) => b.localTracks.length - a.localTracks.length)
     .slice(0, slotsLeft);
 
-  // Fetch all artist infos in parallel
-  if (topArtists.length) {
-    const infos = await Promise.allSettled(
-      topArtists.map(a => window.snowify.artistInfo(a.id).catch(() => null))
-    );
-    infos.forEach((result, i) => {
-      const a    = topArtists[i];
-      const info = result.status === 'fulfilled' ? result.value : null;
-      const topSongs = info?.topSongs?.length ? info.topSongs : a.localTracks;
-      mixes.push({
-        id: `mix-artist-${a.id}`,
-        title: a.name,
-        sub: I18n.t('home.mixArtistRadio'),
-        avatar: info?.avatar || info?.banner || null,
-        thumbs: _qpCollage(a.localTracks),
-        tracks: _qpShuffle([...topSongs]),
-      });
-    });
-  }
+  topArtists.forEach(a => {
+    const cached = _qpArtistCache.get(a.id);
+    const m = {
+      id: `mix-artist-${a.id}`,
+      title: a.name,
+      sub: I18n.t('home.mixArtistRadio'),
+      avatar: cached?.avatar ?? null,
+      thumbs: _qpCollage(a.localTracks),
+      tracks: cached ? [...cached.tracks] : _qpShuffle([...a.localTracks]),
+      artistId: a.id,
+    };
+    mixes.push(m); _picksMap.set(m.id, m);
+  });
 
-  const picks = mixes.slice(0, 8);
-
+  // Paint all tiles immediately (no network wait)
   const shuffleSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="opacity:.7"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 6.46 20 8.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>`;
 
-  container.innerHTML = picks.map(mix => {
+  container.innerHTML = mixes.map(mix => {
     const thumb = mix.avatar
       ? `<img class="qp-avatar" data-src="${escapeHtml(mix.avatar)}" alt="" />`
       : `<div class="qp-collage">${mix.thumbs.map(s => `<img data-src="${escapeHtml(s)}" alt="" />`).join('')}</div>`;
-    return `
-    <div class="quick-pick-card" data-mix-id="${escapeHtml(mix.id)}">
-      ${thumb}
-      <div class="qp-info">
-        <span class="qp-title">${escapeHtml(mix.title)}</span>
-        <span class="qp-sub">${shuffleSvg}${escapeHtml(mix.sub)}</span>
-      </div>
-      <button class="qp-play" title="${I18n.t('player.play')}">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
-      </button>
-    </div>`;
+    return `<div class="quick-pick-card" data-mix-id="${escapeHtml(mix.id)}">${thumb}<div class="qp-info"><span class="qp-title">${escapeHtml(mix.title)}</span><span class="qp-sub">${shuffleSvg}${escapeHtml(mix.sub)}</span></div><button class="qp-play" title="${I18n.t('player.play')}"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg></button></div>`;
   }).join('');
 
+  // Click handlers read from _picksMap at click-time so they see hydrated queues
   container.querySelectorAll('.quick-pick-card').forEach(card => {
-    const mix = picks.find(m => m.id === card.dataset.mixId);
-    if (!mix) return;
-    const play = () => playFromList(mix.tracks, 0);
+    const play = () => { const mix = _picksMap.get(card.dataset.mixId); if (mix) playFromList(mix.tracks, 0); };
     card.addEventListener('click', play);
     card.querySelector('.qp-play')?.addEventListener('click', e => { e.stopPropagation(); play(); });
   });
+
+  // Background hydration: fetch full artist catalog for stale/uncached artist tiles
+  topArtists.forEach(a => {
+    const cached = _qpArtistCache.get(a.id);
+    if (cached && Date.now() - cached.ts < _QP_ARTIST_TTL) return;
+    _hydrateArtistTile(a.id, container).catch(() => {});
+  });
+}
+
+async function _hydrateArtistTile(artistId, container) {
+  const info = await window.snowify.artistInfo(artistId).catch(() => null);
+  if (!info) return;
+
+  // Expand catalog: top 3 albums + top 3 singles album tracks
+  const albumIds = [
+    ...(info.topAlbums  || []).slice(0, 3).map(a => a.albumId),
+    ...(info.topSingles || []).slice(0, 3).map(a => a.albumId),
+  ].filter(Boolean);
+
+  const albumResults = await Promise.allSettled(
+    albumIds.map(id => window.snowify.albumTracks(id).catch(() => null))
+  );
+  const fromAlbums = albumResults.flatMap(r =>
+    r.status === 'fulfilled' && r.value?.tracks ? r.value.tracks : []
+  );
+
+  const seen     = new Set();
+  const allSongs = [...(info.topSongs || []), ...fromAlbums].filter(t => {
+    if (!t?.id || seen.has(t.id)) return false;
+    seen.add(t.id); return true;
+  });
+
+  const tracks = _qpShuffle(allSongs.slice(0, 50));
+  const avatar = info.avatar || info.banner || null;
+  _qpArtistCache.set(artistId, { avatar, tracks, ts: Date.now() });
+
+  // Update in-place so future clicks use the full queue
+  const mixId = `mix-artist-${artistId}`;
+  const mix   = _picksMap.get(mixId);
+  if (!mix) return;
+  mix.tracks = tracks;
+  mix.avatar = avatar;
+
+  // Swap collage → avatar image if we now have one
+  if (avatar) {
+    const card = container.querySelector(`[data-mix-id="${CSS.escape(mixId)}"]`);
+    if (!card) return;
+    const collage = card.querySelector('.qp-collage');
+    if (collage) {
+      const img = document.createElement('img');
+      img.className = 'qp-avatar'; img.alt = ''; img.src = avatar;
+      collage.replaceWith(img);
+    }
+  }
 }
 
 function _qpCollage(tracks) {
