@@ -213,11 +213,15 @@ export function renderQuickPicks() {
   // Artist radios: collect top artists by play frequency
   const artistMap = {};
   allTracks.forEach(t => {
-    const id   = t.artistId || t.artists?.[0]?.id;
-    const name = t.artist   || t.artists?.[0]?.name;
-    if (!id || !name) return;
-    if (!artistMap[id]) artistMap[id] = { id, name, localTracks: [] };
-    if (!artistMap[id].localTracks.find(x => x.id === t.id)) artistMap[id].localTracks.push(t);
+    // Expand all individual artists so "Artist A, Artist B" never becomes a combined radio
+    const individuals = t.artists?.length
+      ? t.artists
+      : (t.artistId ? [{ id: t.artistId, name: t.artist }] : []);
+    individuals.forEach(a => {
+      if (!a.id || !a.name) return;
+      if (!artistMap[a.id]) artistMap[a.id] = { id: a.id, name: a.name, localTracks: [] };
+      if (!artistMap[a.id].localTracks.find(x => x.id === t.id)) artistMap[a.id].localTracks.push(t);
+    });
   });
 
   const slotsLeft  = 8 - mixes.length;
