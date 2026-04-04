@@ -106,6 +106,7 @@ Required app assignments in `finishInit()`:
 - Reuse existing CSS classes and component patterns.
 - Do not introduce major style-system changes without updating all related views.
 - Keep DOM queries local to module scope unless shared by design.
+- Any clickable artist name must use the same hover treatment as other artist links: underline plus `var(--accent)` on hover/focus-visible.
 
 ## 8. Plugin and Source Registry Rules
 

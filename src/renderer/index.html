@@ -918,7 +918,53 @@
 
 
     </main>
+
+    <aside id="np-side-panel" class="np-side-panel hidden" aria-label="Now playing details">
+      <div class="np-side-media" id="np-side-media">
+        <video id="np-side-video" class="np-side-video hidden" muted loop playsinline preload="metadata"></video>
+        <img id="np-side-cover" class="np-side-cover" src="" alt="" />
+        <div class="np-side-media-overlay"></div>
+        <div class="np-side-media-top">
+          <button class="icon-btn np-side-collapse-btn" id="btn-toggle-np-side-panel" aria-label="Collapse now playing panel" data-i18n-title="player.collapseNowPlaying" title="Collapse">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h13v-2H3v2zm0-5h10v-2H3v2zm0-7v2h13V6H3zm18 9.59L17.42 12 21 8.41 19.59 7l-5 5 5 5L21 15.59z"/></svg>
+          </button>
+          <a href="#" class="np-side-artist-link" id="np-side-artist-link">—</a>
+        </div>
+        <div class="np-side-media-bottom">
+          <h3 class="np-side-track-title" id="np-side-track-title">—</h3>
+          <p class="np-side-track-artist" id="np-side-track-artist">—</p>
+        </div>
+      </div>
+
+      <div class="np-side-cards">
+        <section class="np-side-card" id="np-side-about-card">
+          <h4 data-i18n="artist.about">About</h4>
+          <div class="np-side-about-head">
+            <img id="np-side-artist-avatar" class="np-side-artist-avatar" src="" alt="" />
+            <div class="np-side-about-meta">
+              <div class="np-side-about-name" id="np-side-about-name">—</div>
+              <div class="np-side-about-audience" id="np-side-about-audience"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="np-side-card hidden" id="np-side-next-card">
+          <h4 data-i18n="player.nextInQueue">Next in queue</h4>
+          <div class="np-side-next-row">
+            <img id="np-side-next-thumb" class="np-side-next-thumb" src="" alt="" />
+            <div class="np-side-next-meta">
+              <div class="np-side-next-title" id="np-side-next-title">—</div>
+              <div class="np-side-next-artist" id="np-side-next-artist"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </aside>
   </div>
+
+  <button class="icon-btn np-side-open-btn hidden" id="btn-open-np-side-panel" aria-label="Expand now playing panel" data-i18n-title="player.expandNowPlaying" title="Expand">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h13v-2H3v2zm0-5h10v-2H3v2zm0-7v2h13V6H3zm18 9.59L17.42 12 21 8.41 19.59 7l-5 5 5 5L21 15.59z"/></svg>
+  </button>
 
   <!-- ═══════ Now Playing Bar ═══════ -->
   <footer id="now-playing-bar" class="hidden">

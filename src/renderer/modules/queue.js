@@ -17,6 +17,17 @@ import { LOCAL_THUMB_FALLBACK } from './player.js';
 
 const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
+const QUEUE_CHANGED_EVENT = 'snowify:queue-changed';
+
+function emitQueueChanged() {
+  document.dispatchEvent(new CustomEvent(QUEUE_CHANGED_EVENT, {
+    detail: {
+      queueIndex: state.queueIndex,
+      queueLength: state.queue.length,
+      nextTrackId: state.queue[state.queueIndex + 1]?.id || null,
+    },
+  }));
+}
 
 // ─── Queue panel state ────────────────────────────────────────────────────────
 const queuePanel     = $('#queue-panel');
@@ -230,6 +241,7 @@ export function renderQueue() {
     upNext.innerHTML = `<p style="color:var(--text-subdued);font-size:13px;">${I18n.t('queue.empty')}</p>`;
   }
   updateCachedCount();
+  emitQueueChanged();
 }
 
 export function renderQueueItem(track, isActive, showRemove, queueIndex) {
