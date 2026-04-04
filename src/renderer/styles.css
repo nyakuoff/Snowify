@@ -941,18 +941,52 @@ body.sidebar-collapsed #section-followed-artists .sidebar-section-header { displ
   transform: translateY(-1px);
 }
 
-.quick-pick-card img {
+.qp-collage {
   width: 56px;
   height: 56px;
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  overflow: hidden;
+  border-radius: 4px 0 0 4px;
+}
+.qp-collage img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
-.quick-pick-card span {
-  padding: 0 16px;
+.qp-avatar {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 4px 0 0 4px;
+}
+.qp-info {
+  flex: 1;
+  min-width: 0;
+  padding: 0 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+}
+.qp-title {
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text-primary);
+}
+.qp-sub {
+  font-size: 11px;
+  color: var(--text-subdued);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
 }
 .quick-pick-card .qp-play {
   position: absolute;
@@ -1000,6 +1034,10 @@ body.sidebar-collapsed #section-followed-artists .sidebar-section-header { displ
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 16px;
+}
+.album-scroll .track-card {
+  flex: 0 0 180px;
+  width: 180px;
 }
 
 .track-card {
@@ -6636,17 +6674,17 @@ body.i18n-switching { opacity: 0; }
   max-width: none;
   height: 52px;
 }
-.platform-mobile .quick-pick-card img {
+.platform-mobile .qp-collage,
+.platform-mobile .qp-avatar {
   width: 52px;
   height: 52px;
-  flex-shrink: 0;
   border-radius: 8px 0 0 8px;
 }
-.platform-mobile .quick-pick-card span {
-  flex: 1;
+.platform-mobile .qp-info {
   padding: 0 8px;
+}
+.platform-mobile .qp-title {
   font-size: 12px;
-  font-weight: 600;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   display: -webkit-box;
