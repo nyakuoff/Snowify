@@ -883,6 +883,7 @@ body.sidebar-collapsed #section-followed-artists .sidebar-section-header { displ
   text-decoration: none;
   font-size: 17px;
   font-weight: 700;
+  margin-top: 5px;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
   max-width: 100%;
   white-space: nowrap;
@@ -1093,6 +1094,10 @@ body.sidebar-collapsed #section-followed-artists .sidebar-section-header { displ
   border-radius: 999px;
   background: var(--bg-elevated);
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.np-side-open-btn svg {
+  transform: scaleX(-1);
 }
 
 body.np-side-collapsed .np-side-panel {
