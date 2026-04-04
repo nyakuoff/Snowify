@@ -16,6 +16,10 @@ import { renderQueue, addToRecent } from './queue.js';
 import { renderPlaylists, renderLibrary } from './library.js';
 import { showAlbumDetail } from './album.js';
 import { openArtistPage } from './artist.js';
+import {
+  initNowPlayingSidePanel,
+  updateNowPlayingSidePanel,
+} from './now-playing-side.js';
 
 const $  = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
@@ -59,6 +63,11 @@ let prevVolume              = 0.7;
 let isDraggingProgress      = false;
 let isDraggingVolume        = false;
 let lastPositionUpdate      = 0;
+
+initNowPlayingSidePanel({
+  isMobileRuntime: IS_MOBILE_RUNTIME,
+  getCurrentTrack: () => state.queue[state.queueIndex] || null,
+});
 
 // ─── Exported getters/setters for _showTimeRemaining & prevVolume ────────────
 export function isShowTimeRemaining()    { return _showTimeRemaining; }
@@ -704,6 +713,8 @@ export function showNowPlaying(track) {
 
   const isLiked = state.likedSongs.some(t => t.id === track.id);
   $('#np-like').classList.toggle('liked', isLiked);
+
+  updateNowPlayingSidePanel(track);
 
   updateMediaSession(track);
   onTrackChanged(track);
