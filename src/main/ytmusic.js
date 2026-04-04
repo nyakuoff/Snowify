@@ -6,8 +6,6 @@ const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
 
-const _streamExtractInflight = new Map();
-
 // ─── YTMusic helpers ───
 
 function formatDuration(seconds) {
@@ -83,29 +81,6 @@ function mapSongToTrack(song, artists) {
     durationMs: song.duration ? Math.round(song.duration * 1000) : 0,
     url: `https://music.youtube.com/watch?v=${song.videoId}`
   };
-}
-
-function extractVideoIdFromUrl(videoUrl) {
-  try {
-    const parsed = new URL(String(videoUrl || ''));
-    const directId = parsed.searchParams.get('v');
-    if (directId) return directId;
-    const parts = parsed.pathname.split('/').filter(Boolean);
-    if (parts[0] === 'shorts' && parts[1]) return parts[1];
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-async function withInflight(key, factory) {
-  const existing = _streamExtractInflight.get(key);
-  if (existing) return existing;
-  const promise = Promise.resolve()
-    .then(factory)
-    .finally(() => _streamExtractInflight.delete(key));
-  _streamExtractInflight.set(key, promise);
-  return promise;
 }
 
 // ─── YTMusic init ───
@@ -632,12 +607,6 @@ function register(ipcMain, ctx) {
   ipcMain.handle('yt:getStreamUrl', async (_event, videoUrl, quality, trackMeta = {}, sources = ['youtube']) => {
     const fmt = quality === 'worstaudio' ? 'worstaudio/worstaudio*/worst' : 'bestaudio/bestaudio*/best';
     const YT_FLAGS = ['--no-warnings', '--no-playlist', '--no-check-certificates'];
-    const FAST_YT_FLAGS = [
-      '--no-config',
-      '--extractor-retries', '2',
-      '--fragment-retries', '2',
-      '--socket-timeout', '12',
-    ];
 
     function runYtDlp(args, timeout) {
       return new Promise((resolve, reject) => {
@@ -659,35 +628,12 @@ function register(ipcMain, ctx) {
 
     for (const source of activeSources) {
       if (source === 'youtube') {
-        const videoId = extractVideoIdFromUrl(videoUrl);
-        const canonicalVideoUrl = videoId ? `https://music.youtube.com/watch?v=${videoId}` : videoUrl;
-        const cacheKey = `audio:${canonicalVideoUrl}:${fmt}`;
-        const legacyCacheKey = `audio:${videoUrl}:${fmt}`;
-        const cached = getCachedUrl(cacheKey) || getCachedUrl(legacyCacheKey);
+        const cacheKey = `audio:${videoUrl}:${fmt}`;
+        const cached = getCachedUrl(cacheKey);
         if (cached) return cached;
-
         try {
-          const url = await withInflight(cacheKey, async () => {
-            const attempts = [
-              { args: ['-f', fmt, '--get-url', ...YT_FLAGS, ...FAST_YT_FLAGS, '--force-ipv4', canonicalVideoUrl], timeout: 12000 },
-              { args: ['-f', fmt, '--get-url', ...YT_FLAGS, ...FAST_YT_FLAGS, canonicalVideoUrl], timeout: 16000 },
-              { args: ['-f', fmt, '--get-url', ...YT_FLAGS, canonicalVideoUrl], timeout: 22000 },
-            ];
-            let lastAttemptError = null;
-            const startedAt = Date.now();
-            for (const attempt of attempts) {
-              try {
-                const extracted = await runYtDlp(attempt.args, attempt.timeout);
-                console.log(`[yt:getStreamUrl] extracted in ${Date.now() - startedAt}ms`);
-                return extracted;
-              } catch (err) {
-                lastAttemptError = err;
-              }
-            }
-            throw lastAttemptError || new Error('Failed to extract stream URL');
-          });
+          const url = await runYtDlp(['-f', fmt, '--get-url', ...YT_FLAGS, videoUrl], 15000);
           setCachedUrl(cacheKey, url);
-          if (legacyCacheKey !== cacheKey) setCachedUrl(legacyCacheKey, url);
           return url;
         } catch (err) {
           lastError = err;
@@ -700,25 +646,7 @@ function register(ipcMain, ctx) {
         const cached = getCachedUrl(cacheKey);
         if (cached) return cached;
         try {
-          const url = await withInflight(cacheKey, async () => {
-            const attempts = [
-              { args: ['-f', 'bestaudio/best', '--get-url', ...YT_FLAGS, ...FAST_YT_FLAGS, '--force-ipv4', scQuery], timeout: 16000 },
-              { args: ['-f', 'bestaudio/best', '--get-url', ...YT_FLAGS, ...FAST_YT_FLAGS, scQuery], timeout: 22000 },
-              { args: ['-f', 'bestaudio/best', '--get-url', ...YT_FLAGS, scQuery], timeout: 28000 },
-            ];
-            let lastAttemptError = null;
-            const startedAt = Date.now();
-            for (const attempt of attempts) {
-              try {
-                const extracted = await runYtDlp(attempt.args, attempt.timeout);
-                console.log(`[yt:getStreamUrl:soundcloud] extracted in ${Date.now() - startedAt}ms`);
-                return extracted;
-              } catch (err) {
-                lastAttemptError = err;
-              }
-            }
-            throw lastAttemptError || new Error('Failed to extract SoundCloud URL');
-          });
+          const url = await runYtDlp(['-f', 'bestaudio/best', '--get-url', ...YT_FLAGS, scQuery], 20000);
           setCachedUrl(cacheKey, url);
           return url;
         } catch (err) {
