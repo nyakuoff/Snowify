@@ -309,6 +309,47 @@ function _scoreOfficialVideoCandidate(video, titleNorm, artistsNorm) {
   return score;
 }
 
+function _scoreArtistTopVideoCandidate(video, titleNorm, primaryArtistId, artistsNorm) {
+  const vTitle = _normalizeTextForMatch(video?.name || video?.title || '');
+  const vArtist = _normalizeTextForMatch(video?.artist || '');
+  const titleWords = titleNorm.split(' ').filter(w => w.length > 2);
+  const matchedTitleWords = titleWords.filter(w => vTitle.includes(w)).length;
+  const titleRatio = titleWords.length ? matchedTitleWords / titleWords.length : 0;
+  let score = 0;
+
+  if (titleNorm && vTitle.includes(titleNorm)) score += 10;
+  score += Math.min(8, matchedTitleWords * 2);
+  score += Math.round(titleRatio * 10);
+
+  if (primaryArtistId && video?.artistId === primaryArtistId) score += 6;
+  artistsNorm.forEach((artist) => {
+    if (artist && (vArtist.includes(artist) || vTitle.includes(artist))) score += 3;
+  });
+
+  return score;
+}
+
+function _pickArtistTopVideo(artistInfo, titleNorm, primaryArtistId, artistsNorm) {
+  const candidates = Array.isArray(artistInfo?.topVideos) ? artistInfo.topVideos : [];
+  if (!candidates.length) return null;
+
+  const ranked = candidates
+    .map((video) => ({
+      video,
+      score: _scoreArtistTopVideoCandidate(video, titleNorm, primaryArtistId, artistsNorm),
+      titleNorm: _normalizeTextForMatch(video?.name || video?.title || ''),
+    }))
+    .filter(({ titleNorm: candidateTitle, score }) => {
+      const titleWords = titleNorm.split(' ').filter(w => w.length > 2);
+      const matchedTitleWords = titleWords.filter(w => candidateTitle.includes(w)).length;
+      const titleRatio = titleWords.length ? matchedTitleWords / titleWords.length : 0;
+      return score >= 10 && (candidateTitle.includes(titleNorm) || titleRatio >= 0.55);
+    })
+    .sort((a, b) => b.score - a.score);
+
+  return ranked[0]?.video || null;
+}
+
 async function _resolveOfficialMvVideoId(track) {
   if (!track || track.isLocal || !window.snowify?.searchVideos) return null;
 
@@ -318,12 +359,23 @@ async function _resolveOfficialMvVideoId(track) {
   const artists = _collectTrackArtists(track);
   const title = String(track.title || '').trim();
   const primaryArtist = artists[0]?.name || String(track.artist || '').trim();
+  const primaryArtistId = artists[0]?.id || track.artistId || null;
   const titleNorm = _normalizeTextForMatch(title);
   const artistsNorm = artists.map(a => _normalizeTextForMatch(a.name)).filter(Boolean);
+
+  if (primaryArtistId) {
+    const artistInfo = await _ensureArtistInfoCached(primaryArtistId);
+    const topVideo = _pickArtistTopVideo(artistInfo, titleNorm, primaryArtistId, artistsNorm);
+    if (topVideo?.videoId) {
+      _npSideVideoIdCache.set(cacheKey, topVideo.videoId);
+      return topVideo.videoId;
+    }
+  }
 
   const queries = [
     `${title} ${primaryArtist} official mv`.trim(),
     `${title} ${primaryArtist} official music video`.trim(),
+    `${title} ${primaryArtist} mv`.trim(),
   ].filter(Boolean);
 
   for (const query of queries) {
