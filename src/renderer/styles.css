@@ -2957,8 +2957,6 @@ body.audio-playing .play-btn {
 
 /* ═══════ Settings Page ═══════ */
 .settings-content {
-  max-width: 680px;
-  margin: 0 auto;
   padding-bottom: 40px;
 }
 
@@ -2999,6 +2997,19 @@ body.audio-playing .play-btn {
 }
 .settings-tab-pane.active {
   display: block;
+}
+@media (min-width: 820px) {
+  .settings-tab-pane.active {
+    columns: 2;
+    column-gap: 28px;
+  }
+  .settings-tab-pane.active > .settings-group {
+    break-inside: avoid;
+  }
+  /* Marketplace has its own internal layout */
+  .settings-tab-pane[data-tab="marketplace"].active {
+    columns: unset;
+  }
 }
 [data-theme="light"] .settings-tabs {
   background: rgba(0, 0, 0, 0.03);

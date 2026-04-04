@@ -253,7 +253,7 @@ export async function initSettings() {
     activateSettingsTab(tabExists ? preferred : 'account');
 
     if (IS_MOBILE_RUNTIME) {
-      document.querySelector('.settings-tab-btn[data-settings-tab="behavior"]')?.classList.add('hidden');
+      document.getElementById('group-behavior')?.classList.add('hidden');
     }
   }
 
