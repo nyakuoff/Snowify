@@ -5,7 +5,7 @@ import { escapeHtml } from './utils.js';
 const $ = (sel, ctx = document) => ctx.querySelector(sel);
 
 const NP_SIDE_COLLAPSED_KEY = 'snowify_np_side_collapsed';
-const NEXT_CARD_POLL_MS = 2200;
+const QUEUE_CHANGED_EVENT = 'snowify:queue-changed';
 const ASYNC_FETCH_TIMEOUT_MS = 6500;
 
 const npSidePanel = $('#np-side-panel');
@@ -31,7 +31,6 @@ const btnOpenNPSide = $('#btn-open-np-side-panel');
 let _isMobileRuntime = false;
 let _npSideRequestGen = 0;
 let _currentTrack = null;
-let _nextPollTimer = null;
 let _getCurrentTrack = () => state.queue[state.queueIndex] || null;
 let _initialized = false;
 let _lastNextCardKey = '';
@@ -446,10 +445,9 @@ export function initNowPlayingSidePanel({ isMobileRuntime = false, getCurrentTra
     npSideVideo.currentTime = 0;
   });
 
-  if (_nextPollTimer) clearInterval(_nextPollTimer);
-  _nextPollTimer = setInterval(() => {
+  document.addEventListener(QUEUE_CHANGED_EVENT, () => {
     if (_currentTrack) _renderNextQueueCard();
-  }, NEXT_CARD_POLL_MS);
+  });
 }
 
 export function updateNowPlayingSidePanel(track, { deferAsync = true } = {}) {
