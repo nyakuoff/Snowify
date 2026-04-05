@@ -84,9 +84,8 @@ export async function fetchAndShowLyrics(track) {
 
   lyricsBody.innerHTML = `<div class="lyrics-loading"><div class="spinner"></div><p>${I18n.t('lyrics.searching')}</p></div>`;
 
-  // Resolve duration: audio → track.durationMs → track.duration string. Wait for metadata if needed.
+  // Resolve duration opportunistically. Do not block lyrics fetch on metadata.
   const audio = audioRef.audio;
-  let durationSec = null;
   const resolveDuration = () => {
     if (audio.duration && !isNaN(audio.duration) && audio.duration > 0) return Math.round(audio.duration);
     if (track.durationMs && track.durationMs > 0) return Math.round(track.durationMs / 1000);
@@ -97,17 +96,7 @@ export async function fetchAndShowLyrics(track) {
     }
     return null;
   };
-  durationSec = resolveDuration();
-  if (!durationSec) {
-    await new Promise(resolve => {
-      const done = () => { durationSec = resolveDuration(); resolve(); };
-      if (audio.readyState >= 1) { done(); return; }
-      const onMeta = () => { audio.removeEventListener('loadedmetadata', onMeta); done(); };
-      audio.addEventListener('loadedmetadata', onMeta, { once: true });
-      setTimeout(() => { audio.removeEventListener('loadedmetadata', onMeta); resolve(); }, 4000);
-    });
-    if (lyricsState.trackId !== track.id) return; // track changed while waiting
-  }
+  const durationSec = resolveDuration();
 
   try {
     const result = await window.snowify.getLyrics(track.title, track.artist, track.album || '', durationSec);
