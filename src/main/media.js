@@ -30,6 +30,27 @@ function parseCsvLine(line) {
   return fields;
 }
 
+// parses a duration from a CSV into seconds
+// handles "mm:ss", "h:mm:ss", raw seconds, and milliseconds
+function parseDurationToSec(raw) {
+  if (raw == null) return 0;
+
+  const s = String(raw).trim();
+
+  if (!s) return 0;
+
+  if (s.includes(':')) {
+    const parts = s.split(':').map(n => parseInt(n, 10));
+    if (parts.some(isNaN)) return 0;
+    return parts.reduce((acc, n) => acc * 60 + n, 0);
+  }
+
+  const num = parseFloat(s);
+  if (isNaN(num) || num <= 0) return 0;
+  // treat anything above 3600 as milliseconds
+  return num > 3600 ? Math.round(num / 1000) : Math.round(num);
+}
+
 // ─── Spotify match scoring ───
 
 function normalizeStr(s) {
@@ -53,16 +74,31 @@ function tokenSimilarity(a, b) {
 
 const UNWANTED_TAGS = ['instrumental', 'karaoke', 'cover', '8d', '8d audio', 'remix', 'slowed', 'sped up', 'reverb', 'nightcore', 'acoustic', 'live'];
 
-function scoreMatch(song, targetTitle, targetArtist) {
+// minimum score the best candidate must reach
+// below this score, the track is reported as "not found" instead of returning an incorrect song
+const MIN_MATCH_SCORE = 0.35;
+
+// minimum title similarity a candidate must reach
+// prevents "same artist, wrong song" matches from occurring
+const MIN_TITLE_SCORE = 0.45;
+
+function scoreMatch(song, targetTitle, targetArtist, targetDurationSec = 0) {
   const sTitle = song.name || '';
-  const sArtist = song.artist?.name || '';
   const titleScore = tokenSimilarity(targetTitle, sTitle);
 
-  let artistScore = tokenSimilarity(targetArtist, sArtist);
-  if (song.artists && Array.isArray(song.artists)) {
-    for (const a of song.artists) {
-      const s = tokenSimilarity(targetArtist, a?.name || '');
-      if (s > artistScore) artistScore = s;
+  // treat empty or "Unknown Artist" target as a score of 0
+  const targetArtistNorm = normalizeStr(targetArtist);
+  const artistUnknown = !targetArtistNorm || targetArtistNorm === 'unknown artist';
+
+  let artistScore = 0;
+
+  if (!artistUnknown) {
+    artistScore = tokenSimilarity(targetArtist, song.artist?.name || '');
+    if (song.artists && Array.isArray(song.artists)) {
+      for (const a of song.artists) {
+        const s = tokenSimilarity(targetArtist, a?.name || '');
+        if (s > artistScore) artistScore = s;
+      }
     }
   }
 
@@ -85,11 +121,30 @@ function scoreMatch(song, targetTitle, targetArtist) {
   }
   if (normResult === normTarget) penalty -= 0.2;
 
-  if (artistScore === 0 && normalizeStr(targetArtist).length > 0) penalty += 0.8;
-  else if (artistScore < 0.3 && normalizeStr(targetArtist).length > 0) penalty += 0.3;
-  if (artistScore >= 0.8) penalty -= 0.25;
+  if (!artistUnknown) {
+    if (artistScore === 0) penalty += 0.8;
+    else if (artistScore < 0.3) penalty += 0.3;
+    if (artistScore >= 0.8) penalty -= 0.25;
+  }
 
-  return (titleScore * 0.4) + (artistScore * 0.6) - penalty;
+  // try to match song duration 
+  if (targetDurationSec > 0 && song.duration > 0) {
+    const diff = Math.abs(song.duration - targetDurationSec);
+    // very close match
+    if (diff <= 2) penalty -= 0.25;
+    // close
+    else if (diff <= 5) penalty -= 0.10;
+    // neutral
+    else if (diff <= 15) {}
+    // likely different
+    else if (diff <= 45) penalty += 0.25;
+    // very different
+    else penalty += 0.60;
+  }
+
+  // if artist is unknown, use title and duration only
+  const base = artistUnknown ? titleScore : (titleScore * 0.4) + (artistScore * 0.6);
+  return { score: base - penalty, titleScore };
 }
 
 // ─── Playlist covers dir ───
@@ -140,15 +195,17 @@ function register(ipcMain, ctx) {
         if (lines.length < 2) continue;
         const headers = parseCsvLine(lines[0]).map(h => h.trim());
         const titleIdx = headers.findIndex(h => /^(track.?name|title|song.?name|name)$/i.test(h));
-        const artistIdx = headers.findIndex(h => /^(artist.?name|artists?\(?s?\)?|artist)$/i.test(h));
+        const artistIdx = headers.findIndex(h => /^artist(\s*names?)?\(?s?\)?$/i.test(h));
+        const durationIdx = headers.findIndex(h => /^(track ?)?(duration|length)/i.test(h));
         if (titleIdx === -1) continue;
         const tracks = [];
         for (let i = 1; i < lines.length; i++) {
           const fields = parseCsvLine(lines[i]);
           const title = fields[titleIdx]?.trim();
           if (!title) continue;
-          const artist = artistIdx !== -1 ? (fields[artistIdx]?.replace(/\\,/g, ', ').trim() || 'Unknown Artist') : 'Unknown Artist';
-          tracks.push({ title, artist });
+          const artist = artistIdx !== -1 ? (fields[artistIdx]?.replace(/\s*;\s*/g, ', ').replace(/\\,/g, ', ').trim() || 'Unknown Artist') : 'Unknown Artist';
+          const durationSec = durationIdx !== -1 ? parseDurationToSec(fields[durationIdx]) : 0;
+          tracks.push({ title, artist, durationSec });
         }
         playlists.push({ name: path.basename(filePath, '.csv').replace(/_/g, ' '), tracks });
       } catch (err) { console.error(`Error parsing CSV ${filePath}:`, err.message); }
@@ -156,7 +213,7 @@ function register(ipcMain, ctx) {
     return playlists.length ? playlists : null;
   });
 
-  ipcMain.handle('spotify:matchTrack', async (_event, title, artist) => {
+  ipcMain.handle('spotify:matchTrack', async (_event, title, artist, targetDurationSec = 0) => {
     try {
       const songs = await ctx.ytmusic.searchSongs(`${title} ${artist}`);
       let candidates = songs.filter(s => s.videoId);
@@ -178,12 +235,23 @@ function register(ipcMain, ctx) {
         }
       }
       if (!candidates.length) return null;
-      let bestSong = candidates[0], bestScore = -Infinity;
-      for (const song of candidates) {
-        const score = scoreMatch(song, title, artist);
-        if (score > bestScore) { bestScore = score; bestSong = song; }
+      const scored = candidates.map(song => {
+        const { score, titleScore } = scoreMatch(song, title, artist, targetDurationSec);
+        return { song, score, titleScore };
+      });
+
+      // pick best candidate based on title first
+      let best = null;
+      for (const s of scored) {
+        if (s.titleScore < MIN_TITLE_SCORE) continue;
+        if (!best || s.score > best.score) best = s;
       }
-      return mapSongToTrack(bestSong);
+
+      if (!best || best.score < MIN_MATCH_SCORE) {
+        return null;
+      }
+      
+      return mapSongToTrack(best.song);
     } catch (err) { console.error('Spotify match error:', err); return null; }
   });
 
