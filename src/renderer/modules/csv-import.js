@@ -132,7 +132,7 @@ export function openSpotifyImport({ createPlaylist, renderPlaylists, renderLibra
         const batch    = pl.tracks.slice(i, Math.min(i + BATCH_SIZE, total));
         const promises = batch.map((t, bi) => {
           const idx = i + bi;
-          return window.snowify.spotifyMatchTrack(t.title, t.artist)
+          return window.snowify.spotifyMatchTrack(t.title, t.artist, t.durationSec)
             .catch(() => null)
             .then(result => ({ idx, result }));
         });
@@ -196,7 +196,7 @@ export function openSpotifyImport({ createPlaylist, renderPlaylists, renderLibra
 
       allFailedTracks.push(...failedTracks);
       progressText.textContent = I18n.t('spotify.matchedOf', { matched, total }) +
-        (failed ? ` (${I18n.t('spotify.notFound', { count: failed })})` : '');
+        (failed ? ` ${I18n.t('spotify.notFound', { count: failed })}` : '');
     }
 
     if (cancelled) { showToast(I18n.t('toast.importCancelled')); return; }
