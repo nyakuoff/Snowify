@@ -2,7 +2,7 @@
 use super::{Auth, Error};
 use crate::{
     host::{FetchRequest, Host},
-    ipc::JsValue,
+    ipc::{self, JsValue},
 };
 use serde_json::{Value, json};
 const ROOT: &str = "projects/snowify-dcda0/databases/(default)/documents";
@@ -313,24 +313,47 @@ async fn request<H: Host>(
             code: "unknown".into(),
             message: "Request failed with error: undefined".into(),
         })?;
-    if r.status == 404 && method == "GET" {
-        return Ok(Value::Null);
-    }
-    let v: Value = serde_json::from_slice(&r.body).map_err(|_| Error {
+    // Response.json() uses V8 JSON.parse messages even for non-2xx bodies.
+    let text = String::from_utf8_lossy(&r.body);
+    let text = text.trim_start_matches('\u{feff}');
+    ipc::json_parse(text).map_err(|e| Error {
+        code: "unknown".into(),
+        message: format!("SyntaxError: {}", e.to_string_lossy()),
+    })?;
+    let v: Value = serde_json::from_str(text).map_err(|_| Error {
         code: "unknown".into(),
         message: "Invalid JSON response".into(),
     })?;
     if !r.ok() {
+        // Lite maps HTTP status, not error.status (which can disagree).
+        let code = match r.status {
+            400 => "failed-precondition",
+            401 => "unauthenticated",
+            403 => "permission-denied",
+            404 => "not-found",
+            409 => "aborted",
+            416 => "out-of-range",
+            429 => "resource-exhausted",
+            499 => "cancelled",
+            500 => "unknown",
+            501 => "unimplemented",
+            503 => "unavailable",
+            504 => "deadline-exceeded",
+            400..=499 => "failed-precondition",
+            500..=599 => "internal",
+            _ => "unknown",
+        };
+        let e = if v.is_array() { &v[0] } else { &v };
         return Err(Error {
-            code: v["error"]["status"]
-                .as_str()
-                .unwrap_or("UNKNOWN")
-                .to_lowercase()
-                .replace('_', "-"),
-            message: v["error"]["message"]
-                .as_str()
-                .unwrap_or(&r.status_text)
-                .into(),
+            code: code.into(),
+            message: format!(
+                "Request failed with error: {}",
+                if e["error"]["message"].is_null() {
+                    r.status_text.clone()
+                } else {
+                    ipc::to_js_string(&JsValue::from(&e["error"]["message"]))
+                }
+            ),
         });
     }
     Ok(v)
@@ -369,13 +392,47 @@ pub async fn update_doc<H: Host>(
     .await
     .map(|_| ())
 }
-/// Read a document using REST GET and the current auth token.
+/// Read a document using the Lite SDK REST batchGet and the current auth token.
 pub async fn get_doc<H: Host>(
     host: &H,
     auth: &mut Auth,
     doc: &Document,
 ) -> Result<Snapshot, Error> {
-    let v = request(host, auth, "GET", &format!("/{}", doc.path), None).await?;
+    let reply = request(
+        host,
+        auth,
+        "POST",
+        ":batchGet",
+        Some(json!({"documents":[format!("{ROOT}/{}", doc.path)]})),
+    )
+    .await?;
+    let native = |message: String| Error {
+        code: String::new(),
+        message,
+    };
+    let rows = reply.as_array().ok_or_else(|| {
+        native(if reply.is_null() {
+            "Cannot read properties of null (reading 'forEach')".into()
+        } else {
+            "response.forEach is not a function".into()
+        })
+    })?;
+    let row = rows.first().ok_or_else(|| native(format!(
+        "FIRESTORE (12.11.0_lite) INTERNAL ASSERTION FAILED: Unexpected state (ID: d7c2) CONTEXT: {}",
+        json!({"key":{"path":{"segments":doc.path.split('/').collect::<Vec<_>>(),"offset":0,"len":doc.path.split('/').count()}}})
+    )))?;
+    if row.is_null() {
+        return Err(native(
+            "Cannot use 'in' operator to search for 'found' in null".into(),
+        ));
+    }
+    if row.get("found").is_none() && row.get("missing").is_none() {
+        return Err(native(format!(
+            "FIRESTORE (12.11.0_lite) INTERNAL ASSERTION FAILED: Unexpected state (ID: 1c42) CONTEXT: {}",
+            json!({"result":row})
+        )));
+    }
+    let v = &row["found"];
     Ok(Snapshot {
         data: if v.is_null() {
             None

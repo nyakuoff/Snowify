@@ -56,37 +56,89 @@ async fn parity() {
     ] {
         cases.push(json!({"op":"get","reply":[{"found":{"name":"projects/snowify-dcda0/databases/(default)/documents/users/u","fields":{"value":value},"updateTime":"2023-01-01T00:00:00Z"}}]}));
     }
+    // Conflicting error.status proves that HTTP status controls the SDK code.
+    for op in ["get", "set", "update"] {
+        for status in [
+            400, 401, 403, 404, 409, 416, 429, 499, 500, 501, 503, 504, 418, 502, 302,
+        ] {
+            for body in [
+                json!({"error":{"status":"INVALID_ARGUMENT","message":"fixture denied 雪"}})
+                    .to_string(),
+                json!([{"error":{"message":"array error"}}]).to_string(),
+                "{}".into(),
+            ] {
+                cases.push(
+                    json!({"op":op,"value":JsValue::from(&json!({"x":1})).encode(),
+                    "response":{"status":status,"statusText":"fixture status","body":body}}),
+                );
+            }
+        }
+        for body in ["null", "{}", "[]", "[{}]", "[null]"] {
+            cases.push(
+                json!({"op":op,"value":JsValue::from(&json!({"x":1})).encode(),
+                "response":{"status":200,"body":body}}),
+            );
+        }
+        for message in [
+            json!(null),
+            json!(false),
+            json!(0),
+            json!({"x":1}),
+            json!([1, 2]),
+            json!(""),
+        ] {
+            cases.push(json!({"op":op,"value":JsValue::from(&json!({"x":1})).encode(),
+                "response":{"status":403,"statusText":"Forbidden","body":json!({"error":{"message":message}}).to_string()}}));
+        }
+        for status in [200, 401, 403, 404, 500] {
+            for body in ["", "<html>", "{", "not json", "{\"x\":}"] {
+                cases.push(
+                    json!({"op":op,"value":JsValue::from(&json!({"x":1})).encode(),
+                    "response":{"status":status,"body":body}}),
+                );
+            }
+        }
+        cases.push(json!({"op":op,"value":JsValue::from(&json!({"x":1})).encode(),"response":{"error":true}}));
+    }
+    cases.push(json!({"op":"get","reply":[{"missing":"projects/snowify-dcda0/databases/(default)/documents/users/u","readTime":"2023-01-01T00:00:00Z"}]}));
     let source = common::run_source("firestore.js", &json!(cases));
     let mut diff = common::Diff::default();
     let doc = firestore::doc("users", "u").unwrap();
     for (i, c) in cases.iter().enumerate() {
-        if c["op"] == "get" {
-            let h = host::MockHost::new(
-                &json!({"userData":"/tmp/firebase-parity","fetch":{"https://firestore.googleapis.com":[{"body":c["reply"][0]["found"].to_string()}]}}),
-                "",
-            );
-            let mut auth = snowify::firebase::Auth::default();
-            let snap = firestore::get_doc(&h, &mut auth, &doc).await.unwrap();
-            let data = snap.data();
-            // Lite uses batchGet, while the required production transport uses GET. Assert
-            // each transport independently; only equivalent document responses are compared.
-            assert_eq!(
-                h.fetch_requests.lock().unwrap()[0],
-                json!([
-                    "GET",
-                    "https://firestore.googleapis.com/v1/projects/snowify-dcda0/databases/(default)/documents/users/u",
-                    [["content-type", "application/json"]],
-                    null
-                ])
-            );
-            diff.check(i,&source[i],&json!({"calls":[{"documents":["projects/snowify-dcda0/databases/(default)/documents/users/u"]}],"ok":{"exists":true,"data":data.encode()}}));
-            continue;
-        }
+        let response = if c.get("response").is_some() {
+            c["response"].clone()
+        } else {
+            json!({"body":if c["op"] == "get" { c["reply"].to_string() } else { "{}".into() }})
+        };
         let h = host::MockHost::new(
-            &json!({"userData":"/tmp/firebase-parity","fetch":{"https://firestore.googleapis.com":[{"body":"{}"}]}}),
+            &json!({"userData":"/tmp/firebase-parity","fetch":{"https://firestore.googleapis.com":[response]}}),
             "",
         );
         let mut auth = snowify::firebase::Auth::default();
+        if c["op"] == "get" {
+            let r = firestore::get_doc(&h, &mut auth, &doc).await;
+            let calls: Vec<serde_json::Value> = h
+                .fetch_requests
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|v| serde_json::from_str(v[3].as_str().unwrap()).unwrap())
+                .collect();
+            let result = match r {
+                Ok(snap) => {
+                    json!({"calls":calls,"ok":{"exists":snap.exists(),"data":snap.data().encode()}})
+                }
+                Err(e) => {
+                    let mut result = json!({"calls":calls,"error":e.message});
+                    if !e.code.is_empty() {
+                        result["code"] = json!(e.code);
+                    }
+                    result
+                }
+            };
+            diff.check(i, &source[i], &result);
+            continue;
+        }
         let data = JsValue::decode(&c["value"]).unwrap();
         let r = if c["op"] == "update" {
             firestore::update_doc(&h, &mut auth, &doc, &data).await
@@ -102,7 +154,13 @@ async fn parity() {
             .collect();
         let result = match r {
             Ok(()) => json!({"calls":calls,"ok":null}),
-            Err(e) => json!({"calls":calls,"error":e.message,"code":e.code}),
+            Err(e) => {
+                let mut result = json!({"calls":calls,"error":e.message});
+                if !e.code.is_empty() {
+                    result["code"] = json!(e.code);
+                }
+                result
+            }
         };
         diff.check(i, &source[i], &result);
     }

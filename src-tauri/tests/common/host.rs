@@ -5,7 +5,10 @@
 
 use serde_json::{Value, json};
 use snowify::{
-    host::{FetchRequest, FetchResponse, Host, HttpRequest, HttpResponse, NetError, OpenDialog, RawResponse, SaveDialog},
+    host::{
+        FetchRequest, FetchResponse, Host, HttpRequest, HttpResponse, NetError, OpenDialog,
+        RawResponse, SaveDialog,
+    },
     ipc::{HandlerResult, JsValue},
 };
 use std::{collections::HashMap, future::Future, pin::Pin, sync::Mutex, time::Duration};
@@ -46,20 +49,35 @@ impl MockHost {
             repo_root: repo_root.into(),
             packaged: scenario["isPackaged"].as_bool().unwrap_or(false),
             dialogs: Mutex::new(scenario["dialogs"].as_array().cloned().unwrap_or_default()),
-            save_dialogs: Mutex::new(scenario["saveDialogs"].as_array().cloned().unwrap_or_default()),
+            save_dialogs: Mutex::new(
+                scenario["saveDialogs"]
+                    .as_array()
+                    .cloned()
+                    .unwrap_or_default(),
+            ),
             now: scenario["now"].as_i64().unwrap_or(0),
             http: Mutex::new(http),
             fetch: Mutex::new(
                 scenario["fetch"]
                     .as_object()
-                    .map(|m| m.iter().map(|(k, v)| (k.clone(), v.as_array().cloned().unwrap_or_default())).collect())
+                    .map(|m| {
+                        m.iter()
+                            .map(|(k, v)| (k.clone(), v.as_array().cloned().unwrap_or_default()))
+                            .collect()
+                    })
                     .unwrap_or_default(),
             ),
             fetch_calls: Mutex::default(),
             fetch_requests: Mutex::default(),
             replay: Mutex::new(load_recording(scenario["recording"].as_str())),
-            overrides: scenario["overrides"].as_array().cloned().unwrap_or_default(),
-            resolve_proxy: scenario.get("resolveProxy").cloned().unwrap_or(json!("DIRECT")),
+            overrides: scenario["overrides"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default(),
+            resolve_proxy: scenario
+                .get("resolveProxy")
+                .cloned()
+                .unwrap_or(json!("DIRECT")),
             requests: Mutex::default(),
             dialog_calls: Mutex::default(),
             open_path_calls: Mutex::default(),
@@ -126,11 +144,25 @@ impl Host for MockHost {
         async move { out }
     }
     fn show_save_dialog(&self, opts: SaveDialog) -> impl Future<Output = Option<String>> + Send {
-        let filters: Vec<Value> = opts.filters.iter().map(|(n, e)| json!({ "name": n, "extensions": e })).collect();
-        self.dialog_calls.lock().unwrap().push(json!({ "title": opts.title, "defaultPath": opts.default_path, "filters": filters }));
+        let filters: Vec<Value> = opts
+            .filters
+            .iter()
+            .map(|(n, e)| json!({ "name": n, "extensions": e }))
+            .collect();
+        self.dialog_calls.lock().unwrap().push(
+            json!({ "title": opts.title, "defaultPath": opts.default_path, "filters": filters }),
+        );
         let mut q = self.save_dialogs.lock().unwrap();
-        let r = if q.is_empty() { json!({ "canceled": true }) } else { q.remove(0) };
-        let out = if r["canceled"].as_bool().unwrap_or(false) { None } else { r["filePath"].as_str().map(str::to_owned) };
+        let r = if q.is_empty() {
+            json!({ "canceled": true })
+        } else {
+            q.remove(0)
+        };
+        let out = if r["canceled"].as_bool().unwrap_or(false) {
+            None
+        } else {
+            r["filePath"].as_str().map(str::to_owned)
+        };
         async move { out }
     }
 
@@ -150,7 +182,10 @@ impl Host for MockHost {
     }
 
     fn http(&self, req: HttpRequest) -> impl Future<Output = Result<RawResponse, NetError>> + Send {
-        let body = req.body.as_ref().map(|b| String::from_utf8_lossy(b).into_owned());
+        let body = req
+            .body
+            .as_ref()
+            .map(|b| String::from_utf8_lossy(b).into_owned());
         // What axios's http adapter hands to https.request: its headers plus Content-Length.
         let mut headers: Vec<(String, String)> = req.headers.clone();
         if let Some(b) = &req.body {
@@ -158,12 +193,31 @@ impl Host for MockHost {
         }
         headers.sort_by(|a, b| a.0.cmp(&b.0));
         // The agent's proxy as `agent.proxy` shows it (a parsed URL's href for HTTP).
-        let proxy = req.proxy.as_ref().map(|p| if p.starts_with("http") { url::Url::parse(p).map(|u| u.to_string()).unwrap_or_else(|_| p.clone()) } else { p.clone() });
-        self.requests.lock().unwrap().push(json!([req.method.to_uppercase(), req.url, headers, body, proxy]));
+        let proxy = req.proxy.as_ref().map(|p| {
+            if p.starts_with("http") {
+                url::Url::parse(p)
+                    .map(|u| u.to_string())
+                    .unwrap_or_else(|_| p.clone())
+            } else {
+                p.clone()
+            }
+        });
+        self.requests.lock().unwrap().push(json!([
+            req.method.to_uppercase(),
+            req.url,
+            headers,
+            body,
+            proxy
+        ]));
         let found = self.overrides.iter().find(|o| {
-            o["method"].as_str().unwrap_or("").eq_ignore_ascii_case(req.method)
+            o["method"]
+                .as_str()
+                .unwrap_or("")
+                .eq_ignore_ascii_case(req.method)
                 && req.url.starts_with(o["url"].as_str().unwrap_or(""))
-                && o["bodyIncludes"].as_str().is_none_or(|inc| body.as_deref().unwrap_or("").contains(inc))
+                && o["bodyIncludes"]
+                    .as_str()
+                    .is_none_or(|inc| body.as_deref().unwrap_or("").contains(inc))
         });
         let r = match found {
             Some(o) => o["response"].clone(),
@@ -172,7 +226,9 @@ impl Host for MockHost {
                 match pool.get_mut(&replay_key(req.method, &req.url, body.as_deref())) {
                     Some(list) if list.len() > 1 => list.remove(0),
                     Some(list) => list[0].clone(),
-                    None => json!({ "status": 404, "statusText": "Not Found", "headers": { "content-type": "text/plain" }, "data": "no recording" }),
+                    None => {
+                        json!({ "status": 404, "statusText": "Not Found", "headers": { "content-type": "text/plain" }, "data": "no recording" })
+                    }
                 }
             }
         };
@@ -188,12 +244,22 @@ impl Host for MockHost {
             let mut headers = Vec::new();
             for (k, v) in r["headers"].as_object().cloned().unwrap_or_default() {
                 let k = k.to_ascii_lowercase();
-                if ["content-encoding", "content-length", "transfer-encoding"].contains(&k.as_str()) {
+                if ["content-encoding", "content-length", "transfer-encoding"].contains(&k.as_str())
+                {
                     continue;
                 }
                 match v {
-                    Value::Array(items) => headers.extend(items.iter().map(|i| (k.clone(), i.as_str().unwrap_or("").to_owned()))),
-                    v => headers.push((k, v.as_str().map(str::to_owned).unwrap_or_else(|| v.to_string()))),
+                    Value::Array(items) => headers.extend(
+                        items
+                            .iter()
+                            .map(|i| (k.clone(), i.as_str().unwrap_or("").to_owned())),
+                    ),
+                    v => headers.push((
+                        k,
+                        v.as_str()
+                            .map(str::to_owned)
+                            .unwrap_or_else(|| v.to_string()),
+                    )),
                 }
             }
             Ok(RawResponse {
@@ -206,11 +272,30 @@ impl Host for MockHost {
     }
 
     fn fetch(&self, req: FetchRequest) -> impl Future<Output = Result<FetchResponse, ()>> + Send {
-        self.fetch_requests.lock().unwrap().push(json!([req.method, req.url, req.normalized_headers(), req.body.as_ref().map(|b| String::from_utf8_lossy(b).into_owned())]));
-        self.fetch_calls.lock().unwrap().push(json!([req.url, req.normalized_headers(), if req.manual_redirect { "manual" } else { "follow" }]));
+        self.fetch_requests.lock().unwrap().push(json!([
+            req.method,
+            req.url,
+            req.normalized_headers(),
+            req.body
+                .as_ref()
+                .map(|b| String::from_utf8_lossy(b).into_owned())
+        ]));
+        self.fetch_calls.lock().unwrap().push(json!([
+            req.url,
+            req.normalized_headers(),
+            if req.manual_redirect {
+                "manual"
+            } else {
+                "follow"
+            }
+        ]));
         let r = {
             let mut f = self.fetch.lock().unwrap();
-            match f.iter_mut().find(|(k, _)| req.url.starts_with(k.as_str())).map(|(_, l)| l) {
+            match f
+                .iter_mut()
+                .find(|(k, _)| req.url.starts_with(k.as_str()))
+                .map(|(_, l)| l)
+            {
                 Some(list) if list.len() > 1 => list.remove(0),
                 Some(list) => list[0].clone(),
                 None => json!({ "status": 404, "body": "" }),
@@ -230,7 +315,16 @@ impl Host for MockHost {
                 status_text: r["statusText"].as_str().unwrap_or("").into(),
                 headers: r["headers"]
                     .as_array()
-                    .map(|h| h.iter().map(|p| (p[0].as_str().unwrap().to_ascii_lowercase(), p[1].as_str().unwrap().to_owned())).collect())
+                    .map(|h| {
+                        h.iter()
+                            .map(|p| {
+                                (
+                                    p[0].as_str().unwrap().to_ascii_lowercase(),
+                                    p[1].as_str().unwrap().to_owned(),
+                                )
+                            })
+                            .collect()
+                    })
                     .unwrap_or_default(),
                 body,
             })
@@ -313,7 +407,11 @@ impl Host for MockHost {
 fn replay_key(method: &str, url: &str, body: Option<&str>) -> String {
     let body = body.unwrap_or("");
     let re = regex::Regex::new(r#""utcOffsetMinutes":-?[0-9.e+-]+"#).unwrap();
-    format!("{} {url} {}", method.to_uppercase(), re.replacen(body, 1, ""))
+    format!(
+        "{} {url} {}",
+        method.to_uppercase(),
+        re.replacen(body, 1, "")
+    )
 }
 
 fn load_recording(path: Option<&str>) -> HashMap<String, Vec<Value>> {
@@ -324,7 +422,11 @@ fn load_recording(path: Option<&str>) -> HashMap<String, Vec<Value>> {
     std::io::Read::read_to_string(&mut flate2::read::GzDecoder::new(&gz[..]), &mut text).unwrap();
     let v: Value = serde_json::from_str(&text).unwrap();
     for e in v["exchanges"].as_array().unwrap() {
-        let k = replay_key(e["method"].as_str().unwrap(), e["url"].as_str().unwrap(), e["body"].as_str());
+        let k = replay_key(
+            e["method"].as_str().unwrap(),
+            e["url"].as_str().unwrap(),
+            e["body"].as_str(),
+        );
         pool.entry(k).or_default().push(json!({ "status": e["status"], "statusText": e["statusText"], "headers": e["resHeaders"], "data": e["data"] }));
     }
     pool
@@ -364,14 +466,21 @@ pub async fn run_ops<'a>(host: &'a MockHost, scenario: &Value, dispatch: Dispatc
     let wait = Duration::from_millis(scenario["opTimeoutMs"].as_u64().unwrap_or(2000));
     let run = |op: &Value| {
         let ch = op[0].as_str().unwrap().to_owned();
-        let args: Vec<JsValue> = op[1].as_array().unwrap().iter().map(|a| JsValue::decode(a).unwrap()).collect();
+        let args: Vec<JsValue> = op[1]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|a| JsValue::decode(a).unwrap())
+            .collect();
         let fut = dispatch(host, ch.clone(), args);
         async move {
             match tokio::time::timeout(wait, fut).await {
                 Err(_) => json!("pending"),
                 Ok(None) => panic!("no handler for {ch}"),
                 Ok(Some(Ok(v))) => json!({ "ok": snowify::ipc::normalize_identity(&v).encode() }),
-                Ok(Some(Err(t))) => json!({ "err": JsValue::String(t.rejection_message(&ch)).encode() }),
+                Ok(Some(Err(t))) => {
+                    json!({ "err": JsValue::String(t.rejection_message(&ch)).encode() })
+                }
             }
         }
     };
@@ -382,7 +491,9 @@ pub async fn run_ops<'a>(host: &'a MockHost, scenario: &Value, dispatch: Dispatc
             continue;
         }
         results.push(if op[0] == "$parallel" {
-            Value::Array(futures_util::future::join_all(op[1].as_array().unwrap().iter().map(run)).await)
+            Value::Array(
+                futures_util::future::join_all(op[1].as_array().unwrap().iter().map(run)).await,
+            )
         } else {
             run(op).await
         });

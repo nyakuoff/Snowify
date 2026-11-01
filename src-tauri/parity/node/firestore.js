@@ -1,20 +1,22 @@
 // Runs the real Firestore Lite parser, REST transport and decoder under Electron.
-// Input: [{op:'get'|'set'|'update', collection?, id?, value?:IPC-wire, reply?:JSON}].
-// Fetch is entirely offline; reply overrides the default successful commit response.
+// Input: [{op:'get'|'set'|'update', collection?, id?, value?:IPC-wire, reply?:JSON, response?:{status?,statusText?,body?,error?}}].
+// Fetch is entirely offline; response replays raw errors/bodies, reply replays JSON success.
 // Output: [{calls:[REST-body], ok:null|{exists,data:IPC-wire}} |
 //          {calls:[REST-body], error:message, code}].
 const fs = require('fs');
 const input = JSON.parse(fs.readFileSync(0, 'utf8'));
-let calls = [], reply;
+let calls = [], reply, response;
 globalThis.fetch = async (url, init) => {
   calls.push(JSON.parse(init.body));
-  return new Response(JSON.stringify(reply || {
+  if (response?.error) throw new TypeError('fetch failed');
+  return new Response(response ? response.body : JSON.stringify(reply || {
     commitTime: '2023-01-01T00:00:00Z',
     writeResults: [{ updateTime: '2023-01-01T00:00:00Z' }],
-  }), { status: 200 });
+  }), { status: response?.status || 200, statusText: response?.statusText || '' });
 };
 const { initializeApp } = require('firebase/app');
 const sdk = require('firebase/firestore/lite');
+sdk.setLogLevel('silent');
 const { decode, encode } = new Function(
   'window',
   fs.readFileSync(require('path').join(__dirname, '../../codec.js'), 'utf8')
@@ -27,6 +29,7 @@ const db = sdk.getFirestore(initializeApp({ projectId: 'snowify-dcda0', apiKey: 
   for (const c of input) {
     calls = [];
     reply = c.reply;
+    response = c.response;
     try {
       const ref = sdk.doc(db, c.collection || 'users', c.id || 'u');
       let result = null;

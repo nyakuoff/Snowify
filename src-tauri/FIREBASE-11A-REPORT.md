@@ -4,7 +4,7 @@ This is a tested initial Firebase layer, **not completion of the requested exact
 
 ## API provided
 
-`firebase::Auth` owns one in-memory auth instance. Public methods: `sign_in_with_email_and_password`, `create_user_with_email_and_password`, `send_password_reset_email`, `sign_out`, `update_profile`, `get_id_token`, and `fields`. `current_user` exposes uid, email, display_name and photo_url; tokens remain private. `on_auth_state_changed` registers event capture (including the initial value); `take_events` drains snapshots after operations. This is an event queue, not yet a general asynchronous subscription/unsubscribe API. The 11b adapter would own this singleton and dispatch these events.
+`firebase::Auth` owns one in-memory auth instance. Public methods: `sign_in_with_email_and_password`, `create_user_with_email_and_password`, `send_password_reset_email`, `sign_out`, `update_profile`, `get_id_token`, and `fields`. `current_user` exposes uid, email, display_name and photo_url; tokens remain private. `on_auth_state_changed` registers event capture (including the initial value); `take_events` drains snapshots after operations. This is an event queue, not yet a general asynchronous subscription/unsubscribe API. The cloud_backend adapter owns this singleton and exposes queued events; actual asynchronous listener ordering remains unverified.
 
 `firebase::firestore::{doc,get_doc,set_doc,update_doc}` uses `Document`, `Snapshot::{exists,data}`, and IPC `JsValue`. `set_doc` means merge=true. Writes serialize through `write_body`; reads use `decode_fields`/`decode_value`. Network operations take `Host` and mutable `Auth`, obtaining/refreshing the signed-in token. `Error` exposes code and message.
 
@@ -14,7 +14,7 @@ This is a tested initial Firebase layer, **not completion of the requested exact
 
 Both new runners execute installed Firebase SDK 12.11.0 under Electron's Node. Global fetch is mocked before SDK import; no live Firebase requests are possible. Auth compares method, URL, normalized Headers entries, exact body string, result/error, and callback snapshots. Time is fixed on both sides. Scenarios use separate app names: the SDK's shared inMemoryPersistence survives deleteApp, so reusing the default name leaked state between otherwise independent scenarios. This isolation does not alter the SDK persistence implementation.
 
-Firestore uses the Lite SDK's real parser/serializer. Writes are exercised through Host and their parsed REST bodies and errors compared. Reads compare equivalent returned documents and independently assert the Rust GET request. Lite sends POST documents:batchGet with a documents array; Rust intentionally uses the requested GET transport. These are different requests, not wire parity. The runner observes decoded object shapes through Node structuredClone, not an actual Electron IPC round trip.
+Firestore uses the Lite SDK's real parser/serializer. Writes are exercised through Host and their parsed REST bodies and errors compared. Reads now use POST documents:batchGet on both sides and compare parsed request bodies as well as decoded results/errors. This replaces the former Rust GET transport: a missing document is a successful batchGet missing result, while HTTP 404 remains a not-found error. URLs and headers are not yet compared by this Firestore harness. The runner observes decoded object shapes through Node structuredClone, not an actual Electron IPC round trip.
 
 ## Differences found and corrected
 
@@ -32,26 +32,54 @@ Firestore uses the Lite SDK's real parser/serializer. Writes are exercised throu
 - Raw Uint8Array is rejected; Date serializes with nine fractional timestamp digits.
 - Read decoding tested for integer precision loss, special doubles, timestamps, bytes, geopoints, arrays/maps and vectors.
 
+## Priority 1 follow-up — closed with the permitted Lite fallback
+
+The full SDK installed here uses `@grpc/grpc-js`, not fetch/WebChannel in Node. Evidence: `node_modules/@firebase/firestore/dist/common-882bbb15.node.cjs.js`, `GrpcConnection.createMetadata`, `openStream`, and `invokeStreamingRPC`. A local `connectFirestoreEmulator` server cannot run in this sandbox: the following offline capability probe exited 1 with `listen EPERM: operation not permitted 127.0.0.1`:
+
+```sh
+ELECTRON_RUN_AS_NODE=1 node_modules/.bin/electron -e 'const n=require("net").createServer();n.on("error",e=>{console.error(e);process.exit(1)});n.listen(0,"127.0.0.1",()=>{console.log(n.address());n.close()})'
+```
+
+No SDK implementation was modified or grpc methods mocked to manufacture full-SDK results. The permitted fallback uses the installed `firebase/firestore/lite` parser/transport under Electron with offline fetch replay, and Rust with MockHost. No new crates, Firebase project access, real network traffic or OS keyring calls were used.
+
+`parity_firestore` adds 247 cases (527 → 774): for each of getDoc, setDoc(merge) and updateDoc, 15 HTTP statuses with structured/array/missing errors, five non-JSON bodies at five statuses, network failure, five malformed successful response shapes, and six non-string/empty/null error messages; plus a successful missing document. Conflicting JSON error.status proves the SDK maps HTTP status instead. Error messages are compared verbatim, including V8 SyntaxError text, native errors without a code, statusText fallback, and JavaScript coercion. The production backend forwards Firebase Error.message through `cloud_backend::fail`; existing cloud-auth handler differential coverage remains 110 cases, but is a mocked-backend suite, not a new integrated full-SDK test.
+
+**Messages/behavior that may differ from the app's full SDK:** Lite's `Request failed with error: ...` prefix versus gRPC status-prefixed errors; full-SDK offline getDoc errors (`Failed to get document because the client is offline.`); retryable unauthenticated/network/write failures that may stay pending or retry rather than reject immediately; malformed gRPC payload errors versus REST JSON SyntaxErrors; Lite-specific malformed-success internal assertion messages. These are explicitly fallback parity, not evidence of full-SDK equivalence.
+
+Stopping after priority 1 under the requested budget clause. Priorities 2–5 were not attempted in this follow-up.
+
 ## Remaining implementation and verification gaps
 
 - DocumentReference decoding is explicitly unimplemented. A probe of Lite referenceValue followed by structuredClone fails with `container => new PlatformLoggerServiceImpl(container) could not be cloned.` An actual full-SDK Electron IPC observation and suitable representation through the cloud-auth layer are still required. Returning a string would not preserve behaviour.
-- Firestore full SDK uses persistent streams, memory caching, retry/backoff and offline write queues; Lite does not provide that oracle. These were inspected but not reproduced or exercised. REST errors, retry policy and cache semantics remain incomplete.
-- Firestore read tests cover successful documents; missing/permission/network/malformed-response cases need a broader differential corpus. Authenticated Firestore request headers and token-refresh integration need end-to-end differential tests.
-- Auth currently accepts Rust strings for credentials, not the entire IPC value domain. Odd values, missing fields, malformed successful responses, missing token expiry/JWT inference, password-policy recaching, and successful reCAPTCHA configuration/browser-verifier failures remain incomplete.
+- Firestore full SDK uses persistent streams, memory caching, retry/backoff and offline write queues; Lite does not provide that oracle. These were inspected but not reproduced or exercised. The REST error corpus is now covered by the Lite fallback above; full-SDK error delivery, retry policy and cache semantics remain incomplete.
+- Priority 2: authenticated Firestore request headers (Authorization, x-goog-* and heartbeat) and token-refresh integration still need end-to-end differential tests. Request body parity alone does not prove these.
+- Credentials already accept &JsValue, including odd IPC values (firebase_auth 93/0); that earlier gap is closed. Malformed successful Auth responses, missing token expiry/JWT inference, password-policy recaching, and successful reCAPTCHA configuration/browser-verifier failures remain incomplete.
 - Auth's event queue is not a full listener implementation: multiple subscriptions, unsubscribe, callback scheduling/concurrency, token listeners and proactive refresh are unverified. There is no process-global app registry implementing repeated initializeApp/getAuth calls.
 - Lone-surrogate field names/strings currently pass through lossy UTF-8. Invalid/out-of-range Date, BigInt, cyclic/shared values, other custom IPC objects, timestamp range validation and overlapping update paths need further work. Several unsupported kinds currently use a generic validation error.
 - SDK heartbeat generation is pinned to the installed registration/version combination and first request; multi-day heartbeat behaviour is unverified.
-- New-module mutation checks have not been performed.
+- Priority 5: mutation checks have not been performed. No mutants were applied anywhere in this follow-up (including the real tree).
+
+| Requested mutation scope | Executed | Killed |
+| --- | ---: | ---: |
+| src/firebase/*.rs | 0 | not run |
+| src/cloud_auth.rs | 0 | not run |
+| src/ytm/*.rs | 0 | not run |
+| src/ytmusic.rs | 0 | not run |
+
+Priorities 3 (full-SDK DocumentReference IPC rejection/marker) and 4 (single listener asynchronous delivery and ordering relative to awaited operations) remain open as described above.
 
 ## Validation
 
-`cargo build -q` passed. The offline suites report:
+Follow-up acceptance command, with `-- --nocapture` to display counts:
 
-```text
-firebase_auth parity: compared 69, differences 0
-firestore parity: compared 527, differences 0
-lyrics parity: compared 437, differences 0
-ytmusic parity: compared 200, differences 0
+```sh
+cargo test -q --test parity_firebase_auth --test parity_firestore --test parity_cloud_auth -- --nocapture
 ```
 
-These counts do not close the gaps above. Neither the JavaScript oracle sources nor PORT.md were edited. No git commands were used. cloud-auth.js was not ported or wired to this layer.
+```text
+firebase_auth parity: compared 93, differences 0
+firestore parity: compared 774, differences 0
+cloud_auth parity: compared 110, differences 0
+```
+
+All tests passed (cloud-auth also includes its safe-storage isolation test). `node --check src-tauri/parity/node/firestore.js` passed; touched Rust files were rustfmt-formatted. The Rust test build verifies compilation and references. Earlier unrelated lyrics/ytmusic counts were 437/0 and 200/0; they were not rerun in this follow-up. No commits were made and no files outside src-tauri were edited by this follow-up.
