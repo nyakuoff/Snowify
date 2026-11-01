@@ -48,6 +48,42 @@ No SDK implementation was modified or grpc methods mocked to manufacture full-SD
 
 Stopping after priority 1 under the requested budget clause. Priorities 2–5 were not attempted in this follow-up.
 
+## Full-SDK AF_UNIX follow-up — blocked, generator ready
+
+The suggested Unix-domain transport was probed before attempting implementation. Electron's Node `net.createServer().listen('/tmp/<unique>/fs.sock')` also fails with `EPERM: listen EPERM: operation not permitted`. grpc-js `Server.bindAsync('unix:/tmp/<unique>/fs.sock', ...)` was attempted separately and reports `No address added out of total 1 resolved`. The generator now performs the direct AF_UNIX preflight so its corpus records the underlying EPERM rather than grpc-js's generic wrapper message.
+
+Added `parity/node/firestore_full.js`, `parity/corpus/firestore_full.json`, and `tests/parity_firestore_full.rs`. The corpus currently has **status=blocked, 77 scenario specifications, results=[]**. There are zero observed full-SDK outcomes. Neither Lite nor Rust results are substituted as full-SDK evidence.
+
+The runner reads the installed full SDK's bundled protobuf literal and loads it with the same `@grpc/proto-loader.fromJSON` options as `loadProtos()`. SDK implementation functions remain unmodified. A local grpc-js server implements BatchGetDocuments, Commit, Write and Listen; the actual cloud-auth call shapes are getDoc, setDoc(merge=true) and updateDoc. Each operation gets a fresh app/database and a unique local socket, preventing cache/persistence leakage. Auth fetch is restricted to three offline replay endpoints; unexpected fetch URLs fail closed. There is no keyring or real user-data access.
+
+The 77 scenarios cover:
+
+- Success, offline, signed-in and expiry-forced-refresh variants for each operation.
+- All nine requested gRPC statuses with custom messages, persistently and twice-then-success, for all three operations. Write failures occur after a successful handshake, so permanent write errors can be surfaced rather than mistaken for handshake retries.
+- Nine additional Listen target REMOVE/cause errors, distinguished from gRPC stream failures.
+- Missing documents and a full-SDK referenceValue read, including a safe summary of the DocumentReference and structuredClone result/error.
+
+Outputs include outcome (fulfilled/rejected/pending), exact message/code, stream/open counts, individual document requests, metadata received by the server, Auth fetch requests and refresh order, and elapsed wall time. Timing uses **bounded real waits of 12 seconds per operation**, not fake timers; `elapsedVirtualMs` is explicitly null. SDK backoff/jitter is unmodified. The worst-case observation time is about 16 minutes for all scenarios, usually less; do not interrupt merely because a retryable write remains pending. The file is checkpointed after each scenario; partial/failed recordings cannot pass the replay gate. The reference probe is Node structuredClone of actual full-SDK read data, **not an actual Electron IPC round trip**.
+
+Run from the repository root **outside the sandbox**:
+
+```sh
+ELECTRON_RUN_AS_NODE=1 node_modules/.bin/electron src-tauri/parity/node/firestore_full.js
+```
+
+This overwrites the blocked corpus with observed results. `--only=get-success` can diagnose the server setup, but produces a partial corpus and must be followed by the full command. The generated corpus must be brought back before implementing the Rust full-SDK behavior.
+
+The Rust replay gate consumes the corpus, translates scenario gRPC failures to equivalent REST responses through MockHost, and compares outcomes, document-attempt counts, selected auth metadata and refresh-before-request. It rejects incomplete corpora. It is explicitly **ignored by default pending the external recording**:
+
+```sh
+cd src-tauri
+cargo test -q --test parity_firestore_full -- --ignored --nocapture
+```
+
+This is an unfinished parity gate: with genuine results it is expected to expose the existing Lite-vs-full gaps until the Rust port is corrected. It does not assert exact elapsed time (real jitter is nondeterministic), reproduce target/stream-specific retry policy, or claim the new IPC marker is implemented. `firestore.rs`, `cloud_backend.rs` and `ipc.rs` were deliberately left unchanged without oracle observations, following the requested stop-on-AF_UNIX-denial path. Mutation checks were not started.
+
+Validation: `node --check` passed. `firestore_full.js --self-test` passed all 77 scenario fixture/request/reply encoding checks through the SDK proto serializers and fake stream handlers without sockets. This is fixture validation, not an SDK differential run. Existing acceptance suites still report firebase_auth 93/0, firestore 774/0 and cloud_auth 110/0; the new Rust replay test compiles and reports one explicit ignore. No commits or edits outside src-tauri/ were made in this follow-up.
+
 ## Remaining implementation and verification gaps
 
 - DocumentReference decoding is explicitly unimplemented. A probe of Lite referenceValue followed by structuredClone fails with `container => new PlatformLoggerServiceImpl(container) could not be cloned.` An actual full-SDK Electron IPC observation and suitable representation through the cloud-auth layer are still required. Returning a string would not preserve behaviour.
