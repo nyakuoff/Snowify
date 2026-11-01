@@ -28,4 +28,5 @@ tauri-build = "2"
 webkit2gtk = { version = "2", features = ["v2_40"] }
 
 [dev-dependencies]
+tokio = { version = "1", features = ["test-util"] }
 flate2 = "1"

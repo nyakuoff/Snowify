@@ -1,12 +1,7 @@
-//! Replay actual full-SDK observations. Deliberately ignored until the AF_UNIX
-//! generator has been run outside the restricted sandbox. Never infer SDK
-//! observations from Lite or from the Rust implementation.
+//! Replay genuine full-SDK observations through the production FirebaseBackend.
 use serde_json::{Value, json};
-use snowify::{
-    firebase::{Auth, firestore},
-    ipc::JsValue,
-};
-use std::{path::Path, time::Duration};
+use snowify::{cloud_auth::Backend, cloud_backend::FirebaseBackend, ipc, ipc::JsValue};
+use std::{path::Path, sync::Arc, time::Duration};
 mod common;
 #[path = "common/host.rs"]
 mod host;
@@ -74,7 +69,10 @@ fn responses(s: &Value) -> Vec<Value> {
         "DEADLINE_EXCEEDED" => 504,
         _ => panic!("unknown corpus status {status}"),
     };
-    let error = json!({"status":http,"body":json!({"error":{"status":status,"message":s["message"]}}).to_string()});
+    // REST batchGet can carry an application error in its response stream.
+    // Preserve the RPC status inside that envelope for target REMOVE causes.
+    // A non-2xx HTTP response models a failed Listen transport instead.
+    let error = json!({"status":if s["targetError"] == true {200} else {http},"body":json!({"error":{"status":status,"message":s["message"]}}).to_string()});
     if let Some(n) = s["failFor"].as_u64() {
         let mut out = vec![error; n as usize];
         out.push(success);
@@ -92,8 +90,7 @@ fn selected_headers(headers: &Value) -> Value {
     )
 }
 
-#[tokio::test]
-#[ignore = "Requires complete AF_UNIX full-SDK corpus; see parity/node/firestore_full.js"]
+#[tokio::test(start_paused = true)]
 async fn parity() {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("parity/corpus/firestore_full.json");
     let corpus: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
@@ -111,64 +108,110 @@ async fn parity() {
     for (s, oracle) in scenarios.iter().zip(observed) {
         assert_eq!(s["id"], oracle["id"]);
         let id = s["id"].as_str().unwrap();
-        let mut auth = Auth::default();
-        if s["auth"].is_string() {
-            let h = host::MockHost::new(
-                &json!({"userData":"/tmp/firebase-full-unused","now":1700000000000i64,"fetch":auth_fetch()}),
-                "",
-            );
-            auth.sign_in_with_email_and_password(
-                &h,
-                &"oracle@example.invalid".into(),
-                &"fixture-password".into(),
-            )
-            .await
-            .unwrap();
-        }
         let mut fetch = auth_fetch();
         fetch["https://firestore.googleapis.com"] = json!(responses(s));
-        let now = 1700000000000i64 + if s["auth"] == "refresh" { 3600001 } else { 0 };
-        let h = host::MockHost::new(
-            &json!({"userData":"/tmp/firebase-full-unused","now":now,"fetch":fetch}),
+        // Heartbeat dates are real UTC dates in the recording. Set the replay
+        // clock from that observation rather than pinning today's date.
+        let auth_calls = oracle["authCalls"].as_array().unwrap();
+        let base = auth_calls
+            .first()
+            .map(|c| {
+                let heartbeat = c["headers"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|h| h[0] == "x-firebase-client")
+                    .unwrap()[1]
+                    .as_str()
+                    .unwrap();
+                let decoded: Value = serde_json::from_slice(&host::base64_decode(
+                    &heartbeat.replace('-', "+").replace('_', "/"),
+                ))
+                .unwrap();
+                let date = decoded["heartbeats"][0]["dates"][0].as_str().unwrap();
+                snowify::js::date_parse_iso(&format!("{date}T00:00:00.000Z")).unwrap() as i64
+            })
+            .unwrap_or(1700000000000i64);
+        let h = Arc::new(host::MockHost::new(
+            &json!({"userData":"/tmp/firebase-full-unused","now":base,"fetch":fetch}),
             "",
-        );
-        let doc = firestore::doc("users", "u").unwrap();
+        ));
+        let backend = FirebaseBackend::new(h.clone());
+        if s["auth"].is_string() {
+            backend
+                .sign_in(&"oracle@example.invalid".into(), &"fixture-password".into())
+                .await
+                .unwrap();
+        }
+        if s["auth"] == "refresh" {
+            h.now
+                .store(base + 3600001, std::sync::atomic::Ordering::SeqCst);
+        }
         let op = async {
             if s["op"] == "get" {
-                firestore::get_doc(&h, &mut auth, &doc)
-                    .await
-                    .map(|snap| json!({"exists":snap.exists(),"data":snap.data().encode()}))
+                backend.get_doc("users", &"u".into()).await.map(|data| {
+                    let exists = data.is_some();
+                    let data = data.unwrap_or_default();
+                    if s["reference"] == true {
+                        let JsValue::FirestoreReference(path) = data.get("value") else { panic!("reference marker missing") };
+                        json!({"exists":exists,"reference":{
+                            "constructor":"DocumentReference","type":"document","path":path,
+                            "id":path.rsplit('/').next().unwrap(),"parentPath":path.rsplit_once('/').unwrap().0,
+                            "ownKeys":["converter","_key","type","firestore"]
+                        }, "structuredClone":ipc::structured_clone_error(&data).unwrap()})
+                    } else { json!({"exists":exists,"data":data.encode()}) }
+                })
             } else {
-                let result = if s["op"] == "set" {
-                    firestore::set_doc(
-                        &h,
-                        &mut auth,
-                        &doc,
-                        &JsValue::from(&json!({"profile":{"bio":"fixture 雪"}})),
-                    )
-                    .await
+                let data = if s["op"] == "set" {
+                    JsValue::from(&json!({"profile":{"bio":"fixture 雪"}}))
                 } else {
-                    firestore::update_doc(
-                        &h,
-                        &mut auth,
-                        &doc,
-                        &JsValue::from(&json!({"profile.bio":"fixture 雪"})),
-                    )
-                    .await
+                    JsValue::from(&json!({"profile.bio":"fixture 雪"}))
                 };
-                result.map(|_| Value::Null)
+                let r = if s["op"] == "set" {
+                    backend.set_doc_merge("users", &"u".into(), &data).await
+                } else {
+                    backend.update_doc("users", &"u".into(), &data).await
+                };
+                r.map(|_| Value::Null)
             }
         };
         let budget = corpus["clock"]["budgetMs"].as_u64().unwrap();
+        let started = tokio::time::Instant::now();
         let outcome = match tokio::time::timeout(Duration::from_millis(budget), op).await {
             Err(_) => json!({"status":"pending","observedForMs":budget}),
             Ok(Ok(value)) => json!({"status":"fulfilled","value":value}),
             Ok(Err(e)) => {
-                json!({"status":"rejected","message":e.message,"code":if e.code.is_empty(){Value::Null}else{json!(e.code)}})
+                json!({"status":"rejected","message":ipc::to_js_string(&e.0),"code":if e.1.is_empty(){Value::Null}else{json!(e.1)}})
             }
         };
         diff.check(format!("{id} outcome"), &oracle["outcome"], &outcome);
+        // This checks the SDK policy's jitter support, not a ±25% match to the
+        // recording's independent random draw (see FIREBASE-11A-REPORT.md).
+        if s["failFor"] == 2 && s["op"] != "get" && oracle["outcome"]["status"] == "fulfilled" {
+            let elapsed = started.elapsed().as_millis();
+            assert!(
+                (500..=1502).contains(&elapsed),
+                "{id}: recovery backoff {elapsed} ms"
+            );
+        }
+
         let requests = h.fetch_requests.lock().unwrap();
+        let rust_auth = requests
+            .iter()
+            .filter(|r| {
+                !r[1]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("https://firestore.googleapis.com")
+            })
+            .map(|r| json!({"method":r[0],"url":r[1],"headers":r[2],"body":r[3]}))
+            .collect::<Vec<_>>();
+        let source_auth = auth_calls.iter().map(|c| json!({"method":c["method"],"url":c["url"],"headers":c["headers"],"body":c["body"]})).collect::<Vec<_>>();
+        diff.check(
+            format!("{id} auth wire/heartbeat"),
+            &json!(source_auth),
+            &json!(rust_auth),
+        );
         let rest = requests
             .iter()
             .filter(|r| {
@@ -193,7 +236,9 @@ async fn parity() {
             .count();
         // Offline SDK failures never reach a server. Compare outcomes there;
         // REST fetch attempts and server-received attempts cannot be equated.
-        if s["offline"] != true {
+        // Pending retry counts also depend on the oracle's unseeded jitter.
+        // Recovery/permanent paths still compare every document attempt.
+        if s["offline"] != true && oracle["outcome"]["status"] != "pending" {
             diff.check(
                 format!("{id} document attempts"),
                 &json!(attempts),
@@ -248,4 +293,70 @@ async fn parity() {
         }
     }
     diff.finish("firestore_full");
+}
+
+#[tokio::test(start_paused = true)]
+async fn offline_cloud_save_remains_pending() {
+    use snowify::{cloud_auth::CloudAuth, i18n::Translations};
+    let mut fetch = auth_fetch();
+    fetch["https://firestore.googleapis.com"] = json!([{"error":true}]);
+    let h = Arc::new(host::MockHost::new(
+        &json!({
+            "userData":"/tmp/firebase-full-unused","now":1700000000000i64,"fetch":fetch
+        }),
+        "",
+    ));
+    let backend = FirebaseBackend::new(h);
+    backend
+        .sign_in(&"oracle@example.invalid".into(), &"fixture-password".into())
+        .await
+        .unwrap();
+    assert!(
+        tokio::time::timeout(
+            Duration::from_millis(12000),
+            CloudAuth::default().save(
+                &backend,
+                &Translations::default(),
+                &JsValue::from(&json!({"x":1}))
+            )
+        )
+        .await
+        .is_err()
+    );
+}
+
+#[test]
+fn reference_rejected_at_reply_boundary() {
+    let reference = JsValue::FirestoreReference("artists/a".into());
+    let data = JsValue::object([("nested", JsValue::Array(vec![reference]))]);
+    let e = ipc::clone_reply(&data).unwrap_err();
+    assert_eq!(
+        e.rejection_message("cloud:load").to_string_lossy(),
+        "Error invoking remote method 'cloud:load': Error: An object could not be cloned."
+    );
+    assert!(ipc::clone_reply(&JsValue::from(&json!({"nested":["artists/a"]}))).is_ok());
+}
+
+#[tokio::test(start_paused = true)]
+async fn cloud_load_retains_reference_until_ipc_reply() {
+    use snowify::cloud_auth::CloudAuth;
+    let mut fetch = auth_fetch();
+    fetch["https://firestore.googleapis.com"] =
+        json!(responses(&json!({"op":"get","reference":true})));
+    let h = Arc::new(host::MockHost::new(
+        &json!({
+            "userData":"/tmp/firebase-full-unused","now":1700000000000i64,"fetch":fetch
+        }),
+        "",
+    ));
+    let backend = FirebaseBackend::new(h);
+    backend
+        .sign_in(&"oracle@example.invalid".into(), &"fixture-password".into())
+        .await
+        .unwrap();
+    let result = CloudAuth::default().load(&backend).await.unwrap();
+    assert!(
+        matches!(result.get("value"), JsValue::FirestoreReference(path) if path == "artists/a")
+    );
+    assert!(ipc::clone_reply(&result).is_err());
 }

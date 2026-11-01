@@ -19,9 +19,9 @@ const LEGACY: &str = "users";
 /// `auth_credentials.json`'s `enc` for a password kept in the OS keyring.
 pub const KEYRING_ENC: &str = "keyring-v1";
 
-/// A Firebase failure: `err.message` is all cloud-auth reads.
+/// A Firebase failure: message plus diagnostic code. Only the message reaches cloud-auth replies.
 #[derive(Debug, Clone)]
-pub struct BackendError(pub JsValue);
+pub struct BackendError(pub JsValue, pub String);
 
 /// The signed-in user as cloud-auth reads it (`user.uid`, `.email`, `.displayName`,
 /// `.photoURL`).

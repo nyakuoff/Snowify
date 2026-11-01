@@ -56,50 +56,8 @@ async fn parity() {
     ] {
         cases.push(json!({"op":"get","reply":[{"found":{"name":"projects/snowify-dcda0/databases/(default)/documents/users/u","fields":{"value":value},"updateTime":"2023-01-01T00:00:00Z"}}]}));
     }
-    // Conflicting error.status proves that HTTP status controls the SDK code.
-    for op in ["get", "set", "update"] {
-        for status in [
-            400, 401, 403, 404, 409, 416, 429, 499, 500, 501, 503, 504, 418, 502, 302,
-        ] {
-            for body in [
-                json!({"error":{"status":"INVALID_ARGUMENT","message":"fixture denied 雪"}})
-                    .to_string(),
-                json!([{"error":{"message":"array error"}}]).to_string(),
-                "{}".into(),
-            ] {
-                cases.push(
-                    json!({"op":op,"value":JsValue::from(&json!({"x":1})).encode(),
-                    "response":{"status":status,"statusText":"fixture status","body":body}}),
-                );
-            }
-        }
-        for body in ["null", "{}", "[]", "[{}]", "[null]"] {
-            cases.push(
-                json!({"op":op,"value":JsValue::from(&json!({"x":1})).encode(),
-                "response":{"status":200,"body":body}}),
-            );
-        }
-        for message in [
-            json!(null),
-            json!(false),
-            json!(0),
-            json!({"x":1}),
-            json!([1, 2]),
-            json!(""),
-        ] {
-            cases.push(json!({"op":op,"value":JsValue::from(&json!({"x":1})).encode(),
-                "response":{"status":403,"statusText":"Forbidden","body":json!({"error":{"message":message}}).to_string()}}));
-        }
-        for status in [200, 401, 403, 404, 500] {
-            for body in ["", "<html>", "{", "not json", "{\"x\":}"] {
-                cases.push(
-                    json!({"op":op,"value":JsValue::from(&json!({"x":1})).encode(),
-                    "response":{"status":status,"body":body}}),
-                );
-            }
-        }
-        cases.push(json!({"op":op,"value":JsValue::from(&json!({"x":1})).encode(),"response":{"error":true}}));
-    }
+    // Lite is an oracle for serialization only. Full-SDK transport and errors
+    // are covered through FirebaseBackend in parity_firestore_full.
     cases.push(json!({"op":"get","reply":[{"missing":"projects/snowify-dcda0/databases/(default)/documents/users/u","readTime":"2023-01-01T00:00:00Z"}]}));
     let source = common::run_source("firestore.js", &json!(cases));
     let mut diff = common::Diff::default();

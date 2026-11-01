@@ -2,7 +2,7 @@
 use super::{Auth, Error};
 use crate::{
     host::{FetchRequest, Host},
-    ipc::{self, JsValue},
+    ipc::JsValue,
 };
 use serde_json::{Value, json};
 const ROOT: &str = "projects/snowify-dcda0/databases/(default)/documents";
@@ -286,6 +286,60 @@ impl Snapshot {
         self.data.clone().unwrap_or(JsValue::Undefined)
     }
 }
+fn offline() -> Error {
+    Error {
+        code: "unavailable".into(),
+        message: "Failed to get document because the client is offline.".into(),
+    }
+}
+fn status_error(status: u16, v: &Value, stream: bool) -> Error {
+    let e = if v.is_array() {
+        &v[0]["error"]
+    } else {
+        &v["error"]
+    };
+    // A canonical REST google.rpc status preserves INVALID_ARGUMENT vs
+    // FAILED_PRECONDITION, which both use HTTP 400.
+    let name = e["status"].as_str().unwrap_or(match status {
+        400 => "FAILED_PRECONDITION",
+        401 => "UNAUTHENTICATED",
+        403 => "PERMISSION_DENIED",
+        404 => "NOT_FOUND",
+        409 => "ABORTED",
+        429 => "RESOURCE_EXHAUSTED",
+        500 => "INTERNAL",
+        503 => "UNAVAILABLE",
+        504 => "DEADLINE_EXCEEDED",
+        _ => "UNKNOWN",
+    });
+    let number = match name {
+        "CANCELLED" => 1,
+        "UNKNOWN" => 2,
+        "INVALID_ARGUMENT" => 3,
+        "DEADLINE_EXCEEDED" => 4,
+        "NOT_FOUND" => 5,
+        "ALREADY_EXISTS" => 6,
+        "PERMISSION_DENIED" => 7,
+        "RESOURCE_EXHAUSTED" => 8,
+        "FAILED_PRECONDITION" => 9,
+        "ABORTED" => 10,
+        "OUT_OF_RANGE" => 11,
+        "UNIMPLEMENTED" => 12,
+        "INTERNAL" => 13,
+        "UNAVAILABLE" => 14,
+        "UNAUTHENTICATED" => 16,
+        _ => 2,
+    };
+    let message = e["message"].as_str().unwrap_or("");
+    Error {
+        code: name.to_ascii_lowercase().replace('_', "-"),
+        message: if stream {
+            format!("{number} {name}: {message}")
+        } else {
+            message.into()
+        },
+    }
+}
 async fn request<H: Host>(
     host: &H,
     auth: &mut Auth,
@@ -293,70 +347,112 @@ async fn request<H: Host>(
     suffix: &str,
     body: Option<Value>,
 ) -> Result<Value, Error> {
-    let mut headers = vec![("Content-Type".into(), "application/json".into())];
-    if auth.current_user.is_some() {
-        headers.push((
-            "Authorization".into(),
-            format!("Bearer {}", auth.get_id_token(host, false).await?),
-        ));
-    }
-    let r = host
-        .fetch(FetchRequest {
-            method,
-            url: format!("https://firestore.googleapis.com/v1/{ROOT}{suffix}"),
-            headers,
-            body: body.map(|v| v.to_string().into_bytes()),
-            manual_redirect: false,
-        })
-        .await
-        .map_err(|_| Error {
-            code: "unknown".into(),
-            message: "Request failed with error: undefined".into(),
-        })?;
-    // Response.json() uses V8 JSON.parse messages even for non-2xx bodies.
-    let text = String::from_utf8_lossy(&r.body);
-    let text = text.trim_start_matches('\u{feff}');
-    ipc::json_parse(text).map_err(|e| Error {
-        code: "unknown".into(),
-        message: format!("SyntaxError: {}", e.to_string_lossy()),
-    })?;
-    let v: Value = serde_json::from_str(text).map_err(|_| Error {
-        code: "unknown".into(),
-        message: "Invalid JSON response".into(),
-    })?;
-    if !r.ok() {
-        // Lite maps HTTP status, not error.status (which can disagree).
-        let code = match r.status {
-            400 => "failed-precondition",
-            401 => "unauthenticated",
-            403 => "permission-denied",
-            404 => "not-found",
-            409 => "aborted",
-            416 => "out-of-range",
-            429 => "resource-exhausted",
-            499 => "cancelled",
-            500 => "unknown",
-            501 => "unimplemented",
-            503 => "unavailable",
-            504 => "deadline-exceeded",
-            400..=499 => "failed-precondition",
-            500..=599 => "internal",
-            _ => "unknown",
-        };
-        let e = if v.is_array() { &v[0] } else { &v };
-        return Err(Error {
-            code: code.into(),
-            message: format!(
-                "Request failed with error: {}",
-                if e["error"]["message"].is_null() {
-                    r.status_text.clone()
-                } else {
-                    ipc::to_js_string(&JsValue::from(&e["error"]["message"]))
-                }
+    let write = suffix == ":commit";
+    let mut delay = 0u64;
+    loop {
+        let database = ROOT.trim_end_matches("/documents");
+        let mut headers = vec![
+            ("content-type".into(), "application/json".into()),
+            ("google-cloud-resource-prefix".into(), database.into()),
+            ("x-goog-request-params".into(), database.into()),
+            (
+                "x-goog-api-client".into(),
+                "gl-node/20.18.3 fire/12.11.0 grpc/1.9.15".into(),
             ),
-        });
+            ("x-firebase-gmpid".into(), super::APP_ID.into()),
+        ];
+        if auth.current_user.is_some() {
+            headers.push((
+                "authorization".into(),
+                format!("Bearer {}", {
+                    // A changed token during credentials acquisition makes the full
+                    // SDK restart acquisition, including its forced-refresh request.
+                    let expired = auth
+                        .current_user
+                        .as_ref()
+                        .is_some_and(|u| host.now_ms() > u.expires - 30000);
+                    let token = auth.get_id_token(host, false).await?;
+                    if expired {
+                        auth.get_id_token(host, true).await?
+                    } else {
+                        token
+                    }
+                }),
+            ));
+        }
+        let response = host
+            .fetch(FetchRequest {
+                method,
+                url: format!("https://firestore.googleapis.com/v1/{ROOT}{suffix}"),
+                headers,
+                body: body.as_ref().map(|v| v.to_string().into_bytes()),
+                manual_redirect: false,
+            })
+            .await;
+        let error = match response {
+            Err(_) => {
+                if !write {
+                    return Err(offline());
+                }
+                Error {
+                    code: "unavailable".into(),
+                    message: String::new(),
+                }
+            }
+            Ok(r) => {
+                let v: Value = serde_json::from_slice(&r.body).map_err(|_| Error {
+                    code: "unknown".into(),
+                    message: "Invalid JSON response".into(),
+                })?;
+                // batchGet is a streaming REST RPC. An error in a successful
+                // stream is an application/target error, unlike failed transport.
+                let embedded_error = v.get("error").is_some()
+                    || v.as_array()
+                        .is_some_and(|a| a.first().is_some_and(|r| r.get("error").is_some()));
+                if r.ok() && !embedded_error {
+                    return Ok(v);
+                }
+                if !write && !r.ok() {
+                    return Err(offline());
+                }
+                status_error(r.status, &v, write)
+            }
+        };
+        if !write
+            || !matches!(
+                error.code.as_str(),
+                "unavailable"
+                    | "unauthenticated"
+                    | "internal"
+                    | "deadline-exceeded"
+                    | "resource-exhausted"
+                    | "aborted"
+                    | "unknown"
+            )
+        {
+            return Err(error);
+        }
+        // Full SDK backoff: first retry immediately, then exponential delay.
+        // Resource exhaustion starts at the maximum delay (60 seconds).
+        if error.code == "resource-exhausted" {
+            delay = 60_000;
+        }
+        let mut random = [0u8; 8];
+        let jitter = if getrandom::fill(&mut random).is_ok() {
+            0.5 + (u64::from_le_bytes(random) >> 11) as f64 / (1u64 << 53) as f64
+        } else {
+            1.0
+        };
+        tokio::time::sleep(std::time::Duration::from_millis(
+            (delay as f64 * jitter).floor() as u64,
+        ))
+        .await;
+        delay = if delay == 0 {
+            1000
+        } else {
+            (delay * 3 / 2).min(60_000)
+        };
     }
-    Ok(v)
 }
 /// Merge fields into a document using a REST commit.
 pub async fn set_doc<H: Host>(
@@ -392,7 +488,7 @@ pub async fn update_doc<H: Host>(
     .await
     .map(|_| ())
 }
-/// Read a document using the Lite SDK REST batchGet and the current auth token.
+/// Read a document over REST batchGet using full-SDK offline delivery semantics.
 pub async fn get_doc<H: Host>(
     host: &H,
     auth: &mut Auth,
@@ -406,32 +502,17 @@ pub async fn get_doc<H: Host>(
         Some(json!({"documents":[format!("{ROOT}/{}", doc.path)]})),
     )
     .await?;
-    let native = |message: String| Error {
-        code: String::new(),
-        message,
-    };
-    let rows = reply.as_array().ok_or_else(|| {
-        native(if reply.is_null() {
-            "Cannot read properties of null (reading 'forEach')".into()
-        } else {
-            "response.forEach is not a function".into()
-        })
+    let rows = reply.as_array().ok_or_else(|| Error {
+        code: "unknown".into(),
+        message: "Invalid Firestore batchGet response".into(),
     })?;
-    let row = rows.first().ok_or_else(|| native(format!(
-        "FIRESTORE (12.11.0_lite) INTERNAL ASSERTION FAILED: Unexpected state (ID: d7c2) CONTEXT: {}",
-        json!({"key":{"path":{"segments":doc.path.split('/').collect::<Vec<_>>(),"offset":0,"len":doc.path.split('/').count()}}})
-    )))?;
-    if row.is_null() {
-        return Err(native(
-            "Cannot use 'in' operator to search for 'found' in null".into(),
-        ));
-    }
-    if row.get("found").is_none() && row.get("missing").is_none() {
-        return Err(native(format!(
-            "FIRESTORE (12.11.0_lite) INTERNAL ASSERTION FAILED: Unexpected state (ID: 1c42) CONTEXT: {}",
-            json!({"result":row})
-        )));
-    }
+    let row = rows
+        .first()
+        .filter(|r| r.get("found").is_some() || r.get("missing").is_some())
+        .ok_or_else(|| Error {
+            code: "unknown".into(),
+            message: "Invalid Firestore batchGet result".into(),
+        })?;
     let v = &row["found"];
     Ok(Snapshot {
         data: if v.is_null() {
@@ -538,6 +619,11 @@ pub fn decode_value(v: &Value) -> Result<JsValue, Error> {
         let binary: String = bytes.iter().map(|b| char::from(*b)).collect();
         return Ok(JsValue::from(
             &json!({"_byteString":{"binaryString":binary}}),
+        ));
+    }
+    if let Some(reference) = v["referenceValue"].as_str() {
+        return Ok(JsValue::FirestoreReference(
+            reference.split("/documents/").nth(1).unwrap_or("").into(),
         ));
     }
     if let Some(g) = v.get("geoPointValue") {

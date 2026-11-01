@@ -331,7 +331,8 @@ async fn ipc_invoke(app: AppHandle, channel: String, args: Vec<Value>) -> Result
         .map_err(Value::from)?;
     // The rejection message travels wire-encoded: it can hold a lone surrogate.
     match invoke(&app, &channel, args).await {
-        Some(Ok(v)) => Ok(crate::ipc::normalize_identity(&v).encode()),
+        Some(Ok(v)) => crate::ipc::clone_reply(&v)
+            .map_err(|e| JsValue::String(e.rejection_message(&channel)).encode()),
         Some(Err(t)) => Err(JsValue::String(t.rejection_message(&channel)).encode()),
         None => Err(Value::from(format!(
             "Error invoking remote method '{channel}': Error: No handler registered for '{channel}'"

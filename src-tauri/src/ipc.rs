@@ -77,6 +77,8 @@ pub enum JsValue {
     /// First occurrence of an object referenced again later (shared or cyclic).
     Shared(u32, Box<JsValue>),
     Ref(u32),
+    /// Full SDK DocumentReference contains app component functions that cannot clone.
+    FirestoreReference(String),
 }
 
 impl From<&str> for JsValue {
@@ -322,6 +324,7 @@ impl JsValue {
             }
             Self::Boxed(v) => json!({ "$": "box", "v": v.encode() }),
             Self::Shared(i, v) => json!({ "$": "id", "i": i, "v": v.encode() }),
+            Self::FirestoreReference(path) => json!({"$":"firestore-reference","path":path}),
             Self::Ref(i) => json!({ "$": "r", "i": i }),
         }
     }
@@ -897,4 +900,34 @@ pub fn normalize_identity(v: &JsValue) -> JsValue {
     let mut d = HashMap::new();
     defs(v, &mut d);
     emit(v, &refs, &mut HashMap::new(), &mut 0, &d)
+}
+
+/// Structured-clone validation at the reply boundary, before encoding any nested value.
+/// A DocumentReference is retained internally so cloud handlers can pass it through.
+pub fn clone_reply(value: &JsValue) -> Result<serde_json::Value, Thrown> {
+    fn invalid(v: &JsValue) -> bool {
+        match v {
+            JsValue::FirestoreReference(_) => true,
+            JsValue::Array(a) | JsValue::Set(a) => a.iter().any(invalid),
+            JsValue::Object(a) => a.iter().any(|(_, v)| invalid(v)),
+            JsValue::Map(a) => a.iter().any(|(k, v)| invalid(k) || invalid(v)),
+            JsValue::Shared(_, v) | JsValue::Boxed(v) => invalid(v),
+            _ => false,
+        }
+    }
+    if invalid(value) {
+        return Err(Thrown::error("An object could not be cloned."));
+    }
+    Ok(normalize_identity(value).encode())
+}
+
+/// Node's structuredClone reports the underlying function; Electron IPC reports
+/// its generic serialization error. The corpus measures the former only.
+pub fn structured_clone_error(value: &JsValue) -> Option<serde_json::Value> {
+    clone_reply(value).err().map(|_| {
+        serde_json::json!({
+            "status":"rejected", "name":"DataCloneError", "code":25,
+            "message":"container => new PlatformLoggerServiceImpl(container) could not be cloned."
+        })
+    })
 }

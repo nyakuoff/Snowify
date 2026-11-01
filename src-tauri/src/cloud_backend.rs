@@ -29,7 +29,7 @@ fn user(u: &firebase::User) -> User {
 }
 
 fn fail(e: firebase::Error) -> BackendError {
-    BackendError(e.message.as_str().into())
+    BackendError(e.message.as_str().into(), e.code)
 }
 
 impl<H: Host> FirebaseBackend<H> {
@@ -63,7 +63,7 @@ impl<H: Host> FirebaseBackend<H> {
         match id {
             JsValue::String(s) => firestore::doc(collection, &s.to_string_lossy()).map_err(fail),
             // `doc(db, collection, id)` with a non-string segment throws before any request.
-            _ => Err(BackendError("Invalid document reference".into())),
+            _ => Err(BackendError("Invalid document reference".into(), "invalid-argument".into())),
         }
     }
 }

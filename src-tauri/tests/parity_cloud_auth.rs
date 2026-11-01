@@ -40,7 +40,7 @@ fn as_user(u: &Value) -> User {
 }
 
 fn err(m: &str) -> BackendError {
-    BackendError(JsValue::from(m))
+    BackendError(JsValue::from(m), String::new())
 }
 
 impl FakeBackend {

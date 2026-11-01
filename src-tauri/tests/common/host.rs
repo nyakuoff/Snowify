@@ -19,7 +19,7 @@ pub struct MockHost {
     pub packaged: bool,
     dialogs: Mutex<Vec<Value>>,
     save_dialogs: Mutex<Vec<Value>>,
-    now: i64,
+    pub now: std::sync::atomic::AtomicI64,
     http: Mutex<HashMap<String, Vec<Value>>>,
     fetch: Mutex<Vec<(String, Vec<Value>)>>,
     pub fetch_calls: Mutex<Vec<Value>>,
@@ -55,7 +55,7 @@ impl MockHost {
                     .cloned()
                     .unwrap_or_default(),
             ),
-            now: scenario["now"].as_i64().unwrap_or(0),
+            now: std::sync::atomic::AtomicI64::new(scenario["now"].as_i64().unwrap_or(0)),
             http: Mutex::new(http),
             fetch: Mutex::new(
                 scenario["fetch"]
@@ -167,7 +167,7 @@ impl Host for MockHost {
     }
 
     fn now_ms(&self) -> i64 {
-        self.now
+        self.now.load(std::sync::atomic::Ordering::SeqCst)
     }
 
     fn open_path(&self, path: &str) {
@@ -432,7 +432,7 @@ fn load_recording(path: Option<&str>) -> HashMap<String, Vec<Value>> {
     pool
 }
 
-fn base64_decode(s: &str) -> Vec<u8> {
+pub fn base64_decode(s: &str) -> Vec<u8> {
     const A: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = Vec::new();
     let (mut buf, mut bits) = (0u32, 0);
