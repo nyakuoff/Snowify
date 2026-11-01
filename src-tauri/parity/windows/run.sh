@@ -25,11 +25,11 @@ PY
 "$cc_bin" -municode -O2 -Wall -Wextra -static "$root/parity/windows/process-fixture.c" -o "$work/process-fixture.exe"
 cd "$root"
 cargo test --offline --target x86_64-pc-windows-gnu --no-run \
-  --test parity_exec_file --test parity_node --test parity_js --test parity_discord \
+  --test parity_exec_file --test parity_node --test parity_js --test parity_discord --test parity_windows_shell \
   --message-format=json > "$work/build.jsonl"
 python3 - "$work/build.jsonl" > "$work/tests.txt" <<'PY'
 import json, sys
-wanted = {'parity_exec_file', 'parity_node', 'parity_js', 'parity_discord'}
+wanted = {'parity_exec_file', 'parity_node', 'parity_js', 'parity_discord', 'parity_windows_shell'}
 found = {}
 for line in open(sys.argv[1]):
     m = json.loads(line)

@@ -4020,6 +4020,7 @@ dependencies = [
  "tokio",
  "url",
  "webkit2gtk",
+ "windows",
  "windows-sys 0.61.2",
 ]
 

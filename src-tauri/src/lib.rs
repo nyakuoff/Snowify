@@ -26,6 +26,9 @@ pub mod real_host;
 pub mod shell;
 pub mod stream_cache;
 pub mod themes;
+pub mod thumbbar;
+#[cfg(windows)]
+pub mod login_items;
 pub mod ytm;
 pub mod updater;
 pub mod ytmusic;

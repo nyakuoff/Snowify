@@ -208,6 +208,11 @@ fn create_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         builder = builder.initialization_script(transport_test::page_script());
     }
     let window = builder.build()?;
+    #[cfg(windows)]
+    crate::thumbbar::install(
+        &window,
+        crate::thumbbar::buttons(&s.translations.lock().unwrap_or_else(|e| e.into_inner()), false),
+    );
 
     #[cfg(target_os = "linux")]
     window.with_webview(|wv| {
@@ -616,9 +621,29 @@ fn send(app: &AppHandle, channel: &str, args: Vec<JsValue>) {
             }
         }
         // Electron's setLoginItemSettings is a no-op on Linux (Windows only here).
-        "window:setOpenAtLogin" => {}
+        "window:setOpenAtLogin" => {
+            #[cfg(windows)]
+            {
+                // Electron's fallback AUMID uses the executable's ProductName: the
+                // stock Electron executable in dev, Snowify in the packaged NSIS app.
+                let product = if cfg!(debug_assertions) { "Electron" } else {
+                    app.config().product_name.as_deref().unwrap_or("Snowify")
+                };
+                if let Ok(items) = crate::login_items::LoginItems::current(product) {
+                    items.set(&crate::login_items::Settings {
+                        open_at_login: arg(&args, 0).truthy(), ..Default::default()
+                    });
+                }
+            }
+        }
         // Thumbnail toolbar buttons exist only on Windows.
-        "thumbar:updateState" => {}
+        "thumbar:updateState" => {
+            #[cfg(windows)]
+            if let Some(w) = win {
+                let buttons = crate::thumbbar::buttons(&shell(app).translations.lock().unwrap_or_else(|e| e.into_inner()), arg(&args, 0).truthy());
+                crate::thumbbar::update(&w, buttons);
+            }
+        }
         "updater:install" => {
             // electron-updater coalesces downloadUpdate calls while a download is in flight.
             // Do not queue a second send that would turn into an install after it finishes.
