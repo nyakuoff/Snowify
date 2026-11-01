@@ -3,14 +3,34 @@
 #![allow(dead_code)]
 
 use std::{
-    ffi::OsStr,
     fs,
-    os::unix::{
-        ffi::OsStrExt,
-        fs::{PermissionsExt, symlink},
-    },
     path::{Path, PathBuf},
 };
+
+#[cfg(unix)]
+use std::{ffi::OsStr, os::unix::{ffi::OsStrExt, fs::{PermissionsExt, symlink}}};
+#[cfg(windows)]
+fn symlink(target: String, path: &Path) -> std::io::Result<()> {
+    if Path::new(&target).is_dir() { std::os::windows::fs::symlink_dir(target, path) }
+    else { std::os::windows::fs::symlink_file(target, path) }
+}
+#[cfg(unix)]
+fn set_mode(path: &Path, mode: u32) -> std::io::Result<()> {
+    fs::set_permissions(path, fs::Permissions::from_mode(mode))
+}
+#[cfg(windows)]
+fn set_mode(path: &Path, mode: u32) -> std::io::Result<()> {
+    let mut permissions = fs::metadata(path)?.permissions();
+    permissions.set_readonly(mode & 0o200 == 0);
+    fs::set_permissions(path, permissions)
+}
+#[cfg(unix)]
+fn mode(metadata: &fs::Metadata) -> u32 { metadata.permissions().mode() & 0o777 }
+#[cfg(windows)]
+fn mode(metadata: &fs::Metadata) -> u32 {
+    (if metadata.permissions().readonly() { 0o444 } else { 0o666 }) |
+        if metadata.is_dir() { 0o111 } else { 0 }
+}
 
 /// One entry: path relative to the tree root (raw bytes allowed), kind, and an optional mode
 /// applied after everything is created (deepest first, so a 0o000 dir can still be filled).
@@ -65,9 +85,13 @@ impl Entry {
     }
 }
 
+#[cfg(unix)]
 fn at(root: &Path, rel: &[u8]) -> PathBuf {
     root.join(OsStr::from_bytes(rel))
 }
+
+#[cfg(windows)]
+fn at(root: &Path, rel: &[u8]) -> PathBuf { root.join(String::from_utf8_lossy(rel).as_ref()) }
 
 /// Makes everything under `root` writable again, then deletes it.
 pub fn remove(root: &Path) {
@@ -75,7 +99,7 @@ pub fn remove(root: &Path) {
         if let Ok(m) = fs::symlink_metadata(p)
             && m.is_dir()
         {
-            let _ = fs::set_permissions(p, fs::Permissions::from_mode(0o700));
+            let _ = set_mode(p, 0o700);
             if let Ok(rd) = fs::read_dir(p) {
                 for e in rd.flatten() {
                     unlock(&e.path());
@@ -109,10 +133,7 @@ pub fn build_modes(root: &Path, entries: &[Entry]) {
     let mut moded: Vec<&Entry> = entries.iter().filter(|e| e.mode.is_some()).collect();
     moded.sort_by_key(|e| std::cmp::Reverse(e.path.len()));
     for e in moded {
-        fs::set_permissions(
-            at(root, e.path),
-            fs::Permissions::from_mode(e.mode.unwrap()),
-        )
+        set_mode(&at(root, e.path), e.mode.unwrap())
         .unwrap();
     }
 }
@@ -124,7 +145,7 @@ pub fn snapshot(root: &Path) -> Vec<String> {
         let Ok(m) = fs::symlink_metadata(p) else {
             return;
         };
-        let mode = m.permissions().mode() & 0o777;
+        let mode = mode(&m);
         if m.is_symlink() {
             out.push(format!("{rel} -> {}", fs::read_link(p).unwrap().display()));
         } else if m.is_dir() {

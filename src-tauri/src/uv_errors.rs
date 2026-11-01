@@ -71,3 +71,6 @@ pub const UV_ERRORS: [(i32, &str, &str); 65] = [
     (121, "EREMOTEIO", "remote I/O error"),
     (125, "ECANCELED", "operation canceled"),
 ];
+
+/// Linux OS errno already is the magnitude of the libuv error.
+pub fn errno(raw: i32) -> i32 { raw }

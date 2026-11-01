@@ -1,4 +1,4 @@
-//! Port of `src/main/discord.js` over `@xhayper/discord-rpc` 1.3.0's IPC transport (Linux):
+//! Port of `src/main/discord.js` over `@xhayper/discord-rpc` 1.3.0's IPC transport:
 //! socket discovery, the handshake, one-frame-per-`readable` parsing (coalesced or partial
 //! frames are dropped as malformed), PING/PONG, CLOSE, nonce'd requests that wait for
 //! Discord's reply, the 10 s connect timeout, and the module's two globals, which any
@@ -15,9 +15,18 @@ use std::{
 };
 use tokio::{
     io::AsyncWriteExt,
-    net::UnixStream,
     sync::{mpsc, oneshot},
 };
+
+#[cfg(unix)]
+use tokio::net::UnixStream as IpcStream;
+#[cfg(windows)]
+use tokio::net::windows::named_pipe::{NamedPipeClient as IpcStream, ClientOptions};
+
+#[cfg(unix)]
+async fn connect_socket(path: &str) -> std::io::Result<IpcStream> { IpcStream::connect(path).await }
+#[cfg(windows)]
+async fn connect_socket(path: &str) -> std::io::Result<IpcStream> { ClientOptions::new().open(path) }
 
 const CLIENT_ID: &str = "1473620585832517644";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -63,6 +72,7 @@ fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 
 /// `getTempDir()`: `XDG_RUNTIME_DIR ?? TMPDIR ?? TMP ?? TEMP ?? "/tmp"` through
 /// `realpathSync` (an empty or missing directory throws).
+#[cfg(unix)]
 fn temp_dir() -> Option<String> {
     let v = ["XDG_RUNTIME_DIR", "TMPDIR", "TMP", "TEMP"].iter().find_map(|k| std::env::var_os(k));
     let dir = v.map_or_else(|| "/tmp".into(), |v| v.to_string_lossy().into_owned());
@@ -71,6 +81,7 @@ fn temp_dir() -> Option<String> {
 
 /// `getSocket()`'s candidate list, or `None` when `getTempDir()` throws (the promise then
 /// never settles).
+#[cfg(unix)]
 fn candidates() -> Option<Vec<String>> {
     let mut out = Vec::new();
     for sub in [&[][..], &["snap.discord"][..], &["app", "com.discordapp.Discord"][..]] {
@@ -87,6 +98,12 @@ fn candidates() -> Option<Vec<String>> {
         }
     }
     Some(out)
+}
+
+#[cfg(windows)]
+fn candidates() -> Option<Vec<String>> {
+    // Unlike Unix, @xhayper/discord-rpc never existsSync's a pipe path.
+    Some((0..10).map(|id| format!(r"\\?\pipe\discord-ipc-{id}")).collect())
 }
 
 fn frame(op: u32, body: &[u8]) -> Vec<u8> {
@@ -122,14 +139,23 @@ fn parse_one(data: &[u8]) -> Option<(u32, JsValue)> {
 /// The client actor. `connected` fires once on the first READY; `on_disconnect` runs when the
 /// transport closes after that.
 async fn run_client(
-    socket: UnixStream,
+    socket: IpcStream,
     mut rx: mpsc::UnboundedReceiver<Cmd>,
     client: Arc<Client>,
     connected: oneshot::Sender<()>,
     globals: Arc<Mutex<Globals>>,
 ) {
+    #[cfg(unix)]
     let (read, mut write) = socket.into_split();
+    // NamedPipeClient has readiness + try_read but no owned read half.
+    #[cfg(windows)]
+    let read = Arc::new(socket);
+    #[cfg(windows)]
+    let mut write = PipeWrite(read.clone());
+    #[cfg(unix)]
     let mut write_open = true;
+    #[cfg(windows)]
+    let write_open = true;
 
     if let Ok(b) = encode(OP_HANDSHAKE, &JsValue::object([("v", JsValue::Number(1.0)), ("client_id", CLIENT_ID.into())])) {
         let _ = write.write_all(&b).await;
@@ -176,11 +202,16 @@ async fn run_client(
                         let _ = done.send(());
                     } else {
                         let _ = write.shutdown().await;
-                        write_open = false;
-                        closed = true;
+                        #[cfg(unix)]
+                        {
+                            write_open = false;
+                            closed = true;
+                        }
                         on_close(&mut pending, &mut is_connected);
                         let _ = done.send(());
                         destroy_waiters.clear();
+                        #[cfg(windows)]
+                        return;
                     }
                 }
             },
@@ -306,7 +337,7 @@ async fn login(client: &Arc<Client>, rx: mpsc::UnboundedReceiver<Cmd>, globals: 
             None => std::future::pending().await,
         };
         for p in paths {
-            if let Ok(socket) = UnixStream::connect(&p).await {
+            if let Ok(socket) = connect_socket(&p).await {
                 client.has_socket.store(true, std::sync::atomic::Ordering::SeqCst);
                 tokio::spawn(run_client(socket, rx, client.clone(), ctx, globals.clone()));
                 return crx.await.map_err(|_| ());
@@ -470,4 +501,21 @@ fn activity(data: &JsValue) -> Result<JsValue, ()> {
     ));
     props.push(("buttons", JsValue::Array(buttons)));
     Ok(JsValue::object(props))
+}
+
+#[cfg(windows)]
+struct PipeWrite(Arc<IpcStream>);
+#[cfg(windows)]
+impl tokio::io::AsyncWrite for PipeWrite {
+    fn poll_write(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>, data: &[u8]) -> std::task::Poll<std::io::Result<usize>> {
+        loop {
+            std::task::ready!(self.0.poll_write_ready(cx))?;
+            match self.0.try_write(data) {
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => continue,
+                r => return std::task::Poll::Ready(r),
+            }
+        }
+    }
+    fn poll_flush(self: std::pin::Pin<&mut Self>, _: &mut std::task::Context<'_>) -> std::task::Poll<std::io::Result<()>> { std::task::Poll::Ready(Ok(())) }
+    fn poll_shutdown(self: std::pin::Pin<&mut Self>, _: &mut std::task::Context<'_>) -> std::task::Poll<std::io::Result<()>> { std::task::Poll::Ready(Ok(())) }
 }

@@ -1,4 +1,4 @@
-//! Node 20 `child_process.execFile(file, args, { timeout }, callback)` on Linux, as the source
+//! Node 20 `child_process.execFile(file, args, { timeout }, callback)` on Linux and Windows, as the source
 //! calls it: utf8 output, `maxBuffer` 1 MiB, `SIGTERM` on timeout, the same error objects and
 //! the split between errors thrown synchronously and errors passed to the callback.
 
@@ -7,8 +7,14 @@ use crate::{
     js,
     net::JsErr,
 };
-use std::{future::Future, process::Stdio};
-use tokio::{io::AsyncReadExt, process::Command, sync::mpsc};
+use std::future::Future;
+#[cfg(unix)]
+use std::process::Stdio;
+#[cfg(windows)]
+mod windows;
+use tokio::{io::AsyncReadExt, sync::mpsc};
+#[cfg(unix)]
+use tokio::process::Command;
 
 const MAX_BUFFER: usize = 1024 * 1024;
 
@@ -72,6 +78,7 @@ fn null_check(v: &JsValue, name: &str) -> Result<(), JsErr> {
 }
 
 /// `strsignal`-style names libuv reports (`signo_string`); "" for real-time signals.
+#[cfg(unix)]
 fn signal_name(sig: i32) -> &'static str {
     const NAMES: [&str; 32] = [
         "", "SIGHUP", "SIGINT", "SIGQUIT", "SIGILL", "SIGTRAP", "SIGABRT", "SIGBUS", "SIGFPE", "SIGKILL", "SIGUSR1",
@@ -82,7 +89,8 @@ fn signal_name(sig: i32) -> &'static str {
     usize::try_from(sig).ok().and_then(|i| NAMES.get(i)).copied().unwrap_or("")
 }
 
-fn uv(errno: i32) -> (&'static str, i32) {
+fn uv(raw: i32) -> (&'static str, i32) {
+    let errno = crate::uv_errors::errno(raw);
     let code = crate::uv_errors::UV_ERRORS.iter().find(|r| r.0 == errno).map_or("UNKNOWN", |r| r.1);
     (code, -errno)
 }
@@ -127,15 +135,18 @@ pub fn exec_file(file: &str, args: &[JsValue], timeout_ms: u64) -> Result<(Kille
         cmd_line = format!("{cmd_line} {}", joined.join(" "));
     }
 
-    let mut command = Command::new(file);
-    command.args(&argv).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
-    // A pre-exec hook keeps std on fork + execvp, i.e. libuv's PATH search and its
-    // `/bin/sh` fallback for ENOEXEC (posix_spawnp has neither).
-    unsafe {
-        command.pre_exec(|| Ok(()));
-    }
+    #[cfg(unix)]
+    let spawn = {
+        let mut command = Command::new(file);
+        command.args(&argv).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+        // Keep fork + execvp and the /bin/sh ENOEXEC fallback on Unix.
+        unsafe { command.pre_exec(|| Ok(())); }
+        command.spawn()
+    };
+    #[cfg(windows)]
+    let spawn = windows::spawn(file, &argv);
     let (tx, mut rx) = mpsc::unbounded_channel();
-    let spawned = match command.spawn() {
+    let spawned = match spawn {
         Ok(c) => Ok(c),
         Err(e) => {
             let (code, errno) = uv(e.raw_os_error().unwrap_or(0));
@@ -173,7 +184,10 @@ pub fn exec_file(file: &str, args: &[JsValue], timeout_ms: u64) -> Result<(Kille
         let _stdin = child.stdin.take();
         let mut out = child.stdout.take();
         let mut err = child.stderr.take();
+        #[cfg(unix)]
         let pid = child.id().map(|p| p as i32);
+        #[cfg(windows)]
+        let process = child.process.clone();
         let (mut out_buf, mut err_buf) = (Vec::new(), Vec::new());
         let (mut chunk_o, mut chunk_e) = (vec![0u8; 65536], vec![0u8; 65536]);
         let mut exited: Option<(JsValue, JsValue)> = None;
@@ -181,8 +195,13 @@ pub fn exec_file(file: &str, args: &[JsValue], timeout_ms: u64) -> Result<(Kille
         let mut ex: Option<JsErr> = None;
         let deadline = (timeout_ms > 0).then(|| tokio::time::Instant::now() + std::time::Duration::from_millis(timeout_ms));
         let mut timer_armed = deadline.is_some();
+        #[cfg(unix)]
         let signal = |exited: &Option<(JsValue, JsValue)>| -> bool {
             exited.is_none() && pid.is_some_and(|p| unsafe { libc::kill(p, libc::SIGTERM) } == 0)
+        };
+        #[cfg(windows)]
+        let signal = |exited: &Option<(JsValue, JsValue)>| -> bool {
+            exited.is_none() && windows::terminate(&process)
         };
         loop {
             if exited.is_some() && out.is_none() && err.is_none() {
@@ -205,11 +224,20 @@ pub fn exec_file(file: &str, args: &[JsValue], timeout_ms: u64) -> Result<(Kille
             let mut overflow = None;
             match ev {
                 Ev::Exit(s) => {
+                    #[cfg(unix)]
                     use std::os::unix::process::ExitStatusExt;
                     let s = s.ok();
+                    #[cfg(unix)]
                     let name = s.and_then(|s| s.signal()).map(signal_name).unwrap_or("");
+                    #[cfg(windows)]
+                    let name = if child_killed { "SIGTERM" } else { "" };
+                    #[cfg(unix)]
+                    let code = s.and_then(|s| s.code()).unwrap_or(0) as f64;
+                    // GetExitCodeProcess is DWORD -> int64 in libuv, never signed i32.
+                    #[cfg(windows)]
+                    let code = s.and_then(|s| s.code()).unwrap_or(0) as u32 as f64;
                     exited = Some(if name.is_empty() {
-                        (JsValue::Number(f64::from(s.and_then(|s| s.code()).unwrap_or(0))), JsValue::Null)
+                        (JsValue::Number(code), JsValue::Null)
                     } else {
                         (JsValue::Null, JsValue::from(name))
                     });

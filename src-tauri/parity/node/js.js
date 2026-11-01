@@ -10,6 +10,9 @@ const view = new DataView(new ArrayBuffer(8));
 const num = (hex) => { view.setBigUint64(0, BigInt('0x' + hex)); return view.getFloat64(0); };
 const values = input.values.map((t) => JSON.parse(t));
 process.stdout.write(JSON.stringify({
+  localDates: (input.localDates || []).map((s) => { const t = Date.parse(s); return Number.isNaN(t) ? null : t; }),
+  utcOffsets: (input.offsetTimes || []).map((ms) => -new Date(ms).getTimezoneOffset()),
+  zone: new Intl.DateTimeFormat().resolvedOptions().timeZone,
   nums: input.nums.map((h) => String(num(h))),
   strings: values.map((v) => String(v)),
   json: values.map((v) => JSON.stringify(v)),

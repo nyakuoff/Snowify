@@ -30,3 +30,34 @@ webkit2gtk = { version = "2", features = ["v2_40"] }
 [dev-dependencies]
 tokio = { version = "1", features = ["test-util"] }
 flate2 = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_Threading",
+    "Win32_System_LibraryLoader", "Win32_Security", "Win32_System_Pipes",
+    "Win32_System_JobObjects", "Win32_System_IO",
+] }
+
+[[test]]
+name = "parity_exec_file"
+path = "tests/platform/exec_file.rs"
+
+[[test]]
+name = "parity_node"
+path = "tests/platform/node.rs"
+
+[[test]]
+name = "parity_discord"
+path = "tests/platform/discord.rs"
+
+[[test]]
+name = "parity_ytdlp"
+path = "tests/platform/ytdlp.rs"
+
+[[test]]
+name = "parity_cloud_auth"
+path = "tests/platform/cloud_auth.rs"
+
+[[test]]
+name = "parity_ytstreams"
+path = "tests/platform/ytstreams.rs"

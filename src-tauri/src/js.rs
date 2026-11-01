@@ -746,6 +746,7 @@ pub fn date_parse_iso(s: &str) -> Option<f64> {
 }
 
 /// The local zone's UTC offset for a local wall-clock time, via `mktime`.
+#[cfg(unix)]
 fn local_offset_ms(local_ms: i64) -> i64 {
     let secs = local_ms.div_euclid(1000);
     // SAFETY: plain libc calls on caller-owned structs.
@@ -763,3 +764,6 @@ fn local_offset_ms(local_ms: i64) -> i64 {
         (secs - as_utc as i64) * 1000
     }
 }
+
+#[cfg(windows)]
+fn local_offset_ms(local_ms: i64) -> i64 { crate::windows_time::local_offset_ms(local_ms) }

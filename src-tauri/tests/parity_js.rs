@@ -280,3 +280,23 @@ fn js_semantics_match_v8() {
     }
     d.finish("js");
 }
+
+#[cfg(windows)]
+#[test]
+fn windows_local_dates_match_v8_icu() {
+    let mut diff = Diff::default();
+    // Includes northern/southern DST, half-hour DST, fractional-hour offsets, Morocco's
+    // Ramadan transitions, a skipped day, pre-1970 and distant dates.
+    for zone in ["UTC", "America/New_York", "Europe/Paris", "Australia/Sydney", "Australia/Lord_Howe", "Asia/Kathmandu", "Africa/Casablanca", "Pacific/Apia"] {
+        let local = ["1960-01-01T12:00:00", "1900-01-01T00:00:00", "2024-01-01T00:00:00", "2024-07-01T00:00:00", "2024-03-10T01:59:59", "2024-03-10T02:30:00", "2024-03-10T03:00:00", "2024-11-03T01:30:00", "2024-03-31T02:30:00", "2024-10-27T02:30:00", "2024-04-07T01:45:00", "2024-10-06T02:15:00", "2011-12-30T12:00:00", "2050-06-01T12:00:00", "+010000-01-01T00:00:00"];
+        let now = snowify::logger::now_ms();
+        let input = json!({"nums":[],"values":[],"dates":[],"localDates":local,"offsetTimes":[now]});
+        let source = common::run_source_with("js.js", &input, |cmd| { cmd.env("TZ",zone); });
+        unsafe { std::env::set_var("TZ",zone); }
+        for (i,text) in local.iter().enumerate() { diff.check(format!("{zone}: Date.parse({text})"), &json!(source["localDates"][i].as_f64()), &json!(js::date_parse_iso(text))); }
+        diff.check(format!("{zone}: current UTC offset"), &json!(source["utcOffsets"][0].as_f64()), &json!(snowify::ytm::utc_offset_minutes()));
+        diff.check(format!("{zone}: Intl timeZone"), &source["zone"], &json!(snowify::ytm::time_zone()));
+    }
+    unsafe { std::env::remove_var("TZ"); }
+    diff.finish("js Windows ICU local offset");
+}

@@ -487,7 +487,13 @@ impl std::error::Error for FsError {}
 impl FsError {
     /// Node's `uvException`: `${code}: ${description}, ${syscall} '${path}'`.
     pub fn uv(err: &io::Error, syscall: &str, path: &Path) -> Self {
+        #[cfg(windows)]
+        let owned = windows_fs::error(err, syscall, path);
+        #[cfg(windows)]
+        let err = &owned;
         let (code, desc, errno) = Self::describe(err);
+        #[cfg(windows)]
+        let path = windows_fs::error_path(path);
         Self::with(
             code,
             desc,
@@ -499,7 +505,7 @@ impl FsError {
     }
 
     fn describe(err: &io::Error) -> (&'static str, &'static str, i32) {
-        let errno = err.raw_os_error().unwrap_or(0);
+        let errno = crate::uv_errors::errno(err.raw_os_error().unwrap_or(0));
         let (code, desc) = crate::uv_errors::UV_ERRORS
             .iter()
             .find(|r| r.0 == errno)
@@ -510,6 +516,8 @@ impl FsError {
     /// An error with a `dest` (`copyfile 'src' -> 'dest'`).
     pub fn uv_dest(err: &io::Error, syscall: &str, path: &Path, dest: &Path) -> Self {
         let mut e = Self::uv(err, syscall, path);
+        #[cfg(windows)]
+        let dest = windows_fs::error_path(dest);
         let dest = dest.to_string_lossy().into_owned();
         e.message = format!("{} -> '{dest}'", e.message);
         e.dest = Some(dest);
@@ -518,6 +526,10 @@ impl FsError {
 
     /// An error with no path in its message (`read`, `write` on an open descriptor).
     pub fn uv_nopath(err: &io::Error, syscall: &str) -> Self {
+        #[cfg(windows)]
+        let owned = windows_fs::error(err, syscall, Path::new(""));
+        #[cfg(windows)]
+        let err = &owned;
         let (code, desc, errno) = Self::describe(err);
         Self::with(code, desc, errno, syscall, None, None)
     }
@@ -584,6 +596,7 @@ pub fn exists_sync(path: &str) -> bool {
 /// `fs.mkdirSync(path, { recursive: true })`: Node 20's `MKDirpSync`. Errors name the
 /// original `path` and syscall `mkdir`.
 pub fn mkdir_recursive_sync(path: &str) -> Result<(), FsError> {
+    #[cfg(unix)]
     let sep = if cfg!(windows) { '\\' } else { '/' };
     let fail = |e: io::Error| FsError::uv(&e, "mkdir", Path::new(path));
     let errno = |code: &str| {
@@ -591,13 +604,19 @@ pub fn mkdir_recursive_sync(path: &str) -> Result<(), FsError> {
             .iter()
             .find(|r| r.1 == code)
             .map_or(0, |r| r.0);
-        io::Error::from_raw_os_error(n)
+        #[cfg(unix)]
+        let raw = n;
+        #[cfg(windows)]
+        let raw = -n;
+        io::Error::from_raw_os_error(raw)
     };
     let mut stack = vec![path.to_owned()];
     while let Some(next) = stack.pop() {
         let mut err = fs::create_dir(&next).err();
+        #[cfg(windows)]
+        { err = err.map(|e| windows_fs::mkdir_error(&e)); }
         loop {
-            match err.as_ref().map(|e| e.raw_os_error().unwrap_or(0)) {
+            match err.as_ref().map(|e| crate::uv_errors::errno(e.raw_os_error().unwrap_or(0))) {
                 None => {
                     if stack.is_empty() {
                         return Ok(());
@@ -615,10 +634,14 @@ pub fn mkdir_recursive_sync(path: &str) -> Result<(), FsError> {
                     return Err(fail(err.unwrap()));
                 }
                 Some(libc_errno::ENOENT) => {
+                    #[cfg(unix)]
                     let dirname = next
                         .rfind(sep)
                         .map_or(next.as_str(), |i| &next[..i])
                         .to_owned();
+                    #[cfg(windows)]
+                    let dirname = Path::new(&next).parent().filter(|p| !p.as_os_str().is_empty())
+                        .map_or_else(|| next.clone(), |p| p.to_string_lossy().into_owned());
                     if dirname != next {
                         stack.push(next.clone());
                         stack.push(dirname);
@@ -652,6 +675,7 @@ pub fn read_file_utf8(path: &str) -> Result<String, FsError> {
 }
 
 /// `fs.readFileSync(path)`: the raw bytes.
+#[cfg(unix)]
 pub fn read_file(path: &str) -> Result<Vec<u8>, FsError> {
     use std::io::Read;
     let mut f = fs::File::open(path).map_err(|e| FsError::uv(&e, "open", Path::new(path)))?;
@@ -671,15 +695,20 @@ pub fn write_file(path: &str, data: &[u8]) -> Result<(), FsError> {
 
 /// `fs.unlinkSync(path)`.
 pub fn unlink_sync(path: &str) -> Result<(), FsError> {
-    fs::remove_file(path).map_err(|e| FsError::uv(&e, "unlink", Path::new(path)))
+    #[cfg(unix)]
+    let result = fs::remove_file(path);
+    #[cfg(windows)]
+    let result = windows_fs::unlink(Path::new(path));
+    result.map_err(|e| FsError::uv(&e, "unlink", Path::new(path)))
 }
 
-/// `fs.readdirSync(path)`: names (lossy UTF-8) in libuv's byte order.
+/// `fs.readdirSync(path)`: names (lossy UTF-8) in libuv's platform order.
 pub fn readdir_sync(path: &str) -> Result<Vec<String>, FsError> {
-    let mut names: Vec<std::ffi::OsString> = fs::read_dir(path)
+    let names: Vec<std::ffi::OsString> = fs::read_dir(path)
         .and_then(|rd| rd.map(|d| d.map(|d| d.file_name())).collect())
         .map_err(|e| FsError::uv(&e, "scandir", Path::new(path)))?;
-    names.sort();
+    #[cfg(unix)]
+    let names = { let mut names = names; names.sort(); names };
     Ok(names
         .into_iter()
         .map(|n| n.to_string_lossy().into_owned())
@@ -695,6 +724,7 @@ pub fn stat_is_dir(path: &str) -> Result<bool, FsError> {
 
 /// `fs.copyFileSync(src, dest)`: libuv's `uv_fs_copyfile` (dest gets src's mode; copying a
 /// file onto itself is a no-op). Every failure is reported as `copyfile 'src' -> 'dest'`.
+#[cfg(unix)]
 pub fn copy_file_sync(src: &str, dest: &str) -> Result<(), FsError> {
     use std::io::{Read, Write};
     #[cfg(unix)]
@@ -739,6 +769,7 @@ pub fn rm_recursive_sync(path: &str) -> Result<(), FsError> {
 }
 
 /// Linux errno values used by the ports of Node's fs algorithms.
+#[cfg(unix)]
 mod libc_errno {
     pub const EPERM: i32 = 1;
     pub const ENOENT: i32 = 2;
@@ -746,6 +777,16 @@ mod libc_errno {
     pub const EEXIST: i32 = 17;
     pub const ENOTDIR: i32 = 20;
     pub const ENOSPC: i32 = 28;
+}
+
+#[cfg(windows)]
+mod libc_errno {
+    pub const EPERM: i32 = 4048;
+    pub const ENOENT: i32 = 4058;
+    pub const EACCES: i32 = 4092;
+    pub const EEXIST: i32 = 4075;
+    pub const ENOTDIR: i32 = 4052;
+    pub const ENOSPC: i32 = 4055;
 }
 
 /// `fs.rmSync(path, { recursive: true, force: true })`: Node 20's JS `rimrafSync` with
@@ -758,6 +799,11 @@ fn rimraf(path: &Path) -> Result<(), FsError> {
     let stats = match fs::symlink_metadata(path) {
         Ok(s) => Some(s),
         Err(e) if FsError::uv(&e, "lstat", path).code == "ENOENT" => return Ok(()),
+        #[cfg(windows)]
+        Err(e) if FsError::uv(&e, "lstat", path).code == "EPERM" => {
+            windows_fs::fix_eperm(path, FsError::uv(&e, "lstat", path))?;
+            None
+        }
         // Other lstat errors are ignored on non-Windows.
         Err(_) => None,
     };
@@ -768,13 +814,19 @@ fn rimraf(path: &Path) -> Result<(), FsError> {
     };
     match result {
         Err(e) if e.code == "ENOENT" => Ok(()),
+        #[cfg(windows)]
+        Err(e) if e.code == "EPERM" => windows_fs::fix_eperm(path, e),
         Err(e) if e.code == "EPERM" || e.code == "EISDIR" => rmdir(path, Some(e)),
         other => other,
     }
 }
 
 fn unlink(path: &Path) -> Result<(), FsError> {
-    match fs::remove_file(path) {
+    #[cfg(unix)]
+    let result = fs::remove_file(path);
+    #[cfg(windows)]
+    let result = windows_fs::unlink(path);
+    match result {
         Ok(()) => Ok(()),
         Err(e) => match FsError::uv(&e, "unlink", path) {
             e if e.code == "ENOENT" => Ok(()),
@@ -792,12 +844,13 @@ fn rmdir(path: &Path, original: Option<FsError>) -> Result<(), FsError> {
         "ENOENT" => Ok(()),
         "ENOTDIR" => Err(original.unwrap_or(err)),
         "ENOTEMPTY" | "EEXIST" | "EPERM" => {
-            // libuv's scandir returns entries sorted by byte value. Children are built as
+            // Unix scandir sorts by byte value; Windows preserves native order. Children use
             // `path + sep + name`, so a trailing separator on `path` doubles, as in Node.
-            let mut names: Vec<std::ffi::OsString> = fs::read_dir(path)
+            let names: Vec<std::ffi::OsString> = fs::read_dir(path)
                 .and_then(|rd| rd.map(|d| d.map(|d| d.file_name())).collect())
                 .map_err(|e| FsError::uv(&e, "scandir", path))?;
-            names.sort();
+            #[cfg(unix)]
+            let names = { let mut names = names; names.sort(); names };
             for name in names {
                 let mut child = path.as_os_str().to_owned();
                 child.push(std::path::MAIN_SEPARATOR_STR);
@@ -817,8 +870,48 @@ fn rmdir(path: &Path, original: Option<FsError>) -> Result<(), FsError> {
 }
 
 /// `fs.chmodSync(path, mode)`.
+#[cfg(unix)]
 pub fn chmod_sync(path: &str, mode: u32) -> Result<(), FsError> {
     use std::os::unix::fs::PermissionsExt;
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode)).map_err(|e| FsError::uv(&e, "chmod", Path::new(path)))
 }
 
+
+/// libuv fs__chmod uses _wchmod: only _S_IWRITE (the owner write bit) matters.
+/// Group/other bits are ignored by the Windows CRT, as in Node 20.
+#[cfg(windows)]
+pub fn chmod_sync(path: &str, mode: u32) -> Result<(), FsError> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::{GetFileAttributesW, SetFileAttributesW, FILE_ATTRIBUTE_READONLY, INVALID_FILE_ATTRIBUTES};
+    let pathw: Vec<u16> = std::ffi::OsStr::new(path).encode_wide().chain(Some(0)).collect();
+    let fail = || FsError::uv(&io::Error::last_os_error(), "chmod", Path::new(path));
+    // SAFETY: NUL-terminated caller-owned path, no retained pointers.
+    unsafe {
+        let attrs = GetFileAttributesW(pathw.as_ptr());
+        if attrs == INVALID_FILE_ATTRIBUTES { return Err(fail()); }
+        let attrs = if mode & 0o200 != 0 { attrs & !FILE_ATTRIBUTE_READONLY } else { attrs | FILE_ATTRIBUTE_READONLY };
+        if SetFileAttributesW(pathw.as_ptr(), attrs) == 0 { return Err(fail()); }
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+pub fn copy_file_sync(src: &str, dest: &str) -> Result<(), FsError> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::CopyFileW;
+    let wide = |p: &str| std::ffi::OsStr::new(p).encode_wide().chain(Some(0)).collect::<Vec<_>>();
+    let (srcw, dstw) = (wide(src), wide(dest));
+    if unsafe { CopyFileW(srcw.as_ptr(), dstw.as_ptr(), 0) } == 0 {
+        let err = io::Error::last_os_error();
+        if crate::uv_errors::errno(err.raw_os_error().unwrap_or(0)) == 4082 && windows_fs::same_file(src, dest) {
+            return Ok(());
+        }
+        return Err(FsError::uv_dest(&err, "copyfile", Path::new(src), Path::new(dest)));
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+mod windows_fs;
+#[cfg(windows)]
+pub fn read_file(path: &str) -> Result<Vec<u8>, FsError> { windows_fs::read_file(path) }

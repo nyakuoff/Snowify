@@ -14,7 +14,28 @@ pub mod tables;
 pub mod xiph;
 
 use crate::ipc::JsString;
-use std::{fs::File, io::Read, os::unix::fs::FileExt};
+use std::{fs::File, io::Read};
+#[cfg(unix)]
+use std::os::unix::fs::FileExt;
+
+// Windows seek_read is the positioned-read equivalent of Unix read_at.
+#[cfg(windows)]
+trait FileExt {
+    fn read_at(&self, buf: &mut [u8], offset: u64) -> std::io::Result<usize>;
+}
+#[cfg(windows)]
+impl FileExt for File {
+    fn read_at(&self, buf: &mut [u8], offset: u64) -> std::io::Result<usize> {
+        use std::io::{Seek, SeekFrom};
+        // Unlike pread, Windows seek_read advances the handle's sequential position.
+        // libuv restores it after a positioned read, which RandomReader also depends on.
+        let mut handle = self;
+        let saved = handle.stream_position()?;
+        let result = std::os::windows::fs::FileExt::seek_read(self, buf, offset);
+        handle.seek(SeekFrom::Start(saved))?;
+        result
+    }
+}
 
 /// How a parse fails. `Eos` is strtok3's `EndOfStreamError`, which several parsers catch.
 #[derive(Debug, Clone, PartialEq)]

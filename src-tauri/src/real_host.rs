@@ -79,12 +79,18 @@ fn node_error(err: &reqwest::Error, url: &url::Url) -> NetError {
         }
         found.flatten()
     };
+    let io_code = io.and_then(|raw| {
+        let errno = crate::uv_errors::errno(raw);
+        crate::uv_errors::UV_ERRORS.iter().find(|row| row.0 == errno).map(|row| row.1)
+    });
     let fail = |message: String, props: Vec<(&str, JsValue)>| NetError::Failed {
         name: "Error".into(),
         message,
         props: props.into_iter().map(|(k, v)| (k.to_owned(), v)).collect(),
     };
     let sys = |errno: i32, code: &str, syscall: &str| -> Vec<(&'static str, JsValue)> {
+        #[cfg(windows)]
+        let errno = crate::uv_errors::UV_ERRORS.iter().find(|row| row.1 == code).map_or(errno, |row| -row.0);
         vec![
             ("errno", JsValue::Number(f64::from(errno))),
             ("code", code.into()),
@@ -102,8 +108,8 @@ fn node_error(err: &reqwest::Error, url: &url::Url) -> NetError {
         return fail(format!("getaddrinfo {code} {host}"), props);
     }
     let port = url.port_or_known_default().unwrap_or(443);
-    match io {
-        Some(111) => {
+    match io_code {
+        Some("ECONNREFUSED") => {
             let addr = chain
                 .split("tcp connect error")
                 .next()
@@ -114,8 +120,8 @@ fn node_error(err: &reqwest::Error, url: &url::Url) -> NetError {
             props.push(("port", JsValue::Number(f64::from(port))));
             fail(format!("connect ECONNREFUSED {addr}:{port}"), props)
         }
-        Some(104) => fail("read ECONNRESET".into(), sys(-104, "ECONNRESET", "read")),
-        Some(101) => fail(
+        Some("ECONNRESET") => fail("read ECONNRESET".into(), sys(-104, "ECONNRESET", "read")),
+        Some("ENETUNREACH") => fail(
             format!("connect ENETUNREACH {host}:{port}"),
             sys(-101, "ENETUNREACH", "connect"),
         ),

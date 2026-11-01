@@ -31,8 +31,11 @@ pub mod updater;
 pub mod ytmusic;
 pub mod ytdlp;
 
-// The errno numbers are per-OS; this table was generated on Linux.
+// Node/libuv errno values and native error translation are platform-specific.
 #[cfg(target_os = "linux")]
 pub mod uv_errors;
-#[cfg(not(target_os = "linux"))]
-compile_error!("src/uv_errors.rs is the Linux errno map; regenerate it on this OS (see PORT.md)");
+#[cfg(windows)]
+#[path = "uv_errors_windows.rs"]
+pub mod uv_errors;
+#[cfg(windows)]
+mod windows_time;

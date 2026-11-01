@@ -11,7 +11,8 @@ use std::{
 };
 
 pub fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
+    std::env::var_os("SNOWIFY_PARITY_ROOT").map(PathBuf::from)
+        .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf())
 }
 
 /// Feeds `input` as JSON on stdin and parses the runner's stdout as JSON.
@@ -21,12 +22,22 @@ pub fn run_source(script: &str, input: &Value) -> Value {
 
 /// Like [`run_source`], letting the caller set env/cwd on the command.
 pub fn run_source_with(script: &str, input: &Value, configure: impl FnOnce(&mut Command)) -> Value {
-    let electron = root().join("../node_modules/.bin/electron");
+    let electron = std::env::var_os("SNOWIFY_PARITY_ELECTRON").map(PathBuf::from)
+        .unwrap_or_else(|| root().join("../node_modules/.bin/electron"));
     assert!(
         electron.exists(),
         "run `npm install` at the repo root: parity tests need Electron 33"
     );
-    let mut cmd = Command::new(electron);
+    // JSON argv avoids shell interpolation and preserves paths containing spaces.
+    // On native Windows (including the test .exe under Wine), pass electron.exe directly.
+    let launcher: Vec<String> = std::env::var("SNOWIFY_PARITY_LAUNCHER")
+        .map(|s| serde_json::from_str(&s).expect("SNOWIFY_PARITY_LAUNCHER must be a JSON argv array"))
+        .unwrap_or_default();
+    let mut cmd = if let Some(program) = launcher.first() {
+        let mut cmd = Command::new(program);
+        cmd.args(&launcher[1..]).arg(&electron);
+        cmd
+    } else { Command::new(electron) };
     cmd.arg(root().join("parity/node").join(script))
         .env("ELECTRON_RUN_AS_NODE", "1")
         .stdin(Stdio::piped())

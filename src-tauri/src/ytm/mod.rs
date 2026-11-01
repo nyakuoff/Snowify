@@ -87,6 +87,7 @@ fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 }
 
 /// `-(new Date()).getTimezoneOffset()`.
+#[cfg(unix)]
 pub fn utc_offset_minutes() -> f64 {
     // SAFETY: localtime_r into a caller-owned struct.
     unsafe {
@@ -103,6 +104,7 @@ pub fn utc_offset_minutes() -> f64 {
 /// else the `/etc/localtime` link target, else `UTC`.
 // ponytail: no ICU alias canonicalisation (e.g. "US/Pacific" stays as is); add a link table
 // if a user's zone name ever differs from what V8 reports.
+#[cfg(unix)]
 pub fn time_zone() -> String {
     let from_path = |p: &str| p.split_once("zoneinfo/").map(|(_, z)| z.to_owned());
     if let Ok(tz) = std::env::var("TZ") {
@@ -439,3 +441,8 @@ fn spread_into(target: &mut JsValue, source: &JsValue) {
         _ => {}
     }
 }
+
+#[cfg(windows)]
+pub fn utc_offset_minutes() -> f64 { crate::windows_time::utc_offset_ms(crate::logger::now_ms() as i64) as f64 / 60000.0 }
+#[cfg(windows)]
+pub fn time_zone() -> String { crate::windows_time::time_zone() }

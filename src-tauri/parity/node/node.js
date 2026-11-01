@@ -18,6 +18,7 @@ const tmpdir = input.tmpdir.map((env) => {
 });
 
 const ops = {
+  chmod: (p, mode) => { fs.chmodSync(p, mode); return fs.statSync(p).mode & 0o777; },
   exists: (p) => fs.existsSync(p),
   mkdir: (p) => { fs.mkdirSync(p, { recursive: true }); return true; },
   rm: (p) => { fs.rmSync(p, { recursive: true, force: true }); return true; },
@@ -36,7 +37,7 @@ process.stdout.write(JSON.stringify({
     return path[flavour][name](...args);
   }),
   tmpdir,
-  errors: [...util.getSystemErrorMap()].filter(([k]) => k < 0 && k > -1000)
+  errors: [...util.getSystemErrorMap()].filter(([k]) => k < 0 && (process.platform === "win32" || k > -1000))
     .map(([k, [code, desc]]) => [-k, code, desc]).sort((a, b) => a[0] - b[0]),
   fs: input.fs.map(([op, p, q]) => {
     try { return { ok: ops[op](p, q) }; } catch (e) { return { err: [e.code, e.message, JSON.stringify(e)] }; }
