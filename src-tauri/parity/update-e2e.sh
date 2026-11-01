@@ -9,6 +9,13 @@
 #   src-tauri/parity/update-e2e.sh --serve    # serve again without rebuilding
 set -euo pipefail
 : "${TAURI_SIGNING_PRIVATE_KEY:?export TAURI_SIGNING_PRIVATE_KEY (key path or contents) first}"
+# Accept a key path, including an unexpanded leading ~ (e.g. from a quoted export): tauri
+# only reads it as a file when the path exists, otherwise it decodes the text as the key.
+key=${TAURI_SIGNING_PRIVATE_KEY/#\~/$HOME}
+if [[ -f $key ]]; then
+  TAURI_SIGNING_PRIVATE_KEY=$(<"$key")
+  export TAURI_SIGNING_PRIVATE_KEY
+fi
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 out=$root/target/update-e2e
 port=${PORT:-8765}
