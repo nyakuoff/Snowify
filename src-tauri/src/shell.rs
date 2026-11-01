@@ -161,12 +161,28 @@ pub fn on_second_instance(app: &AppHandle, argv: Vec<String>) {
         .pending_deep_link
         .lock()
         .unwrap_or_else(|e| e.into_inner());
-    // An exception here escapes the Electron event handler; there is nothing to report it to.
-    let _ = deep_link::on_second_instance(
+    // A failing window call throws out of the Electron event handler.
+    if deep_link::on_second_instance(
         &argv,
         window.as_ref().map(|w| w as &dyn MainWindow),
         &mut pending,
-    );
+    )
+    .is_err()
+    {
+        uncaught_exception("TypeError: Object has been destroyed");
+    }
+}
+
+/// Electron's default `uncaughtException` handler (the source registers none):
+/// `dialog.showErrorBox(title, 'Uncaught Exception:\n' + error.stack)`, modal, then the app
+/// carries on. Rust has no JS frames, so the stack is its first line only.
+fn uncaught_exception(stack: &str) {
+    rfd::MessageDialog::new()
+        .set_level(rfd::MessageLevel::Error)
+        .set_title("A JavaScript error occurred in the main process")
+        .set_description(format!("Uncaught Exception:\n{stack}"))
+        .set_buttons(rfd::MessageButtons::Ok)
+        .show();
 }
 
 // ─── Window (src/main/window.js) ───

@@ -189,10 +189,10 @@ malformed build.
   registry writes under Wine (34/0). Thumbbar buttons (`ITaskbarList3`) are ported, but Wine's
   taskbar is a stub, so they and the media proxy on WebView2 still need a check on real Windows
   (see `WINDOWS-REPORT.md`).
-- **Electron's uncaught-exception box** ("A JavaScript error occurred in the main process").
-  Electron shows it when a main-process listener throws, e.g. `second-instance` on a
-  destroyed window, which `shell.rs` currently drops silently. Scheduled with the cut-over.
-  Rust has no JS stack, so the box will read `Name: message` without frames.
+- **Electron's uncaught-exception box** ("A JavaScript error occurred in the main process"):
+  done for `second-instance` on a destroyed window (`shell::uncaught_exception`). Title and
+  body text match a real Electron 33 probe; the stack is its first line only (accepted, see
+  Accepted differences). Not tested automatically: it's a modal native dialog.
 - **Equivalent / unreachable mutants** (step 2):
   - Deep link: stripping the second leading slash makes no difference, because empty
     segments are filtered anyway.
