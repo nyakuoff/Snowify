@@ -309,7 +309,7 @@ pub(crate) fn base64url(b: &[u8]) -> String {
     o
 }
 
-fn base64(b: &[u8]) -> String {
+pub(crate) fn base64(b: &[u8]) -> String {
     base64url(b).replace('-', "+").replace('_', "/") + ["", "==", "="][b.len() % 3]
 }
 

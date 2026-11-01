@@ -2,6 +2,7 @@
 //! `js` and `node` reproduce the language and runtime semantics those files rely on.
 
 pub mod audio_cache;
+pub mod cloud_auth;
 pub mod deep_link;
 pub mod discord;
 pub mod electron_locale;
