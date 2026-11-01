@@ -420,7 +420,7 @@ async fn run_rust(s: &Scenario, scenario: &Value, paths: &Paths, t: &Translation
             "auth:signInWithEmail" => c.sign_in_with(&b, &keyring, paths, &g(0), &g(1), false).await,
             "auth:signUpWithEmail" => c.sign_in_with(&b, &keyring, paths, &g(0), &g(1), true).await,
             "auth:sendPasswordReset" => c.send_password_reset(&b, &g(0)).await,
-            "auth:signOut" => c.sign_out(&b, paths).await,
+            "auth:signOut" => c.sign_out(&b, &keyring, paths).await,
             "auth:getUser" => c.get_user(&b).await,
             "profile:update" => c.update_profile(&b, t, &g(0)).await,
             "profile:readImage" => c.read_image(paths, &g(0)),

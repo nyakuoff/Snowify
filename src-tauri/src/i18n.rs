@@ -50,7 +50,7 @@ pub fn resolve_locale(override_locale: &JsValue, system: &str) -> Result<&'stati
 
 /// The loaded locale. `None` means never loaded or the file was JSON `null`; both make
 /// every lookup miss (`data?.[key]` is `undefined`).
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Translations(Option<Map<String, Value>>);
 
 impl Translations {

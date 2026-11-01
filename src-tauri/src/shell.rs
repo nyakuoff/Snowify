@@ -43,6 +43,9 @@ pub struct Shell {
     pub ytm: std::sync::Arc<crate::ytm::Ytm>,
     /// The stream-URL cache and the active download.
     streams: crate::ytmusic::Streams,
+    /// `cloud-auth.js` module state and its Firebase instance.
+    cloud: std::sync::Arc<crate::cloud_auth::CloudAuth>,
+    firebase: std::sync::Arc<crate::cloud_backend::FirebaseBackend<crate::real_host::RealHost>>,
 }
 
 /// `process.platform`.
@@ -336,6 +339,29 @@ fn arg(args: &[JsValue], i: usize) -> &JsValue {
     args.get(i).unwrap_or(&JsValue::Undefined)
 }
 
+/// The `app.getPath` values cloud-auth reads.
+fn cloud_paths() -> crate::cloud_auth::Paths {
+    use crate::host::Host as _;
+    crate::cloud_auth::Paths {
+        user_data: crate::real_host::RealHost { window: None }.user_data(),
+        image_roots: crate::cloud_backend::image_roots(),
+        cwd: std::env::current_dir().map(|d| d.to_string_lossy().into_owned()).unwrap_or_default(),
+    }
+}
+
+/// The `onAuthStateChanged` listener cloud-auth registers: each queued callback sends
+/// `auth:stateChanged` with the user's info, or does nothing while there is no window.
+async fn deliver_auth_events(app: &AppHandle) {
+    let s = shell(app);
+    for user in s.firebase.take_events().await {
+        if main_window(app).is_none() {
+            continue;
+        }
+        let payload = crate::cloud_auth::state_payload(&s.cloud, &*s.firebase, user).await;
+        send_to_renderer(app, "auth:stateChanged", vec![payload]);
+    }
+}
+
 /// `getYtDlpPath()` for this app.
 fn ytdlp_path(app: &AppHandle, host: &crate::real_host::RealHost) -> String {
     use crate::host::Host as _;
@@ -413,6 +439,29 @@ async fn invoke(app: &AppHandle, channel: &str, args: Vec<JsValue>) -> Option<Ha
         "net:httpGet" => {
             let headers = if *arg(&args, 1) == JsValue::Undefined { JsValue::Object(Vec::new()) } else { arg(&args, 1).clone() };
             crate::ytmusic::http_get(&host, &a0, &headers).await
+        }
+        "auth:signInWithEmail" | "auth:signUpWithEmail" | "auth:sendPasswordReset" | "auth:signOut" | "auth:getUser" | "profile:update"
+        | "profile:readImage" | "profile:updateExtras" | "profile:get" | "cloud:save" | "cloud:load" => {
+            let s = shell(app);
+            let (c, fb, k, p, a1) = (&s.cloud, &*s.firebase, &crate::cloud_backend::OsKeyring, cloud_paths(), arg(&args, 1));
+            let t = s.translations.lock().unwrap_or_else(|e| e.into_inner()).clone();
+            let r = match channel {
+                "auth:signInWithEmail" => c.sign_in_with(fb, k, &p, &a0, a1, false).await,
+                "auth:signUpWithEmail" => c.sign_in_with(fb, k, &p, &a0, a1, true).await,
+                "auth:sendPasswordReset" => c.send_password_reset(fb, &a0).await,
+                "auth:signOut" => c.sign_out(fb, k, &p).await,
+                "auth:getUser" => c.get_user(fb).await,
+                "profile:update" => c.update_profile(fb, &t, &a0).await,
+                "profile:readImage" => c.read_image(&p, &a0),
+                "profile:updateExtras" => c.update_extras(fb, &t, &a0).await,
+                "profile:get" => c.get_profile(fb, &a0).await,
+                "cloud:save" => c.save(fb, &t, &a0).await,
+                _ => c.load(fb).await,
+            };
+            // The listener is async in JS: its sends don't hold up the handler's reply.
+            let h = app.clone();
+            tauri::async_runtime::spawn(async move { deliver_auth_events(&h).await });
+            r
         }
         "lyrics:get" => {
             let a = |i: usize| arg(&args, i).clone();
@@ -579,6 +628,8 @@ pub fn run() {
             relaunch: AtomicBool::new(false),
             ytm: Default::default(),
             streams: Default::default(),
+            cloud: Default::default(),
+            firebase: std::sync::Arc::new(crate::cloud_backend::FirebaseBackend::new(std::sync::Arc::new(crate::real_host::RealHost { window: None }))),
         })
         .invoke_handler(tauri::generate_handler![ipc_invoke, ipc_send])
         .setup(|app| {
@@ -602,6 +653,17 @@ pub fn run() {
                     "[i18n]".into(),
                     e.rejection_message("startup").to_string_lossy().into(),
                 ]);
+            }
+            // `registerCloudAuth(ipcMain, ctx)`: the listener's initial callback (no window yet,
+            // so it is dropped), then `_autoSignIn()` running alongside the rest of startup.
+            {
+                let h = handle.clone();
+                tauri::async_runtime::spawn(async move {
+                    deliver_auth_events(&h).await;
+                    let s = shell(&h);
+                    crate::cloud_auth::auto_sign_in(&*s.firebase, &crate::cloud_backend::OsKeyring, &cloud_paths()).await;
+                    deliver_auth_events(&h).await;
+                });
             }
             // The rest of `app.whenReady()`: `await initYTMusic(ctx)` comes before the window.
             use crate::host::Host as _;

@@ -301,7 +301,7 @@ pub fn load_credentials<K: Keyring>(k: &K, p: &Paths) -> Option<(String, String)
         if k.available() {
             save_credentials(k, p, &email.as_str().into(), &pw.as_str().into());
         } else {
-            clear_credentials(p);
+            clear_credentials(k, p);
         }
         return Some((email, pw));
     }
@@ -313,8 +313,10 @@ pub fn load_credentials<K: Keyring>(k: &K, p: &Paths) -> Option<(String, String)
     Some((email, pw))
 }
 
-/// `_clearCredentials()`.
-pub fn clear_credentials(p: &Paths) {
+/// `_clearCredentials()`. The source's secret was inside the file; the port's is in the
+/// keyring, so it goes too.
+pub fn clear_credentials<K: Keyring>(k: &K, p: &Paths) {
+    k.clear();
     let file = credentials_path(p);
     if node::exists_sync(&file)
         && let Err(e) = node::unlink_sync(&file)
@@ -327,7 +329,7 @@ pub fn clear_credentials(p: &Paths) {
 pub async fn auto_sign_in<B: Backend, K: Keyring>(b: &B, k: &K, p: &Paths) {
     let Some((email, password)) = load_credentials(k, p) else { return };
     if b.sign_in(&email.as_str().into(), &password.as_str().into()).await.is_err() {
-        clear_credentials(p);
+        clear_credentials(k, p);
     }
 }
 
@@ -376,10 +378,10 @@ impl CloudAuth {
     }
 
     /// `auth:signOut`.
-    pub async fn sign_out<B: Backend>(&self, b: &B, p: &Paths) -> HandlerResult {
+    pub async fn sign_out<B: Backend, K: Keyring>(&self, b: &B, k: &K, p: &Paths) -> HandlerResult {
         Ok(match b.sign_out().await {
             Ok(()) => {
-                clear_credentials(p);
+                clear_credentials(k, p);
                 JsValue::Bool(true)
             }
             Err(e) => error_of(e),

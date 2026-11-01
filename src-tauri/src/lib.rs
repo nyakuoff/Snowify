@@ -3,6 +3,7 @@
 
 pub mod audio_cache;
 pub mod cloud_auth;
+pub mod cloud_backend;
 pub mod deep_link;
 pub mod discord;
 pub mod electron_locale;
