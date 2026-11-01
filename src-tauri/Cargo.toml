@@ -1,0 +1,30 @@
+[package]
+name = "snowify"
+version = "2.0.0"
+edition = "2024"
+description = "Rust (Tauri) backend for Snowify — port of the Electron main process"
+license = "MIT"
+
+[dependencies]
+futures-util = "0.3"
+getrandom = "0.3"
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "http2", "charset", "gzip", "brotli", "deflate"] }
+rfd = { version = "0.15", default-features = false, features = ["gtk3"] }
+serde_json = { version = "1", features = ["float_roundtrip", "preserve_order"] }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-deep-link = "2"
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+tokio = { version = "1", features = ["net", "io-util", "rt-multi-thread", "macros", "sync", "time", "fs", "process"] }
+libc = "0.2"
+icu_normalizer = "2"
+url = "2"
+
+[build-dependencies]
+tauri-build = "2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = { version = "2", features = ["v2_40"] }
+
+[dev-dependencies]
+flate2 = "1"

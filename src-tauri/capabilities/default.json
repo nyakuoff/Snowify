@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "The main window: core APIs used by the window.snowify shim.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

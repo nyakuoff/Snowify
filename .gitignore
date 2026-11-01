@@ -28,3 +28,7 @@ ios/Pods/
 ios/.xcode.env.local
 
 FIRESTORE_RULES_2_0.rules
+# Rust port
+src-tauri/target/
+# Live YouTube Music recordings (contain the recorder's region/timezone); re-record with parity/node/ytm_record.js
+src-tauri/parity/corpus/ytmusic/
