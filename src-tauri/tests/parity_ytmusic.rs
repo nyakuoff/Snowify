@@ -226,6 +226,92 @@ fn edge_scenarios(rec: &str) -> Vec<(&'static str, Value)> {
     out.push(("html that parses as JSON", json!({ "userData": "/mock/ud", "recording": rec, "resolveProxy": "DIRECT",
         "overrides": [over("GET", "https://music.youtube.com/", None, raw(200, "123", json!({})))],
         "ops": [json!(["$init"]), op("yt:browseMood", vec![json!("x"), json!("y")])] })));
+    // A "Single" search row reaches the album parser, whose year lookup throws on a number.
+    let single_row = row("vid0000000s", "Single Thing", "Single", vec![artist.clone(), run(" \u{2022} "), json!({ "text": 2020 })], good_thumbs.clone());
+    out.push(("single search row throws in the album parser", sc(
+        vec![over("POST", SEARCH, Some(&qbody("single")), ok(shelf(vec![single_row])))],
+        vec![op("yt:search", vec![json!("single"), json!(false)])],
+        json!("DIRECT"),
+    )));
+    // A top-level renderer plus a nested one: for the last key the walk stops at the first
+    // match, so only the top-level row is returned (not the one under `contents`).
+    let direct_row = row("vid0000000d", "Direct Song", "Song", vec![artist.clone(), run(" \u{2022} "), run("2:45")], good_thumbs.clone());
+    let nested_row = row("vid0000000n", "Nested Song", "Song", vec![artist.clone(), run(" \u{2022} "), run("3:05")], good_thumbs.clone());
+    let mut direct_page = shelf(vec![nested_row]);
+    direct_page["musicResponsiveListItemRenderer"] = direct_row["musicResponsiveListItemRenderer"].clone();
+    out.push(("renderer at the root stops the walk", sc(
+        vec![over("POST", SEARCH, Some(&qbody("direct")), ok(direct_page))],
+        vec![op("yt:search", vec![json!("direct"), json!(false)])],
+        json!("DIRECT"),
+    )));
+    // The artist page's top-video carousel is the third carousel.
+    let artist_page = json!({
+        "responseContext": {},
+        "header": { "musicVisualHeaderRenderer": {
+            "title": { "runs": [{ "text": "Daft Punk" }] },
+            "thumbnail": { "musicThumbnailRenderer": { "thumbnail": { "thumbnails": [
+                { "url": "https://lh3.googleusercontent.com/avatar=w120-h120-l90-rj", "width": 120, "height": 120 }
+            ] } } }
+        } },
+        "contents": { "singleColumnBrowseResultsRenderer": { "tabs": [{ "tabRenderer": { "content": { "sectionListRenderer": { "contents": [
+            { "musicShelfRenderer": { "contents": [] } },
+            { "musicCarouselShelfRenderer": { "contents": [] } },
+            { "musicCarouselShelfRenderer": { "contents": [] } },
+            { "musicCarouselShelfRenderer": { "contents": [{ "musicTwoRowItemRenderer": {
+                "title": { "runs": [{ "text": "Live Video" }] },
+                "navigationEndpoint": { "watchEndpoint": { "videoId": "vid0000000v" } },
+                "thumbnailRenderer": { "musicThumbnailRenderer": { "thumbnail": { "thumbnails": [
+                    { "url": "https://i.ytimg.com/vi/vid0000000v/hq.jpg", "width": 120, "height": 120 }
+                ] } } }
+            } }] } },
+            { "musicCarouselShelfRenderer": { "contents": [] } },
+            { "musicCarouselShelfRenderer": { "contents": [] } }
+        ] } } } }] } }
+    });
+    out.push(("artist top video", sc(
+        vec![over("POST", BROWSE, Some("\"browseId\":\"UCartist\""), ok(artist_page))],
+        vec![op("yt:artistInfo", vec![json!("UCartist")])],
+        json!("DIRECT"),
+    )));
+    // An empty playNavigationEndpoint id: the video id comes from the thumbnail URL.
+    let playlist_video = json!({ "musicResponsiveListItemRenderer": {
+        "flexColumns": [
+            { "musicResponsiveListItemFlexColumnRenderer": { "text": { "runs": [{
+                "text": "Thumb Id Video",
+                "navigationEndpoint": { "watchEndpoint": { "videoId": "vid0000000t",
+                    "watchEndpointMusicSupportedConfigs": { "watchEndpointMusicConfig": { "musicVideoType": "MUSIC_VIDEO_TYPE_ATV" } } } }
+            }] } } },
+            { "musicResponsiveListItemFlexColumnRenderer": { "text": { "runs": [{
+                "text": "Some Artist",
+                "navigationEndpoint": { "browseEndpoint": { "browseId": "UCsome",
+                    "browseEndpointContextSupportedConfigs": { "browseEndpointContextMusicConfig": { "pageType": "MUSIC_PAGE_TYPE_ARTIST" } } } }
+            }] } } }
+        ],
+        "fixedColumns": [{ "musicResponsiveListItemFlexColumnRenderer": { "text": { "runs": [{ "text": "3:05" }] } } }],
+        "playNavigationEndpoint": { "watchEndpoint": { "videoId": "" } },
+        "thumbnails": [{ "url": "https://i.ytimg.com/vi/abcdefghijk/hq.jpg", "width": 100, "height": 100 }]
+    } });
+    let playlist_page = json!({
+        "responseContext": {},
+        "continuation": [[]],
+        "contents": { "singleColumnBrowseResultsRenderer": { "tabs": [{ "tabRenderer": { "content": { "sectionListRenderer": { "contents": [
+            { "musicPlaylistShelfRenderer": { "contents": [playlist_video] } }
+        ] } } } }] } }
+    });
+    out.push(("playlist video id from its thumbnail url", sc(
+        vec![over("POST", BROWSE, Some("\"browseId\":\"pltest\""), ok(playlist_page))],
+        vec![op("yt:getPlaylistVideos", vec![json!("pltest")])],
+        json!("DIRECT"),
+    )));
+    // The overlay has no playlistId, so the thumbnail overlay's (non-string) id is used and
+    // the AlbumDetailed check logs it (a blank fallback would pass the string check silently).
+    let mut album_row = row("vid0000000a", "Overlay Album", "Album", vec![artist.clone(), run(" \u{2022} "), run("2001")], good_thumbs.clone());
+    album_row["musicResponsiveListItemRenderer"]["thumbnailOverlay"] = json!({ "playlistId": 12345 });
+    out.push(("album playlist id falls back to the thumbnail overlay", sc(
+        vec![over("POST", SEARCH, Some(&qbody("overlay")), ok(shelf(vec![album_row])))],
+        vec![op("yt:searchAlbums", vec![json!("overlay")])],
+        json!("DIRECT"),
+    )));
     let _ = (BROWSE, NEXT, PLAYER);
     out
 }
