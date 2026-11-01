@@ -13,6 +13,23 @@
     }
   },
   "bundle": {
-    "icon": ["../assets/logo.png"]
+    "icon": [
+      "../assets/logo.png"
+    ],
+    "active": true,
+    "targets": [
+      "appimage",
+      "nsis"
+    ],
+    "category": "Audio"
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "snowify"
+        ]
+      }
+    }
   }
 }

@@ -1,0 +1,7 @@
+{
+  "bundle": {
+    "resources": {
+      "../bin/win/yt-dlp.exe": "bin/win/yt-dlp.exe"
+    }
+  }
+}
