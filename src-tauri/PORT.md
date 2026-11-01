@@ -185,8 +185,10 @@ malformed build.
   load). Still to port with a Windows runner: Node's `fixWinEPERMSync` and
   `toNamespacedPath` (`\\?\` prefixes in error paths), and the Win32→libuv error
   translation. Plan: a CI runner on windows-latest running the same `cargo test`.
-- **Platform shell pieces** (need a Windows runner): thumbbar buttons (`ITaskbarList3`),
-  `setOpenAtLogin` (registry Run key), and the media proxy on WebView2.
+- **Platform shell pieces:** `setOpenAtLogin` is done and matches Windows Electron 33's
+  registry writes under Wine (34/0). Thumbbar buttons (`ITaskbarList3`) are ported, but Wine's
+  taskbar is a stub, so they and the media proxy on WebView2 still need a check on real Windows
+  (see `WINDOWS-REPORT.md`).
 - **Electron's uncaught-exception box** ("A JavaScript error occurred in the main process").
   Electron shows it when a main-process listener throws, e.g. `second-instance` on a
   destroyed window, which `shell.rs` currently drops silently. Scheduled with the cut-over.
@@ -264,20 +266,22 @@ malformed build.
 - ✅ argv/env can be non-UTF-8; the source sees them lossily decoded. Use `args_os` and lossy
   conversion, never `std::env::args` (it panics).
 
-## Needs owner sign-off
+## Accepted differences (owner decision 2026-11-01)
 
 - **JS stack traces inside log entries.** When a ytmusic request fails with an HTTP or
   network error, the log panel entry is `JSON.stringify(axiosError)`, and axios includes
   `stack`: Node's frames with file paths and line numbers of axios and ytmusic-api. The port
   writes the same entry with every other field identical, and `stack` is just the first
   line (`AxiosError: <message>`), because those JS frames don't exist any more. (Plain
-  `Error`s log as `{}` in both, since `stack` isn't enumerable there.)
+  `Error`s log as `{}` in both, since `stack` isn't enumerable there.) Accepted: copying JS
+  frames for code that no longer runs would mislead.
 
 - **Terminal output of `console.*`.** The source prints the raw arguments through Node's
   `util.inspect` (colours, `[Object: null prototype]`, depth limits). The port prints the
   captured `msg` instead. The in-app log panel (`app:getLogs`) is identical; only the
   process's stdout/stderr differ. Porting `util.inspect` is a large job for output nobody
-  sees in the packaged app. Say if you want it anyway.
+  sees in the packaged app. Accepted: left as is, including Electron's `Error occurred in
+  handler for '<channel>'` stderr line.
 
 ## Follow-ups (improvements spotted; NOT done during the port)
 
