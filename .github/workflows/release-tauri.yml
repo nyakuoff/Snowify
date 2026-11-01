@@ -7,10 +7,16 @@ name: Build & Release (Tauri)
 on:
   workflow_dispatch:
     inputs:
-      prerelease:
-        description: 'Mark as pre-release'
+      # Default: a draft release, visible only to repo collaborators. The Tauri build is not
+      # public yet; publishing is an explicit opt-in.
+      publish:
+        description: 'Publish the release (otherwise it stays a draft)'
         type: boolean
         default: false
+      prerelease:
+        description: 'Mark as pre-release when publishing'
+        type: boolean
+        default: true
 
 jobs:
   build:
@@ -109,6 +115,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish release
+        if: inputs.publish
         run: |
           VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
           gh release edit "v${VERSION}-tauri" \
