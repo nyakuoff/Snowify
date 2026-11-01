@@ -21,7 +21,7 @@
       "appimage",
       "nsis"
     ],
-    "category": "Audio"
+    "category": "Music"
   },
   "plugins": {
     "deep-link": {
