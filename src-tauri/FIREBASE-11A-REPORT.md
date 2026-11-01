@@ -86,10 +86,10 @@ python3 src-tauri/parity/firebase_mutations.py
 Acceptance gates: **8 Rust tests passed, none ignored**.
 
 ```text
-firebase_auth parity: compared 93, differences 0
+firebase_auth parity: compared 98, differences 0
 firestore parity: compared 528, differences 0
 firestore_full parity: compared 228, differences 0
-cloud_auth parity: compared 110, differences 0
+cloud_auth parity: compared 117, differences 0
 ```
 
 The offline production build passed. git diff --check passed. No renderer changes,
@@ -145,22 +145,26 @@ touches copied sources only, and recompiles the copied Firebase/cloud modules wi
 rustc. Already-built dependencies/unrelated modules are read-only inputs; generated
 rlibs, test binaries and logs live under /tmp/mutws. The four existing parity
 harnesses supply assertions; a baseline must pass before mutations are classified.
-Compile errors are not counted as kills. Final run: **30 executed, 22 killed,
-8 survived, 0 compile failures** (10 mutations per requested file).
+Compile errors are not counted as kills. Final run: **30 executed, 30 killed,
+0 survived, 0 compile failures** (10 mutations per requested file).
 
 | Source | Killed / executed |
 | --- | ---: |
-| src/firebase/mod.rs | 6 / 10 |
+| src/firebase/mod.rs | 10 / 10 |
 | src/firebase/firestore.rs | 10 / 10 |
-| src/cloud_auth.rs | 6 / 10 |
+| src/cloud_auth.rs | 10 / 10 |
 
-Survivors are coverage gaps, not declared equivalent:
-- Auth: strict vs inclusive expiry-buffer boundary, MFA response rejection,
-  needConfirmation rejection, and ignoring updateProfile's returned idToken.
-- cloud-auth: missing/null backfill, empty-array backfill, nested-map backfill,
-  and migration timestamp.
+The eight previous survivors are now covered:
+- Auth: `expiresIn: "30"` sits exactly on the refresh-buffer boundary; a sign-in
+  response carrying `mfaPendingCredential` or `needConfirmation` is rejected; and
+  an `accounts:update` response that returns a new id token must replace the stored
+  token without a refresh request.
+- cloud-auth: a migration scenario makes the sign-in listener's first v2 read fail
+  (via a one-shot failure queue in both fake backends), so the retry reaches the
+  merge path. It exercises a key missing from v2, a null v2 value, an empty v2
+  array with legacy entries, a nested-map backfill, and the migration timestamp.
 
-Machine-readable results and individual logs are retained in
+No survivors remain. Machine-readable results and individual logs are retained in
 /tmp/mutws/firebase-mutations.json and /tmp/mutws/firebase-*.log. An initial
 interrupted attempt lost its read-only baseline rlib during a simultaneous Cargo
 rebuild; none of its compile errors were counted. The final run cached baseline

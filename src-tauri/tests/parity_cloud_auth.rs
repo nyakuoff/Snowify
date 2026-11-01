@@ -24,7 +24,10 @@ struct FakeBackend {
     users: Mutex<Vec<Value>>,
     current: Mutex<Option<User>>,
     docs: Mutex<BTreeMap<String, JsValue>>,
+    /// `"op:path" -> message`, or an array of messages consumed one call at a time
+    /// (a missing/short list means the call succeeds).
     failures: Value,
+    failure_calls: Mutex<BTreeMap<String, usize>>,
     auth_errors: Mutex<Value>,
     /// Auth-state callbacks waiting to be delivered (the JS listener runs them async).
     events: Mutex<Vec<Option<User>>>,
@@ -54,7 +57,17 @@ impl FakeBackend {
         Ok(())
     }
     fn fail(&self, op: &str, path: &str) -> Result<(), BackendError> {
-        match self.failures[format!("{op}:{path}")].as_str() {
+        let key = format!("{op}:{path}");
+        let mut calls = self.failure_calls.lock().unwrap();
+        let i = calls.get(&key).copied().unwrap_or(0);
+        calls.insert(key.clone(), i + 1);
+        drop(calls);
+        let m = match &self.failures[key] {
+            Value::String(s) => Some(s.as_str()),
+            Value::Array(a) => a.get(i).and_then(Value::as_str),
+            _ => None,
+        };
+        match m {
             Some(m) => Err(err(m)),
             None => Ok(()),
         }
@@ -272,6 +285,18 @@ fn scenarios(img: &str) -> Vec<Scenario> {
             ..base()
         },
         Scenario {
+            name: "migration backfill coverage",
+            docs: json!({
+                "users/u2": { "keep": "legacy", "missing": "legacy-1", "nullKey": 42, "arr": [1, 2], "nested": { "b": 2, "same": 9 } },
+                "users_v2/u2": { "keep": "v2", "nullKey": null, "arr": [], "nested": { "a": 1, "same": 9 } },
+            }),
+            // The sign-in listener's first v2 read fails, so the retry inside the migration
+            // sees v2 but has not marked the user sync-ready yet: the merge path runs.
+            failures: json!({ "get:users_v2/u2": ["unavailable"] }),
+            ops: vec![sign_in("b@x.com", "pw2"), op("cloud:load", vec![]), op("profile:get", vec![json!("u2")])],
+            ..base()
+        },
+        Scenario {
             name: "legacy only, migration write fails",
             docs: json!({ "users/u2": { "playlists": [1], "profile.banner": "data:image/b", "profile.bio": "flat" } }),
             failures: json!({ "set:users_v2/u2": "PERMISSION_DENIED: no" }),
@@ -401,6 +426,7 @@ async fn run_rust(s: &Scenario, scenario: &Value, paths: &Paths, t: &Translation
         current: Mutex::new(None),
         docs: Mutex::new(s.docs.as_object().unwrap().iter().map(|(k, v)| (k.clone(), JsValue::from(v))).collect()),
         failures: s.failures.clone(),
+        failure_calls: Mutex::new(BTreeMap::new()),
         auth_errors: Mutex::new(s.auth_errors.clone()),
         events: Mutex::new(vec![None]),
         now: scenario["now"].as_f64().unwrap(),

@@ -55,7 +55,16 @@ const authModule = {
 };
 const docs = structuredClone(input.docs || {});
 const failures = input.failures || {};
-const fail = (op, ref) => { const m = failures[`${op}:${ref.path}`]; if (m) throw new Error(m); };
+// A failure value is a message (every call) or a list consumed one call at a time.
+const failureCalls = {};
+const fail = (op, ref) => {
+  const key = `${op}:${ref.path}`;
+  const i = failureCalls[key] ?? 0;
+  failureCalls[key] = i + 1;
+  const v = failures[key];
+  const m = Array.isArray(v) ? v[i] : v;
+  if (m) throw new Error(m);
+};
 const isMap = (v) => Object.prototype.toString.call(v) === '[object Object]';
 function deepMerge(target, data) {
   for (const [k, v] of Object.entries(data)) {

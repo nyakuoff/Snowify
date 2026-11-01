@@ -35,8 +35,10 @@ async fn parity() {
     ] {
         scenarios.push(json!({"userData":"/tmp/firebase-parity","now":1700000000000i64,"fetch":{format!("{base}sendOobCode"):[r]},"ops":[["reset","e@example.com"]]}));
     }
+    let mut success = Value::Null;
     for signup in [false, true] {
-        for expires in ["3600", "10"] {
+        // "30" sits exactly on the SDK's refresh buffer boundary (`now > expires - 30000`).
+        for expires in ["3600", "10", "30"] {
             scenarios.push(json!({"userData":"/tmp/firebase-parity","now":1700000000000i64,"fetch":{
  format!("{base}signInWithPassword"):[response(json!({"localId":"u","idToken":"t","refreshToken":"r +/","expiresIn":expires}))],
  format!("{base}signUp"):[response(json!({"localId":"u","idToken":"t","refreshToken":"r +/","expiresIn":expires}))],
@@ -44,8 +46,27 @@ async fn parity() {
  format!("{base}update"):[response(json!({"displayName":"New","photoUrl":"newpic"}))],
  "https://securetoken.googleapis.com/v1/token":[response(json!({"access_token":"fresh","refresh_token":"r","expires_in":"3600"}))]
  },"ops":[[if signup{"signUp"}else{"signIn"},"e@example.com","password"],["profile",{"displayName":"New","photoURL":"newpic"}],["token",true],["current"],["out"],["out"]]}));
+            if signup && expires == "3600" {
+                success = scenarios.last().unwrap().clone();
+            }
         }
     }
+    // A sign-in response that selects a second factor is rejected before the user is set.
+    for body in [
+        json!({"localId":"u","idToken":"t","refreshToken":"r","expiresIn":"3600","mfaPendingCredential":"m"}),
+        json!({"needConfirmation":true,"email":"e@example.com"}),
+    ] {
+        scenarios.push(json!({"userData":"/tmp/firebase-parity","now":1700000000000i64,"fetch":{
+            format!("{base}signInWithPassword"):[response(body)],
+        },"ops":[["signIn","e@example.com","password"]]}));
+    }
+    // updateProfile's response replaces the stored id token without a refresh request.
+    scenarios.push(json!({"userData":"/tmp/firebase-parity","now":1700000000000i64,"fetch":{
+        format!("{base}signInWithPassword"):[response(json!({"localId":"u","idToken":"old","refreshToken":"r","expiresIn":"3600"}))],
+        format!("{base}lookup"):[response(json!({"users":[{"localId":"u"}]}))],
+        format!("{base}update"):[response(json!({"displayName":"N","idToken":"newtok","refreshToken":"newref","expiresIn":"7200"}))],
+        "https://securetoken.googleapis.com/v1/token":[response(json!({"access_token":"refreshed","refresh_token":"r","expires_in":"3600"}))]
+    },"ops":[["signIn","e@example.com","password"],["profile",{"displayName":"N"}],["token",false]]}));
     // Credentials over the whole IPC value domain: the SDK has no client-side checks.
     let odd = |v: Value| JsValue::decode(&v).unwrap().encode();
     for (email, password) in [
@@ -68,7 +89,6 @@ async fn parity() {
             format!("{base}sendOobCode"):[{"status":400,"body":json!({"error":{"message":"MISSING_EMAIL"}}).to_string()}],
         },"ops":[["reset", odd(email)]]}));
     }
-    let success = scenarios[scenarios.len() - 2 - 24].clone();
     for endpoint in ["update", "token"] {
         for code in [
             "USER_DISABLED",
