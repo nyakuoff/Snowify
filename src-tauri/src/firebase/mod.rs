@@ -1,6 +1,9 @@
 //! Firebase JS SDK 12.11.0 Node behaviour used by cloud-auth. Node getAuth uses
 //! in-memory persistence: credentials are deliberately not written by this layer.
-use crate::host::{FetchRequest, Host};
+use crate::{
+    host::{FetchRequest, Host},
+    ipc::{self, JsValue},
+};
 use serde_json::{Value, json};
 /// Public Firebase project API key from src/firebase.js.
 pub const API_KEY: &str = "AIzaSyCNuw8kqgbULTLjC890BzKWvnmdvFCX0og";
@@ -184,8 +187,8 @@ impl Auth {
     pub async fn sign_in_with_email_and_password<H: Host>(
         &mut self,
         host: &H,
-        email: &str,
-        password: &str,
+        email: &JsValue,
+        password: &JsValue,
     ) -> Result<User, Error> {
         self.sign_in(host, email, password, false).await
     }
@@ -193,25 +196,26 @@ impl Auth {
     pub async fn create_user_with_email_and_password<H: Host>(
         &mut self,
         host: &H,
-        email: &str,
-        password: &str,
+        email: &JsValue,
+        password: &JsValue,
     ) -> Result<User, Error> {
         self.sign_in(host, email, password, true).await
     }
     async fn sign_in<H: Host>(
         &mut self,
         host: &H,
-        email: &str,
-        password: &str,
+        email: &JsValue,
+        password: &JsValue,
         signup: bool,
     ) -> Result<User, Error> {
-        if !signup && email.is_empty() {
-            return Err(Error::auth("missing-email", None));
-        }
-        if !signup && password.is_empty() {
-            return Err(Error::auth("missing-password", None));
-        }
-        let body = json!({"returnSecureToken":true,"email":email,"password":password,"clientType":"CLIENT_TYPE_WEB"});
+        // No client-side checks: the SDK sends whatever it was given (the server answers
+        // MISSING_EMAIL etc.), with JSON.stringify dropping undefined.
+        let body = stringify(JsValue::object([
+            ("returnSecureToken", JsValue::Bool(true)),
+            ("email", email.clone()),
+            ("password", password.clone()),
+            ("clientType", "CLIENT_TYPE_WEB".into()),
+        ]))?;
         let result = self
             .request(
                 host,
@@ -220,7 +224,7 @@ impl Auth {
                 } else {
                     "accounts:signInWithPassword"
                 },
-                body.to_string(),
+                body,
                 false,
             )
             .await;
@@ -301,15 +305,14 @@ impl Auth {
     pub async fn send_password_reset_email<H: Host>(
         &mut self,
         host: &H,
-        email: &str,
+        email: &JsValue,
     ) -> Result<(), Error> {
-        self.request(
-            host,
-            "accounts:sendOobCode",
-            json!({"requestType":"PASSWORD_RESET","email":email,"clientType":"CLIENT_TYPE_WEB"})
-                .to_string(),
-            false,
-        )
+        let body = stringify(JsValue::object([
+            ("requestType", JsValue::from("PASSWORD_RESET")),
+            ("email", email.clone()),
+            ("clientType", "CLIENT_TYPE_WEB".into()),
+        ]))?;
+        self.request(host, "accounts:sendOobCode", body, false)
         .await
         .map(|_| ())
     }
@@ -345,25 +348,26 @@ impl Auth {
         result
     }
     /// Update displayName/photoURL and retain the SDK response fields.
+    /// `updateProfile(user, { displayName, photoURL })`: skipped only when both are
+    /// `undefined` (null is sent); destructuring an undefined/null profile throws a TypeError.
     pub async fn update_profile<H: Host>(
         &mut self,
         host: &H,
-        profile: &Value,
+        profile: &JsValue,
     ) -> Result<(), Error> {
-        if profile.get("displayName").is_none() && profile.get("photoURL").is_none() {
+        let field = |k: &str| ipc::get_prop(profile, k).map_err(|_| Error { code: String::new(), message: String::new() });
+        let (display_name, photo_url) = (field("displayName")?, field("photoURL")?);
+        if display_name == JsValue::Undefined && photo_url == JsValue::Undefined {
             return Ok(());
         }
         let token = self.get_id_token(host, false).await?;
-        let mut body = json!({"idToken":token});
-        for (a, b) in [("displayName", "displayName"), ("photoURL", "photoUrl")] {
-            if let Some(v) = profile.get(a) {
-                body[b] = v.clone();
-            }
-        }
-        body["returnSecureToken"] = json!(true);
-        let result = self
-            .request(host, "accounts:update", body.to_string(), false)
-            .await;
+        let body = stringify(JsValue::object([
+            ("idToken", JsValue::from(token.as_str())),
+            ("displayName", display_name),
+            ("photoUrl", photo_url),
+            ("returnSecureToken", JsValue::Bool(true)),
+        ]))?;
+        let result = self.request(host, "accounts:update", body, false).await;
         let v = self.logout_if_invalidated(result)?;
         let u = self.current_user.as_mut().unwrap();
         u.display_name = nullable(&v["displayName"]);
@@ -376,12 +380,22 @@ impl Auth {
         Ok(())
     }
 }
+/// `value || null`.
 fn nullable(v: &Value) -> Value {
-    if v.is_null() || v == "" {
-        Value::Null
-    } else {
-        v.clone()
-    }
+    let falsy = match v {
+        Value::Null => true,
+        Value::Bool(b) => !b,
+        Value::Number(n) => n.as_f64() == Some(0.0),
+        Value::String(s) => s.is_empty(),
+        _ => false,
+    };
+    if falsy { Value::Null } else { v.clone() }
+}
+
+/// The request body as `_performApiRequest` sends it: `JSON.stringify(request)`, whose throw
+/// (a BigInt) surfaces as network-request-failed.
+fn stringify(v: JsValue) -> Result<String, Error> {
+    ipc::json_stringify(&v).ok().flatten().ok_or_else(|| Error::auth("network-request-failed", None))
 }
 fn seconds(v: &Value) -> i64 {
     v.as_str()

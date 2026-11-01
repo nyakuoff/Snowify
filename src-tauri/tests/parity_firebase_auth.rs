@@ -1,5 +1,5 @@
 use serde_json::{Value, json};
-use snowify::firebase::Auth;
+use snowify::{firebase::Auth, ipc::JsValue};
 mod common;
 #[path = "common/host.rs"]
 mod host;
@@ -46,7 +46,29 @@ async fn parity() {
  },"ops":[[if signup{"signUp"}else{"signIn"},"e@example.com","password"],["profile",{"displayName":"New","photoURL":"newpic"}],["token",true],["current"],["out"],["out"]]}));
         }
     }
-    let success = scenarios[scenarios.len() - 2].clone();
+    // Credentials over the whole IPC value domain: the SDK has no client-side checks.
+    let odd = |v: Value| JsValue::decode(&v).unwrap().encode();
+    for (email, password) in [
+        (json!(""), json!("p")),
+        (json!("e@x.com"), json!("")),
+        (json!(5), json!(null)),
+        (json!({ "$": "u" }), json!({ "$": "u" })),
+        (json!({ "$": "s", "v": [0xD800, 0x61] }), json!(true)),
+        (json!({ "$": "o", "v": [["a", 1]] }), json!([1, { "$": "u" }])),
+        (json!({ "$": "b", "v": "7" }), json!("p")),
+        (json!({ "$": "n", "v": "NaN" }), json!({ "$": "n", "v": "-0" })),
+    ] {
+        for op in ["signIn", "signUp"] {
+            scenarios.push(json!({"userData":"/tmp/firebase-parity","now":1700000000000i64,"fetch":{
+                format!("{base}signInWithPassword"):[{"status":400,"body":json!({"error":{"message":"MISSING_EMAIL"}}).to_string()}],
+                format!("{base}signUp"):[{"status":400,"body":json!({"error":{"message":"INVALID_EMAIL"}}).to_string()}],
+            },"ops":[[op, odd(email.clone()), odd(password.clone())]]}));
+        }
+        scenarios.push(json!({"userData":"/tmp/firebase-parity","now":1700000000000i64,"fetch":{
+            format!("{base}sendOobCode"):[{"status":400,"body":json!({"error":{"message":"MISSING_EMAIL"}}).to_string()}],
+        },"ops":[["reset", odd(email)]]}));
+    }
+    let success = scenarios[scenarios.len() - 2 - 24].clone();
     for endpoint in ["update", "token"] {
         for code in [
             "USER_DISABLED",
@@ -72,6 +94,16 @@ async fn parity() {
             scenarios.push(s);
         }
     }
+    // Plain JSON args go over in the wire format (wire-form args are already encoded).
+    for s in scenarios.iter_mut() {
+        for op in s["ops"].as_array_mut().unwrap() {
+            for a in op.as_array_mut().unwrap().iter_mut().skip(1) {
+                if !a.get("$").is_some_and(Value::is_string) {
+                    *a = JsValue::from(&*a).encode();
+                }
+            }
+        }
+    }
     let source = common::run_source("firebase_auth.js", &json!(scenarios));
     let mut diff = common::Diff::default();
     for (i, s) in scenarios.iter().enumerate() {
@@ -80,32 +112,13 @@ async fn parity() {
         a.on_auth_state_changed();
         let mut results = Vec::new();
         for op in s["ops"].as_array().unwrap() {
+            let arg = |i: usize| op.get(i).map_or(JsValue::Undefined, |a| JsValue::decode(a).unwrap());
             let r = match op[0].as_str().unwrap() {
-                "signIn" => a
-                    .sign_in_with_email_and_password(
-                        &h,
-                        op[1].as_str().unwrap(),
-                        op[2].as_str().unwrap(),
-                    )
-                    .await
-                    .map(|u| u.fields()),
-                "signUp" => a
-                    .create_user_with_email_and_password(
-                        &h,
-                        op[1].as_str().unwrap(),
-                        op[2].as_str().unwrap(),
-                    )
-                    .await
-                    .map(|u| u.fields()),
-                "reset" => a
-                    .send_password_reset_email(&h, op[1].as_str().unwrap())
-                    .await
-                    .map(|_| Value::Null),
-                "profile" => a.update_profile(&h, &op[1]).await.map(|_| a.fields()),
-                "token" => a
-                    .get_id_token(&h, op[1].as_bool().unwrap())
-                    .await
-                    .map(Value::String),
+                "signIn" => a.sign_in_with_email_and_password(&h, &arg(1), &arg(2)).await.map(|u| u.fields()),
+                "signUp" => a.create_user_with_email_and_password(&h, &arg(1), &arg(2)).await.map(|u| u.fields()),
+                "reset" => a.send_password_reset_email(&h, &arg(1)).await.map(|_| Value::Null),
+                "profile" => a.update_profile(&h, &arg(1)).await.map(|_| a.fields()),
+                "token" => a.get_id_token(&h, arg(1).truthy()).await.map(Value::String),
                 "current" => Ok(a.fields()),
                 "out" => {
                     a.sign_out();

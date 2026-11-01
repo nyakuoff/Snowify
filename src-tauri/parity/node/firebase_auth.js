@@ -1,5 +1,6 @@
 // Runs the real Firebase Auth Node SDK under Electron with offline fetch replay.
-// Input: [{ fetch: {urlPrefix: [response, ...]}, ops: [[operation, ...args], ...] }].
+// Input: [{ fetch: {urlPrefix: [response, ...]}, ops: [[operation, ...wire args], ...] }]
+// (args in the src/ipc.rs wire format, so undefined/BigInt/lone surrogates arrive as such).
 // Responses contain status/body or error:true; the final response repeats.
 // Output: [{ calls: [[method,url,headers,body]], events: [user|null],
 //            results: [{ok:value}|{error:message,code}] }].
@@ -15,6 +16,8 @@ globalThis.Date = class extends RealDate {
   }
 };
 const scenarios = JSON.parse(fs.readFileSync(0, 'utf8'));
+const codecSrc = fs.readFileSync(require('path').join(__dirname, '../../codec.js'), 'utf8');
+const { decode } = new Function('window', `${codecSrc}\nreturn { decode };`)(globalThis);
 const { initializeApp, deleteApp } = require('firebase/app');
 let mockFetch;
 globalThis.fetch = (...args) => mockFetch(...args);
@@ -48,7 +51,8 @@ const user = u => u
     const auth = sdk.getAuth(app);
     const unsub = sdk.onAuthStateChanged(auth, u => events.push(user(u)));
     await auth.authStateReady();
-    for (const op of s.ops) {
+    for (const raw of s.ops) {
+      const op = [raw[0], ...raw.slice(1).map(decode)];
       try {
         let result;
         switch (op[0]) {
