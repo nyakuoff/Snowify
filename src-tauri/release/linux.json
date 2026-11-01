@@ -2,6 +2,7 @@
   "bundle": {
     "resources": {
       "../bin/linux/yt-dlp": "bin/linux/yt-dlp"
-    }
+    },
+    "createUpdaterArtifacts": true
   }
 }

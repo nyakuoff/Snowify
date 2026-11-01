@@ -58,6 +58,10 @@ jobs:
       - name: Build
         working-directory: src-tauri
         run: npx --yes @tauri-apps/cli@2 build --config release/${{ matrix.platform }}.json
+        env:
+          # Signs the updater artifacts (createUpdaterArtifacts in release/<os>.json).
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
       - name: Upload to draft release
         shell: bash
@@ -65,7 +69,8 @@ jobs:
           VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
           gh release view "v${VERSION}-tauri" >/dev/null 2>&1 || \
             gh release create "v${VERSION}-tauri" --draft --title "Snowify v${VERSION} (Tauri)" --notes ""
-          gh release upload "v${VERSION}-tauri" src-tauri/target/release/bundle/${{ matrix.bundle }} --clobber
+          gh release upload "v${VERSION}-tauri" src-tauri/target/release/bundle/${{ matrix.bundle }} \
+            src-tauri/target/release/bundle/${{ matrix.bundle }}.sig --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -76,6 +81,32 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+
+      # tauri-plugin-updater reads latest.json from the latest release (tauri.conf.json
+      # plugins.updater.endpoints): each platform's installer URL and its signature.
+      - name: Upload updater manifest
+        run: |
+          VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          TAG="v${VERSION}-tauri"
+          mkdir sigs && gh release download "$TAG" --pattern '*.sig' --dir sigs
+          node -e '
+            const fs = require("fs");
+            const [tag, version, repo] = process.argv.slice(1);
+            const sigs = fs.readdirSync("sigs");
+            const entry = (ext) => {
+              const sig = sigs.find((f) => f.endsWith(ext + ".sig"));
+              const asset = sig.slice(0, -4);
+              return { signature: fs.readFileSync("sigs/" + sig, "utf8"),
+                       url: `https://github.com/${repo}/releases/download/${tag}/${asset}` };
+            };
+            fs.writeFileSync("latest.json", JSON.stringify({
+              version, notes: "", pub_date: new Date().toISOString(),
+              platforms: { "linux-x86_64": entry(".AppImage"), "windows-x86_64": entry("-setup.exe") },
+            }, null, 2));
+          ' "$TAG" "$VERSION" "${{ github.repository }}"
+          gh release upload "$TAG" latest.json --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish release
         run: |
