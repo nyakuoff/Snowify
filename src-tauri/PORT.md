@@ -76,6 +76,7 @@ renderer code doesn't change. Each channel becomes one `#[tauri::command]`.
 
 | Module | Cases compared | Differences |
 |---|---|---|
+| Chromium localStorage → `local_storage.rs` (real Electron 33 LevelDB fixture: ASCII, Latin-1, non-BMP, lone surrogates, empty/NUL keys, 5 MiB value, overwrites, removals, log→SST compaction; plus the injection script under V8: exact restore, guards, foreign-origin no-op, rollback) | 13 keys + 2 synthetic reader tests; 8/8 reader mutants killed | 0 |
 | `i18n.js` → `i18n.rs` | 18,894 (28 locale/override cases × all keys + 53 edge calls, 8 fixture locale files, 17 goldens) | 0 |
 | JS semantics → `js.rs` (`Number#toString`, `String()`, `JSON.stringify`, `toISOString`) | 35,046 (26k doubles incl. raw bit patterns and 20k tie-prone decimals, 3k random JSON values, 3k dates across ±8.64e15) | 0 |
 | Node 20 runtime → `node.rs` (`path` posix+win32, `os.tmpdir`, errno map, `existsSync`, `mkdirSync({recursive})`, `rmSync({recursive,force})`) | 16,368 (16k random paths, 301 env combos, errno table, 33 fs cases on real trees) | 0 |
@@ -280,3 +281,53 @@ malformed build.
   keys) instead of falling back to English.
 - `stream-cache` only evicts expired entries once there are more than 200, so it can grow
   without bound.
+
+## Step 12 — Electron localStorage migration (2026-11-01)
+
+`local_storage.rs` reads `<RealHost::user_data()>/Local Storage/leveldb` without opening,
+locking, repairing or writing the source. The minimal reader follows CURRENT/MANIFEST live
+files, resolves internal sequence numbers and tombstones across SST/WAL, verifies CRC32C,
+and decodes Snappy and Chromium VERSION / META / file-origin string records. The preferred
+pure-Rust candidate was `rusty-leveldb` (standard LevelDB recovery/iteration and Snappy), but
+the sandbox cannot fetch crates.io; it is **not claimed validated against Chromium**. No new
+dependencies were added. Nonstandard/corrupt formats fail closed and retry next startup;
+a concurrently changing Electron database can also cause failure (quit Electron first).
+
+The shell prepends a document-start migration to the existing shim initialization script.
+Keys and values stay UTF-16 code units; every unit is escaped in JS, preserving lone
+surrogates and avoiding script injection. Existing `snowify_state`, `snowfy_state`, or
+`__snowify_tauri_local_storage_migrated_v1` (even empty strings) suppress migration. The
+marker is written last. Failed storage writes roll back touched entries; a destination
+quota/security failure leaves migration retryable where rollback is allowed. Database read
+success/failure produces one existing-logger line; a webview write failure uses console.error.
+Renderer files are unchanged. Multi-MiB script/real WebKitGTK and WebView2 quota behavior
+still needs GUI verification; the Map-backed V8 test imposes no storage quota.
+
+Proof commands (from repo root; fixture generator always uses a disposable temp profile,
+never real `~/.config/Snowify`; the coordinator copies only after the GUI worker exits):
+
+```sh
+ELECTRON_RUN_AS_NODE=1 node_modules/.bin/electron src-tauri/parity/node/local_storage_fixture.js
+cargo test --manifest-path src-tauri/Cargo.toml --test parity_local_storage -- --nocapture
+python3 src-tauri/parity/local_storage_mutations.py
+cargo build --manifest-path src-tauri/Cargo.toml
+```
+
+The fixture contains `leveldb/`, `expected.json` (Electron-read UTF-16 code-unit pairs), and
+`provenance.json`. It asserts an SST exists after explicit flush/churn, retains WALs, and
+covers overwrite/removal, Latin-1/UTF-16, non-BMP/lone-surrogate/NUL strings, empty keys and
+values and a 5 MiB value. It uses Chromium's unlimited-storage switch for the large corpus.
+No fixture is fabricated when GUI startup fails: parity tests fail with the generation
+command until it exists. Here GUI Electron aborts with sandbox `Operation not permitted`;
+real differential results remain pending. Synthetic mutations cover sequence precedence,
+tombstones, origin filtering, Latin-1, UTF-16 byte order, Snappy, manifest deletions and
+obsolete WAL filtering. Mutation compilation and execution occur only in the rsync copy
+`/tmp/mutws`, with repo dependencies symlinked and copied sources touched; all eight killed.
+
+Validation before external fixture generation: `cargo build --offline` passes; both reader
+unit tests and the standalone injection test pass. Fifteen existing parity test targets
+(audio_cache, deep_link, electron_locale, exec_file, i18n, js, logger, media_files, mm,
+node, plugins, stream_cache, themes, updater, ytdlp) pass. An earlier full-suite run passed
+cloud_auth too, then stopped at Discord's socket bind (`PermissionDenied`); GUI/socket/live
+network tests are not claimed passing in this sandbox. After generating the corpus, rerun
+the three localStorage integration tests and the full suite in an unrestricted environment.

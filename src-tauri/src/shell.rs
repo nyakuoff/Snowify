@@ -157,13 +157,28 @@ fn create_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         "proxy": { "port": s.proxy.port, "token": s.proxy.token },
         "transportProbe": transport_test::enabled(),
     });
+    let migration = {
+        use crate::host::Host;
+        let user_data = crate::real_host::RealHost { window: None }.user_data();
+        match crate::local_storage::read_leveldb(&std::path::Path::new(&user_data).join("Local Storage/leveldb")) {
+            Ok(map) if map.is_empty() => String::new(),
+            Ok(map) => {
+                logger::log(&[format!("[localStorage migration] prepared {} keys", map.len()).as_str().into()]);
+                crate::local_storage::injection_script(&map)
+            }
+            Err(error) => {
+                logger::error(&[format!("[localStorage migration] failed: {error}").as_str().into()]);
+                String::new()
+            }
+        }
+    };
     let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
         .title("Snowify")
         .inner_size(1500.0, 860.0)
         .min_inner_size(900.0, 600.0)
         .background_color(tauri::window::Color(0x12, 0x12, 0x12, 0xff))
         .initialization_script(format!(
-            "window.__SNOWIFY_BOOT__ = {boot};\n(() => {{\n{}\n{}\n}})();",
+            "{migration}\nwindow.__SNOWIFY_BOOT__ = {boot};\n(() => {{\n{}\n{}\n}})();",
             include_str!("../codec.js"),
             include_str!("../shim.js")
         ));

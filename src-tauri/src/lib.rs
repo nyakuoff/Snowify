@@ -14,6 +14,7 @@ pub mod ipc;
 pub mod js;
 pub mod jsv;
 pub mod logger;
+pub mod local_storage;
 pub mod lyrics;
 pub mod media;
 pub mod media_proxy;

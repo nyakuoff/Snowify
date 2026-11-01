@@ -1,0 +1,14 @@
+{
+  "electron": "33.4.11",
+  "files": [
+    "000005.ldb",
+    "000052.ldb",
+    "000054.ldb",
+    "000055.log",
+    "000056.ldb",
+    "CURRENT",
+    "LOCK",
+    "LOG",
+    "MANIFEST-000001"
+  ]
+}
