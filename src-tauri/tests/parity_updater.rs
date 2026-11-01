@@ -24,7 +24,8 @@ fn dispatch<'a>(
     h: &'a MockHost,
     ch: String,
     args: Vec<JsValue>,
-) -> std::pin::Pin<Box<dyn std::future::Future<Output = Option<snowify::ipc::HandlerResult>> + 'a>> {
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Option<snowify::ipc::HandlerResult>> + 'a>>
+{
     Box::pin(async move {
         let a0 = args.first().cloned().unwrap_or_default();
         Some(match ch.as_str() {
@@ -37,7 +38,12 @@ fn dispatch<'a>(
 
 #[tokio::test(flavor = "current_thread")]
 async fn updater_matches_source() {
-    let repo_root = common::root().join("..").canonicalize().unwrap().display().to_string();
+    let repo_root = common::root()
+        .join("..")
+        .canonicalize()
+        .unwrap()
+        .display()
+        .to_string();
     let release = json!({ "tag_name": "v2.1.0", "name": "Snowify 2.1", "body": "## Notes\n- ü", "published_at": "2026-10-01T00:00:00Z", "html_url": "https://github.com/x" });
     let releases = json!([
         release,
@@ -81,7 +87,12 @@ async fn updater_matches_source() {
         ch(json!(null)),
         json!(["app:getChangelog", [{ "$": "box", "v": "2.1.0" }]]),
         json!(["app:getChangelog", []]),
-        rel(), rel(), rel(), rel(), rel(), rel(),
+        rel(),
+        rel(),
+        rel(),
+        rel(),
+        rel(),
+        rel(),
     ];
     let scenario = json!({ "module": "updater", "userData": "/mock/ud", "isPackaged": false, "dialogs": [], "http": http, "ops": ops });
     let src = common::run_source("main_module.js", &scenario);
@@ -91,8 +102,206 @@ async fn updater_matches_source() {
     for key in ["results", "logs", "httpCalls"] {
         let (a, b) = (&src[key], &rust[key]);
         for i in 0..a.as_array().unwrap().len().max(b.as_array().unwrap().len()) {
-            d.check(format_args!("{key}[{i}]"), a.get(i).unwrap_or(&Value::Null), b.get(i).unwrap_or(&Value::Null));
+            d.check(
+                format_args!("{key}[{i}]"),
+                a.get(i).unwrap_or(&Value::Null),
+                b.get(i).unwrap_or(&Value::Null),
+            );
         }
     }
+    packaged_parity(&mut d).await;
     d.finish("updater");
+}
+
+/// Scripted network/installer effects; the policy under test is the production policy.
+struct FakeUpdater {
+    checks: std::collections::VecDeque<Value>,
+    downloads: std::collections::VecDeque<Value>,
+    installs: std::collections::VecDeque<Value>,
+    calls: Vec<Value>,
+    checked: Option<String>,
+}
+
+fn update_error(value: &Value) -> updater::UpdateError {
+    if value.is_null() {
+        updater::UpdateError {
+            message: JsValue::Undefined,
+            logged: JsValue::Null,
+        }
+    } else {
+        snowify::net::JsErr::error(value.as_str().unwrap_or_default()).into()
+    }
+}
+
+impl updater::Backend for FakeUpdater {
+    async fn check(&mut self) -> Result<Option<updater::Update>, updater::UpdateError> {
+        self.calls.push(json!(["check"]));
+        let r = self.checks.pop_front().expect("scripted check");
+        if let Some(error) = r.get("error") {
+            return Err(update_error(error));
+        }
+        self.checked = r["version"].as_str().map(str::to_owned);
+        Ok(r["available"]
+            .as_bool()
+            .unwrap_or(false)
+            .then(|| updater::Update {
+                version: r["version"].as_str().unwrap().into(),
+                body: r["notes"].as_str().map(str::to_owned),
+            }))
+    }
+
+    fn checked_version(&self) -> Option<String> {
+        self.checked.clone()
+    }
+
+    async fn download(
+        &mut self,
+        progress: &mut (dyn FnMut(f64) + Send),
+    ) -> Result<String, updater::UpdateError> {
+        self.calls.push(json!(["download"]));
+        let r = self.downloads.pop_front().expect("scripted download");
+        for p in r["progress"].as_array().into_iter().flatten() {
+            progress(p.as_f64().unwrap());
+        }
+        if let Some(error) = r.get("error") {
+            return Err(update_error(error));
+        }
+        Ok(r["version"].as_str().unwrap().into())
+    }
+
+    fn install(&mut self, silent: bool, relaunch: bool) -> Result<(), updater::UpdateError> {
+        self.calls.push(json!(["install", silent, relaunch]));
+        if let Some(r) = self.installs.pop_front() {
+            if let Some(error) = r.get("error") {
+                return Err(update_error(error));
+            }
+        }
+        Ok(())
+    }
+}
+
+async fn packaged_parity(d: &mut Diff) {
+    // Separate module instances, as separate Electron processes would have. Startup rejection
+    // never logs; handler rejection does. Downloads emit the library error and catch status.
+    let scenarios = vec![
+        json!({"packaged": false, "actions": ["timer", "check", "install", "quit"]}),
+        json!({"packaged": true, "checks": [
+            {"available": true, "version": "2.1.0", "notes": "## Notes\nü"},
+            {"available": false, "version": "2.0.0"},
+            {"available": false, "version": "1.0.0"},
+            {"empty": true},
+        ], "actions": ["timer", "check", "check", "check", "quit"]}),
+        json!({"packaged": true, "checks": [
+            {"error": "startup failed"}, {"error": "manual failed"}, {"error": ""}, {"error": null},
+        ], "actions": ["timer", "check", "check", "check", "quit"]}),
+        json!({"packaged": true, "checks": [{"available": true, "version": "2.1.0"}],
+            "downloads": [{"version": "2.1.0", "progress": [0, 0.49, 0.49999999999999994, 0.5, 49.49, 49.5, 99.5, 100]}],
+            "actions": ["check", "install", "install", "quit"]}),
+        json!({"packaged": true, "checks": [{"available": true, "version": "2.1.0", "notes": ""}],
+            "downloads": [{"version": "2.1.0", "progress": [10.25, 100]}],
+            "actions": ["timer", "install", "quit", "quit"]}),
+        json!({"packaged": true, "checks": [{"available": true, "version": "2.1.0"}],
+            "downloads": [{"error": "network lost", "progress": [20.5]}, {"error": ""}, {"error": null},
+                {"version": "2.1.0", "progress": [100]}],
+            "actions": ["check", "install", "install", "install", "install", "quit"]}),
+        json!({"packaged": true, "checks": [{"available": true, "version": "2.1.0"}, {"available": true, "version": "2.2.0"}],
+            "downloads": [{"version": "2.1.0", "progress": [100]}],
+            "actions": ["check", "install", "check", "install", "quit"]}),
+        json!({"packaged": true, "destroyed": true, "checks": [{"error": "no window"}],
+            "actions": ["check"]}),
+        json!({"packaged": true, "eventError": "", "actions": ["error"]}),
+        json!({"packaged": true, "eventError": null, "actions": ["error"]}),
+        json!({"packaged": true, "checks": [{"available": true, "version": "2.1.0"}],
+            "downloads": [{"version": "2.1.0", "progress": [100]}],
+            "installs": [{"error": "installer failed"}, {"error": ""}],
+            "actions": ["check", "install", "install", "install", "quit"]}),
+    ];
+    for (index, scenario) in scenarios.into_iter().enumerate() {
+        *snowify::logger::LOGS.lock().unwrap() = snowify::logger::LogBuffer::new();
+        let source = common::run_source("updater.js", &scenario);
+        let backend = FakeUpdater {
+            checks: scenario["checks"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+                .into(),
+            downloads: scenario["downloads"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+                .into(),
+            installs: scenario["installs"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+                .into(),
+            calls: Vec::new(),
+            checked: None,
+        };
+        let packaged = scenario["packaged"].as_bool().unwrap();
+        let mut flow = updater::AutoUpdater::new(backend, !packaged);
+        let delay = flow.init();
+        let sends = std::sync::Mutex::new(Vec::new());
+        let send = |v: JsValue| {
+            if scenario["destroyed"] != true {
+                sends
+                    .lock()
+                    .unwrap()
+                    .push(json!(["updater:status", v.encode()]));
+            }
+        };
+        let mut results = Vec::new();
+        for action in scenario["actions"].as_array().unwrap() {
+            let result = match action.as_str().unwrap() {
+                "timer" => {
+                    if delay.is_some() {
+                        flow.check(false, &send).await;
+                    }
+                    Value::Null
+                }
+                "quit" => {
+                    flow.quit(&send);
+                    Value::Null
+                }
+                "error" => {
+                    flow.error(&update_error(&scenario["eventError"]), &send);
+                    Value::Null
+                }
+                "check" => json!({"ok": flow.check(true, &send).await.encode()}),
+                "install" => {
+                    flow.install(&send).await;
+                    json!({"ok": JsValue::Undefined.encode()})
+                }
+                _ => unreachable!(),
+            };
+            results.push(result);
+        }
+        let logs: Vec<Value> = snowify::logger::LOGS
+            .lock()
+            .unwrap()
+            .entries()
+            .iter()
+            .map(|e| json!([e.level.encode(), e.msg]))
+            .collect();
+        let rust = json!({"results": results, "sends": sends.into_inner().unwrap(), "calls": flow.backend.calls,
+            "logs": logs, "timers": delay.map(|d| vec![d.as_millis()]).unwrap_or_default(),
+            "config": if packaged { json!([false, true]) } else { json!([null, null]) },
+        });
+        for key in ["results", "sends", "calls", "logs", "timers", "config"] {
+            let a = source[key].as_array().unwrap();
+            let b = rust[key].as_array().unwrap();
+            d.check(
+                format_args!("scenario {index} {key} length"),
+                &json!(a.len()),
+                &json!(b.len()),
+            );
+            for i in 0..a.len().max(b.len()) {
+                d.check(
+                    format_args!("scenario {index} {key}[{i}]"),
+                    a.get(i).unwrap_or(&Value::Null),
+                    b.get(i).unwrap_or(&Value::Null),
+                );
+            }
+        }
+    }
 }

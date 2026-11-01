@@ -14,6 +14,7 @@ rfd = { version = "0.15", default-features = false, features = ["gtk3"] }
 serde_json = { version = "1", features = ["float_roundtrip", "preserve_order"] }
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-deep-link = "2"
+tauri-plugin-updater = "2"
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 tokio = { version = "1", features = ["net", "io-util", "rt-multi-thread", "macros", "sync", "time", "fs", "process"] }
 libc = "0.2"

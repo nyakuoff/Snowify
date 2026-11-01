@@ -29,6 +29,12 @@ pub struct Shell {
     pub pending_deep_link: Mutex<Option<DeepLink>>,
     pub translations: Mutex<Translations>,
     pub proxy: MediaProxy,
+    updater: std::sync::OnceLock<
+        tokio::sync::Mutex<crate::updater::AutoUpdater<crate::updater::TauriBackend>>,
+    >,
+    updater_exit_ready: AtomicBool,
+    updater_downloaded: AtomicBool,
+    updater_install_pending: AtomicBool,
     minimize_to_tray: AtomicBool,
     close_ready: AtomicBool,
     force_quit: AtomicBool,
@@ -58,6 +64,21 @@ pub fn platform() -> &'static str {
 
 fn shell(app: &AppHandle) -> tauri::State<'_, Shell> {
     app.state::<Shell>()
+}
+
+fn send_updater_status(app: &AppHandle, value: JsValue) {
+    if value.get("status") == &JsValue::from("downloaded") {
+        shell(app).updater_downloaded.store(true, Ordering::SeqCst);
+    }
+    send_to_renderer(app, "updater:status", vec![value]);
+}
+
+/// An explicit updater install has already applied the package: do not run the
+/// install-on-quit hook again while Tauri's restart is waiting for the event loop.
+pub(crate) fn prepare_update_restart(app: &AppHandle) {
+    let s = shell(app);
+    s.updater_exit_ready.store(true, Ordering::SeqCst);
+    s.relaunch.store(false, Ordering::SeqCst);
 }
 
 /// `webContents.send(channel, ...args)`.
@@ -407,10 +428,9 @@ async fn invoke(app: &AppHandle, channel: &str, args: Vec<JsValue>) -> Option<Ha
         "app:getChangelog" => crate::updater::changelog(&host, &a0).await,
         "app:getRecentReleases" => crate::updater::recent_releases(&host).await,
         "updater:check" => {
-            // Debug builds are Electron's dev mode. The packaged flow arrives with Tauri's
-            // updater at the cut-over (step 12).
-            send_to_renderer(app, "updater:status", vec![crate::updater::check_dev()]);
-            Ok(JsValue::Null)
+            let s = shell(app);
+            let mut updater = s.updater.get().expect("updater initialized").lock().await;
+            Ok(updater.check(true, &|v| send_updater_status(app, v)).await)
         }
         // `app.relaunch(); app.quit()`: `before-quit` cleanup now, then the normal window
         // close (which may hide to the tray and leave the relaunch pending).
@@ -599,8 +619,20 @@ fn send(app: &AppHandle, channel: &str, args: Vec<JsValue>) {
         "window:setOpenAtLogin" => {}
         // Thumbnail toolbar buttons exist only on Windows.
         "thumbar:updateState" => {}
-        // Dev mode: nothing (the packaged path comes with step 12).
-        "updater:install" => {}
+        "updater:install" => {
+            // electron-updater coalesces downloadUpdate calls while a download is in flight.
+            // Do not queue a second send that would turn into an install after it finishes.
+            if shell(app).updater_install_pending.swap(true, Ordering::SeqCst) {
+                return;
+            }
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                let s = shell(&app);
+                let mut updater = s.updater.get().expect("updater initialized").lock().await;
+                updater.install(&|v| send_updater_status(&app, v)).await;
+                s.updater_install_pending.store(false, Ordering::SeqCst);
+            });
+        }
         "app:close-ready" => {
             shell(app).close_ready.store(true, Ordering::SeqCst);
             if let Some(w) = win {
@@ -631,10 +663,15 @@ pub fn run() {
             on_second_instance(app, argv)
         }))
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Shell {
             pending_deep_link: Mutex::new(None),
             translations: Mutex::new(Translations::default()),
             proxy,
+            updater: std::sync::OnceLock::new(),
+            updater_exit_ready: AtomicBool::new(false),
+            updater_downloaded: AtomicBool::new(false),
+            updater_install_pending: AtomicBool::new(false),
             minimize_to_tray: AtomicBool::new(false),
             close_ready: AtomicBool::new(false),
             force_quit: AtomicBool::new(false),
@@ -650,6 +687,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![ipc_invoke, ipc_send])
         .setup(|app| {
             let handle = app.handle().clone();
+            let _ = shell(&handle).updater.set(tokio::sync::Mutex::new(
+                crate::updater::AutoUpdater::new(
+                    crate::updater::TauriBackend::new(handle.clone()), cfg!(debug_assertions),
+                ),
+            ));
             #[cfg(any(target_os = "linux", windows))]
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
@@ -702,8 +744,15 @@ pub fn run() {
                     }
                 });
                 // `initAutoUpdater(ctx)`.
-                if cfg!(debug_assertions) {
-                    crate::updater::init_dev();
+                let delay = shell(&handle).updater.get().unwrap().lock().await.init();
+                if let Some(delay) = delay {
+                    let h = handle.clone();
+                    tauri::async_runtime::spawn(async move {
+                        tokio::time::sleep(delay).await;
+                        let s = shell(&h);
+                        s.updater.get().unwrap().lock().await
+                            .check(false, &|v| send_updater_status(&h, v)).await;
+                    });
                 }
                 // Cold-start deep link (Linux/Windows pass it as an argument).
                 let argv: Vec<String> = std::env::args_os().map(|a| a.to_string_lossy().into_owned()).collect();
@@ -716,6 +765,24 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building Snowify")
         .run(|app, event| {
+            // Actual application quit, after the renderer close handshake. Hiding to the
+            // tray never reaches this hook. Wait for an in-flight updater operation before
+            // installing, then allow the second exit request through.
+            if let tauri::RunEvent::ExitRequested { api, code, .. } = &event {
+                if !cfg!(debug_assertions) && code.unwrap_or(0) == 0
+                    && shell(app).updater_downloaded.load(Ordering::SeqCst)
+                    && !shell(app).updater_exit_ready.swap(true, Ordering::SeqCst)
+                {
+                    api.prevent_exit();
+                    let h = app.clone();
+                    tauri::async_runtime::spawn(async move {
+                        let s = shell(&h);
+                        s.updater.get().unwrap().lock().await
+                            .quit(&|v| send_updater_status(&h, v));
+                        h.exit(0);
+                    });
+                }
+            }
             if let tauri::RunEvent::Exit = event {
                 audio_cache::cleanup_cache_dir(&audio_cache::AUDIO_CACHE_DIR);
                 // `app.relaunch()`: process.execPath with process.argv.slice(1).
