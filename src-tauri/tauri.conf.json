@@ -21,7 +21,12 @@
       "appimage",
       "nsis"
     ],
-    "category": "Music"
+    "category": "Music",
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": true
+      }
+    }
   },
   "plugins": {
     "deep-link": {
