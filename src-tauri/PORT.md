@@ -216,6 +216,10 @@ malformed build.
   request path is `/`, so every header-eligible cookie has path `/` — the length comparison only
   ever sees equal lengths and the path boundary check only ever compares identical paths, so
   neither change is observable.
+- **AppImage and Python-backed yt-dlp:** linuxdeploy's AppRun exports `PYTHONHOME`/`PYTHONPATH`
+  pointing at a Python the AppImage does not ship, which breaks the bundled yt-dlp zipapp (and a
+  system one) at `import encodings`. `main.rs` drops both at startup, before threads exist;
+  outside an AppImage the environment is untouched.
 - **ytmusic port, known approximations:**
   - Request bodies and `rawArtistsMap` keys use `String(value)` of renderer values; a video id
     naming an `Object.prototype` member (`"constructor"`, `"__proto__"`) would hit the
