@@ -32,6 +32,10 @@ fn ytm_cookies_match_tough_cookie() {
     get(&mut ops, T);
     set(&mut ops, "e=5; Domain=.example.org; Path=/", T);
     set(&mut ops, "f=6; Domain=com; Path=/", T);
+    // `Domain=.`: stripping the leading dot leaves nothing, so the attribute is dropped and
+    // the cookie is stored host-only (tough-cookie does the same).
+    set(&mut ops, "dot=1; Domain=.", T);
+    get(&mut ops, T);
     set(&mut ops, "g=7; Path=/; Secure", T);
     set(&mut ops, "__Secure-bad=1; Path=/", T);
     set(&mut ops, "__Secure-good=1; Path=/; Secure", T);

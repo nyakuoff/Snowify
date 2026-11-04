@@ -109,7 +109,7 @@ renderer code doesn't change. Each channel becomes one `#[tauri::command]`.
 
 Total: ~139,000 comparisons, 0 differences. Mutation checks: i18n 3/3 caught; step 2 9/12
 caught; step 5 (`media.rs`) 9/11 caught; step 10 (`ytm/`, `ytmusic.rs`, `parity/ytm_mutations.py`)
-47/51 caught; step 11 (Firebase, cloud-auth) 30/30 caught. Every survivor is listed under Coverage gaps.
+49/51 caught; step 11 (Firebase, cloud-auth) 30/30 caught. Every survivor is listed under Coverage gaps.
 
 ## Inventory and order (leaf-first)
 
@@ -212,9 +212,10 @@ malformed build.
 - **`discord.rs` timestamps:** `new Date(string)` is exact for the ECMAScript date-time
   format only; other strings need V8's legacy date parser and become NaN (`null` in the
   payload) here. The renderer sends numbers. Windows named-pipe transport: Windows runner.
-- **ytm mutation survivors (step 10):** `cookies.rs` sort-order, path-match and domain-strip, and
-  `traverse.rs` dead-end: no scenario reaches them yet (`parity_ytm_cookies` compares against
-  tough-cookie 4.1.4 directly; extend it).
+- **ytm mutation survivors (step 10):** `cookies.rs` sort-order and path-match: the jar's only
+  request path is `/`, so every header-eligible cookie has path `/` — the length comparison only
+  ever sees equal lengths and the path boundary check only ever compares identical paths, so
+  neither change is observable.
 - **ytmusic port, known approximations:**
   - Request bodies and `rawArtistsMap` keys use `String(value)` of renderer values; a video id
     naming an `Object.prototype` member (`"constructor"`, `"__proto__"`) would hit the

@@ -244,6 +244,20 @@ fn edge_scenarios(rec: &str) -> Vec<(&'static str, Value)> {
         vec![op("yt:search", vec![json!("direct"), json!(false)])],
         json!("DIRECT"),
     )));
+    // The same key nested inside the matched value: stopping at the root match must not also
+    // collect the nested renderer (the walk would report two songs).
+    let mut dead_end_row = row("vid0000000e", "Dead End Song", "Song", vec![artist.clone(), run(" \u{2022} "), run("2:30")], good_thumbs.clone());
+    let hidden_row = row("vid0000000f", "Hidden Song", "Song", vec![artist.clone(), run(" \u{2022} "), run("4:00")], good_thumbs.clone());
+    dead_end_row["musicResponsiveListItemRenderer"]["musicResponsiveListItemRenderer"] = hidden_row["musicResponsiveListItemRenderer"].clone();
+    let dead_end_page = json!({
+        "responseContext": {},
+        "musicResponsiveListItemRenderer": dead_end_row["musicResponsiveListItemRenderer"].clone()
+    });
+    out.push(("a dead-end renderer does not yield its nested renderer", sc(
+        vec![over("POST", SEARCH, Some(&qbody("deadend")), ok(dead_end_page))],
+        vec![op("yt:search", vec![json!("deadend"), json!(false)])],
+        json!("DIRECT"),
+    )));
     // The artist page's top-video carousel is the third carousel.
     let artist_page = json!({
         "responseContext": {},
