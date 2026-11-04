@@ -20,6 +20,13 @@
     const wire = args.map(encode);
     T.invoke('ipc_send', { channel, args: wire }).catch(() => {});
   }
+  // WebKit/WebView2 do not implement Electron's -webkit-app-region: drag.
+  // Keep this native-only, and never turn the window controls into drag targets.
+  document.addEventListener('mousedown', (event) => {
+    if (event.button !== 0 || !(event.target instanceof Element) || !event.target.closest('.titlebar-drag')) return;
+    event.preventDefault();
+    send(event.detail === 2 ? 'window:maximize' : 'window:startDragging');
+  });
   const listeners = new Map();
   function on(channel, fn) {
     if (!listeners.has(channel)) listeners.set(channel, []);

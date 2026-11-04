@@ -1236,6 +1236,23 @@ pub struct Streams {
     /// The active download: a token to compare (`getActiveDownloadProc() === proc`) and its killer.
     active: std::sync::Mutex<Option<(u64, child_process::Killer)>>,
     next: std::sync::atomic::AtomicU64,
+    /// Native playback policy, separate from the unmodified Electron parity baseline.
+    desktop: bool,
+}
+
+impl Streams {
+    /// YouTube's default tv_samsung client now yields ad-gated URLs: fresh URLs return 403
+    /// for several seconds, making the renderer skip the track. visionos returns playable
+    /// HTTPS audio/video immediately, without changing the chosen quality or source order.
+    pub fn desktop() -> Self {
+        Self { desktop: true, ..Self::default() }
+    }
+
+    fn youtube_args(&self, argv: &mut Vec<JsValue>) {
+        if self.desktop {
+            argv.extend(args(&["--extractor-args", "youtube:player_client=visionos"]));
+        }
+    }
 }
 
 fn thrown(e: JsErr) -> Thrown {
@@ -1296,6 +1313,7 @@ pub async fn get_stream_url(s: &Streams, ytdlp: &str, now: i64, a: [JsValue; 4])
             }
             let mut argv = args(&["-f", fmt, "--get-url"]);
             argv.extend(args(&YT_FLAGS));
+            s.youtube_args(&mut argv);
             argv.push(video_url.clone());
             match run_yt_dlp(ytdlp, &argv, 15_000).await {
                 Ok(url) => {
@@ -1344,6 +1362,7 @@ pub async fn get_video_stream_url(s: &Streams, ytdlp: &str, now: i64, video_id: 
         return Ok(v);
     }
     let mut argv = args(&["-f", &fmt, "--get-url", "--no-warnings", "--no-playlist", "--no-check-certificates"]);
+    s.youtube_args(&mut argv);
     argv.push(format!("https://music.youtube.com/watch?v={}", ipc::to_js_string(video_id)).into());
     let (_, fut) = child_process::exec_file(ytdlp, &argv, 20_000).map_err(thrown)?;
     let o = fut.await;
@@ -1378,6 +1397,7 @@ pub async fn download_audio(s: &Streams, ytdlp: &str, cache_dir: &str, video_url
     let fmt = if jsv::strict_eq(quality, "worstaudio") { "worstaudio/worstaudio*/worst" } else { "bestaudio/bestaudio*/best" };
     let out = node::path::join(&[&dir, &format!("{}.%(ext)s", ipc::to_js_string(video_id))]);
     let mut argv = args(&["-f", fmt, "-o", &out, "--no-part", "--no-warnings", "--no-playlist", "--no-check-certificates"]);
+    s.youtube_args(&mut argv);
     argv.push(video_url.clone());
     let (killer, fut) = child_process::exec_file(ytdlp, &argv, 120_000).map_err(thrown)?;
     let token = s.next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);

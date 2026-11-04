@@ -60,6 +60,35 @@ async fn dispatch_streams(s: &ytmusic::Streams, h: &MockHost, ytdlp: &str, cache
 static STREAMS: std::sync::OnceLock<ytmusic::Streams> = std::sync::OnceLock::new();
 static PATHS: std::sync::OnceLock<(String, String)> = std::sync::OnceLock::new();
 
+// This is an intentional native runtime policy, not a change to the Electron parity model.
+// Exercise real subprocess argv, cache reuse, and the non-YouTube source boundary.
+#[tokio::test]
+async fn desktop_streams_use_immediately_playable_youtube_client() {
+    let dir = std::env::temp_dir().join(format!("snowify-desktop-streams-{}", std::process::id()));
+    let bin = dir.join("ud/bin/yt-dlp");
+    std::fs::create_dir_all(bin.parent().unwrap()).unwrap();
+    std::fs::write(&bin, FAKE).unwrap();
+    std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let streams = ytmusic::Streams::desktop();
+    let bin = bin.to_str().unwrap();
+    let audio = ["https://yt/watch?v=desktop".into(), "bestaudio".into(), JsValue::Undefined, JsValue::Undefined];
+    ytmusic::get_stream_url(&streams, bin, 0, audio.clone()).await.unwrap();
+    ytmusic::get_stream_url(&streams, bin, 1, audio).await.unwrap();
+    ytmusic::get_video_stream_url(&streams, bin, 0, &"two".into(), &"480".into(), &true.into()).await.unwrap();
+    ytmusic::download_audio(&streams, bin, dir.join("cache").to_str().unwrap(), &"https://yt/watch?v=prefetch".into(), &"worstaudio".into(), &"prefetch".into()).await.unwrap();
+    ytmusic::get_stream_url(&streams, bin, 0, ["u".into(), "bestaudio".into(), JsValue::object([("title", "Song".into())]), JsValue::Array(vec!["soundcloud".into()])]).await.unwrap();
+    let argv = std::fs::read_to_string(dir.join("argv.log")).unwrap();
+    let calls: Vec<_> = argv.lines().collect();
+    assert_eq!(calls.len(), 4, "the repeated audio request must use its cached URL");
+    for call in &calls[..3] {
+        assert!(call.contains("--extractor-args youtube:player_client=visionos"), "{call}");
+    }
+    assert!(calls[0].contains("-f bestaudio/bestaudio*/best"));
+    assert!(calls[2].contains("-f worstaudio/worstaudio*/worst"));
+    assert!(!calls[3].contains("--extractor-args"), "SoundCloud must be unchanged");
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
 fn dispatch<'a>(
     h: &'a MockHost, ch: String, args: Vec<JsValue>,
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Option<snowify::ipc::HandlerResult>> + 'a>> {

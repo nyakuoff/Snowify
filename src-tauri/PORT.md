@@ -222,6 +222,16 @@ malformed build.
   points `GST_PLUGIN_SCANNER_1_0` at an empty directory on Arch, so WebKitGTK cannot load the
   bundled plugins (NULL-instance GLib criticals, dead WebProcess); `main.rs` points the scanner
   at the copy shipped beside the plugins. Outside an AppImage the environment is untouched.
+- **Native playback client (deliberate divergence):** the desktop `Streams` pass
+  `--extractor-args youtube:player_client=visionos` to every YouTube yt-dlp call (stream URL,
+  video URL, downloads). The default tv_samsung client now returns URLs that answer 403 for
+  several seconds after extraction; the renderer reports a playback failure and skips the
+  track. visionos returns immediately playable URLs. The Electron parity baseline keeps the
+  old argv.
+- **Title bar on native webviews:** WebKitGTK and WebView2 do not implement
+  `-webkit-app-region: drag`; `shim.js` maps left-button drags in `.titlebar-drag` to
+  `window:startDragging` and double-clicks to `window:maximize`. The renderer is unchanged, and
+  Electron keeps its native drag region.
 - **ytmusic port, known approximations:**
   - Request bodies and `rawArtistsMap` keys use `String(value)` of renderer values; a video id
     naming an `Object.prototype` member (`"constructor"`, `"__proto__"`) would hit the

@@ -608,6 +608,11 @@ fn send(app: &AppHandle, channel: &str, args: Vec<JsValue>) {
     }
     let win = main_window(app);
     match channel {
+        "window:startDragging" => {
+            if let Some(w) = win {
+                let _ = w.start_dragging();
+            }
+        }
         "window:minimize" => {
             if let Some(w) = win {
                 let _ = w.minimize();
@@ -721,7 +726,7 @@ pub fn run() {
             discord: Default::default(),
             relaunch: AtomicBool::new(false),
             ytm: Default::default(),
-            streams: Default::default(),
+            streams: crate::ytmusic::Streams::desktop(),
             cloud: Default::default(),
             firebase: std::sync::Arc::new(crate::cloud_backend::FirebaseBackend::new(std::sync::Arc::new(crate::real_host::RealHost { window: None }))),
         })
