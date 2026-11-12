@@ -3,8 +3,7 @@
  *
  * Browser-native lyrics fetching for mobile.
  * lrclib.net has open CORS headers — works directly from WebView.
- * Musixmatch requires a token flow that's complex; we skip it and fall back
- * to lrclib which covers the vast majority of tracks.
+ * Only lrclib is used.
  */
 
 const LRCLIB = 'https://lrclib.net/api';

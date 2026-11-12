@@ -39,7 +39,7 @@ pub struct Shell {
     close_ready: AtomicBool,
     force_quit: AtomicBool,
     tray: Mutex<Option<TrayIcon>>,
-    /// `lyrics.js` module state (synclyrics instance, in-flight lookups).
+    /// `lyrics.js` module state (in-flight lookups).
     lyrics: std::sync::Arc<crate::lyrics::Lyrics>,
     /// `discord.js` module state.
     discord: crate::discord::Discord,

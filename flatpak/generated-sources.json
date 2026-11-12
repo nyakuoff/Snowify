@@ -1496,19 +1496,6 @@
     },
     {
         "type": "file",
-        "url": "https://registry.npmjs.org/@stef-0012/synclyrics/-/synclyrics-2.5.10.tgz",
-        "sha512": "a90ab4632e9915d5c7d1cdb9ce415a13a00af64b94d384fd5879fdba26c5ecb8a70c5fc805bf93cf925ccac850885119cce5f7b9d27d589660d1cf4237e2850d",
-        "dest-filename": "b4632e9915d5c7d1cdb9ce415a13a00af64b94d384fd5879fdba26c5ecb8a70c5fc805bf93cf925ccac850885119cce5f7b9d27d589660d1cf4237e2850d",
-        "dest": "flatpak-node/npm-cache/_cacache/content-v2/sha512/a9/0a"
-    },
-    {
-        "type": "inline",
-        "contents": "55aa85d25c0cbb5f70864c9e7247eeee85c793e6\t{\"key\": \"make-fetch-happen:request-cache:https://registry.npmjs.org/@stef-0012/synclyrics/-/synclyrics-2.5.10.tgz\", \"integrity\": \"sha512-qQq0Yy6ZFdXH0c25zkFaE6AK9kuU04T9WHn9uibF7LinDF/IBb+Tz5JcyshQiFEZzOX3udJ9WJZg0c9CN+KFDQ==\", \"time\": 0, \"size\": 1, \"metadata\": {\"url\": \"https://registry.npmjs.org/@stef-0012/synclyrics/-/synclyrics-2.5.10.tgz\", \"reqHeaders\": {}, \"resHeaders\": {}}}",
-        "dest-filename": "120cf6324b37b674ab4754cc3325bfb9286337b120a2dcd17f8f3afa58f1",
-        "dest": "flatpak-node/npm-cache/_cacache/index-v5/bf/ab"
-    },
-    {
-        "type": "file",
         "url": "https://registry.npmjs.org/@szmarczak/http-timer/-/http-timer-4.0.6.tgz",
         "sha512": "e0101f7f29183a03bee67cc1598c04dd6f74b0180b26850f45659c2fcc25ca233c201f22a49cf750c27d29741dd512905e92a9f13bad9fcd0766d5acbb6bbbeb",
         "dest-filename": "1f7f29183a03bee67cc1598c04dd6f74b0180b26850f45659c2fcc25ca233c201f22a49cf750c27d29741dd512905e92a9f13bad9fcd0766d5acbb6bbbeb",
