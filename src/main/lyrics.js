@@ -1,7 +1,5 @@
-const { SyncLyrics } = require('@stef-0012/synclyrics');
 const LRCLIB = 'https://lrclib.net/api';
 
-let _mxmTokenData = null;
 const _lyricsInflight = new Map();
 
 // LRU cache (max 50 entries)
@@ -20,14 +18,6 @@ const lyricsCacheProxy = {
   clear() { _lyricsCache.clear(); },
   get size() { return _lyricsCache.size; }
 };
-
-const lyricsManager = new SyncLyrics({
-  cache: lyricsCacheProxy,
-  logLevel: 'none',
-  sources: ['musixmatch', 'lrclib', 'netease'],
-  saveMusixmatchToken: (tokenData) => { _mxmTokenData = tokenData; },
-  getMusixmatchToken: () => _mxmTokenData,
-});
 
 function normalizeTitle(value) {
   return String(value || '')
@@ -59,11 +49,6 @@ function mapLyricsPayload(data) {
   const source = data.lyrics?.lineSynced?.source || data.lyrics?.plain?.source || data.source || 'Unknown';
   if (!synced && !plain) return null;
   return { synced, plain, source };
-}
-
-async function fetchViaSyncLyrics(query) {
-  const data = await lyricsManager.getLyrics(query);
-  return mapLyricsPayload(data);
 }
 
 async function fetchViaLrclib(query) {
@@ -98,11 +83,6 @@ async function resolveLyrics(trackName, artistName, albumName, durationSec) {
     if (!attempt.track || !attempt.artist) return false;
     return arr.findIndex(a => JSON.stringify(a) === JSON.stringify(attempt)) === index;
   });
-
-  for (const attempt of attempts) {
-    const result = await fetchViaSyncLyrics(attempt).catch(() => null);
-    if (result) return result;
-  }
 
   for (const attempt of attempts) {
     const result = await fetchViaLrclib(attempt).catch(() => null);
