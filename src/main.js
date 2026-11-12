@@ -2295,56 +2295,25 @@ ipcMain.handle('yt:getUpNexts', async (_event, videoId) => {
   }
 });
 
-// ─── Lyrics (Musixmatch + LrcLib + Netease via SyncLyrics) ───
-
-const { SyncLyrics } = require('@stef-0012/synclyrics');
-
-let _mxmTokenData = null;
-
-// LRU-limited cache for lyrics (max 50 entries)
-const _lyricsCache = new Map();
-const _lyricsCacheLimit = 50;
-const lyricsCacheProxy = {
-  get(key) { return _lyricsCache.get(key); },
-  set(key, value) {
-    if (_lyricsCache.size >= _lyricsCacheLimit) {
-      const oldest = _lyricsCache.keys().next().value;
-      _lyricsCache.delete(oldest);
-    }
-    _lyricsCache.set(key, value);
-  },
-  has(key) { return _lyricsCache.has(key); },
-  delete(key) { return _lyricsCache.delete(key); },
-  clear() { _lyricsCache.clear(); },
-  get size() { return _lyricsCache.size; }
-};
-
-const lyricsManager = new SyncLyrics({
-  cache: lyricsCacheProxy,
-  logLevel: 'none',
-  sources: ['musixmatch', 'lrclib', 'netease'],
-  saveMusixmatchToken: (tokenData) => { _mxmTokenData = tokenData; },
-  getMusixmatchToken: () => _mxmTokenData,
-});
+// ─── Lyrics (LRCLIB) ───
 
 ipcMain.handle('lyrics:get', async (_event, trackName, artistName, albumName, durationSec) => {
   try {
-    const data = await lyricsManager.getLyrics({
-      track: trackName || '',
-      artist: artistName || '',
-      album: albumName || '',
-      length: durationSec ? Math.round(durationSec * 1000) : undefined,
+    const params = new URLSearchParams({
+      track_name: trackName || '',
+      artist_name: artistName || '',
+      album_name: albumName || '',
     });
-
-    if (!data) return null;
-
-    const synced = data.lyrics?.lineSynced?.lyrics || null;
-    const plain = data.lyrics?.plain?.lyrics || null;
-    const source = data.lyrics?.lineSynced?.source || data.lyrics?.plain?.source || 'Unknown';
-
+    if (durationSec) params.set('duration', Math.round(durationSec).toString());
+    const resp = await fetch(`https://lrclib.net/api/get?${params}`, {
+      headers: { 'Lrclib-Client': 'Snowify Desktop' },
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const synced = data?.syncedLyrics || null;
+    const plain = data?.plainLyrics || null;
     if (!synced && !plain) return null;
-
-    return { synced, plain, source };
+    return { synced, plain, source: 'lrclib' };
   } catch (err) {
     console.error('Lyrics fetch error:', err.message);
     return null;

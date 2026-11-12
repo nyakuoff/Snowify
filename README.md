@@ -63,7 +63,7 @@ npm start
 | [Electron](https://www.electronjs.org/) | Desktop app shell |
 | [ytmusic-api](https://github.com/sigmundgranaas/ytmusic-api) | YouTube Music search, artist & album data |
 | [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Extracts audio stream URLs (must be in PATH) |
-| [synclyrics](https://github.com/Stef-00012/SyncLyrics) | Synced lyrics from Musixmatch, LrcLib, Netease |
+| [LRCLIB](https://lrclib.net/) | Synced lyrics |
 | [Firebase](https://firebase.google.com/) | Authentication & cloud sync |
 
 ## Keyboard Shortcuts
@@ -81,7 +81,7 @@ npm start
 - **Electron** — Desktop framework
 - **ytmusic-api** — YouTube Music metadata
 - **yt-dlp** — Audio stream extraction
-- **synclyrics** — Synced lyrics (Musixmatch, LrcLib, Netease)
+- **LRCLIB** — Synced lyrics
 - **Firebase** — Auth & Firestore cloud sync
 - **Discord RPC** — Rich presence integration
 
